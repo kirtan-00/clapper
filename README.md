@@ -82,8 +82,8 @@ to the log by that number rather than the whole string.
 
 ## The three exports
 
-All three are generated on-device and shared via the share sheet on mobile, or
-downloaded on desktop.
+All three are generated on-device and download directly; share the file from
+your Files/Downloads.
 
 - **Premiere XML (FCP7 xmeml).** Import into Premiere, then relink the media to
   the camera files. You get one sequence per project at the project fps, one
@@ -136,9 +136,9 @@ inside a sandboxed in-app webview.
   browser's site data, or opening the file in a different browser, starts fresh
   — so hand off your exports at wrap. Nothing ever leaves the phone.
 - **Exports.** All three exports work from the single file; they download
-  straight to the device (the OS share sheet needs a secure context, so the
-  offline file uses a plain download instead). **PDF is the guaranteed export**
-  here — it is the printable editor report and the one to rely on.
+  directly to the device — share the file from your Files/Downloads. **PDF is
+  the guaranteed export** here — it is the printable editor report and the one to
+  rely on.
 
 ## Known caveats
 
