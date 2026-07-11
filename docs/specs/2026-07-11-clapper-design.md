@@ -1,4 +1,4 @@
-# Rollcall — on-set take logger (design spec)
+# Clapper — on-set take logger (design spec)
 
 2026-07-11. Approved by Kirtan in brainstorming session.
 
