@@ -3,6 +3,7 @@ import type { Project, Slate } from '../types';
 import { store } from '../store';
 import { tc } from '../export/timecode';
 import { exporter, shareBlob } from '../export';
+import { findPreset } from './cameras';
 import { slug } from './share';
 import { Sheet, Confirm, Rail } from './common';
 import * as haptics from './haptics';
@@ -13,8 +14,8 @@ interface SlateStat {
   totalMs: number;
 }
 
-function clipName(prefix: string, n: number, pad: number): string {
-  return prefix + String(Math.max(0, n)).padStart(pad, '0');
+function clipName(prefix: string, n: number, pad: number, suffix = ''): string {
+  return prefix + String(Math.max(0, n)).padStart(pad, '0') + suffix;
 }
 
 export function ProjectScreen(props: {
@@ -74,7 +75,7 @@ export function ProjectScreen(props: {
           <h1 className="topbar__title">{project.name}</h1>
           <div className="topbar__sub">
             {project.fps} fps <span aria-hidden="true">&middot;</span> next clip{' '}
-            <span className="tnum">{clipName(project.clipPrefix, project.nextClipNumber, project.clipPadding)}</span>
+            <span className="tnum">{clipName(project.clipPrefix, project.nextClipNumber, project.clipPadding, project.clipSuffix ?? '')}</span>
           </div>
         </div>
       </div>
@@ -248,15 +249,19 @@ function ClipConfig(props: {
     nNum !== props.project.nextClipNumber ||
     nPad !== props.project.clipPadding;
 
+  const cameraLabel = findPreset(props.project.camera)?.label;
+  const suffix = props.project.clipSuffix ?? '';
+
   return (
     <section className="section">
       <div className="section__head">
         <span className="label">Camera clip counter</span>
+        {cameraLabel && <span className="section__note">{cameraLabel}</span>}
       </div>
       <div className="clipwidget">
         <div className="clipwidget__preview">
           <span className="label">Next clip</span>
-          <span className="tnum">{clipName(prefix, nNum, nPad)}</span>
+          <span className="tnum">{clipName(prefix, nNum, nPad, suffix)}</span>
         </div>
         <div className="clipgrid">
           <div className="formrow" style={{ margin: 0 }}>

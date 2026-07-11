@@ -15,7 +15,11 @@ interface Buffered {
 }
 
 function clipName(p: Project): string {
-  return p.clipPrefix + String(Math.max(0, p.nextClipNumber)).padStart(p.clipPadding, '0');
+  return (
+    p.clipPrefix +
+    String(Math.max(0, p.nextClipNumber)).padStart(p.clipPadding, '0') +
+    (p.clipSuffix ?? '')
+  );
 }
 
 export function RollingScreen(props: { project: Project; slate: Slate; onExit: () => void }) {

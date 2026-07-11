@@ -140,7 +140,10 @@ export const store: Store = {
     const number = siblings.reduce((max, t) => Math.max(max, t.number), 0) + 1;
 
     const clipNumber = project.nextClipNumber;
-    const clipName = project.clipPrefix + String(clipNumber).padStart(project.clipPadding, '0');
+    const clipName =
+      project.clipPrefix +
+      String(clipNumber).padStart(project.clipPadding, '0') +
+      (project.clipSuffix ?? '');
     const now = Date.now();
 
     const take: Take = {

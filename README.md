@@ -36,6 +36,50 @@ export.
    the exports (except a strikethrough appendix in the PDF) but still consume a
    clip number, so the numbering keeps matching the card.
 
+## Camera presets
+
+When you create a project, pick your camera from the **Camera** dropdown and
+Clapper prefills the clip prefix, digit count, and any static suffix to match
+how that camera actually names its files. You can still edit any field after
+picking, and switching cameras re-prefills. Pick **Custom** to number things
+your own way.
+
+| Camera | Example clip | Match |
+| --- | --- | --- |
+| Sony A7 / FX | `C0001` | exact |
+| Canon R5 / R6 | `MVI_0001` | approximate |
+| Canon Cinema / R5C | `A001C001` | exact |
+| Blackmagic Pocket | `A001_*_C001` | approximate |
+| RED | `A001_C001_*` | approximate |
+| ARRI | `A001C001_*` | approximate |
+| DJI Mini / Mavic / Pocket | `DJI_*_0001_D` | approximate |
+| DJI classic | `DJI_0001` | exact |
+| GoPro | `GX010001` | exact |
+| iPhone | `IMG_0001` | approximate |
+| Panasonic Lumix | `P1000001` | exact |
+| Custom | `C0001` | exact |
+
+**Exact vs approximate.** An **exact** match means Clapper's clip name is
+character-for-character what lands on the card, so you can eyeball the log
+against the media. An **approximate** match means the camera embeds parts we
+cannot know in advance (record-time stamps, dates, random characters) or shares
+its file counter with photos so the numbers can skip. The `*` you see in some
+examples is a literal wildcard standing in for those unpredictable parts. In
+every case the **incrementing clip number is still correct** — match the footage
+to the log by that number rather than the whole string.
+
+- **GoPro chapters.** GoPro splits one long shot across several files that keep
+  the same number but change the chapter digits: `GX010001`, `GX020001`,
+  `GX030001`. Clapper logs the number once (as `GX010001`); the extra `GX02` /
+  `GX03` files belong to the same shot.
+- **Canon and iPhone share their counter with stills.** Because photos and video
+  draw from the same counter, the video numbers can jump. That is expected, not
+  a miscount — the number on the file is still the one to match.
+- **Bump the reel when you swap cards.** Cinema cameras (Canon Cinema, RED,
+  ARRI, Blackmagic) carry the reel in the prefix, for example the `A001` in
+  `A001C001`. When you change the card, bump the reel in the clip prefix to
+  `A002`, `A003`, and so on, so clip names stay unique across cards.
+
 ## The three exports
 
 All three are generated on-device and shared via the share sheet on mobile, or

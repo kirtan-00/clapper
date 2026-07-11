@@ -338,6 +338,46 @@ select.field {
 .formrow { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
+.campreview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+.campreview__eg { display: flex; flex-direction: column; gap: 2px; }
+.campreview__eg .tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--chalk);
+  letter-spacing: 0.04em;
+}
+.cambadge {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--go);
+  border: 1px solid color-mix(in srgb, var(--go) 45%, transparent);
+  background: color-mix(in srgb, var(--go) 12%, transparent);
+}
+.cambadge--approx {
+  color: var(--brass);
+  border-color: color-mix(in srgb, var(--brass) 45%, transparent);
+  background: color-mix(in srgb, var(--brass) 12%, transparent);
+}
+.camnote {
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--chalk-faint);
+}
+
 /* --------------------------------------------------------------- chips --- */
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -394,6 +434,15 @@ select.field {
   margin-bottom: 12px;
 }
 .section__head .label { color: var(--chalk-dim); }
+.section__note {
+  font-size: 0.72rem;
+  color: var(--chalk-faint);
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .divider { height: 1px; background: var(--line-soft); border: none; margin: 0; }
 

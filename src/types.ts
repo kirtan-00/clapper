@@ -10,6 +10,8 @@ export interface Project {
   clipPrefix: string;      // e.g. "C" or "A001_"
   nextClipNumber: number;  // incremented on every CUT and DISCARD
   clipPadding: number;     // C0042 -> padding 4
+  clipSuffix?: string;     // static tail after the counter, e.g. "_*" (RED) or "_D" (DJI)
+  camera?: string;         // camera preset id the clip format came from, e.g. "sony"
   tags: string[];          // quick-tag chips, default ["FLUB","GOLD","PICKUP","NOISE"]
   createdAt: number;
   updatedAt: number;

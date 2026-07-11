@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Fps, Project } from '../types';
 import { store } from '../store';
+import { CAMERA_PRESETS, findPreset, renderClip } from './cameras';
 import { Sheet, Confirm, Rail } from './common';
 import * as haptics from './haptics';
 
@@ -157,7 +158,9 @@ function CreateProjectSheet(props: {
 }) {
   const [name, setName] = useState('');
   const [fps, setFps] = useState<Fps>(24);
+  const [camera, setCamera] = useState('custom');
   const [prefix, setPrefix] = useState('C');
+  const [suffix, setSuffix] = useState('');
   const [startNumber, setStartNumber] = useState('1');
   const [padding, setPadding] = useState('4');
   const [tags, setTags] = useState<string[]>(DEFAULT_TAGS);
@@ -165,6 +168,19 @@ function CreateProjectSheet(props: {
   const [busy, setBusy] = useState(false);
 
   const canCreate = name.trim().length > 0 && !busy;
+  const preset = findPreset(camera);
+  const exampleNumber = Math.max(0, parseInt(startNumber, 10) || 0);
+  const exampleDigits = Math.min(8, Math.max(1, parseInt(padding, 10) || 4));
+  const example = renderClip(prefix, exampleNumber, exampleDigits, suffix);
+
+  function pickCamera(id: string) {
+    setCamera(id);
+    const p = findPreset(id);
+    if (!p) return;
+    setPrefix(p.prefix);
+    setSuffix(p.suffix);
+    setPadding(String(p.digits));
+  }
 
   function addTag() {
     const t = tagDraft.trim().toUpperCase();
@@ -178,7 +194,9 @@ function CreateProjectSheet(props: {
     const project = await store.createProject({
       name: name.trim(),
       fps,
+      camera,
       clipPrefix: prefix,
+      clipSuffix: suffix,
       nextClipNumber: Math.max(0, parseInt(startNumber, 10) || 0),
       clipPadding: Math.min(8, Math.max(1, parseInt(padding, 10) || 4)),
       tags,
@@ -200,6 +218,34 @@ function CreateProjectSheet(props: {
           placeholder="Day 3 - Interior Cafe"
           onChange={(e) => setName(e.target.value)}
         />
+      </div>
+
+      <div className="formrow">
+        <label className="label" htmlFor="np-camera">
+          Camera
+        </label>
+        <select
+          id="np-camera"
+          className="field"
+          value={camera}
+          onChange={(e) => pickCamera(e.target.value)}
+        >
+          {CAMERA_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <div className="campreview">
+          <span className="campreview__eg">
+            <span className="label">Next clip</span>
+            <span className="tnum">{example}</span>
+          </span>
+          <span className={`cambadge${preset && !preset.exact ? ' cambadge--approx' : ''}`}>
+            {preset && !preset.exact ? 'approximate' : 'exact'}
+          </span>
+        </div>
+        {preset?.note && <p className="camnote">{preset.note}</p>}
       </div>
 
       <div className="formgrid">
