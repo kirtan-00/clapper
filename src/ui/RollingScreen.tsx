@@ -174,14 +174,14 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
   return (
     <div className={`roll${rolling ? ' roll--live' : ''}`}>
       <div className="roll__head">
-        <button type="button" className="iconbtn" aria-label="Back to slates" onClick={props.onExit}>
+        <button type="button" className="iconbtn" aria-label="Back to scenes" onClick={props.onExit}>
           &lsaquo;
         </button>
         <div className="roll__slate">
           <div className="name">{slate.name}</div>
           <div className="roll__nextline">
             <span>
-              take <span className="tnum">{nextTakeNumber}</span>
+              shot <span className="tnum">{nextTakeNumber}</span>
             </span>
             <span aria-hidden="true">&middot;</span>
             <span>
@@ -217,7 +217,7 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
               <span className="recdot" aria-hidden="true" /> ROLLING
             </span>
           ) : postCut ? (
-            'Take saved'
+            'Shot saved'
           ) : (
             'Tap ACTION to roll' + (listener.supported ? ' or say "action"' : '')
           )}
@@ -225,7 +225,7 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
 
         {rolling ? (
           buffered.length > 0 && (
-            <div className="momentlog" aria-label="Moments this take">
+            <div className="momentlog" aria-label="Moments this shot">
               {[...buffered].reverse().map((m, i) => (
                 <div
                   key={buffered.length - 1 - i}
@@ -245,16 +245,16 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
             </div>
           )
         ) : (
-          <div className="minitakes" aria-label="Recent takes">
+          <div className="minitakes" aria-label="Recent shots">
             {recentTakes.length === 0 ? (
-              <div className="minitake minitakes__empty">First take of this slate</div>
+              <div className="minitake minitakes__empty">First shot of this scene</div>
             ) : (
               recentTakes.map((t) => (
                 <div
                   key={t.id}
                   className={`minitake${t.status === 'discarded' ? ' minitake--discarded' : ''}`}
                 >
-                  <span className="tnum">T{t.number}</span>
+                  <span className="tnum">S{t.number}</span>
                   <span className="clip">{t.clipName}</span>
                   <span className="dur tnum">{tc.msToClock(t.durationMs)}</span>
                 </div>
@@ -326,7 +326,7 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
         <button
           type="button"
           className={`bigbtn${rolling ? ' bigbtn--cut' : ' bigbtn--go'}`}
-          aria-label={rolling ? 'Cut and save take' : 'Action, start rolling'}
+          aria-label={rolling ? 'Cut and save shot' : 'Action, start rolling'}
           onClick={rolling ? () => void doCut() : doAction}
         >
           {rolling ? 'CUT' : 'ACTION'}
@@ -376,14 +376,14 @@ function PostCutSheet(props: {
   const savedNote = note.trim() !== '' ? note.trim() : undefined;
 
   return (
-    <Sheet title={`Take ${props.take.number} saved`}>
+    <Sheet title={`Shot ${props.take.number} saved`}>
       <div className="takesummary">
         <div className="takesummary__cell">
           <div className="label">Clip</div>
           <div className="val val--clip">{props.take.clipName}</div>
         </div>
         <div className="takesummary__cell">
-          <div className="label">Take</div>
+          <div className="label">Shot</div>
           <div className="val">{props.take.number}</div>
         </div>
         <div className="takesummary__cell">
@@ -394,7 +394,7 @@ function PostCutSheet(props: {
 
       <div className="formrow">
         <label className="label" htmlFor="pc-tc">
-          Camera timecode at take start (optional)
+          Camera timecode at shot start (optional)
         </label>
         <input
           id="pc-tc"

@@ -1,7 +1,7 @@
 // Editor-facing PDF report. pdf-lib, standard Helvetica, A4 portrait.
-// Editorial and printable: cover header with stats, GOLD summary, takes
-// grouped by slate, discarded appendix in gray, page numbers bottom right.
-// No em dashes anywhere; plain '-' only.
+// Editorial and printable: cover header with stats, GOLD summary table, shots
+// grouped by scene in ruled tables, discarded appendix in gray, page numbers
+// bottom right. No em dashes anywhere; plain '-' only.
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import type { Fps, Moment, ProjectBundle, Take } from '../types';
@@ -11,12 +11,57 @@ const A4: [number, number] = [595.28, 841.89];
 const MARGIN = 54;
 const BOTTOM = 64; // keep clear of the page number
 const CONTENT_WIDTH = A4[0] - MARGIN * 2;
-const TC_COLUMN_X = A4[0] - MARGIN - 92; // right column for true camera TC
+const RIGHT = A4[0] - MARGIN;
 
 const INK = rgb(0.09, 0.09, 0.11);
 const GRAY = rgb(0.45, 0.45, 0.48);
 const LIGHT = rgb(0.78, 0.78, 0.8);
+const RULE = rgb(0.85, 0.85, 0.88);
 const GOLD = rgb(0.62, 0.47, 0.08);
+const BAND = rgb(0.925, 0.925, 0.94); // shot header band
+const HEADBAND = rgb(0.87, 0.87, 0.9); // column header row
+const ALT = rgb(0.972, 0.972, 0.98); // alternating detail row
+
+type Color = ReturnType<typeof rgb>;
+type Align = 'left' | 'right';
+interface Col {
+  x: number;
+  w: number;
+  align: Align;
+  header: string;
+}
+
+/** Build columns left-to-right from a list of [header, width, align] specs. */
+function layout(specs: [string, number, Align][]): Col[] {
+  let x = MARGIN;
+  return specs.map(([header, w, align]) => {
+    const col: Col = { x, w, align, header };
+    x += w;
+    return col;
+  });
+}
+
+// SHOT | CLIP | LENGTH | MOMENT | TIME | CAMERA TC | WALL CLOCK  (sum = CONTENT_WIDTH)
+const SHOT_COLS = layout([
+  ['SHOT', 40, 'left'],
+  ['CLIP', 52, 'left'],
+  ['LENGTH', 38, 'right'],
+  ['MOMENT', 151.28, 'left'],
+  ['TIME', 56, 'right'],
+  ['CAMERA TC', 96, 'right'],
+  ['WALL CLOCK', 54, 'right'],
+]);
+const [, , , C_MOMENT, C_TIME, C_CAMTC, C_WALL] = SHOT_COLS;
+
+// SCENE | SHOT | CLIP | TIME | LABEL  (GOLD summary)
+const GOLD_COLS = layout([
+  ['SCENE', 96, 'left'],
+  ['SHOT', 40, 'left'],
+  ['CLIP', 56, 'left'],
+  ['TIME', 60, 'right'],
+  ['LABEL', 235.28, 'left'],
+]);
+const [G_SCENE, G_SHOT, G_CLIP, G_TIME, G_LABEL] = GOLD_COLS;
 
 /** Make text safe for WinAnsi encoding; swap em/en dashes for '-'. */
 function sanitize(text: string): string {
@@ -58,12 +103,10 @@ function formatDate(epochMs: number): string {
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function momentLine(m: Moment): string {
-  const time =
-    m.kind === 'range' && m.endMs !== undefined
-      ? `${tc.msToClock(m.atMs)}-${tc.msToClock(m.endMs)}`
-      : tc.msToClock(m.atMs);
-  return [time, m.tag, m.label].filter(Boolean).join('  ');
+function momentTime(m: Moment): string {
+  return m.kind === 'range' && m.endMs !== undefined
+    ? `${tc.msToClock(m.atMs)}-${tc.msToClock(m.endMs)}`
+    : tc.msToClock(m.atMs);
 }
 
 export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
@@ -77,29 +120,65 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   let page: PDFPage = doc.addPage(A4);
   let y = A4[1] - MARGIN;
 
+  // Redrawn at the top of a fresh page when a table breaks mid-flow.
+  let onBreak: (() => void) | null = null;
+
   const newPage = () => {
     page = doc.addPage(A4);
     y = A4[1] - MARGIN;
+    if (onBreak) onBreak();
   };
-  const ensure = (needed: number) => {
-    if (y - needed < BOTTOM) newPage();
+  /** Ensure a row of height h fits; break (and repeat headers) if not. */
+  const ensure = (h: number) => {
+    if (y - h < BOTTOM) newPage();
   };
-  const text = (
-    str: string,
-    opts: { x?: number; size?: number; font?: PDFFont; color?: ReturnType<typeof rgb>; maxWidth?: number } = {},
+
+  const baselineOf = (bottom: number, h: number, size: number) => bottom + (h - size) / 2 + 1;
+
+  /** Draw one text value inside a column at the given baseline. */
+  const cell = (
+    col: Col,
+    value: string,
+    baseline: number,
+    opts: { font?: PDFFont; size?: number; color?: Color; trunc?: boolean } = {},
   ) => {
+    if (!value) return;
     const font = opts.font ?? helv;
-    const size = opts.size ?? 9;
-    const clean = truncate(sanitize(str), font, size, opts.maxWidth ?? CONTENT_WIDTH);
-    page.drawText(clean, { x: opts.x ?? MARGIN, y, size, font, color: opts.color ?? INK });
+    const size = opts.size ?? 8;
+    let t = sanitize(value);
+    if (opts.trunc) t = truncate(t, font, size, col.w - 4);
+    const w = font.widthOfTextAtSize(t, size);
+    const x = col.align === 'right' ? col.x + col.w - w - 2 : col.x + 2;
+    page.drawText(t, { x, y: baseline, size, font, color: opts.color ?? INK });
   };
-  const rule = (color = LIGHT) => {
-    page.drawLine({
-      start: { x: MARGIN, y },
-      end: { x: A4[0] - MARGIN, y },
-      thickness: 0.6,
+
+  /** A simple heading line (project sections). Advances y. */
+  const heading = (str: string, size: number, color: Color = INK, font: PDFFont = bold) => {
+    ensure(size + 8);
+    y -= size + 2;
+    page.drawText(truncate(sanitize(str), font, size, CONTENT_WIDTH), {
+      x: MARGIN,
+      y,
+      size,
+      font,
       color,
     });
+    y -= 8;
+  };
+
+  const rule = (color: Color = LIGHT, thickness = 0.6) => {
+    page.drawLine({ start: { x: MARGIN, y }, end: { x: RIGHT, y }, thickness, color });
+  };
+
+  /** Column header row for a table. Advances y. */
+  const columnHeader = (cols: Col[]) => {
+    const h = 15;
+    const bottom = y - h;
+    page.drawRectangle({ x: MARGIN, y: bottom, width: CONTENT_WIDTH, height: h, color: HEADBAND });
+    const base = baselineOf(bottom, h, 7.5);
+    for (const c of cols) cell(c, c.header, base, { font: bold, size: 7.5, color: INK, trunc: true });
+    page.drawLine({ start: { x: MARGIN, y: bottom }, end: { x: RIGHT, y: bottom }, thickness: 0.6, color: GRAY });
+    y -= h;
   };
 
   // ---- data prep ---------------------------------------------------------
@@ -128,118 +207,160 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
 
   // ---- cover header ------------------------------------------------------
   y -= 18;
-  text(project.name, { font: bold, size: 26 });
+  page.drawText(sanitize(project.name), { x: MARGIN, y, size: 26, font: bold, color: INK });
   y -= 16;
-  text(formatDate(Date.now()), { size: 9.5, color: GRAY });
+  page.drawText(formatDate(Date.now()), { x: MARGIN, y, size: 9.5, font: helv, color: GRAY });
   y -= 16;
-  text(
-    `${slates.length} slates  -  ${goodTakes.length} good takes  -  ${discardedTakes.length} discarded  -  total roll ${tc.msToClock(totalRollMs)}`,
-    { size: 9.5, color: GRAY },
+  page.drawText(
+    sanitize(
+      `${slates.length} scenes  -  ${goodTakes.length} good shots  -  ${discardedTakes.length} discarded  -  total roll ${tc.msToClock(totalRollMs)}`,
+    ),
+    { x: MARGIN, y, size: 9.5, font: helv, color: GRAY },
   );
   y -= 12;
-  text('Wall clock columns line up with cameras jammed to time-of-day TC.', {
+  page.drawText('Wall clock columns line up with cameras jammed to time-of-day TC.', {
+    x: MARGIN,
+    y,
     size: 8,
+    font: helv,
     color: LIGHT,
   });
   y -= 14;
   rule();
-  y -= 22;
+  y -= 20;
 
-  // ---- GOLD moments ------------------------------------------------------
+  // ---- GOLD moments summary table ----------------------------------------
   const goodTakeIds = new Set(goodTakes.map((t) => t.id));
   const goldMoments = moments
     .filter((m) => m.tag === 'GOLD' && goodTakeIds.has(m.takeId))
     .sort((a, b) => a.atMs - b.atMs);
   if (goldMoments.length > 0) {
-    ensure(30 + goldMoments.length * 13);
-    text('GOLD moments', { font: bold, size: 11, color: GOLD });
-    y -= 16;
+    heading('GOLD moments', 11, GOLD);
+    onBreak = () => columnHeader(GOLD_COLS);
+    columnHeader(GOLD_COLS);
+    let i = 0;
     for (const m of goldMoments) {
-      ensure(13);
       const take = takeById.get(m.takeId);
       if (!take) continue;
-      const line = [
-        slateName.get(take.slateId) ?? '',
-        `Take ${take.number}`,
-        take.clipName,
-        tc.msToClock(m.atMs),
-        m.label,
-      ]
-        .filter(Boolean)
-        .join('  -  ');
-      text(line, { size: 9 });
-      y -= 13;
+      const h = 14;
+      ensure(h);
+      const bottom = y - h;
+      if (i % 2 === 1) page.drawRectangle({ x: MARGIN, y: bottom, width: CONTENT_WIDTH, height: h, color: ALT });
+      page.drawLine({ start: { x: MARGIN, y: bottom }, end: { x: RIGHT, y: bottom }, thickness: 0.4, color: RULE });
+      const base = baselineOf(bottom, h, 8);
+      cell(G_SCENE, slateName.get(take.slateId) ?? '', base, { trunc: true });
+      cell(G_SHOT, `Shot ${take.number}`, base, { trunc: true });
+      cell(G_CLIP, take.clipName, base, { trunc: true });
+      cell(G_TIME, momentTime(m), base, { size: 7.5 });
+      cell(G_LABEL, m.label || '-', base, { trunc: true });
+      y -= h;
+      i += 1;
     }
-    y -= 8;
-    rule();
-    y -= 22;
+    onBreak = null;
+    y -= 20;
   }
 
-  // ---- slates ------------------------------------------------------------
+  // ---- scenes: one ruled table per scene ---------------------------------
   for (const slate of slatesOrdered) {
-    const slateGood = (takesBySlate.get(slate.id) ?? []).filter((t) => t.status === 'good');
-    if (slateGood.length === 0) continue;
+    const sceneGood = (takesBySlate.get(slate.id) ?? []).filter((t) => t.status === 'good');
+    if (sceneGood.length === 0) continue;
 
-    ensure(46);
-    text(slate.name, { font: bold, size: 14 });
-    y -= 7;
-    rule();
-    y -= 18;
+    // Keep scene heading + column header + first shot band together.
+    ensure(20 + 15 + 16);
+    heading(`Scene: ${slate.name}`, 12);
+    onBreak = () => columnHeader(SHOT_COLS);
+    columnHeader(SHOT_COLS);
 
-    for (const take of slateGood) {
-      const takeMoments = momentsByTake.get(take.id) ?? [];
-      ensure(20 + (take.note ? 13 : 0) + Math.min(takeMoments.length, 3) * 13);
+    for (const take of sceneGood) {
+      // shot header band (shaded, full width)
+      const bandH = 16;
+      ensure(bandH);
+      const bandBottom = y - bandH;
+      page.drawRectangle({ x: MARGIN, y: bandBottom, width: CONTENT_WIDTH, height: bandH, color: BAND });
+      const bandParts = [`Shot ${take.number}`, take.clipName, tc.msToClock(take.durationMs)];
+      if (take.cameraTC) bandParts.push(`TC ${take.cameraTC}`);
+      bandParts.push(`clock ${wallClockTC(take.startedAt, fps)}`);
+      page.drawText(truncate(sanitize(bandParts.join('  -  ')), bold, 8.5, CONTENT_WIDTH - 8), {
+        x: MARGIN + 4,
+        y: baselineOf(bandBottom, bandH, 8.5),
+        size: 8.5,
+        font: bold,
+        color: INK,
+      });
+      y -= bandH;
 
-      let title = `Take ${take.number}  -  ${take.clipName}  -  ${tc.msToClock(take.durationMs)}`;
-      if (take.cameraTC) title += `  -  TC ${take.cameraTC}`;
-      title += `  -  clock ${wallClockTC(take.startedAt, fps)}`;
-      text(title, { font: bold, size: 10.5 });
-      y -= 14;
-
+      // optional shot note (muted, spans the width)
       if (take.note) {
-        ensure(13);
-        text(take.note, { x: MARGIN + 12, size: 9, color: GRAY });
-        y -= 13;
+        const nh = 12;
+        ensure(nh);
+        const nb = y - nh;
+        page.drawText(truncate(sanitize(`note: ${take.note}`), helv, 7.5, CONTENT_WIDTH - 8), {
+          x: MARGIN + 4,
+          y: baselineOf(nb, nh, 7.5),
+          size: 7.5,
+          font: helv,
+          color: GRAY,
+        });
+        y -= nh;
       }
 
+      // one detail row per moment
+      const takeMoments = momentsByTake.get(take.id) ?? [];
+      let i = 0;
       for (const m of takeMoments) {
-        ensure(13);
-        const cameraCol = safeCameraTc(take.cameraTC, m.atMs, fps);
-        text(momentLine(m), {
-          x: MARGIN + 12,
-          size: 9,
-          maxWidth: (cameraCol ? TC_COLUMN_X - 10 : A4[0] - MARGIN) - (MARGIN + 12),
-        });
-        if (cameraCol) {
-          text(cameraCol, { x: TC_COLUMN_X, size: 9, color: GRAY });
+        const h = 14;
+        ensure(h);
+        const bottom = y - h;
+        if (i % 2 === 1) page.drawRectangle({ x: MARGIN, y: bottom, width: CONTENT_WIDTH, height: h, color: ALT });
+        page.drawLine({ start: { x: MARGIN, y: bottom }, end: { x: RIGHT, y: bottom }, thickness: 0.4, color: RULE });
+        const base = baselineOf(bottom, h, 8);
+        const isRange = m.kind === 'range' && m.endMs !== undefined;
+        const gold = m.tag === 'GOLD';
+        const momentText = [m.tag, m.label].filter(Boolean).join(' ') || (isRange ? 'range' : 'mark');
+        cell(C_MOMENT, momentText, base, { font: gold ? bold : helv, color: gold ? GOLD : INK, trunc: true });
+        cell(C_TIME, momentTime(m), base, { size: 7.5 });
+        const camStart = safeCameraTc(take.cameraTC, m.atMs, fps);
+        if (camStart) {
+          const camEnd = isRange ? safeCameraTc(take.cameraTC, m.endMs as number, fps) : undefined;
+          cell(C_CAMTC, camEnd ? `${camStart}-${camEnd}` : camStart, base, { size: 7.5, color: GRAY });
         }
-        y -= 13;
+        cell(C_WALL, wallClockTC(take.startedAt + m.atMs, fps), base, { size: 7.5, color: GRAY });
+        y -= h;
+        i += 1;
       }
-      y -= 9;
     }
-    y -= 8;
+    onBreak = null;
+    y -= 16;
   }
 
-  // ---- discarded appendix ------------------------------------------------
+  // ---- discarded appendix (gray, strikethrough) --------------------------
   if (discardedTakes.length > 0) {
-    ensure(46);
-    text('Discarded takes', { font: bold, size: 12, color: GRAY });
-    y -= 7;
+    heading('Discarded shots', 12, GRAY);
+    y -= 2;
     rule();
-    y -= 16;
+    y -= 14;
     for (const take of discardedTakes) {
-      ensure(13);
-      const line = [
+      const h = 13;
+      ensure(h);
+      const bottom = y - h;
+      const base = baselineOf(bottom, h, 8);
+      const parts = [
         'DISCARDED',
         slateName.get(take.slateId) ?? '',
-        `Take ${take.number}`,
+        `Shot ${take.number}`,
         take.clipName,
         tc.msToClock(take.durationMs),
-      ]
-        .filter(Boolean)
-        .join('  -  ');
-      text(line, { size: 9, color: GRAY });
-      y -= 13;
+      ].filter(Boolean);
+      const line = truncate(sanitize(parts.join('  -  ')), helv, 8, CONTENT_WIDTH);
+      page.drawText(line, { x: MARGIN, y: base, size: 8, font: helv, color: GRAY });
+      const lineW = helv.widthOfTextAtSize(line, 8);
+      page.drawLine({
+        start: { x: MARGIN, y: base + 2.5 },
+        end: { x: MARGIN + lineW, y: base + 2.5 },
+        thickness: 0.5,
+        color: GRAY,
+      });
+      y -= h;
     }
   }
 

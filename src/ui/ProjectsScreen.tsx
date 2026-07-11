@@ -50,7 +50,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         </div>
         <div>
           <h1>Clapper</h1>
-          <p>On-set take log</p>
+          <p>On-set shot log</p>
         </div>
       </header>
 
@@ -81,7 +81,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
                   <b>{project.fps}</b> fps
                 </span>
                 <span>
-                  {takeCount === 1 ? '1 take' : `${takeCount} takes`}
+                  {takeCount === 1 ? '1 shot' : `${takeCount} shots`}
                 </span>
                 <span
                   className="iconbtn"
@@ -137,7 +137,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
       {deleting && (
         <Confirm
           title={`Delete ${deleting.name}?`}
-          message="This removes the project and every slate, take, and moment in it. This cannot be undone."
+          message="This removes the project and every scene, shot, and moment in it. This cannot be undone."
           confirmLabel="Delete project"
           onCancel={() => setDeleting(null)}
           onConfirm={async () => {
@@ -249,7 +249,7 @@ function CreateProjectSheet(props: {
         </div>
         <div className="formrow">
           <label className="label" htmlFor="np-pad">
-            Number padding
+            Number digits
           </label>
           <input
             id="np-pad"

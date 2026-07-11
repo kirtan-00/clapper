@@ -10,7 +10,7 @@ export default defineConfig({
       manifest: {
         name: 'Clapper',
         short_name: 'Clapper',
-        description: 'On-set take logger',
+        description: 'On-set shot logger',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#0c0d10',

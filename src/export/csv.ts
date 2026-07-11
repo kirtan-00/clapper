@@ -5,8 +5,8 @@ import type { Moment, ProjectBundle, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
 
 const HEADER = [
-  'slate',
-  'take',
+  'scene',
+  'shot',
   'clip',
   'status',
   'kind',
@@ -84,7 +84,7 @@ export function toCsv(bundle: ProjectBundle): Blob {
           String(take.number),
           take.clipName,
           take.status,
-          'take',
+          'shot',
           '',
           '',
           tc.msToClock(0),

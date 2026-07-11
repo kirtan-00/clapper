@@ -83,15 +83,15 @@ export function ProjectScreen(props: {
 
       <section className="section">
         <div className="section__head">
-          <span className="label">Slates</span>
+          <span className="label">Scenes</span>
         </div>
 
         {slates === null ? (
-          <div className="empty">Loading slates</div>
+          <div className="empty">Loading scenes</div>
         ) : slates.length === 0 ? (
           <div className="empty">
-            <b>No slates yet</b>
-            Add a slate for your first setup, then tap it to start rolling.
+            <b>No scenes yet</b>
+            Add a scene for your first setup, then tap it to start rolling.
           </div>
         ) : (
           <div className="stack">
@@ -107,7 +107,7 @@ export function ProjectScreen(props: {
                   <span className="card__count">{takeCount}</span>
                 </div>
                 <div className="card__meta">
-                  <span>{takeCount === 1 ? '1 take' : `${takeCount} takes`}</span>
+                  <span>{takeCount === 1 ? '1 shot' : `${takeCount} shots`}</span>
                   <span>
                     roll <b className="tnum">{tc.msToClock(totalMs)}</b>
                   </span>
@@ -115,7 +115,7 @@ export function ProjectScreen(props: {
                     className="iconbtn"
                     role="button"
                     tabIndex={0}
-                    aria-label={`Rename slate ${slate.name}`}
+                    aria-label={`Rename scene ${slate.name}`}
                     style={{ marginLeft: 'auto', minHeight: 32, minWidth: 32 }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -135,7 +135,7 @@ export function ProjectScreen(props: {
                     className="iconbtn"
                     role="button"
                     tabIndex={0}
-                    aria-label={`Delete slate ${slate.name}`}
+                    aria-label={`Delete scene ${slate.name}`}
                     style={{ minHeight: 32, minWidth: 32 }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -161,7 +161,7 @@ export function ProjectScreen(props: {
           <input
             className="field"
             value={addName}
-            placeholder="New slate e.g. 14A"
+            placeholder="New scene e.g. 14A"
             onChange={(e) => setAddName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') void addSlate();
@@ -202,9 +202,9 @@ export function ProjectScreen(props: {
 
       {deleting && (
         <Confirm
-          title={`Delete slate ${deleting.name}?`}
-          message="This removes the slate and all of its takes and moments. This cannot be undone."
-          confirmLabel="Delete slate"
+          title={`Delete scene ${deleting.name}?`}
+          message="This removes the scene and all of its shots and moments. This cannot be undone."
+          confirmLabel="Delete scene"
           onCancel={() => setDeleting(null)}
           onConfirm={async () => {
             await store.deleteSlate(deleting.id);
@@ -284,7 +284,7 @@ function ClipConfig(props: {
           </div>
           <div className="formrow" style={{ margin: 0 }}>
             <label className="label" htmlFor="cc-pad">
-              Pad
+              Digits
             </label>
             <input
               id="cc-pad"
@@ -423,10 +423,10 @@ function ExportBar(props: { project: Project }) {
 function RenameSheet(props: { slate: Slate; onClose: () => void; onSave: (name: string) => void }) {
   const [name, setName] = useState(props.slate.name);
   return (
-    <Sheet title="Rename slate" onClose={props.onClose}>
+    <Sheet title="Rename scene" onClose={props.onClose}>
       <div className="formrow">
         <label className="label" htmlFor="rn-name">
-          Slate name
+          Scene name
         </label>
         <input
           id="rn-name"
