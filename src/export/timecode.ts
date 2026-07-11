@@ -89,6 +89,24 @@ function timecodeToFramesImpl(tc: string, fps: Fps): number {
   return frames;
 }
 
+/**
+ * Epoch ms -> local time-of-day timecode "HH:MM:SS:FF" at the project fps.
+ *
+ * This represents a wall clock, not a counted frame stream: the sub-second
+ * remainder is expressed as frames (Math.round(msRemainder * timebase / 1000),
+ * clamped to timebase-1) and the separator is always ':' - no drop-frame
+ * arithmetic, because a clock does not skip frame numbers. On set, cameras are
+ * jammed to time-of-day TC at call time, so this lines up directly with camera
+ * timecode. Standalone export - deliberately NOT part of the TimecodeUtil object.
+ */
+export function wallClockTC(epochMs: number, fps: Fps): string {
+  const d = new Date(epochMs);
+  const timebase = timebaseOf(fps);
+  const frames = Math.round((d.getMilliseconds() * timebase) / 1000);
+  const ff = Math.min(timebase - 1, frames);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}:${pad2(ff)}`;
+}
+
 export const tc: TimecodeUtil = {
   msToClock(ms: number): string {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));

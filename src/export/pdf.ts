@@ -5,7 +5,7 @@
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import type { Fps, Moment, ProjectBundle, Take } from '../types';
-import { tc } from './timecode';
+import { tc, wallClockTC } from './timecode';
 
 const A4: [number, number] = [595.28, 841.89];
 const MARGIN = 54;
@@ -136,6 +136,11 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
     `${slates.length} slates  -  ${goodTakes.length} good takes  -  ${discardedTakes.length} discarded  -  total roll ${tc.msToClock(totalRollMs)}`,
     { size: 9.5, color: GRAY },
   );
+  y -= 12;
+  text('Wall clock columns line up with cameras jammed to time-of-day TC.', {
+    size: 8,
+    color: LIGHT,
+  });
   y -= 14;
   rule();
   y -= 22;
@@ -187,6 +192,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
 
       let title = `Take ${take.number}  -  ${take.clipName}  -  ${tc.msToClock(take.durationMs)}`;
       if (take.cameraTC) title += `  -  TC ${take.cameraTC}`;
+      title += `  -  clock ${wallClockTC(take.startedAt, fps)}`;
       text(title, { font: bold, size: 10.5 });
       y -= 14;
 

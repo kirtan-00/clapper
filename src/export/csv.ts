@@ -2,7 +2,7 @@
 // with zero moments still appear. RFC 4180 quoting, CRLF line endings.
 
 import type { Moment, ProjectBundle, Take } from '../types';
-import { tc } from './timecode';
+import { tc, wallClockTC } from './timecode';
 
 const HEADER = [
   'slate',
@@ -18,6 +18,8 @@ const HEADER = [
   'out_tc',
   'camera_in_tc',
   'camera_out_tc',
+  'wall_in',
+  'wall_out',
   'duration_ms',
   'note',
 ];
@@ -91,6 +93,8 @@ export function toCsv(bundle: ProjectBundle): Blob {
           tc.msToTimecode(take.durationMs, fps),
           cameraTC ?? '',
           cameraTC ? tc.addMsToTimecode(cameraTC, take.durationMs, fps) : '',
+          wallClockTC(take.startedAt, fps),
+          wallClockTC(take.startedAt + take.durationMs, fps),
           String(take.durationMs),
           take.note ?? '',
         ]),
@@ -114,6 +118,8 @@ export function toCsv(bundle: ProjectBundle): Blob {
             isRange ? tc.msToTimecode(m.endMs as number, fps) : '',
             cameraTC ? tc.addMsToTimecode(cameraTC, m.atMs, fps) : '',
             cameraTC && isRange ? tc.addMsToTimecode(cameraTC, m.endMs as number, fps) : '',
+            wallClockTC(take.startedAt + m.atMs, fps),
+            isRange ? wallClockTC(take.startedAt + (m.endMs as number), fps) : '',
             isRange ? String((m.endMs as number) - m.atMs) : '0',
             '',
           ]),

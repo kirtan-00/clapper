@@ -18,14 +18,36 @@ function downloadBlob(blob: Blob, filename: string): void {
 }
 
 /**
+ * Mobile-ish device heuristic: a real touch pointer. Desktops (even with a
+ * touchscreen laptop the pointer is still fine, but the primary case is that
+ * desktop browsers report no coarse pointer) should download rather than pop
+ * the OS share sheet. Both APIs are guarded for availability.
+ */
+function isMobileLike(): boolean {
+  const touch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+  const coarse =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches;
+  return touch && coarse;
+}
+
+/**
  * Share `blob` as a file if the platform supports file sharing, otherwise
- * download it. Resolves once the share sheet closes or the download starts;
- * a user-cancelled share sheet resolves quietly (no double download).
+ * download it. On desktop we go straight to the anchor download so the PDF
+ * lands in Downloads instead of opening the OS share sheet; only mobile-ish
+ * devices get the Web Share path. Resolves once the share sheet closes or the
+ * download starts; a user-cancelled share sheet resolves quietly (no double
+ * download).
  */
 export async function shareBlob(blob: Blob, filename: string, mime: string): Promise<void> {
   const file = new File([blob], filename, { type: mime });
 
-  if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') {
+  if (
+    isMobileLike() &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function'
+  ) {
     try {
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: filename });
