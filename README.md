@@ -1,6 +1,6 @@
 # Clapper
 
-A phone-first PWA for logging shots on set. Start a big timer on "action", tap
+A phone-first PWA for logging shots on set. Start a big timer on "roll", tap
 tags and mark moments while rolling, hit CUT to close the shot and bump the
 camera clip counter. It runs fully offline, installs to the home screen, and
 needs no account. When the shoot wraps, it hands the editor three exports.
@@ -24,7 +24,7 @@ export.
    clip names (for example `C0042`) match what the camera card will show. The
    counter then advances on every CUT and every DISCARD, because a file lands on
    the card either way.
-3. **Roll.** Tap ACTION, or say "action" if the mic is on. The button is the
+3. **Roll.** Tap ROLL, or say "roll camera" if the mic is on. The button is the
    contract; voice is a best-effort convenience.
 4. **Tag and mark while rolling.** Tap a tag chip (FLUB, GOLD, PICKUP, NOISE, or
    your own) to drop a timestamped point marker, no typing. For a range, tap
@@ -146,7 +146,7 @@ inside a sandboxed in-app webview.
   flaky on iPhone. Treat the buttons as the real control and the mic as a
   convenience. Use the mic toggle to turn listening off.
 - **Saying "cut" in conversation while rolling will cut the shot.** If the mic
-  is on and someone says "cut" or "action" in normal talk, Clapper will act on
+  is on and someone says "cut" or "roll" in normal talk, Clapper will act on
   it. Toggle the mic off when you are not driving it by voice.
 - **Markers land within about a second.** They are for finding moments, not
   frame-accurate cutting. Use them to jump near the action, then trim precisely

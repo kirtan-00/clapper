@@ -115,7 +115,7 @@ export interface RollTimer {
   stop(): { startedAt: number; durationMs: number };
 }
 
-export type SpeechCommand = 'action' | 'cut';
+export type SpeechCommand = 'roll' | 'cut';
 
 export interface SpeechListener {
   supported: boolean;

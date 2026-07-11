@@ -4,7 +4,7 @@
 
 ## What it is
 
-Phone-first PWA for logging takes on set. Big timer starts on "action" (voice or button),
+Phone-first PWA for logging takes on set. Big timer starts on "roll" (voice or button),
 timestamped moments get logged while rolling, one tap on CUT closes the take and
 increments the camera clip counter. Exports a PDF for the editor, a Premiere-importable
 FCP7 XML with markers, and a CSV. Fully offline, installable, no accounts.
@@ -47,8 +47,8 @@ Moment  { id, takeId, kind: 'point'|'range', atMs, endMs?, label, tag?,
    (PDF / Premiere XML / CSV, per project), TC calculator (add/subtract two timecodes
    at project fps).
 3. **Rolling screen** (the core) — dark, huge type, one-thumb:
-   - Giant elapsed timer. ACTION button flips to CUT while rolling.
-   - Voice: Web Speech API listens while screen on; "action" starts, "cut" stops.
+   - Giant elapsed timer. ROLL button flips to CUT while rolling.
+   - Voice: Web Speech API listens while screen on; "roll camera" starts, "cut" stops.
      Best-effort (iOS Safari flaky) — button is the contract. Mic toggle visible.
    - While rolling: tag chips (one tap = timestamped point marker, no typing),
      MARK IN → MARK OUT for ranges; label typed or dictated **after** OUT.

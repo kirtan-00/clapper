@@ -44,7 +44,7 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
   const [micOn, setMicOn] = useState(false);
   const [listening, setListening] = useState(false);
 
-  const doActionRef = useRef<() => void>(() => {});
+  const doRollRef = useRef<() => void>(() => {});
   const doCutRef = useRef<() => void>(() => {});
 
   async function refreshMeta() {
@@ -65,7 +65,7 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
   // voice wiring (once per listener)
   useEffect(() => {
     const offCmd = listener.onCommand((cmd) => {
-      if (cmd === 'action') doActionRef.current();
+      if (cmd === 'roll') doRollRef.current();
       else doCutRef.current();
     });
     const offState = listener.onStateChange(setListening);
@@ -80,7 +80,7 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
     setClapKey((k) => k + 1);
   }
 
-  function doAction() {
+  function doRoll() {
     if (timer.rolling || postCut) return;
     haptics.thump();
     setBuffered([]);
@@ -124,7 +124,7 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
   }
 
   // keep refs pointing at the freshest closures for voice commands
-  doActionRef.current = doAction;
+  doRollRef.current = doRoll;
   doCutRef.current = doCut;
 
   function tapTag(tag: string) {
@@ -223,7 +223,7 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
           ) : postCut ? (
             'Shot saved'
           ) : (
-            'Tap ACTION to roll' + (listener.supported ? ' or say "action"' : '')
+            'Tap ROLL' + (listener.supported ? ' or say "roll camera"' : '')
           )}
         </div>
 
@@ -330,10 +330,10 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
         <button
           type="button"
           className={`bigbtn${rolling ? ' bigbtn--cut' : ' bigbtn--go'}`}
-          aria-label={rolling ? 'Cut and save shot' : 'Action, start rolling'}
-          onClick={rolling ? () => void doCut() : doAction}
+          aria-label={rolling ? 'Cut and save shot' : 'Roll, start rolling'}
+          onClick={rolling ? () => void doCut() : doRoll}
         >
-          {rolling ? 'CUT' : 'ACTION'}
+          {rolling ? 'CUT' : 'ROLL'}
         </button>
       </div>
 

@@ -56,10 +56,13 @@ declare global {
 const COMMAND_DEBOUNCE_MS = 2000;
 const RESTART_BACKOFF_MS = 300;
 
-// Word-boundary matches. "cut it" and "cut cut" both contain a bare "cut",
-// so a single \bcut\b covers them; the debounce collapses repeats.
+// Word-boundary matches. The 'roll' command fires on any utterance containing
+// "roll" or "rolling" ("roll", "roll camera", "camera roll", "rolling" all
+// match); the internal command id stays 'roll'. "cut it" and "cut cut" both
+// contain a bare "cut", so a single \bcut\b covers them; debounce collapses
+// repeats.
 const PATTERNS: Array<{ cmd: SpeechCommand; re: RegExp }> = [
-  { cmd: 'action', re: /\baction\b/i },
+  { cmd: 'roll', re: /\broll(ing)?\b/i },
   { cmd: 'cut', re: /\bcut\b/i },
 ];
 
@@ -84,7 +87,7 @@ export function createSpeechListener(): SpeechListener {
   let started = false; // logical: start() called, stop() not yet
   let restartTimer: number | null = null;
   let lang = 'en-IN';
-  const lastFiredAt: Record<SpeechCommand, number> = { action: 0, cut: 0 };
+  const lastFiredAt: Record<SpeechCommand, number> = { roll: 0, cut: 0 };
 
   const setListening = (value: boolean): void => {
     if (listener.listening === value) return;
