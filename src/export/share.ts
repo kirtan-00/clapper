@@ -43,7 +43,14 @@ function isMobileLike(): boolean {
 export async function shareBlob(blob: Blob, filename: string, mime: string): Promise<void> {
   const file = new File([blob], filename, { type: mime });
 
+  // The Web Share API only works in a secure context. Opened from file:// (a
+  // sandboxed webview, or a file the owner saved and tapped) the context is
+  // insecure, and navigator.share can be missing or throw synchronously — so we
+  // require isSecureContext and go straight to the anchor download otherwise.
+  const secure = typeof window !== 'undefined' && window.isSecureContext === true;
+
   if (
+    secure &&
     isMobileLike() &&
     typeof navigator.share === 'function' &&
     typeof navigator.canShare === 'function'

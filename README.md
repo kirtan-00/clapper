@@ -115,6 +115,31 @@ Regenerate the PWA icons (needs the installed Playwright Chromium):
 node scripts/make-icons.mjs
 ```
 
+## Single-file offline build
+
+There is a second build that bundles the entire app — every script, style, and
+icon inlined — into ONE file, `clapper.html`, with no network requests ever.
+
+```
+npm run build:single    # produces dist-single/clapper.html
+```
+
+That single file is the whole app. Send it over WhatsApp, AirDrop, email, or
+drop it in the Files app, then tap to open it on any phone — no install, no
+server, no account. It runs the same as the hosted PWA, including the timer,
+tags, and all three exports. It even works opened straight from `file://` or
+inside a sandboxed in-app webview.
+
+- **Storage.** Data lives in that browser's storage for the file. The app tries
+  IndexedDB first and silently falls back to `localStorage` if IndexedDB is
+  blocked (as it can be on `file://` or in a private window). Clearing the
+  browser's site data, or opening the file in a different browser, starts fresh
+  — so hand off your exports at wrap. Nothing ever leaves the phone.
+- **Exports.** All three exports work from the single file; they download
+  straight to the device (the OS share sheet needs a secure context, so the
+  offline file uses a plain download instead). **PDF is the guaranteed export**
+  here — it is the printable editor report and the one to rely on.
+
 ## Known caveats
 
 - **Voice is best-effort, especially on iOS Safari.** The Web Speech API is
@@ -126,5 +151,3 @@ node scripts/make-icons.mjs
 - **Markers land within about a second.** They are for finding moments, not
   frame-accurate cutting. Use them to jump near the action, then trim precisely
   in your editor.
-</content>
-</invoke>
