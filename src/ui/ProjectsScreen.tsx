@@ -5,7 +5,11 @@ import { CAMERA_PRESETS, findPreset, renderClip } from './cameras';
 import { Sheet, Confirm, Rail } from './common';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
 import { extractPdfText } from './pdftext';
-import { breakdownScript, EMAIL_RE } from './breakdown';
+import { breakdownScript, SignInRequiredError } from './breakdown';
+import { SignInSheet } from './SignInSheet';
+import { useSession, signInWithGoogle } from '../net/auth';
+import { getUsage, FREE_LIMIT, type Usage } from '../net/quota';
+import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
 const FPS_OPTIONS: Fps[] = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
@@ -264,6 +268,7 @@ function CreateProjectSheet(props: {
     const project = props.pack
       ? await importScriptPack(props.pack, config)
       : await store.createProject(config);
+    track('project_created', { mode: props.pack ? 'script' : 'normal' });
     props.onCreated(project);
   }
 
@@ -436,26 +441,40 @@ function CreateProjectSheet(props: {
   );
 }
 
-// Script Mode. The live path: a user gives a valid email and uploads their
-// script PDF; we extract the text on-device, send it to the breakdown edge
-// function (Groq, key server-side) and import the returned scene pack. Two
-// example breakdowns let anyone feel the on-set flow without a script.
+// Script Mode. The live path: a signed-in user uploads their script PDF; we
+// extract the text on-device, send it to the breakdown edge function (Groq +
+// quota, all server-side, identity from the JWT) and import the returned scene
+// pack. Upload needs a free Google account; the two example breakdowns never
+// hit the server, so anyone can feel the on-set flow signed out.
 function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack) => void }) {
-  const [email, setEmail] = useState('');
+  const { session, loading } = useSession();
   const [phase, setPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const [usage, setUsage] = useState<Usage | null>(null);
 
   const busy = phase !== 'idle';
-  const emailOk = EMAIL_RE.test(email.trim());
+  const signedIn = !!session;
+
+  useEffect(() => {
+    if (!signedIn) {
+      setUsage(null);
+      return;
+    }
+    let active = true;
+    void getUsage().then((u) => {
+      if (active) setUsage(u);
+    });
+    return () => {
+      active = false;
+    };
+  }, [signedIn]);
 
   async function onPickPdf(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ''; // let the same file be picked again after an error
     if (!file) return;
-    if (!emailOk) {
-      setError('Enter a valid email first.');
-      return;
-    }
     setError(null);
     try {
       setPhase('reading');
@@ -464,20 +483,44 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
         throw new Error('That PDF had no readable text — a scan/photo will not work. Use a text PDF.');
       }
       setPhase('thinking');
-      const pack = await breakdownScript(email.trim().toLowerCase(), text, file.name);
+      const pack = await breakdownScript(text, file.name);
       if (!pack.scenes?.length) throw new Error('No scenes came back — try a clearer script PDF.');
       haptics.tap();
       props.onPack(pack); // hand to the camera-setup step
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not process that PDF.');
       setPhase('idle');
+      if (err instanceof SignInRequiredError) {
+        setShowSignIn(true);
+        return;
+      }
+      if (err instanceof Error && err.message === 'CAP') {
+        track('cap_hit', { which: 'script' });
+        setError('Free limit reached — more coming soon.');
+        return;
+      }
+      setError(err instanceof Error ? err.message : 'Could not process that PDF.');
     }
   }
 
-  function loadExample(pack: ScriptPack) {
+  function loadExample(pack: ScriptPack, which: string) {
+    track('example_loaded', { which });
     haptics.tap();
-    props.onPack(pack);
+    props.onPack(pack); // examples are bundled — no server, no account needed
   }
+
+  async function startSignIn() {
+    setSigningIn(true);
+    setError(null);
+    try {
+      await signInWithGoogle(); // redirects to Google; nothing after this runs
+    } catch {
+      setError('Could not start sign-in. Check your connection and try again.');
+      setSigningIn(false);
+    }
+  }
+
+  // A gated (401) upload swaps the whole sheet for the dedicated sign-in sheet.
+  if (showSignIn) return <SignInSheet onClose={props.onClose} />;
 
   return (
     <Sheet title="Script Mode" onClose={props.onClose}>
@@ -486,34 +529,41 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
         coverage and key-moment chips — and load it as a project, so on set you just tap.
       </p>
 
-      <div className="formrow">
-        <label className="label" htmlFor="sp-email">
-          Your email
-        </label>
-        <input
-          id="sp-email"
-          className="field"
-          type="email"
-          inputMode="email"
-          autoCapitalize="off"
-          autoComplete="email"
-          placeholder="you@studio.com"
-          value={email}
-          disabled={busy}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
-
-      <label className={`btn btn--go btn--full sp-upload${!emailOk || busy ? ' btn--disabled' : ''}`}>
-        {phase === 'reading' ? 'Reading PDF…' : phase === 'thinking' ? 'Breaking down…' : 'Upload script PDF'}
-        <input
-          type="file"
-          accept="application/pdf,.pdf"
-          hidden
-          disabled={!emailOk || busy}
-          onChange={onPickPdf}
-        />
-      </label>
+      {loading ? (
+        <div className="empty">Checking your account</div>
+      ) : signedIn ? (
+        <>
+          <label className={`btn btn--go btn--full sp-upload${busy ? ' btn--disabled' : ''}`}>
+            {phase === 'reading' ? 'Reading PDF…' : phase === 'thinking' ? 'Breaking down…' : 'Upload script PDF'}
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              hidden
+              disabled={busy}
+              onChange={onPickPdf}
+            />
+          </label>
+          {usage && (
+            <p className="camnote" style={{ textAlign: 'center', marginBottom: 0 }}>
+              {usage.script.left} of {FREE_LIMIT} Script Mode uses left
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="btn btn--go btn--full"
+            disabled={signingIn}
+            onClick={() => void startSignIn()}
+          >
+            {signingIn ? 'Opening Google…' : 'Sign in with Google to upload'}
+          </button>
+          <p className="camnote" style={{ marginBottom: 0 }}>
+            Script Mode needs a free account. The examples below work without one.
+          </p>
+        </>
+      )}
 
       {error && (
         <span className="tnum tnum--bad sp-error">
@@ -532,7 +582,7 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
             type="button"
             className="btn sp-example"
             disabled={busy}
-            onClick={() => void loadExample(ex.pack)}
+            onClick={() => loadExample(ex.pack, ex.key)}
           >
             <b>{ex.label}</b>
             <span>{ex.blurb}</span>

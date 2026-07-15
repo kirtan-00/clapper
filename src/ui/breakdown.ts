@@ -1,45 +1,71 @@
-// Script Mode backend client. Sends an email + extracted script text to the
-// Clapper breakdown edge function (which holds the Groq key server-side) and
-// returns a validated script pack the app imports. The anon key below is a
-// public client key — it ships in every Supabase web app by design.
+// Script Mode backend client. Sends the extracted script text + a fresh Turnstile
+// token to the Clapper `breakdown` edge function (which holds the Groq key
+// server-side, and derives the user from the auth JWT — never a client-sent
+// email). Returns a validated script pack the app imports. `functions.invoke`
+// auto-attaches the caller's `Authorization: Bearer <jwt>` from the persisted
+// session, so identity + quota are enforced entirely server-side.
 
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { supabase } from '../net/supabase';
+import { getTurnstileToken } from '../net/turnstile';
 import type { ScriptPack } from './scriptpack';
 
-const SUPABASE_URL = 'https://sqqdivfgdfaztfzrzkhu.supabase.co';
-const ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxcWRpdmZnZGZhenRmenJ6a2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTA2NTYsImV4cCI6MjA5OTU4NjY1Nn0.MUhO3nmPg4gmQI5vLK5LGpOMIzrcA_j9ZDj8sp8ftH4';
-const ENDPOINT = `${SUPABASE_URL}/functions/v1/breakdown`;
+// The user must be signed in before this runs.
+const OFFLINE_MSG = 'Could not reach the breakdown service. Check your connection.';
 
-export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * Sentinel thrown when Script Mode needs a signed-in user (no local session, or
+ * the server answered 401). The caller detects it (`instanceof`) and opens the
+ * sign-in sheet rather than showing a raw error.
+ */
+export class SignInRequiredError extends Error {
+  constructor() {
+    super('Sign in to use Script Mode.');
+    this.name = 'SignInRequiredError';
+  }
+}
 
 /** Turn a script into a Clapper pack via the server. Throws with a human why. */
-export async function breakdownScript(
-  email: string,
-  text: string,
-  docName: string,
-): Promise<ScriptPack> {
-  let res: Response;
+export async function breakdownScript(text: string, docName: string): Promise<ScriptPack> {
+  // Identity comes from the JWT. No session → don't spend a Turnstile token,
+  // just tell the caller to sign in.
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) throw new SignInRequiredError();
+
+  let turnstileToken: string;
   try {
-    res = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: ANON_KEY,
-        Authorization: `Bearer ${ANON_KEY}`,
-      },
-      body: JSON.stringify({ email, text, docName }),
-    });
+    turnstileToken = await getTurnstileToken();
   } catch {
-    throw new Error('Could not reach the breakdown service. Check your connection.');
+    throw new Error('Could not verify you are human — please try again.');
   }
 
-  let data: unknown = {};
-  try {
-    data = await res.json();
-  } catch {
-    /* fall through to status check */
+  const { data, error } = await supabase.functions.invoke<ScriptPack>('breakdown', {
+    body: { text, docName, turnstileToken },
+  });
+
+  if (error) {
+    // Non-2xx from the function: read the JSON body + status off the Response.
+    if (error instanceof FunctionsHttpError) {
+      let status = 0;
+      let reason = '';
+      try {
+        status = error.context.status;
+        const body = (await error.context.json()) as { error?: string; reason?: string };
+        reason = body.reason || body.error || '';
+      } catch {
+        /* no/invalid body — fall back to the status code below */
+      }
+      if (status === 401) throw new SignInRequiredError();
+      if (status === 402 || reason === 'quota_exceeded') throw new Error('CAP');
+      if (status === 429) throw new Error('Too fast — give it a moment and try again.');
+      if (status === 503) throw new Error('Script Mode is taking a breather — try again later.');
+      if (status === 403) throw new Error('Bot check failed — please try again.');
+      throw new Error(reason || `Breakdown failed (${status}).`);
+    }
+    // Relay / fetch error → we never reached the function (offline, DNS, etc.).
+    throw new Error(OFFLINE_MSG);
   }
-  const err = (data as { error?: string }).error;
-  if (!res.ok) throw new Error(err || `Breakdown failed (${res.status}).`);
-  return data as ScriptPack;
+
+  if (!data) throw new Error(OFFLINE_MSG);
+  return data;
 }

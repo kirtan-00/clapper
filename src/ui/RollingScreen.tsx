@@ -4,6 +4,7 @@ import { store } from '../store';
 import { tc } from '../export/timecode';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
 import { Sheet, Rail, Toast, Confirm } from './common';
+import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
 interface Buffered {
@@ -113,6 +114,7 @@ export function RollingScreen(props: {
   function doRoll() {
     if (timer.rolling || postCut) return;
     haptics.thump();
+    track('roll'); // fire-and-forget; never blocks or throws
     setBuffered([]);
     setMarkInMs(null);
     setRangeLabelTarget(null);
@@ -123,6 +125,7 @@ export function RollingScreen(props: {
   async function doCut() {
     if (!timer.rolling) return;
     haptics.doubleThump();
+    track('cut'); // fire-and-forget; never blocks or throws
     bumpClap();
     const { startedAt, durationMs } = timer.stop();
     const finalBuffer: Buffered[] =

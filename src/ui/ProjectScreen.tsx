@@ -6,6 +6,10 @@ import { exporter, shareBlob } from '../export';
 import { findPreset } from './cameras';
 import { slug } from './share';
 import { Sheet, Confirm, Rail } from './common';
+import { SignInSheet } from './SignInSheet';
+import { useSession } from '../net/auth';
+import { gateExport, FREE_LIMIT } from '../net/quota';
+import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
 interface SlateStat {
@@ -416,24 +420,66 @@ function TcCalculator(props: { project: Project }) {
   );
 }
 
-function ExportBar(props: { project: Project }) {
-  const [busy, setBusy] = useState<string | null>(null);
+// PDF is free, offline, and never gated. Premiere (FCP7 XML) and CSV are the pro
+// editor-handoff: each needs a signed-in account and burns one of 5 server-side
+// quota units. The client only builds the blob after `export-gate` says allow.
+const EXPORT_OFFLINE_MSG =
+  "You're offline — Premiere and CSV export need a connection. Logging takes and PDF export work offline.";
 
-  async function run(kind: 'pdf' | 'xml' | 'csv') {
-    setBusy(kind);
+function ExportBar(props: { project: Project }) {
+  const { session } = useSession();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
+
+  async function exportPdf() {
+    setBusy('pdf');
     try {
       const bundle = await store.getBundle(props.project.id);
       const base = slug(props.project.name);
-      if (kind === 'pdf') {
-        const blob = await exporter.toPdf(bundle);
-        await shareBlob(blob, `${base}-log.pdf`, 'application/pdf');
-      } else if (kind === 'xml') {
+      const blob = await exporter.toPdf(bundle);
+      await shareBlob(blob, `${base}-log.pdf`, 'application/pdf');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function exportGated(kind: 'xml' | 'csv') {
+    setError(null);
+    setNote(null);
+    if (!session) {
+      setShowSignIn(true);
+      return;
+    }
+    const format = kind === 'xml' ? 'premiere' : 'csv';
+    setBusy(kind);
+    try {
+      const gate = await gateExport(format);
+      if (!gate.allow) {
+        if (gate.reason === 'quota_exceeded') {
+          track('cap_hit', { which: format });
+          setError('Free limit reached — more coming soon.');
+        } else {
+          setError(EXPORT_OFFLINE_MSG);
+        }
+        return;
+      }
+      const bundle = await store.getBundle(props.project.id);
+      const base = slug(props.project.name);
+      if (kind === 'xml') {
         const blob = exporter.toFcpXml(bundle);
         await shareBlob(blob, `${base}-log.xml`, 'text/xml');
       } else {
         const blob = exporter.toCsv(bundle);
         await shareBlob(blob, `${base}-log.csv`, 'text/csv');
       }
+      track('export', { format });
+      if (typeof gate.remaining === 'number') {
+        setNote(`${gate.remaining} of ${FREE_LIMIT} ${format} exports left`);
+      }
+    } catch {
+      setError(EXPORT_OFFLINE_MSG);
     } finally {
       setBusy(null);
     }
@@ -445,16 +491,27 @@ function ExportBar(props: { project: Project }) {
         <span className="label">Hand off to editor</span>
       </div>
       <div className="formgrid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-        <button type="button" className="btn" disabled={busy !== null} onClick={() => void run('pdf')}>
+        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportPdf()}>
           {busy === 'pdf' ? '...' : 'PDF'}
         </button>
-        <button type="button" className="btn" disabled={busy !== null} onClick={() => void run('xml')}>
+        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('xml')}>
           {busy === 'xml' ? '...' : 'Premiere'}
         </button>
-        <button type="button" className="btn" disabled={busy !== null} onClick={() => void run('csv')}>
+        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('csv')}>
           {busy === 'csv' ? '...' : 'CSV'}
         </button>
       </div>
+      {error && (
+        <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 10 }}>
+          {error}
+        </span>
+      )}
+      {note && !error && (
+        <span className="section__note" style={{ display: 'block', marginTop: 10 }}>
+          {note}
+        </span>
+      )}
+      {showSignIn && <SignInSheet onClose={() => setShowSignIn(false)} />}
     </section>
   );
 }

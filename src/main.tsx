@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { initAuthReturn } from './net/supabase';
+import { trackAppOpen } from './net/analytics';
 
 // Keyboard-aware layout for phones. The on-screen keyboard shrinks the *visual*
 // viewport but not the layout viewport, so bottom sheets end up hidden behind it.
@@ -24,6 +26,11 @@ function trackViewport() {
   apply();
 }
 trackViewport();
+
+// Account/quota layer bootstrap — both are non-blocking and never throw, so they
+// can't hold up first paint or break the offline core.
+initAuthReturn(); // finish a Google OAuth PKCE return + strip ?code= from the URL
+trackAppOpen(); // one app_open analytics event per load
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
