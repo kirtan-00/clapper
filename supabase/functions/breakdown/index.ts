@@ -12,7 +12,7 @@ const DEFAULT_COVERAGE = ["WIDE", "MID", "CU", "OTS", "INSERT"];
 
 // Cloudflare testing keys so local dev works without a real secret configured.
 const DEV_TURNSTILE_SECRET = "1x0000000000000000000000000000000AA";
-const TURNSTILE_HOSTS = new Set(["kirtan-00.github.io"]);
+const TURNSTILE_HOSTS = new Set(["clapboard.duckdns.org", "kirtan-00.github.io"]);
 
 const SYSTEM = [
   "You break a film/ad script into filmable SCENES for an on-set shot logger.",

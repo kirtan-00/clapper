@@ -2,6 +2,7 @@
 // app plus local dev. Imported by breakdown and export-gate.
 
 export const ALLOWED_ORIGINS = [
+  "https://clapboard.duckdns.org",
   "https://kirtan-00.github.io",
   "http://localhost:5173",
   "http://localhost:4173",
