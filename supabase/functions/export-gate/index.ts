@@ -20,8 +20,15 @@ async function sha256Hex(s: string): Promise<string> {
 function clientIp(req: Request): string {
   const cf = req.headers.get("CF-Connecting-IP");
   if (cf) return cf.trim();
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+  // Prefer the LAST hop of x-forwarded-for: upstream proxies append the true
+  // client, so the first entry is the one a client can spoof.
   const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
+  if (xff) {
+    const parts = xff.split(",");
+    return parts[parts.length - 1].trim();
+  }
   return "";
 }
 
@@ -70,22 +77,22 @@ Deno.serve(async (req: Request) => {
   // 3. Rate limits: per-IP and per-user sliding windows.
   const ip = clientIp(req);
   const ipHash = await sha256Hex(ip + (Deno.env.get("IP_PEPPER") ?? "clapper"));
-  const { data: ipOk } = await admin.rpc("rate_limit_check", {
+  const rateLimited = new Response(
+    JSON.stringify({ error: "Too fast — give it a moment and try again." }),
+    { status: 429, headers },
+  );
+  const { data: ipOk, error: ipErr } = await admin.rpc("rate_limit_check", {
     p_key: "ip:" + ipHash,
     p_window_secs: 60,
     p_max: 30,
   });
-  const { data: userOk } = await admin.rpc("rate_limit_check", {
+  if (ipErr || ipOk === false) return rateLimited;
+  const { data: userOk, error: userErr } = await admin.rpc("rate_limit_check", {
     p_key: "u:" + userId,
     p_window_secs: 60,
     p_max: 20,
   });
-  if (ipOk === false || userOk === false) {
-    return new Response(
-      JSON.stringify({ error: "Too fast — give it a moment." }),
-      { status: 429, headers },
-    );
-  }
+  if (userErr || userOk === false) return rateLimited;
 
   // 4. Server-authoritative quota. Limit derived from is_pro, never the request.
   const { data: profile } = await admin
@@ -94,13 +101,20 @@ Deno.serve(async (req: Request) => {
     .eq("user_id", userId)
     .single();
   const limit = profile?.is_pro ? PRO_LIMIT : FREE_LIMIT;
-  const { data: newCount } = await admin.rpc("consume_quota", {
+  const { data: newCount, error: quotaErr } = await admin.rpc("consume_quota", {
     p_user: userId,
     p_kind: format,
     p_limit: limit,
   });
 
-  if (newCount === -1 || newCount == null) {
+  if (quotaErr || newCount == null) {
+    // Fail CLOSED: an rpc error must never resolve to allow:true.
+    return new Response(
+      JSON.stringify({ allow: false, reason: "error" }),
+      { status: 500, headers },
+    );
+  }
+  if (newCount === -1) {
     return new Response(
       JSON.stringify({ allow: false, reason: "quota_exceeded" }),
       { headers },

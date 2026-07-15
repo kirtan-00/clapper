@@ -460,6 +460,9 @@ function ExportBar(props: { project: Project }) {
         if (gate.reason === 'quota_exceeded') {
           track('cap_hit', { which: format });
           setError('Free limit reached — more coming soon.');
+        } else if (gate.reason === 'auth') {
+          // Session missing/expired — same handling as signed-out.
+          setShowSignIn(true);
         } else {
           setError(EXPORT_OFFLINE_MSG);
         }

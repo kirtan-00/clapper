@@ -20,16 +20,23 @@ export const supabase = createClient(SUPABASE_URL, ANON_KEY, {
 
 /**
  * Finish an OAuth PKCE return. On the redirect back to `/clapper/?code=...`,
- * supabase-js (with `detectSessionInUrl`) exchanges the code for a session on
- * load; we wait a tick for that, then strip the `?code=...` (and any error)
- * from the URL so a refresh or bookmark stays clean. gh-pages has no router,
- * so we replace back to BASE_URL.
+ * supabase-js (with `detectSessionInUrl`) exchanges the code for a session. We
+ * await `getSession()` — which resolves only after that PKCE exchange completes —
+ * BEFORE stripping the `?code=...` (or `?error=...`) from the URL, so we never
+ * race the exchange and drop the code. Only touch the URL when such a param is
+ * present. gh-pages has no router, so we replace back to BASE_URL. Non-blocking
+ * and never throws.
  */
 export function initAuthReturn(): void {
   const search = window.location.search;
-  if (!/[?&]code=/.test(search)) return;
-  // Let supabase-js run its detectSessionInUrl exchange first.
-  window.setTimeout(() => {
-    history.replaceState({}, '', import.meta.env.BASE_URL);
-  }, 0);
+  if (!/[?&](code|error)=/.test(search)) return;
+  void (async () => {
+    try {
+      // Awaits the in-flight detectSessionInUrl PKCE code exchange.
+      await supabase.auth.getSession();
+      history.replaceState({}, '', import.meta.env.BASE_URL);
+    } catch {
+      /* never block app boot on a cleanup step */
+    }
+  })();
 }

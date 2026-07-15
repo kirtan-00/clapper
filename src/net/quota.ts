@@ -2,6 +2,7 @@
 // `usage` row (RLS: select-own) to show "N of 5 left", but only edge functions
 // (service role) can mutate the counters. Enforcement always happens server-side.
 
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
 /** Free-tier limit per counter. The server re-derives this from `is_pro`; the
@@ -67,6 +68,12 @@ export async function gateExport(format: 'premiere' | 'csv'): Promise<GateResult
     body: { format },
   });
   if (error || !data) {
+    // A 401 from the gateway/function means the session is missing or expired —
+    // surface it as an auth error so the UI can prompt sign-in, distinct from a
+    // transport failure.
+    if (error instanceof FunctionsHttpError && error.context?.status === 401) {
+      return { allow: false, reason: 'auth' };
+    }
     return { allow: false, reason: 'network' };
   }
   return data;

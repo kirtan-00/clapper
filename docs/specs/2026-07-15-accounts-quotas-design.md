@@ -117,6 +117,13 @@ Derive user via `supabase.auth.getUser()` with the caller's Authorization header
 
 Limits are chosen **server-side** from `is_pro` (`5` free). Client never sends the limit.
 
+> **Deploy note (`--no-verify-jwt`):** both edge functions deploy with `--no-verify-jwt`. The
+> in-function `supabase.auth.getUser()` is the real auth guard (it derives the user from the JWT
+> and 401s when absent), so the gateway's JWT check is disabled to let the browser's CORS
+> preflight (`OPTIONS`, which carries no Authorization header) reach the function. The gateway
+> check would only have required the public anon key anyway, so disabling it removes no real
+> protection — the per-request `getUser()` is what actually authenticates the caller.
+
 ## 7. Auth flow (Google OAuth, PKCE, gh-pages `/clapper/`)
 
 - supabase-js client: `{ auth: { flowType:'pkce', detectSessionInUrl:true, persistSession:true, autoRefreshToken:true } }`.

@@ -103,6 +103,20 @@ create policy events_insert_anon
   to anon
   with check (user_id is null);
 
+-- Bound what the public anon INSERT policy can write: cap the event name and the
+-- props payload so the open insert path can't be used to bloat the table.
+-- Guarded so re-running the migration doesn't error on an existing constraint.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'events_sane'
+  ) then
+    alter table public.events
+      add constraint events_sane
+      check (length(name) <= 64 and pg_column_size(props) <= 4096);
+  end if;
+end $$;
+
 -- rate_events, config, script_mode_daily: RLS enabled, NO policies → default
 -- deny → service_role only.
 
@@ -135,6 +149,16 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Backfill: seed profiles + usage for any auth.users that predate the trigger
+-- (e.g. users created before this migration first ran). Idempotent.
+insert into public.profiles (user_id, email)
+  select id, email from auth.users
+  on conflict (user_id) do nothing;
+
+insert into public.usage (user_id)
+  select id from auth.users
+  on conflict (user_id) do nothing;
 
 -- consume_quota: single atomic UPDATE. Returns the new count, or -1 if the row
 -- is at/over the limit (or absent). One UPDATE = race-proof.
@@ -178,6 +202,41 @@ $$;
 
 revoke execute on function public.consume_quota(uuid, text, int) from public, anon, authenticated;
 grant  execute on function public.consume_quota(uuid, text, int) to service_role;
+
+-- refund_quota: give one slot back when a consume was followed by a downstream
+-- failure (Groq outage, paused gate). Clamped at 0 so it can never go negative.
+--   p_kind ∈ {'script','premiere','csv'} → script_uses | premiere_uses | csv_uses
+create or replace function public.refund_quota(p_user uuid, p_kind text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_col text;
+begin
+  v_col := case p_kind
+    when 'script'   then 'script_uses'
+    when 'premiere' then 'premiere_uses'
+    when 'csv'      then 'csv_uses'
+    else null
+  end;
+
+  if v_col is null then
+    raise exception 'refund_quota: invalid kind %', p_kind;
+  end if;
+
+  execute format(
+    'update public.usage set %1$I = greatest(%1$I - 1, 0), updated_at = now() '
+    || 'where user_id = $1',
+    v_col
+  )
+  using p_user;
+end;
+$$;
+
+revoke execute on function public.refund_quota(uuid, text) from public, anon, authenticated;
+grant  execute on function public.refund_quota(uuid, text) to service_role;
 
 -- rate_limit_check: sliding window over rate_events. Advisory xact lock on the
 -- key first for strict no-overallow on the same key, then GC old rows, count in
