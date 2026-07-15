@@ -37,6 +37,7 @@ function msToFrames(ms: number, fps: Fps): number {
 export function toFcpXml(bundle: ProjectBundle): Blob {
   const { project, slates, takes, moments } = bundle;
   const fps = project.fps;
+  const ext = project.clipExt ?? '';
   const { timebase, ntsc } = ratePair(fps);
   const rateXml = `<rate><timebase>${timebase}</timebase><ntsc>${ntsc}</ntsc></rate>`;
 
@@ -67,6 +68,8 @@ export function toFcpXml(bundle: ProjectBundle): Blob {
     timelinePos = end;
 
     const name = escapeXml(take.clipName);
+    // The real media file the editor relinks to, e.g. "C0001.MP4".
+    const fileName = escapeXml(take.clipName + ext);
 
     const markers = (momentsByTake.get(take.id) ?? [])
       .slice()
@@ -102,7 +105,8 @@ export function toFcpXml(bundle: ProjectBundle): Blob {
           <in>0</in>
           <out>${durationFrames}</out>
           <file id="file-${i + 1}">
-            <name>${name}</name>
+            <name>${fileName}</name>
+            <pathurl>file://localhost/${fileName}</pathurl>
             ${rateXml}
             <duration>${durationFrames}</duration>
             <media>

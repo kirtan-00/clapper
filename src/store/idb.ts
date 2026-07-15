@@ -121,6 +121,15 @@ export async function openIdbStore(): Promise<Store> {
       return takes.sort((a, b) => a.number - b.number);
     },
 
+    async deleteTake(id) {
+      const tx = db.transaction(['takes', 'moments'], 'readwrite');
+      const moments = tx.objectStore('moments');
+      const momentIds = await moments.index('byTake').getAllKeys(id);
+      await Promise.all(momentIds.map((m) => moments.delete(m)));
+      await tx.objectStore('takes').delete(id);
+      await tx.done;
+    },
+
     async createTake(input) {
       const tx = db.transaction(['takes', 'projects'], 'readwrite');
       const projects = tx.objectStore('projects');

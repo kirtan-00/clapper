@@ -3,7 +3,7 @@ import type { MomentKind, Project, Slate, Take } from '../types';
 import { store } from '../store';
 import { tc } from '../export/timecode';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
-import { Sheet, Rail, Toast } from './common';
+import { Sheet, Rail, Toast, Confirm } from './common';
 import * as haptics from './haptics';
 
 interface Buffered {
@@ -22,7 +22,12 @@ function clipName(p: Project): string {
   );
 }
 
-export function RollingScreen(props: { project: Project; slate: Slate; onExit: () => void }) {
+export function RollingScreen(props: {
+  project: Project;
+  slate: Slate;
+  onExit: () => void;
+  onNavigate?: (slate: Slate) => void;
+}) {
   const { slate } = props;
   const timer = useRollTimer();
   useWakeLock(true);
@@ -30,11 +35,32 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
   const [project, setProject] = useState<Project>(props.project);
   const [nextTakeNumber, setNextTakeNumber] = useState(1);
   const [recentTakes, setRecentTakes] = useState<Take[]>([]);
+  const [siblings, setSiblings] = useState<Slate[]>([]);
+
+  // Script Mode: two-tier tap chips baked onto the scene. A hand-made scene has
+  // no tags and falls back to the project's quick tags (FLUB/GOLD/…).
+  const coverageChips = (slate.tags ?? [])
+    .filter((t) => t.tier === 'coverage')
+    .sort((a, b) => a.order - b.order)
+    .map((t) => t.label);
+  const keyChips = (slate.tags ?? [])
+    .filter((t) => t.tier === 'keyMoment')
+    .sort((a, b) => a.order - b.order)
+    .map((t) => t.label);
+  const scriptMode = coverageChips.length > 0 || keyChips.length > 0;
+
+  // Scene pager (flip, don't scroll). Only enabled while stopped.
+  const sceneIndex = siblings.findIndex((s) => s.id === slate.id);
+  const prevScene = sceneIndex > 0 ? siblings[sceneIndex - 1] : null;
+  const nextScene =
+    sceneIndex >= 0 && sceneIndex < siblings.length - 1 ? siblings[sceneIndex + 1] : null;
 
   const [buffered, setBuffered] = useState<Buffered[]>([]);
   const [markInMs, setMarkInMs] = useState<number | null>(null);
   const [rangeLabelTarget, setRangeLabelTarget] = useState<number | null>(null);
   const [postCut, setPostCut] = useState<{ take: Take } | null>(null);
+  const [deletingTake, setDeletingTake] = useState<Take | null>(null);
+  const [editingClip, setEditingClip] = useState(false);
   const [flashes, setFlashes] = useState<Record<string, number>>({});
   const [clapKey, setClapKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
@@ -61,6 +87,10 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
     void refreshMeta();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slate.id]);
+
+  useEffect(() => {
+    void store.listSlates(project.id).then(setSiblings);
+  }, [project.id]);
 
   // voice wiring (once per listener)
   useEffect(() => {
@@ -188,9 +218,15 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
               shot <span className="tnum">{nextTakeNumber}</span>
             </span>
             <span aria-hidden="true">&middot;</span>
-            <span>
+            <button
+              type="button"
+              className="clipedit"
+              aria-label={`Clip ${clipName(project)} — tap to fix the number`}
+              onClick={() => setEditingClip(true)}
+            >
               clip <span className="tnum">{clipName(project)}</span>
-            </span>
+              <span className="clipedit__pen" aria-hidden="true">✎</span>
+            </button>
           </div>
         </div>
         {listener.supported && (
@@ -206,6 +242,34 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
           </button>
         )}
       </div>
+
+      {slate.summary && <div className="roll__summary">{slate.summary}</div>}
+
+      {props.onNavigate && siblings.length > 1 && (
+        <div className="scenepager">
+          <button
+            type="button"
+            className="scenepager__btn"
+            aria-label="Previous scene"
+            disabled={!prevScene || rolling || postCut !== null}
+            onClick={() => prevScene && props.onNavigate?.(prevScene)}
+          >
+            &lsaquo; Prev
+          </button>
+          <span className="scenepager__pos tnum">
+            {sceneIndex >= 0 ? sceneIndex + 1 : '-'}/{siblings.length}
+          </span>
+          <button
+            type="button"
+            className="scenepager__btn"
+            aria-label="Next scene"
+            disabled={!nextScene || rolling || postCut !== null}
+            onClick={() => nextScene && props.onNavigate?.(nextScene)}
+          >
+            Next &rsaquo;
+          </button>
+        </div>
+      )}
 
       <div className="roll__rail">
         <Rail key={clapKey} thin clap={clapKey > 0} />
@@ -261,6 +325,14 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
                   <span className="tnum">S{t.number}</span>
                   <span className="clip">{t.clipName}</span>
                   <span className="dur tnum">{tc.msToClock(t.durationMs)}</span>
+                  <button
+                    type="button"
+                    className="minitake__del"
+                    aria-label={`Delete shot ${t.number} (${t.clipName})`}
+                    onClick={() => setDeletingTake(t)}
+                  >
+                    &times;
+                  </button>
                 </div>
               ))
             )}
@@ -271,21 +343,71 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
       <div className="roll__deck">
         {rolling && (
           <>
-            <div className="tagbar">
-              {project.tags.map((tag) => {
-                const n = flashes[tag] ?? 0;
-                return (
-                  <button
-                    key={`${tag}:${n}`}
-                    type="button"
-                    className={`chip${tag === 'GOLD' ? ' chip--gold' : ''}${n > 0 ? ' chip--flash' : ''}`}
-                    onClick={() => tapTag(tag)}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-            </div>
+            {scriptMode ? (
+              <>
+                <div className="tagbar tagbar--coverage" aria-label="Coverage">
+                  {coverageChips.map((tag) => {
+                    const n = flashes[tag] ?? 0;
+                    return (
+                      <button
+                        key={`${tag}:${n}`}
+                        type="button"
+                        className={`chip chip--coverage${n > 0 ? ' chip--flash' : ''}`}
+                        onClick={() => tapTag(tag)}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                  {(() => {
+                    const n = flashes.GOLD ?? 0;
+                    return (
+                      <button
+                        key={`GOLD:${n}`}
+                        type="button"
+                        className={`chip chip--gold${n > 0 ? ' chip--flash' : ''}`}
+                        onClick={() => tapTag('GOLD')}
+                      >
+                        GOLD
+                      </button>
+                    );
+                  })()}
+                </div>
+                {keyChips.length > 0 && (
+                  <div className="tagbar tagbar--key" aria-label="Key moments">
+                    {keyChips.map((tag) => {
+                      const n = flashes[tag] ?? 0;
+                      return (
+                        <button
+                          key={`${tag}:${n}`}
+                          type="button"
+                          className={`chip chip--key${n > 0 ? ' chip--flash' : ''}`}
+                          onClick={() => tapTag(tag)}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="tagbar">
+                {project.tags.map((tag) => {
+                  const n = flashes[tag] ?? 0;
+                  return (
+                    <button
+                      key={`${tag}:${n}`}
+                      type="button"
+                      className={`chip${tag === 'GOLD' ? ' chip--gold' : ''}${n > 0 ? ' chip--flash' : ''}`}
+                      onClick={() => tapTag(tag)}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <button
               type="button"
@@ -360,8 +482,98 @@ export function RollingScreen(props: { project: Project; slate: Slate; onExit: (
         />
       )}
 
+      {deletingTake && (
+        <Confirm
+          title={`Delete shot ${deletingTake.number}?`}
+          message={`This removes clip ${deletingTake.clipName} and every moment tagged in it. Schedules change — this frees the slot. Cannot be undone.`}
+          confirmLabel="Delete shot"
+          onCancel={() => setDeletingTake(null)}
+          onConfirm={async () => {
+            await store.deleteTake(deletingTake.id);
+            setDeletingTake(null);
+            await refreshMeta();
+          }}
+        />
+      )}
+
+      {editingClip && (
+        <ClipNumberSheet
+          project={project}
+          onClose={() => setEditingClip(false)}
+          onSet={async (n) => {
+            const updated = await store.updateProject(project.id, { nextClipNumber: n });
+            setProject(updated);
+            setEditingClip(false);
+            haptics.tap();
+          }}
+        />
+      )}
+
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
+  );
+}
+
+// Fix the clip number on the fly — camera skipped one, a card change, a re-roll.
+// The current shot takes the new number and the counter continues from it. Works
+// mid-roll (the number is only baked onto the take at CUT).
+function ClipNumberSheet(props: {
+  project: Project;
+  onClose: () => void;
+  onSet: (n: number) => void;
+}) {
+  const [num, setNum] = useState(String(props.project.nextClipNumber));
+  const n = Math.max(0, parseInt(num, 10) || 0);
+  const preview =
+    props.project.clipPrefix +
+    String(n).padStart(props.project.clipPadding, '0') +
+    (props.project.clipSuffix ?? '') +
+    (props.project.clipExt ?? '');
+
+  return (
+    <Sheet title="Clip number" onClose={props.onClose}>
+      <p className="camnote" style={{ marginTop: 0 }}>
+        Camera skipped or repeated a number? Set it right. This shot takes the new number and the
+        count carries on from here.
+      </p>
+      <div className="clipset">
+        <button
+          type="button"
+          className="clipset__step"
+          aria-label="Lower"
+          onClick={() => setNum(String(Math.max(0, n - 1)))}
+        >
+          &minus;
+        </button>
+        <input
+          className="field field--mono clipset__input"
+          inputMode="numeric"
+          value={num}
+          autoFocus
+          onChange={(e) => setNum(e.target.value.replace(/[^0-9]/g, ''))}
+        />
+        <button
+          type="button"
+          className="clipset__step"
+          aria-label="Raise"
+          onClick={() => setNum(String(n + 1))}
+        >
+          +
+        </button>
+      </div>
+      <div className="clipset__preview">
+        <span className="label">This shot becomes</span>
+        <span className="tnum">{preview}</span>
+      </div>
+      <div className="sheet__actions">
+        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+          Cancel
+        </button>
+        <button type="button" className="btn btn--go" onClick={() => props.onSet(n)}>
+          Set clip
+        </button>
+      </div>
+    </Sheet>
   );
 }
 

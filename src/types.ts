@@ -11,10 +11,27 @@ export interface Project {
   nextClipNumber: number;  // incremented on every CUT and DISCARD
   clipPadding: number;     // C0042 -> padding 4
   clipSuffix?: string;     // static tail after the counter, e.g. "_*" (RED) or "_D" (DJI)
+  clipExt?: string;        // media file extension incl. dot, e.g. ".MP4" / ".R3D" — lets Premiere relink
   camera?: string;         // camera preset id the clip format came from, e.g. "sony"
   tags: string[];          // quick-tag chips, default ["FLUB","GOLD","PICKUP","NOISE"]
   createdAt: number;
   updatedAt: number;
+}
+
+/**
+ * A tap chip attached to a scene. Two tiers, rendered as two rows on the
+ * rolling screen: `coverage` (WIDE/CU/OTS…, cool/neutral, roughly the same on
+ * every scene) and `keyMoment` (script-derived beats an editor cares about,
+ * amber). Populated by Script Mode from a script pack; a hand-made scene just
+ * has none and falls back to the project's quick tags.
+ */
+export type SlateTagTier = 'coverage' | 'keyMoment';
+
+export interface SlateTag {
+  id: string;
+  label: string;           // chip text; keep short-ish, one line on a phone
+  tier: SlateTagTier;
+  order: number;           // display order within its tier
 }
 
 export interface Slate {
@@ -22,6 +39,9 @@ export interface Slate {
   projectId: string;
   name: string;
   order: number;
+  summary?: string;        // Script Mode: one-line recognizer for the operator
+  scriptRef?: string;      // Script Mode: source scene id, e.g. "SC 12"
+  tags?: SlateTag[];       // Script Mode: per-scene tap chips (both tiers)
   createdAt: number;
   updatedAt: number;
 }
@@ -94,6 +114,7 @@ export interface Store {
     note?: string;
   }): Promise<Take>;
   updateTake(id: string, patch: Partial<Take>): Promise<Take>;
+  deleteTake(id: string): Promise<void>; // cascades the take's moments
 
   listMoments(takeId: string): Promise<Moment[]>; // ordered by atMs
   createMoment(m: Omit<Moment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Moment>;

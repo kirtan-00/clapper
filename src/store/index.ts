@@ -41,6 +41,7 @@ export const store: Store = {
   listTakes: async (slateId) => (await backend()).listTakes(slateId),
   createTake: async (input) => (await backend()).createTake(input),
   updateTake: async (id, patch) => (await backend()).updateTake(id, patch),
+  deleteTake: async (id) => (await backend()).deleteTake(id),
 
   listMoments: async (takeId) => (await backend()).listMoments(takeId),
   createMoment: async (m) => (await backend()).createMoment(m),

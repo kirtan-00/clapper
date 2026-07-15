@@ -11,6 +11,7 @@ import * as haptics from './haptics';
 interface SlateStat {
   slate: Slate;
   takeCount: number;
+  goodCount: number; // kept shots — a scene with >=1 is "in the can"
   totalMs: number;
 }
 
@@ -41,7 +42,7 @@ export function ProjectScreen(props: {
         const takes = await store.listTakes(slate.id);
         const good = takes.filter((t) => t.status === 'good');
         const totalMs = good.reduce((sum, t) => sum + t.durationMs, 0);
-        return { slate, takeCount: takes.length, totalMs };
+        return { slate, takeCount: takes.length, goodCount: good.length, totalMs };
       }),
     );
     setSlates(stats);
@@ -85,6 +86,11 @@ export function ProjectScreen(props: {
       <section className="section">
         <div className="section__head">
           <span className="label">Scenes</span>
+          {slates && slates.length > 0 && (
+            <span className="section__note">
+              {slates.filter((s) => s.goodCount > 0).length}/{slates.length} in the can
+            </span>
+          )}
         </div>
 
         {slates === null ? (
@@ -96,17 +102,24 @@ export function ProjectScreen(props: {
           </div>
         ) : (
           <div className="stack">
-            {slates.map(({ slate, takeCount, totalMs }) => (
+            {slates.map(({ slate, takeCount, goodCount, totalMs }) => (
               <button
                 key={slate.id}
                 type="button"
-                className="card"
+                className={`card${goodCount > 0 ? ' card--done' : ''}`}
                 onClick={() => props.onOpenSlate(project, slate)}
               >
                 <div className="card__row">
-                  <span className="card__name">{slate.name}</span>
+                  <span className="card__namewrap">
+                    <span
+                      className={`scene-dot${goodCount > 0 ? ' scene-dot--done' : ''}`}
+                      aria-label={goodCount > 0 ? 'Shot' : 'Not shot yet'}
+                    />
+                    <span className="card__name">{slate.name}</span>
+                  </span>
                   <span className="card__count">{takeCount}</span>
                 </div>
+                {slate.summary && <div className="card__summary">{slate.summary}</div>}
                 <div className="card__meta">
                   <span>{takeCount === 1 ? '1 shot' : `${takeCount} shots`}</span>
                   <span>
@@ -176,8 +189,8 @@ export function ProjectScreen(props: {
 
       <ClipConfig
         project={project}
-        onSave={(prefix, n, pad) =>
-          commitProject({ clipPrefix: prefix, nextClipNumber: n, clipPadding: pad })
+        onSave={(prefix, n, pad, ext) =>
+          commitProject({ clipPrefix: prefix, nextClipNumber: n, clipPadding: pad, clipExt: ext })
         }
       />
 
@@ -229,25 +242,32 @@ export function ProjectScreen(props: {
 
 function ClipConfig(props: {
   project: Project;
-  onSave: (prefix: string, n: number, pad: number) => Promise<void>;
+  onSave: (prefix: string, n: number, pad: number, ext: string) => Promise<void>;
 }) {
+  // Old projects predate clipExt: fall back to the camera preset's extension so
+  // iPhone/RED/etc. projects pre-fill the right one and Premiere can relink.
+  const presetExt = findPreset(props.project.camera)?.ext ?? '';
   const [prefix, setPrefix] = useState(props.project.clipPrefix);
   const [num, setNum] = useState(String(props.project.nextClipNumber));
   const [pad, setPad] = useState(String(props.project.clipPadding));
+  const [ext, setExt] = useState(props.project.clipExt ?? presetExt);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setPrefix(props.project.clipPrefix);
     setNum(String(props.project.nextClipNumber));
     setPad(String(props.project.clipPadding));
-  }, [props.project.clipPrefix, props.project.nextClipNumber, props.project.clipPadding]);
+    setExt(props.project.clipExt ?? presetExt);
+  }, [props.project.clipPrefix, props.project.nextClipNumber, props.project.clipPadding, props.project.clipExt, presetExt]);
 
   const nNum = Math.max(0, parseInt(num, 10) || 0);
   const nPad = Math.min(8, Math.max(1, parseInt(pad, 10) || 1));
+  const nExt = ext.trim();
   const dirty =
     prefix !== props.project.clipPrefix ||
     nNum !== props.project.nextClipNumber ||
-    nPad !== props.project.clipPadding;
+    nPad !== props.project.clipPadding ||
+    nExt !== (props.project.clipExt ?? '');
 
   const cameraLabel = findPreset(props.project.camera)?.label;
   const suffix = props.project.clipSuffix ?? '';
@@ -261,7 +281,7 @@ function ClipConfig(props: {
       <div className="clipwidget">
         <div className="clipwidget__preview">
           <span className="label">Next clip</span>
-          <span className="tnum">{clipName(prefix, nNum, nPad, suffix)}</span>
+          <span className="tnum">{clipName(prefix, nNum, nPad, suffix)}{nExt}</span>
         </div>
         <div className="clipgrid">
           <div className="formrow" style={{ margin: 0 }}>
@@ -300,13 +320,27 @@ function ClipConfig(props: {
             />
           </div>
         </div>
+        <div className="formrow" style={{ marginTop: 12, marginBottom: 0 }}>
+          <label className="label" htmlFor="cc-ext">
+            File extension <span className="section__note">links footage in Premiere</span>
+          </label>
+          <input
+            id="cc-ext"
+            className="field field--mono"
+            value={ext}
+            placeholder=".MOV"
+            autoCapitalize="characters"
+            spellCheck={false}
+            onChange={(e) => setExt(e.target.value)}
+          />
+        </div>
         <button
           type="button"
           className="btn btn--full"
           style={{ marginTop: 12 }}
           disabled={!dirty}
           onClick={async () => {
-            await props.onSave(prefix, nNum, nPad);
+            await props.onSave(prefix, nNum, nPad, nExt);
             setSaved(true);
             window.setTimeout(() => setSaved(false), 1400);
           }}

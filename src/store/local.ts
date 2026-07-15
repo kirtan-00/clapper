@@ -202,6 +202,15 @@ export function createLocalStore(): Store {
       return updated;
     },
 
+    async deleteTake(id) {
+      for (const m of [...tables.moments.values()]) {
+        if (m.takeId === id) tables.moments.delete(m.id);
+      }
+      tables.takes.delete(id);
+      persist('moments');
+      persist('takes');
+    },
+
     async listMoments(takeId) {
       return [...tables.moments.values()]
         .filter((m) => m.takeId === takeId)

@@ -35,6 +35,7 @@ export default function App() {
           project={screen.project}
           slate={screen.slate}
           onExit={() => setScreen({ name: 'project', project: screen.project })}
+          onNavigate={(slate) => setScreen({ name: 'rolling', project: screen.project, slate })}
         />
       );
   }

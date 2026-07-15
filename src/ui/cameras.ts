@@ -11,18 +11,20 @@ export interface CameraPreset {
   prefix: string;
   digits: number;
   suffix: string;
+  ext: string; // media file extension incl. dot (e.g. ".MP4", ".R3D"); "" = unknown
   exact: boolean; // true = the name matches the card exactly; false = approximate
   note?: string;
 }
 
 export const CAMERA_PRESETS: readonly CameraPreset[] = [
-  { id: 'sony', label: 'Sony A7 / FX (C0001)', prefix: 'C', digits: 4, suffix: '', exact: true },
+  { id: 'sony', label: 'Sony A7 / FX (C0001)', prefix: 'C', digits: 4, suffix: '', ext: '.MP4', exact: true },
   {
     id: 'canonPhoto',
     label: 'Canon R5/R6 (MVI_0001)',
     prefix: 'MVI_',
     digits: 4,
     suffix: '',
+    ext: '.MP4',
     exact: false,
     note: 'Counter is shared with stills, so numbers can skip.',
   },
@@ -32,8 +34,9 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     prefix: 'A001C',
     digits: 3,
     suffix: '',
+    ext: '.MXF',
     exact: true,
-    note: 'The reel (A001) lives in the prefix. New card = bump the reel to A002C, A003C, and so on.',
+    note: 'The reel (A001) lives in the prefix. New card = bump the reel to A002C, A003C, and so on. R5C shoots .MP4 — change the extension if so.',
   },
   {
     id: 'bmpcc',
@@ -41,8 +44,9 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     prefix: 'A001_*_C',
     digits: 3,
     suffix: '',
+    ext: '.braw',
     exact: false,
-    note: 'The * is a record-time stamp the camera adds and is unknowable in advance.',
+    note: 'The * is a record-time stamp the camera adds and is unknowable in advance. ProRes shoots .MOV — change the extension if so.',
   },
   {
     id: 'red',
@@ -50,6 +54,7 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     prefix: 'A001_C',
     digits: 3,
     suffix: '_*',
+    ext: '.R3D',
     exact: false,
     note: 'The * is a date plus random characters. Match files by the C-number.',
   },
@@ -59,6 +64,7 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     prefix: 'A001C',
     digits: 3,
     suffix: '_*',
+    ext: '.mxf',
     exact: false,
     note: 'The * is a date plus camera ID. Match files by the C-number.',
   },
@@ -68,6 +74,7 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     prefix: 'DJI_*_',
     digits: 4,
     suffix: '_D',
+    ext: '.MP4',
     exact: false,
     note: 'The * is a timestamp. Match files by the incrementing number.',
   },
@@ -77,6 +84,7 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     prefix: 'DJI_',
     digits: 4,
     suffix: '',
+    ext: '.MP4',
     exact: true,
   },
   {
@@ -85,6 +93,7 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     prefix: 'GX01',
     digits: 4,
     suffix: '',
+    ext: '.MP4',
     exact: true,
     note: 'Chapters split one long shot into GX02, GX03 files that share the same number.',
   },
@@ -94,11 +103,12 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     prefix: 'IMG_',
     digits: 4,
     suffix: '',
+    ext: '.MOV',
     exact: false,
     note: 'Counter is shared with photos, so numbers can skip.',
   },
-  { id: 'lumix', label: 'Panasonic Lumix (P1000001)', prefix: 'P100', digits: 4, suffix: '', exact: true },
-  { id: 'custom', label: 'Custom', prefix: 'C', digits: 4, suffix: '', exact: true },
+  { id: 'lumix', label: 'Panasonic Lumix (P1000001)', prefix: 'P100', digits: 4, suffix: '', ext: '.MOV', exact: true },
+  { id: 'custom', label: 'Custom', prefix: 'C', digits: 4, suffix: '', ext: '.MP4', exact: true },
 ];
 
 export function findPreset(id: string | undefined): CameraPreset | undefined {

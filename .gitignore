@@ -6,3 +6,6 @@ dev-dist
 *.tsbuildinfo
 .DS_Store
 .vercel
+
+credentials.md
+supabase/.temp/
