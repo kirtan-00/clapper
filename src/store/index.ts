@@ -37,6 +37,8 @@ export const store: Store = {
   createSlate: async (projectId, name) => (await backend()).createSlate(projectId, name),
   updateSlate: async (id, patch) => (await backend()).updateSlate(id, patch),
   deleteSlate: async (id) => (await backend()).deleteSlate(id),
+  reorderSlates: async (projectId, orderedSlateIds) =>
+    (await backend()).reorderSlates(projectId, orderedSlateIds),
 
   listTakes: async (slateId) => (await backend()).listTakes(slateId),
   createTake: async (input) => (await backend()).createTake(input),

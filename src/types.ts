@@ -75,6 +75,15 @@ export interface Slate {
   projectId: string;
   name: string;
   order: number;
+  /**
+   * On-set shooting order, set only once someone drags a scene in the scene
+   * list. Absent for every slate until then — including every slate saved
+   * before this feature existed — so a project nobody has reordered behaves
+   * exactly as it always has. Story order (`order`) is what every exporter
+   * sorts by and is NEVER touched by dragging; `shootOrder` exists purely so
+   * the on-set list can show shooting chronology without disturbing it.
+   */
+  shootOrder?: number;
   summary?: string;        // Script Mode: one-line recognizer for the operator
   scriptRef?: string;      // Script Mode: source scene id, e.g. "SC 12"
   tags?: SlateTag[];       // Script Mode: per-scene tap chips (both tiers)
@@ -149,6 +158,16 @@ export interface Store {
   createSlate(projectId: string, name: string): Promise<Slate>;
   updateSlate(id: string, patch: Partial<Slate>): Promise<Slate>;
   deleteSlate(id: string): Promise<void>; // cascades takes/moments
+  /**
+   * Stamp the on-set shooting order onto a project's scenes as ONE atomic
+   * write. `orderedSlateIds` must be the project's full current scene list,
+   * in the new on-set order the UI wants to persist — each id's index becomes
+   * its `shootOrder`. Never touches `.order` (story order). Returns only the
+   * slates whose `shootOrder` actually changed (a drag that lands back where
+   * it started writes nothing). Follows the same "atomic, minimal-diff" shape
+   * as `rebaseClips` — never N separate `updateSlate` calls from the UI.
+   */
+  reorderSlates(projectId: string, orderedSlateIds: string[]): Promise<Slate[]>;
 
   listTakes(slateId: string): Promise<Take[]>; // ordered by .number
   /**

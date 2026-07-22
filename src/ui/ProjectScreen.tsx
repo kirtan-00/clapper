@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CameraUnit, Project, Slate } from '../types';
 import { isMultiCam } from '../types';
 import { store } from '../store';
+import { moveItem, sortForDisplay } from '../store/util';
 import { tc } from '../export/timecode';
 import { exporter, shareBlob } from '../export';
 import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
@@ -13,6 +14,26 @@ import { useSession } from '../net/auth';
 import { gateExport, FREE_LIMIT } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
+
+// Vertical gap between scene cards — must match `.stack`'s `gap` in
+// styles.css. Used to size the "make room" shift while dragging.
+const ROW_GAP = 12;
+
+/** 1st / 2nd / 3rd / 4th / ... 11th-13th all "th". */
+function ordinal(n: number): string {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
 
 interface SlateStat {
   slate: Slate;
@@ -51,10 +72,15 @@ export function ProjectScreen(props: {
 }) {
   const [project, setProject] = useState<Project>(props.project);
   const [slates, setSlates] = useState<SlateStat[] | null>(null);
+  // Each scene's 1-based position in STORY order (sorted by `.order`, ignoring
+  // `shootOrder`) — used only to show the "9th in script" hint when a scene's
+  // shooting position has drifted from where it sits in the script.
+  const [storyPos, setStoryPos] = useState<Map<string, number>>(new Map());
   const [addName, setAddName] = useState('');
   const [renaming, setRenaming] = useState<Slate | null>(null);
   const [deleting, setDeleting] = useState<Slate | null>(null);
   const [hintSeen, setHintSeen] = useState<boolean>(() => rollHintSeen());
+  const [liveMsg, setLiveMsg] = useState('');
 
   function openSlate(slate: Slate) {
     if (!hintSeen) {
@@ -69,9 +95,11 @@ export function ProjectScreen(props: {
   }, [props.project]);
 
   async function refresh() {
-    const list = await store.listSlates(project.id);
+    const list = await store.listSlates(project.id); // story order (.order)
+    setStoryPos(new Map(list.map((s, i) => [s.id, i + 1])));
+    const displayList = sortForDisplay(list); // on-set order: shootOrder ?? order
     const stats = await Promise.all(
-      list.map(async (slate) => {
+      displayList.map(async (slate) => {
         const takes = await store.listTakes(slate.id);
         const good = takes.filter((t) => t.status === 'good');
         const totalMs = good.reduce((sum, t) => sum + t.durationMs, 0);
@@ -79,6 +107,159 @@ export function ProjectScreen(props: {
       }),
     );
     setSlates(stats);
+  }
+
+  // ---------------------------------------------------------- drag reorder --
+  // Pointer-events-only drag: the handle is the ONLY thing that starts a drag
+  // (touch-action: none on it), so a swipe anywhere else on the card still
+  // scrolls the page normally. While dragging, the picked-up row follows the
+  // finger 1:1; every other row between its start and current slot slides by
+  // exactly the dragged row's own height to open/close a gap — correct
+  // regardless of each row's own height, since it's the SAME hole moving.
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const dragMeta = useRef<{
+    pointerId: number;
+    startClientY: number;
+    latestClientY: number;
+    centers: number[]; // each row's original viewport center-Y, snapshotted at pointerdown
+    rafId: number | null;
+  } | null>(null);
+  const [drag, setDrag] = useState<{
+    id: string;
+    startIndex: number;
+    hoverIndex: number;
+    deltaY: number;
+    height: number;
+  } | null>(null);
+  // The latest commitReorder, kept fresh every render so the stable
+  // (create-once) pointer listeners below always call into current state.
+  const commitRef = useRef<(from: number, to: number) => void>(() => {});
+  const onDragMoveRef = useRef<((e: PointerEvent) => void) | null>(null);
+  const onDragEndRef = useRef<((e: PointerEvent) => void) | null>(null);
+
+  function setRowRef(id: string, el: HTMLDivElement | null) {
+    if (el) rowRefs.current.set(id, el);
+    else rowRefs.current.delete(id);
+  }
+
+  async function commitReorder(fromIndex: number, toIndex: number) {
+    if (!slates) return;
+    const currentIds = slates.map((s) => s.slate.id);
+    const newIds = moveItem(currentIds, fromIndex, toIndex);
+    if (newIds.join('|') === currentIds.join('|')) return; // genuine no-op: nothing to persist
+    const movedName = slates[fromIndex].slate.name;
+    haptics.tap();
+    await store.reorderSlates(project.id, newIds);
+    await refresh();
+    setLiveMsg(`Moved ${movedName} to position ${toIndex + 1} of ${newIds.length}`);
+  }
+  commitRef.current = (from, to) => void commitReorder(from, to);
+
+  if (!onDragMoveRef.current) {
+    onDragMoveRef.current = (e: PointerEvent) => {
+      const meta = dragMeta.current;
+      if (!meta || e.pointerId !== meta.pointerId) return;
+      e.preventDefault();
+      meta.latestClientY = e.clientY;
+      if (meta.rafId !== null) return;
+      meta.rafId = window.requestAnimationFrame(() => {
+        const m = dragMeta.current;
+        if (!m) return;
+        m.rafId = null;
+        const deltaY = m.latestClientY - m.startClientY;
+        setDrag((prev) => {
+          if (!prev) return prev;
+          const draggedCenterNow = m.centers[prev.startIndex] + deltaY;
+          let hoverIndex = prev.startIndex;
+          if (deltaY > 0) {
+            for (let i = prev.startIndex + 1; i < m.centers.length; i++) {
+              if (draggedCenterNow > m.centers[i]) hoverIndex = i;
+              else break;
+            }
+          } else if (deltaY < 0) {
+            for (let i = prev.startIndex - 1; i >= 0; i--) {
+              if (draggedCenterNow < m.centers[i]) hoverIndex = i;
+              else break;
+            }
+          }
+          return { ...prev, deltaY, hoverIndex };
+        });
+      });
+    };
+  }
+
+  if (!onDragEndRef.current) {
+    onDragEndRef.current = (e: PointerEvent) => {
+      const meta = dragMeta.current;
+      if (!meta || e.pointerId !== meta.pointerId) return;
+      window.removeEventListener('pointermove', onDragMoveRef.current!);
+      window.removeEventListener('pointerup', onDragEndRef.current!);
+      window.removeEventListener('pointercancel', onDragEndRef.current!);
+      dragMeta.current = null;
+      setDrag((prev) => {
+        if (prev && prev.hoverIndex !== prev.startIndex) {
+          commitRef.current(prev.startIndex, prev.hoverIndex);
+        }
+        return null;
+      });
+    };
+  }
+
+  // Belt-and-braces: if the screen unmounts mid-drag, drop the listeners.
+  useEffect(() => {
+    return () => {
+      if (onDragMoveRef.current) window.removeEventListener('pointermove', onDragMoveRef.current);
+      if (onDragEndRef.current) {
+        window.removeEventListener('pointerup', onDragEndRef.current);
+        window.removeEventListener('pointercancel', onDragEndRef.current);
+      }
+    };
+  }, []);
+
+  function startDrag(e: React.PointerEvent<HTMLButtonElement>, index: number) {
+    if (!slates) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const rects = slates.map(({ slate }) => rowRefs.current.get(slate.id)?.getBoundingClientRect());
+    if (rects.some((r) => !r)) return;
+    const centers = rects.map((r) => r!.top + r!.height / 2);
+    const height = rects[index]!.height;
+    dragMeta.current = {
+      pointerId: e.pointerId,
+      startClientY: e.clientY,
+      latestClientY: e.clientY,
+      centers,
+      rafId: null,
+    };
+    setDrag({ id: slates[index].slate.id, startIndex: index, hoverIndex: index, deltaY: 0, height });
+    haptics.tap();
+    window.addEventListener('pointermove', onDragMoveRef.current!);
+    window.addEventListener('pointerup', onDragEndRef.current!);
+    window.addEventListener('pointercancel', onDragEndRef.current!);
+  }
+
+  function onGripKeyDown(e: React.KeyboardEvent, index: number) {
+    if (!slates) return;
+    if (e.key === 'ArrowUp' && index > 0) {
+      e.preventDefault();
+      void commitReorder(index, index - 1);
+    } else if (e.key === 'ArrowDown' && index < slates.length - 1) {
+      e.preventDefault();
+      void commitReorder(index, index + 1);
+    }
+  }
+
+  /** Visual translateY for a non-dragged row: shift by exactly the dragged
+   * row's own height to open/close the gap it will land in. */
+  function shiftFor(index: number): number {
+    if (!drag || index === drag.startIndex) return 0;
+    const amount = drag.height + ROW_GAP;
+    if (drag.hoverIndex > drag.startIndex && index > drag.startIndex && index <= drag.hoverIndex) {
+      return -amount;
+    }
+    if (drag.hoverIndex < drag.startIndex && index >= drag.hoverIndex && index < drag.startIndex) {
+      return amount;
+    }
+    return 0;
   }
 
   useEffect(() => {
@@ -137,6 +318,10 @@ export function ProjectScreen(props: {
           )}
         </div>
 
+        <div className="visually-hidden" role="status" aria-live="polite">
+          {liveMsg}
+        </div>
+
         {slates === null ? (
           <div className="empty">Loading scenes</div>
         ) : slates.length === 0 ? (
@@ -155,75 +340,130 @@ export function ProjectScreen(props: {
               </div>
             )}
             <div className="stack">
-            {slates.map(({ slate, takeCount, goodCount, totalMs }) => (
-              <button
-                key={slate.id}
-                type="button"
-                className={`card${goodCount > 0 ? ' card--done' : ''}`}
-                onClick={() => openSlate(slate)}
-              >
-                <div className="card__row">
-                  <span className="card__namewrap">
-                    <span
-                      className={`scene-dot${goodCount > 0 ? ' scene-dot--done' : ''}`}
-                      aria-label={goodCount > 0 ? 'Shot' : 'Not shot yet'}
-                    />
-                    <span className="card__name">{slate.name}</span>
-                  </span>
-                  <span className="card__count">{takeCount}</span>
-                  <span className="card__chevron" aria-hidden="true">
-                    ›
-                  </span>
-                </div>
-                {slate.summary && <div className="card__summary">{slate.summary}</div>}
-                <div className="card__meta">
-                  <span>{takeCount === 1 ? '1 shot' : `${takeCount} shots`}</span>
-                  <span>
-                    roll <b className="tnum">{tc.msToClock(totalMs)}</b>
-                  </span>
-                  <span
-                    className="iconbtn"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Rename scene ${slate.name}`}
-                    style={{ marginLeft: 'auto', minHeight: 32, minWidth: 32 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRenaming(slate);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setRenaming(slate);
-                      }
-                    }}
+            {slates.map(({ slate, takeCount, goodCount, totalMs }, i) => {
+              const isDragging = drag?.id === slate.id;
+              const shift = isDragging ? drag!.deltaY : shiftFor(i);
+              const displayPos = i + 1;
+              const scriptPos = storyPos.get(slate.id);
+              const showStoryHint = scriptPos !== undefined && scriptPos !== displayPos;
+              return (
+                <div
+                  key={slate.id}
+                  ref={(el) => setRowRef(slate.id, el)}
+                  className={`cardrow${isDragging ? ' cardrow--dragging' : ''}`}
+                  style={{
+                    transform: shift ? `translateY(${shift}px)` : undefined,
+                    transition: isDragging ? 'none' : 'transform 150ms ease',
+                  }}
+                >
+                  <div className="scenehandle">
+                    <button
+                      type="button"
+                      className="scenehandle__step"
+                      aria-label={`Move ${slate.name} up`}
+                      disabled={i === 0}
+                      onClick={() => void commitReorder(i, i - 1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="scenehandle__grip"
+                      aria-label={`Reorder ${slate.name}. Position ${displayPos} of ${slates.length} in shooting order. Drag, or use the up and down buttons, to move it.`}
+                      onPointerDown={(e) => startDrag(e, i)}
+                      onKeyDown={(e) => onGripKeyDown(e, i)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                        <circle cx="4" cy="3" r="1.4" fill="currentColor" />
+                        <circle cx="12" cy="3" r="1.4" fill="currentColor" />
+                        <circle cx="4" cy="8" r="1.4" fill="currentColor" />
+                        <circle cx="12" cy="8" r="1.4" fill="currentColor" />
+                        <circle cx="4" cy="13" r="1.4" fill="currentColor" />
+                        <circle cx="12" cy="13" r="1.4" fill="currentColor" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="scenehandle__step"
+                      aria-label={`Move ${slate.name} down`}
+                      disabled={i === slates.length - 1}
+                      onClick={() => void commitReorder(i, i + 1)}
+                    >
+                      ▼
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className={`card${goodCount > 0 ? ' card--done' : ''}`}
+                    onClick={() => openSlate(slate)}
                   >
-                    edit
-                  </span>
-                  <span
-                    className="iconbtn"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Delete scene ${slate.name}`}
-                    style={{ minHeight: 32, minWidth: 32 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleting(slate);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDeleting(slate);
-                      }
-                    }}
-                  >
-                    del
-                  </span>
+                    <div className="card__row">
+                      <span className="card__namewrap">
+                        <span
+                          className={`scene-dot${goodCount > 0 ? ' scene-dot--done' : ''}`}
+                          aria-label={goodCount > 0 ? 'Shot' : 'Not shot yet'}
+                        />
+                        <span className="card__name">{slate.name}</span>
+                      </span>
+                      <span className="card__count">{takeCount}</span>
+                      <span className="card__chevron" aria-hidden="true">
+                        ›
+                      </span>
+                    </div>
+                    {slate.summary && <div className="card__summary">{slate.summary}</div>}
+                    <div className="card__meta">
+                      {showStoryHint && (
+                        <span className="card__storyhint">{ordinal(scriptPos)} in script</span>
+                      )}
+                      <span>{takeCount === 1 ? '1 shot' : `${takeCount} shots`}</span>
+                      <span>
+                        roll <b className="tnum">{tc.msToClock(totalMs)}</b>
+                      </span>
+                      <span
+                        className="iconbtn"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Rename scene ${slate.name}`}
+                        style={{ marginLeft: 'auto', minHeight: 32, minWidth: 32 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenaming(slate);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setRenaming(slate);
+                          }
+                        }}
+                      >
+                        edit
+                      </span>
+                      <span
+                        className="iconbtn"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Delete scene ${slate.name}`}
+                        style={{ minHeight: 32, minWidth: 32 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleting(slate);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDeleting(slate);
+                          }
+                        }}
+                      >
+                        del
+                      </span>
+                    </div>
+                  </button>
                 </div>
-              </button>
-            ))}
+              );
+            })}
             </div>
           </>
         )}

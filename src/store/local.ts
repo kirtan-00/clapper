@@ -1,5 +1,12 @@
 import type { Moment, Project, ProjectBundle, Slate, Store, Take } from '../types';
-import { buildTakeClips, newId, notFound, rebaseClipNumbers, reclaimClipNumbers } from './util';
+import {
+  buildTakeClips,
+  newId,
+  notFound,
+  rebaseClipNumbers,
+  reclaimClipNumbers,
+  reorderSlateList,
+} from './util';
 
 // A localStorage-backed Store, used when IndexedDB cannot be opened (common on
 // file:// in some browsers, and in private windows). Data volumes here are tiny
@@ -152,6 +159,14 @@ export function createLocalStore(): Store {
       persist('moments');
       persist('takes');
       persist('slates');
+    },
+
+    async reorderSlates(projectId, orderedSlateIds) {
+      const all = [...tables.slates.values()].filter((s) => s.projectId === projectId);
+      const changed = reorderSlateList(all, orderedSlateIds, Date.now());
+      for (const s of changed) tables.slates.set(s.id, s);
+      if (changed.length > 0) persist('slates');
+      return changed;
     },
 
     async listTakes(slateId) {

@@ -1,6 +1,6 @@
 // Shared helpers for both store backends (idb + localStorage).
 
-import type { CameraUnit, CameraUnitLetter, Project, Take, TakeClip } from '../types';
+import type { CameraUnit, CameraUnitLetter, Project, Slate, Take, TakeClip } from '../types';
 
 export function newId(): string {
   // crypto.randomUUID is available on http(s) AND on file:// in modern
@@ -333,4 +333,62 @@ export function buildTakeClips(
     updatedAt: now,
   };
   return { take, project: { ...project, nextClipNumber: clipNumber + 1, updatedAt: now } };
+}
+
+// ---------------------------------------------------------- shoot order ---
+// Two independent orders live on a Slate: `order` (story/script order — what
+// every exporter sorts by, and what Script Mode assigns) and `shootOrder`
+// (on-set running order, set only once someone drags a scene). These helpers
+// are pure and shared by both store backends, same as the clip-number helpers
+// above.
+
+/**
+ * The order the on-set scene list displays in: `shootOrder` if the slate has
+ * one, else its story `order`. A project where nobody has ever dragged has no
+ * `shootOrder` anywhere, so this is byte-identical to sorting by `.order`
+ * alone — no migration, no behaviour change until the first drag.
+ */
+export function sortForDisplay<T extends { order: number; shootOrder?: number }>(slates: T[]): T[] {
+  return [...slates].sort((a, b) => {
+    const av = a.shootOrder ?? a.order;
+    const bv = b.shootOrder ?? b.order;
+    return av - bv || a.order - b.order;
+  });
+}
+
+/** Pure array move: pull the item at `from` out and reinsert it at `to`, clamped. */
+export function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (from < 0 || from >= items.length) return items.slice();
+  const clamped = Math.max(0, Math.min(items.length - 1, to));
+  if (clamped === from) return items.slice();
+  const copy = items.slice();
+  const [moved] = copy.splice(from, 1);
+  copy.splice(clamped, 0, moved);
+  return copy;
+}
+
+/**
+ * Stamp `shootOrder` across a project's scenes to match a new on-set running
+ * order. `orderedSlateIds` is expected to be the project's FULL current scene
+ * set, in the order the UI wants to persist — each id's index becomes its
+ * `shootOrder`. Returns ONLY the slates whose `shootOrder` actually changed
+ * (a reorder that lands back where it started, or an id we don't recognise,
+ * writes nothing) — the same "only touch what moved" discipline as
+ * `rebaseClipNumbers`. Never touches `.order`.
+ */
+export function reorderSlateList(
+  allSlates: Slate[],
+  orderedSlateIds: string[],
+  now: number,
+): Slate[] {
+  const byId = new Map(allSlates.map((s) => [s.id, s]));
+  const changed: Slate[] = [];
+  orderedSlateIds.forEach((id, index) => {
+    const existing = byId.get(id);
+    if (!existing) return; // unknown id: never invent or corrupt a row
+    if (existing.shootOrder !== index) {
+      changed.push({ ...existing, shootOrder: index, updatedAt: now });
+    }
+  });
+  return changed;
 }

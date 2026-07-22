@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { isMultiCam } from '../types';
 import { store } from '../store';
-import { parseClipNumber, rebaseClipNumbers, type TakeUnitRoll } from '../store/util';
+import { parseClipNumber, rebaseClipNumbers, sortForDisplay, type TakeUnitRoll } from '../store/util';
 import { tc } from '../export/timecode';
 import { renderUnitClip } from './cameras';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
@@ -254,7 +254,10 @@ export function RollingScreen(props: {
   }, [slate.id]);
 
   useEffect(() => {
-    void store.listSlates(project.id).then(setSiblings);
+    // The Rolling screen's scene pager flips through scenes in the same
+    // on-set (shooting) order as the scene list — sortForDisplay is a no-op
+    // fallback to story order until a scene has ever been dragged.
+    void store.listSlates(project.id).then((list) => setSiblings(sortForDisplay(list)));
   }, [project.id]);
 
   // voice wiring (once per listener)

@@ -1,6 +1,13 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Moment, Project, ProjectBundle, Slate, Store, Take } from '../types';
-import { buildTakeClips, newId, notFound, rebaseClipNumbers, reclaimClipNumbers } from './util';
+import {
+  buildTakeClips,
+  newId,
+  notFound,
+  rebaseClipNumbers,
+  reclaimClipNumbers,
+  reorderSlateList,
+} from './util';
 
 interface ClapperDB extends DBSchema {
   projects: { key: string; value: Project };
@@ -114,6 +121,15 @@ export async function openIdbStore(): Promise<Store> {
       await Promise.all(takeIds.map((t) => tx.objectStore('takes').delete(t)));
       await tx.objectStore('slates').delete(id);
       await tx.done;
+    },
+
+    async reorderSlates(projectId, orderedSlateIds) {
+      const tx = db.transaction('slates', 'readwrite');
+      const all = await tx.store.index('byProject').getAll(projectId);
+      const changed = reorderSlateList(all, orderedSlateIds, Date.now());
+      for (const s of changed) await tx.store.put(s);
+      await tx.done;
+      return changed;
     },
 
     async listTakes(slateId) {
