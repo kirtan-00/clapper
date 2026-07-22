@@ -176,6 +176,63 @@ export function rebaseClipNumbers(
   return { takes: [...changed.values()], project: nextProject };
 }
 
+/**
+ * Give a deleted shot's clip number back to the camera count.
+ *
+ * DELETE means that file never existed: the app rolled but the camera did not.
+ * So every later shot on each unit the phantom consumed slides DOWN one, and
+ * the live counter with it. (DISCARD is the opposite case - the camera DID
+ * write the file, it was just no good, so the number stays spent.)
+ *
+ * Returns the takes to rewrite (the doomed take is NOT included; the caller
+ * deletes that row) and the updated project.
+ */
+export function reclaimClipNumbers(
+  project: Project,
+  allTakes: Take[],
+  deletedTakeId: string,
+  now: number,
+): { takes: Take[]; project: Project } {
+  const ordered = inCutOrder(allTakes);
+  const at = ordered.findIndex((t) => t.id === deletedTakeId);
+  if (at < 0) notFound('take', deletedTakeId);
+
+  const doomed = ordered[at];
+  const units = clipUnits(project);
+  // Only units that actually recorded a clip on the doomed take gave up a
+  // number, so only those get one back. On a multi-cam take where just the
+  // B-cam rolled, A/C/D never advanced and must not slide.
+  const consumed = units.filter((u) =>
+    doomed.clips && doomed.clips.length
+      ? doomed.clips.some((c) => c.unit === u.letter)
+      : u.letter === 'A',
+  );
+  if (consumed.length === 0) return { takes: [], project };
+
+  const changed: Take[] = [];
+  for (let i = at + 1; i < ordered.length; i++) {
+    let take = ordered[i];
+    for (const u of consumed) {
+      take = withClipNumber(take, u, Math.max(0, takeClipNumber(take, u) - 1));
+    }
+    if (take !== ordered[i]) changed.push({ ...take, updatedAt: now });
+  }
+
+  const letters = new Set(consumed.map((u) => u.letter));
+  const nextProject: Project =
+    project.cameras && project.cameras.length > 0
+      ? {
+          ...project,
+          cameras: project.cameras.map((u) =>
+            letters.has(u.letter) ? { ...u, nextClipNumber: Math.max(0, u.nextClipNumber - 1) } : u,
+          ),
+          updatedAt: now,
+        }
+      : { ...project, nextClipNumber: Math.max(0, project.nextClipNumber - 1), updatedAt: now };
+
+  return { takes: changed, project: nextProject };
+}
+
 /** The CUT-time inputs a take is built from (mirrors Store.createTake's arg). */
 export interface TakeInput {
   slateId: string;

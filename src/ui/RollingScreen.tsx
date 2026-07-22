@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { isMultiCam } from '../types';
 import { store } from '../store';
-import { parseClipNumber } from '../store/util';
+import { parseClipNumber, rebaseClipNumbers } from '../store/util';
 import { tc } from '../export/timecode';
 import { renderUnitClip } from './cameras';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
@@ -595,7 +595,7 @@ export function RollingScreen(props: {
       {deletingTake && (
         <Confirm
           title={`Delete shot ${deletingTake.number}?`}
-          message={`This removes clip ${deletingTake.clipName} and every moment tagged in it. Schedules change, so this frees the slot. Cannot be undone.`}
+          message={`Only if the camera never rolled. This removes ${takeClipLabel(deletingTake)} and every moment tagged in it, hands the clip number back, and slides every later shot on that camera down one. If the camera DID roll and the take was simply no good, discard it instead so it keeps its number. Cannot be undone.`}
           confirmLabel="Delete shot"
           onCancel={() => setDeletingTake(null)}
           onConfirm={async () => {
@@ -845,6 +845,12 @@ function TakeEditSheet(props: {
   const [origTags, setOrigTags] = useState<Set<string>>(new Set());
   const [momentIdsByTag, setMomentIdsByTag] = useState<Map<string, string[]>>(new Map());
   const [saving, setSaving] = useState(false);
+  // Set when saving would renumber OTHER shots: holds the pending write and a
+  // plain-language list of every shot that moves, pending the user's go-ahead.
+  const [pendingShift, setPendingShift] = useState<{
+    newNumbers: Partial<Record<CameraUnitLetter, number>>;
+    moved: string[];
+  } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -893,19 +899,66 @@ function TakeEditSheet(props: {
     });
   }
 
-  async function save() {
+  function typedNumbers(): Partial<Record<CameraUnitLetter, number>> {
+    const out: Partial<Record<CameraUnitLetter, number>> = {};
+    units.forEach((u, i) => {
+      out[u.letter] = Math.max(0, parseInt(nums[i], 10) || 0);
+    });
+    return out;
+  }
+
+  /**
+   * Renumbering rewrites shots the user is not looking at, so never do it
+   * silently. Dry-run the rebase against a copy of the project's takes, and if
+   * anything downstream would move, show exactly what and make them agree.
+   */
+  async function requestSave() {
+    if (saving) return;
+    haptics.tap();
+
+    const newNumbers = typedNumbers();
+    const bundle = await store.getBundle(project.id);
+    const preview = rebaseClipNumbers(project, bundle.takes, take.id, newNumbers, Date.now());
+    const others = preview.takes.filter((t) => t.id !== take.id);
+
+    if (others.length === 0) {
+      void commit(newNumbers);
+      return;
+    }
+
+    // List ONLY the clips that actually change. Echoing every camera on a
+    // 4-cam take buries the one line that matters.
+    const was = new Map(bundle.takes.map((t) => [t.id, t]));
+    const moved = others
+      .slice()
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((t) => {
+        const before = was.get(t.id);
+        const pairs: string[] = [];
+        if (before?.clips?.length && t.clips?.length) {
+          for (const clip of t.clips) {
+            const old = before.clips.find((c) => c.unit === clip.unit);
+            if (old && old.clipName !== clip.clipName) {
+              pairs.push(`${clip.unit} ${old.clipName} → ${clip.clipName}`);
+            }
+          }
+        } else if (before && before.clipName !== t.clipName) {
+          pairs.push(`${before.clipName} → ${t.clipName}`);
+        }
+        return `shot ${t.number}:  ${pairs.join(',  ')}`;
+      });
+    setPendingShift({ newNumbers, moved });
+  }
+
+  async function commit(newNumbers: Partial<Record<CameraUnitLetter, number>>) {
     if (saving) return;
     setSaving(true);
-    haptics.tap();
+    setPendingShift(null);
 
     // A camera counts its own files monotonically, so correcting THIS clip
     // number means every later file that camera wrote is off by the same delta,
     // and so is the live counter. rebaseClips carries the correction forward
     // (per unit, later shots only) in one atomic write.
-    const newNumbers: Partial<Record<CameraUnitLetter, number>> = {};
-    units.forEach((u, i) => {
-      newNumbers[u.letter] = Math.max(0, parseInt(nums[i], 10) || 0);
-    });
     const rebased = await store.rebaseClips(project.id, take.id, newNumbers);
 
     const trimmedNote = note.trim();
@@ -928,6 +981,50 @@ function TakeEditSheet(props: {
     }
 
     props.onSaved(rebased.project, rebased.shifted);
+  }
+
+  // Renumbering touches shots the user cannot see from here, so it gets its own
+  // screen rather than a nested sheet: state below stays mounted, so STOP puts
+  // them back on the edit form with every field exactly as they left it.
+  if (pendingShift) {
+    const n = pendingShift.moved.length;
+    return (
+      <Sheet
+        title="This renumbers later shots"
+        lede={`The camera kept counting, so correcting this clip number corrects every later shot on that camera too, and the live counter with it. ${n} later shot${n === 1 ? '' : 's'} will change. If you did not mean to do this, press STOP.`}
+        onClose={() => setPendingShift(null)}
+      >
+        <ul
+          style={{
+            listStyle: 'none',
+            margin: '0 0 4px',
+            padding: 0,
+            display: 'grid',
+            gap: 8,
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.82rem',
+            color: 'var(--chalk-dim)',
+          }}
+        >
+          {pendingShift.moved.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <div className="sheet__actions">
+          <button type="button" className="btn btn--ghost" onClick={() => setPendingShift(null)}>
+            STOP
+          </button>
+          <button
+            type="button"
+            className="btn btn--go"
+            disabled={saving}
+            onClick={() => void commit(pendingShift.newNumbers)}
+          >
+            Yes, renumber
+          </button>
+        </div>
+      </Sheet>
+    );
   }
 
   return (
@@ -1002,10 +1099,11 @@ function TakeEditSheet(props: {
         <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={saving}>
           Cancel
         </button>
-        <button type="button" className="btn btn--go" disabled={saving} onClick={() => void save()}>
+        <button type="button" className="btn btn--go" disabled={saving} onClick={() => void requestSave()}>
           Save shot
         </button>
       </div>
+
     </Sheet>
   );
 }

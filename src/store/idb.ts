@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Moment, Project, ProjectBundle, Slate, Store, Take } from '../types';
-import { buildTakeClips, newId, notFound, rebaseClipNumbers } from './util';
+import { buildTakeClips, newId, notFound, rebaseClipNumbers, reclaimClipNumbers } from './util';
 
 interface ClapperDB extends DBSchema {
   projects: { key: string; value: Project };
@@ -122,11 +122,25 @@ export async function openIdbStore(): Promise<Store> {
     },
 
     async deleteTake(id) {
-      const tx = db.transaction(['takes', 'moments'], 'readwrite');
+      const tx = db.transaction(['takes', 'moments', 'projects'], 'readwrite');
+      const takes = tx.objectStore('takes');
       const moments = tx.objectStore('moments');
+
+      // Deleting says the camera never wrote this file, so hand its clip
+      // number back: later shots on the units it consumed slide down one.
+      const doomed = (await takes.get(id)) ?? notFound('take', id);
+      const projects = tx.objectStore('projects');
+      const project = await projects.get(doomed.projectId);
+      if (project) {
+        const all = await takes.index('byProject').getAll(doomed.projectId);
+        const freed = reclaimClipNumbers(project, all, id, Date.now());
+        for (const t of freed.takes) await takes.put(t);
+        await projects.put(freed.project);
+      }
+
       const momentIds = await moments.index('byTake').getAllKeys(id);
       await Promise.all(momentIds.map((m) => moments.delete(m)));
-      await tx.objectStore('takes').delete(id);
+      await takes.delete(id);
       await tx.done;
     },
 

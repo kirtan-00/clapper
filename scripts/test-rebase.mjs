@@ -3,7 +3,7 @@
 // No test framework in this project; this is a one-off script like the timecode
 // sanity checks. It type-strips util.ts via node's built-in TS support.
 
-import { rebaseClipNumbers } from '../src/store/util.ts';
+import { rebaseClipNumbers, reclaimClipNumbers } from '../src/store/util.ts';
 
 let pass = 0;
 const fails = [];
@@ -195,6 +195,62 @@ function applied(all, changed) {
     'C0008',
     'C0009',
   ]);
+}
+
+
+// ----------------------------------------------- delete reclaims the number --
+// DELETE means the camera never wrote that file (the app rolled, the camera
+// did not), so the number goes back and everything after slides DOWN one.
+{
+  const p = singleCamProject(6);
+  const all = singleCamTakes();
+  const r = reclaimClipNumbers(p, all, 't2', 999); // t2 was a phantom
+
+  eq('later shots slide down one', names(applied(all, r.takes)), [
+    'C0001',
+    'C0002', // the doomed row itself is untouched; the caller deletes it
+    'C0002',
+    'C0003',
+    'C0004',
+  ]);
+  eq('the doomed take is NOT returned for rewrite', r.takes.some((t) => t.id === 't2'), false);
+  eq('live counter comes back one', r.project.nextClipNumber, 5);
+}
+
+{
+  const p = singleCamProject(6);
+  const all = singleCamTakes();
+  const r = reclaimClipNumbers(p, all, 't5', 999); // last shot
+  eq('deleting the last shot rewrites nothing', r.takes.length, 0);
+  eq('deleting the last shot still frees the counter', r.project.nextClipNumber, 5);
+}
+
+{
+  const p = singleCamProject(0);
+  const all = singleCamTakes();
+  const r = reclaimClipNumbers(p, all, 't1', 999);
+  eq('counter never goes negative', r.project.nextClipNumber, 0);
+}
+
+{
+  // Multi-cam: only the units that actually recorded a clip give a number back.
+  const p = multiCamProject({ A: 4, B: 4 });
+  const all = multiCamTakes().map((t, i) =>
+    i === 1 ? { ...t, clips: [{ unit: 'B', clipName: 'GX02' }] } : t, // t2 = B only
+  );
+  const r = reclaimClipNumbers(p, all, 't2', 999);
+  const out = applied(all, r.takes);
+  eq(
+    'B slides down after a B-only phantom',
+    out.map((t) => t.clips.find((c) => c.unit === 'B')?.clipName),
+    ['GX01', 'GX02', 'GX02'],
+  );
+  eq(
+    'A never moves for a phantom it did not record',
+    out.map((t) => t.clips.find((c) => c.unit === 'A')?.clipName ?? '-'),
+    ['C0001', '-', 'C0003'],
+  );
+  eq('only B counter comes back', [r.project.cameras[0].nextClipNumber, r.project.cameras[1].nextClipNumber], [4, 3]);
 }
 
 // --------------------------------------------------------------- reporting --

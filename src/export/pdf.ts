@@ -41,17 +41,19 @@ function layout(specs: [string, number, Align][]): Col[] {
   });
 }
 
-// SHOT | CLIP | LENGTH | MOMENT | TIME | CAMERA TC | WALL CLOCK  (sum = CONTENT_WIDTH)
+// SHOT | CLIP | MOMENT | TIME | CAMERA TC | WALL CLOCK  (sum = CONTENT_WIDTH)
+// The shot band writes the roll length into TIME and the clock into WALL CLOCK,
+// so every value sits under its own heading. There is deliberately no separate
+// LENGTH column: it was never populated, and a shot's length IS its time.
 const SHOT_COLS = layout([
   ['SHOT', 40, 'left'],
   ['CLIP', 52, 'left'],
-  ['LENGTH', 38, 'right'],
-  ['MOMENT', 151.28, 'left'],
+  ['MOMENT', 189.28, 'left'],
   ['TIME', 56, 'right'],
   ['CAMERA TC', 96, 'right'],
   ['WALL CLOCK', 54, 'right'],
 ]);
-const [, , , C_MOMENT, C_TIME, C_CAMTC, C_WALL] = SHOT_COLS;
+const [, , C_MOMENT, C_TIME, C_CAMTC, C_WALL] = SHOT_COLS;
 
 // SCENE | SHOT | CLIP | TIME | LABEL  (GOLD summary)
 const GOLD_COLS = layout([
@@ -288,16 +290,23 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
       ensure(bandH);
       const bandBottom = y - bandH;
       page.drawRectangle({ x: MARGIN, y: bandBottom, width: CONTENT_WIDTH, height: bandH, color: BAND });
-      const bandParts = [`Shot ${take.number}`, clipLabel(take), tc.msToClock(take.durationMs)];
-      if (take.cameraTC) bandParts.push(`TC ${take.cameraTC}`);
-      bandParts.push(`clock ${wallClockTC(take.startedAt, fps)}`);
-      page.drawText(truncate(sanitize(bandParts.join('  -  ')), bold, 8.5, CONTENT_WIDTH - 8), {
+      // The band is column-aligned with the moment rows below it, so a value
+      // always sits under its own heading: roll length under TIME, and the
+      // clock ONLY under WALL CLOCK. The identity (shot + clip) runs free
+      // across the left, truncated before it can reach the TIME column.
+      const bandBase = baselineOf(bandBottom, bandH, 8.5);
+      const bandLabel = [`Shot ${take.number}`, clipLabel(take)].filter(Boolean).join('  -  ');
+      const labelWidth = C_TIME.x - (MARGIN + 4) - 6;
+      page.drawText(truncate(sanitize(bandLabel), bold, 8.5, labelWidth), {
         x: MARGIN + 4,
-        y: baselineOf(bandBottom, bandH, 8.5),
+        y: bandBase,
         size: 8.5,
         font: bold,
         color: INK,
       });
+      cell(C_TIME, tc.msToClock(take.durationMs), bandBase, { font: bold, size: 8.5 });
+      if (take.cameraTC) cell(C_CAMTC, take.cameraTC, bandBase, { font: bold, size: 8.5 });
+      cell(C_WALL, wallClockTC(take.startedAt, fps), bandBase, { font: bold, size: 8.5 });
       y -= bandH;
 
       // optional shot note (muted, spans the width)

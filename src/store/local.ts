@@ -1,5 +1,5 @@
 import type { Moment, Project, ProjectBundle, Slate, Store, Take } from '../types';
-import { buildTakeClips, newId, notFound, rebaseClipNumbers } from './util';
+import { buildTakeClips, newId, notFound, rebaseClipNumbers, reclaimClipNumbers } from './util';
 
 // A localStorage-backed Store, used when IndexedDB cannot be opened (common on
 // file:// in some browsers, and in private windows). Data volumes here are tiny
@@ -195,6 +195,17 @@ export function createLocalStore(): Store {
     },
 
     async deleteTake(id) {
+      // Deleting says the camera never wrote this file, so hand its clip
+      // number back: later shots on the units it consumed slide down one.
+      const doomed = tables.takes.get(id) ?? notFound('take', id);
+      const project = tables.projects.get(doomed.projectId);
+      if (project) {
+        const all = [...tables.takes.values()].filter((t) => t.projectId === doomed.projectId);
+        const freed = reclaimClipNumbers(project, all, id, Date.now());
+        for (const t of freed.takes) tables.takes.set(t.id, t);
+        tables.projects.set(project.id, freed.project);
+        persist('projects');
+      }
       for (const m of [...tables.moments.values()]) {
         if (m.takeId === id) tables.moments.delete(m.id);
       }

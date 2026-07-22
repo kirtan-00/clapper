@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { Fps, Project } from '../types';
 import { store } from '../store';
 import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
@@ -219,7 +219,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         />
       )}
 
-      {showHelp && <HowToSheet onClose={() => setShowHelp(false)} />}
+      {showHelp && <HowToScreen onClose={() => setShowHelp(false)} />}
 
       {deleting && (
         <Confirm
@@ -801,61 +801,350 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
   );
 }
 
-function HowToSheet(props: { onClose: () => void }) {
+// The full-window guide. Not a sheet: this is documentation a crew member
+// reads standing up, one-handed, in daylight, so it gets the whole viewport,
+// its own scroller, a sticky header and jump chips.
+const GUIDE_NAV: { id: string; label: string }[] = [
+  { id: 'g-what', label: 'What it is' },
+  { id: 'g-handoff', label: 'The handoff' },
+  { id: 'g-setup', label: 'Setup' },
+  { id: 'g-onset', label: 'On set' },
+  { id: 'g-status', label: 'Discard vs delete' },
+  { id: 'g-fix', label: 'Fixing a number' },
+  { id: 'g-cams', label: 'Two to four cams' },
+  { id: 'g-voice', label: 'Voice' },
+  { id: 'g-out', label: 'Exports' },
+];
+
+function HowToScreen(props: { onClose: () => void }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { onClose } = props;
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  function jump(id: string) {
+    const el = scrollRef.current?.querySelector(`#${id}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   return (
-    <Sheet title="How Clapper works" onClose={props.onClose}>
-      <div className="howto">
-        <section>
-          <h4>Log every shot with one tap</h4>
-          <p>
-            Hit the big ROLL when the camera rolls, CUT when it stops (or just say “roll” / “cut”).
-            The timer is your shot length. Tap a chip the instant something happens and it becomes a
-            marker the editor jumps straight to.
-          </p>
-        </section>
-        <section>
-          <h4>Normal mode: you build the scenes</h4>
-          <p>
-            Add a scene, then tap it to begin rolling. On set, tap the coverage as you get it: <b>WIDE · MID · CU · OTS ·
-            INSERT</b>, plus <b>GOLD</b> for the keeper. MARK IN / OUT flags a range. Nothing to type.
-          </p>
-        </section>
-        <section>
-          <h4>Script Mode: the script builds them for you</h4>
-          <p>
-            Upload your script PDF. We break it into scenes shot by shot, each with its own tappable
-            beats (“door slams”, “she turns”). You just tap the beat as it happens.
-          </p>
-        </section>
-        <section>
-          <h4>Shoot in any order, see what’s done</h4>
-          <p>
-            Shot 1 first, then 3, then 2? A <span className="howto-dot howto-dot--done" /> green dot
-            marks scenes in the can, a <span className="howto-dot" /> dim dot marks what’s left. The
-            header keeps a running “X / Y in the can”.
-          </p>
-        </section>
-        <section>
-          <h4>Timecode on set</h4>
-          <p>
-            The big number is elapsed shot length, since Clapper can’t read the camera’s clock. After CUT
-            you can type the camera timecode and a note, so the editor matches by TC later.
-          </p>
-        </section>
-        <section>
-          <h4>Hand off to the editor</h4>
-          <p>
-            <b>Premiere (FCP XML):</b> good takes laid in order, every tap as a timeline marker,
-            footage relinks by filename + extension. Plus a <b>PDF</b> shot log (GOLD highlighted)
-            and <b>CSV</b>.
-          </p>
-        </section>
+    <div className="guide" role="dialog" aria-modal="true" aria-label="How Clapper works">
+      <div className="guide__bar">
+        <div className="guide__barrow">
+          <button
+            type="button"
+            className="guide__close"
+            aria-label="Close the guide"
+            onClick={() => {
+              haptics.tap();
+              onClose();
+            }}
+          >
+            <span aria-hidden="true">←</span>
+          </button>
+          <div className="guide__mark" aria-hidden="true">
+            <span />
+            <span />
+          </div>
+          <h2 className="guide__title">How Clapper works</h2>
+        </div>
+        <div className="guide__nav">
+          {GUIDE_NAV.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className="guide__navchip"
+              onClick={() => jump(n.id)}
+            >
+              {n.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="sheet__actions">
-        <button type="button" className="btn btn--go btn--full" onClick={props.onClose}>
-          Got it
-        </button>
+
+      <div className="guide__scroll" ref={scrollRef}>
+        <div className="guide__inner">
+          {/* 1 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-what">
+            <p className="gsec__num tnum">01</p>
+            <h3 className="gsec__h">What Clapper is</h3>
+            <p className="gsec__lede">
+              Your shot list and your timecode report in the same document, built as you shoot
+              instead of typed up afterwards.
+            </p>
+            <p>
+              A TCR is only worth something if the clip numbers in it are right. One wrong number
+              and the editor stops trusting the whole page, then goes back to opening card folders
+              by hand.
+            </p>
+            <p>
+              On paper you hand-write the camera’s clip number for every single take. Hundreds of
+              numbers a day, read off a monitor, in the dark, between setups. Clapper assigns them
+              instead. You never write one down.
+            </p>
+
+            <div className="grule">
+              <p className="grule__label">The one rule</p>
+              <p className="grule__big">
+                Hit ROLL every time the camera rolls. Every single time.
+              </p>
+              <p>
+                Clapper cannot see the camera. It counts. It assumes the file the camera just wrote
+                is the next number after the last one, so its count and the camera’s count only stay
+                together if you press ROLL exactly as often as the camera does.
+              </p>
+              <p>
+                Camera rolled by accident? Still ROLL, then CUT, then <b>Discard</b>. The camera
+                wrote a file either way, so the number has to get used up either way. Discarding
+                uses it up and moves the count on. Skipping the roll does not, and every clip number
+                after that is wrong.
+              </p>
+            </div>
+          </section>
+
+          {/* 2 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-handoff">
+            <p className="gsec__num tnum">02</p>
+            <h3 className="gsec__h">What the editor gets</h3>
+            <p className="gsec__lede">
+              Export Premiere (FCP XML), hand it over, and the day opens as one timeline with the
+              work already sorted.
+            </p>
+            <ol className="gflow">
+              <li>
+                <b>First, the assembly.</b> The good takes laid end to end in story order, scene by
+                scene, take by take.
+              </li>
+              <li>
+                <b>Then a gap.</b> Three seconds of air so the two halves never read as one cut.
+              </li>
+              <li>
+                <b>Then every clip again</b>, scene by scene, the rejected ones included. The selects
+                pool, parked behind the cut in the same sequence.
+              </li>
+            </ol>
+            <p>
+              Nothing is lost. The editor gets a first assembly to look at and every alternate take
+              sitting right behind it, without going near a card.
+            </p>
+            <p>
+              Every chip you tapped on set arrives as a marker on the clip it happened in. The media
+              comes in offline and relinks by filename plus extension, which is why the extension
+              field in setup matters.
+            </p>
+            <p className="gnote">
+              The selects pool ships on projects with two or more cameras. A single-camera export is
+              the story cut only.
+            </p>
+          </section>
+
+          {/* 3 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-setup">
+            <p className="gsec__num tnum">03</p>
+            <h3 className="gsec__h">Before you roll: sixty seconds</h3>
+            <p className="gsec__lede">
+              Clip-number errors are born here, at the trolley, not out on the floor.
+            </p>
+            <p>
+              <b>Starting clip no.</b> Set it to what is actually in the camera right now. Not 1.
+              Read the last file on the card and enter the next number.
+            </p>
+            <p>
+              <b>Camera.</b> Picking your camera fills in the prefix, the number of digits and the
+              file extension. Check all three against a real file. C0001 and C001 are different
+              names and will not relink.
+            </p>
+            <p>
+              <b>Frame rate.</b> Set it to what the camera is shooting. It is what the exported
+              timeline is built at.
+            </p>
+            <p className="gnote">
+              iPhone: IMG_ numbers are shared with your photo roll, so they skip and cannot be
+              predicted. Set the start from real footage and expect to correct numbers during the
+              day.
+            </p>
+          </section>
+
+          {/* 4 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-onset">
+            <p className="gsec__num tnum">04</p>
+            <h3 className="gsec__h">On set</h3>
+            <p>
+              Tap the scene, then hit the big <b>ROLL</b>. The number on screen is elapsed shot
+              length: Clapper cannot read the camera’s clock, so it times the take rather than
+              pretend to know its timecode.
+            </p>
+            <p>
+              While it runs, tap what you see. Coverage chips <b>WIDE · MID · CU · OTS · INSERT</b>,{' '}
+              <b>GOLD</b> for the keeper, plus PICKUP and NOISE. <b>MARK IN</b> then{' '}
+              <b>MARK OUT</b> flags a range instead of a point. Each tap lands at the second it
+              happened, and nothing needs typing.
+            </p>
+            <p>
+              <b>CUT.</b> Clapper stamps the clip number and asks you to keep or discard. You can
+              add the camera timecode and a one-line note on the same screen.
+            </p>
+            <p>
+              Shoot in any order. A <span className="gdot gdot--done" /> green dot marks a scene in
+              the can, a <span className="gdot" /> dim dot marks what is left, and the header keeps
+              a running “X / Y in the can”.
+            </p>
+            <p>
+              <b>Script Mode.</b> Upload the script PDF and Clapper breaks it into scenes with their
+              own tap chips, so instead of generic coverage you are tapping “door slams” and “she
+              turns”.
+            </p>
+            <p className="gnote">
+              The screen holds itself awake the whole time you are on a scene, so it will not lock
+              between takes.
+            </p>
+          </section>
+
+          {/* 5 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-status">
+            <p className="gsec__num tnum">05</p>
+            <h3 className="gsec__h">Discard is not delete</h3>
+            <p className="gsec__lede">
+              One question sorts it: is there a file on the card? If there is, discard it. If there
+              is nothing on the card, delete it.
+            </p>
+            <div className="gsplit">
+              <div className="gsplit__half">
+                <p className="gsplit__k gsplit__k--keep">Discard</p>
+                <p>
+                  There is a file. The camera rolled and wrote it, the take was just no good. It
+                  keeps its clip number, prints on the PDF struck through in the discarded list, and
+                  still reaches the editor in the selects pool of a multi-camera XML.
+                </p>
+                <p>Flubbed take, false start, a roll nobody meant to make.</p>
+              </div>
+              <div className="gsplit__half">
+                <p className="gsplit__k gsplit__k--kill">Delete</p>
+                <p>
+                  There is no file. You logged something that never happened: a double tap, or the
+                  same shot logged twice. Delete removes the row and every moment tagged in it.
+                </p>
+                <p>
+                  It does not renumber anything by itself. After deleting a phantom row, open the
+                  next shot on that camera and set its clip number to what the card actually says.
+                  Every later shot follows it down.
+                </p>
+              </div>
+            </div>
+            <p className="gnote">
+              The two mistakes cost different things. Discard a shot the camera never wrote and
+              every number after it is off by one. Delete a shot the camera did write and the
+              numbers survive, but that clip disappears from the report and the editor never hears
+              about it. Go by the card.
+            </p>
+          </section>
+
+          {/* 6 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-fix">
+            <p className="gsec__num tnum">06</p>
+            <h3 className="gsec__h">When a number goes wrong</h3>
+            <p>
+              Open the shot and correct its clip number. Clapper shifts every <b>later</b> shot on
+              that camera by the same amount, and moves the live counter with them, because the
+              camera kept counting while you were wrong.
+            </p>
+            <p>Earlier shots never move.</p>
+            <p>
+              It shifts rather than resequences, so deliberate gaps survive: a stretch where the
+              camera rolled and Clapper did not stays a gap instead of being closed up.
+            </p>
+            <p>
+              Per camera. Fixing B never disturbs A, C or D. You can also correct the live clip
+              number straight from the roll screen header.
+            </p>
+          </section>
+
+          {/* 7 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-cams">
+            <p className="gsec__num tnum">07</p>
+            <h3 className="gsec__h">Two to four cameras</h3>
+            <p className="gsec__lede">
+              Pick 1 to 4 cameras when you make the project. Units are lettered A to D.
+            </p>
+            <p>
+              Every unit carries its own independent clip counter and advances on its own at every
+              CUT. Set each one’s starting number and camera type separately.
+            </p>
+            <p>
+              Two identical bodies both writing <span className="tnum">C0001.MP4</span> is fine and
+              expected. The unit letter travels in the XML as the FCP7 reel/tape name, so the
+              editor’s clips still relink to the right card. Nobody has to rename anything.
+            </p>
+            <p>
+              In the timeline each camera is a synced picture and sound pair on its own track pair,
+              V1/A1 for A, V2/A2 for B and so on, dropped at the same position, so it multicam-cuts
+              straight away.
+            </p>
+            <p className="gnote">
+              A tapped chip belongs to the take, not to one angle, so it rides on camera A’s
+              picture.
+            </p>
+          </section>
+
+          {/* 8 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-voice">
+            <p className="gsec__num tnum">08</p>
+            <h3 className="gsec__h">Voice, when your hands are full</h3>
+            <p>
+              Tap the mic on the roll screen and Clapper listens for the slate. It appears only on
+              browsers that support speech recognition.
+            </p>
+            <dl className="gsay">
+              <dt>Starts a take</dt>
+              <dd>“roll” · “rolling” · “roll camera” · “camera roll”</dd>
+              <dt>Stops it</dt>
+              <dd>“cut” · “cut it”</dd>
+            </dl>
+            <p className="gnote">
+              It matches the word anywhere in the sentence. While a take is rolling, someone saying
+              “cut” in conversation will stop it. Turn the mic off if the room talks over takes.
+            </p>
+          </section>
+
+          {/* 9 ---------------------------------------------------------- */}
+          <section className="gsec" id="g-out">
+            <p className="gsec__num tnum">09</p>
+            <h3 className="gsec__h">Three exports, three readers</h3>
+            <dl className="gsay gsay--wide">
+              <dt>Premiere (FCP XML)</dt>
+              <dd>
+                For the editor. The assembly, the selects, and every tap as a timeline marker.
+              </dd>
+              <dt>PDF shot log</dt>
+              <dd>
+                For production and the director. Scenes, shots, clip numbers, durations, camera TC
+                and wall clock, a GOLD summary at the front and the discarded shots at the back.
+              </dd>
+              <dt>CSV</dt>
+              <dd>
+                For anyone who wants the data. One row per tapped moment, plus a row per take so
+                takes with no moments still appear.
+              </dd>
+            </dl>
+            <p>
+              Everything lives on the phone. Logging shots and PDF export need no account and no
+              signal. Script Mode and the Premiere/CSV exports need a free Google sign-in.
+            </p>
+          </section>
+
+          <div className="rail rail--thin guide__tail" aria-hidden="true" />
+
+          <button type="button" className="btn btn--go btn--full" onClick={onClose}>
+            Back to projects
+          </button>
+        </div>
       </div>
-    </Sheet>
+    </div>
   );
 }
