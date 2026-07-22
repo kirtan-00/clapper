@@ -1,0 +1,42 @@
+# Clapper
+
+Free, phone-first take logger and continuity / TCR sheet app for film sets. Tap what happens during a take and Clapper writes the shot log your editor actually needs.
+
+## What it is
+
+Clapper is a free web app (PWA) that runs on the phone already in your pocket. During the take you tap coverage, beats, and the keeper; Clapper timecode-stamps every tap and builds the shot log, continuity notes, and take report for you. At wrap it exports a Premiere-ready timeline plus plain PDF and CSV files. It works offline on set and needs no signup to log takes, so there is nothing to install from an app store and no account to create.
+
+## Features
+
+- Log takes with one tap: ROLL arms the log, chips flash as you tag coverage (WIDE, CU) and scripted beats (door slam, she laughs, glass breaks).
+- Circle / GOLD selects: star the keeper take and it carries through to every export.
+- Timecode on every tap, so each moment is stamped with when it happened.
+- Script Mode: reads your script PDF and turns every key moment of every shot into tappable buttons (sign-in required).
+- Auto camera-clip numbering: matches how Sony, iPhone, RED, ARRI, or GoPro names files, so the log lines up with the cards with no drift. Clip patterns are editable.
+- Export a Premiere-ready XML with takes named (e.g. SC12_T04_CU) and brass markers placed at your taps.
+- Export a PDF shot log with GOLD takes highlighted, and a CSV of every take, tag, and timecode.
+- Works offline on set, including locations with no network.
+- Camera-agnostic and editor-agnostic: plain files your tools already read, nothing proprietary.
+
+## Who it's for
+
+- Script supervisors and continuity crew who need a fast, accurate log.
+- 1st ADs running the floor who want the paper log to disappear.
+- 2nd ACs already holding the phone at the camera cart.
+- Indie, no-budget, and student filmmakers shooting without a dedicated script supervisor.
+- Editors (including podcast editors) who receive the log and want takes named and moments marked before they open the timeline.
+
+## How it works
+
+1. On set: tap ROLL, tag coverage and beats as they happen, and flag the keeper as GOLD. Clapper stamps the timecode for every tap.
+2. Clip numbers: pick your camera body and Clapper numbers each clip the way that camera does, so the log matches the cards.
+3. At wrap: export once and get three files. A Premiere XML with takes named and markers placed, a PDF shot log with GOLD highlighted, and a CSV of every take.
+
+## Pricing
+
+Free. No signup is needed to log takes, tag coverage, flag GOLD, or work offline. Sign-in is only required for Script Mode and for XML / CSV export.
+
+## Links
+
+- Landing page: https://clapboard.duckdns.org/
+- App: https://clapboard.duckdns.org/app/

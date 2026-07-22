@@ -6,10 +6,65 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0c0d10" />
-    <title>Clapper</title>
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <title>Clapper: free take logger and continuity/TCR sheet app</title>
+    <meta name="description" content="Free phone-first take logger for film sets. Log takes, build continuity and TCR sheets, and export a Premiere-ready timeline, CSV, or PDF. Works offline on set." />
+    <meta name="keywords" content="script supervisor app, continuity sheet, TCR sheet, camera log sheet, take log app, shot logger, on set logging app, script breakdown app, Premiere timeline export, continuity software" />
+    <meta name="author" content="Clapper" />
+    <link rel="canonical" href="https://clapboard.duckdns.org/app/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Clapper" />
+    <meta property="og:title" content="Clapper: free take logger and continuity/TCR sheet app" />
+    <meta property="og:description" content="Log takes on set, build continuity and TCR sheets, and export a Premiere-ready timeline, CSV, or PDF. Free, phone-first, works offline." />
+    <meta property="og:url" content="https://clapboard.duckdns.org/app/" />
+    <meta property="og:image" content="https://clapboard.duckdns.org/og.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Clapper: free take logger and continuity/TCR sheet app" />
+    <meta name="twitter:description" content="Log takes on set, build continuity and TCR sheets, and export a Premiere-ready timeline, CSV, or PDF. Free, phone-first, works offline." />
+    <meta name="twitter:image" content="https://clapboard.duckdns.org/og.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Clapper",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Web / iOS / Android (PWA)",
+        "description": "Free phone-first take logger for film sets. Log takes, build continuity and TCR sheets, number camera clips, and export a Premiere-ready timeline, CSV, or PDF. Works offline on set.",
+        "url": "https://clapboard.duckdns.org/app/",
+        "image": "https://clapboard.duckdns.org/og.png",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>Clapper: free take logger and continuity sheet for film sets</h1>
+      <p>
+        Clapper is a phone-first app for script supervisors, ADs, and DITs. Log every
+        take on set, track continuity, and build continuity and TCR sheets as you shoot.
+        It numbers camera clips, keeps a running take log, and works offline so you never
+        lose a slate between setups.
+      </p>
+      <p>
+        When the day wraps, export a camera log sheet and continuity/TCR sheet as PDF,
+        a CSV of every take, or a Premiere-ready timeline (XML) so the editor opens the
+        cut with takes, scenes, and notes already in place. Free, no install required.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

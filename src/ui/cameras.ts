@@ -5,6 +5,8 @@
 // Only the incrementing counter is ours to drive; the '*' just travels through
 // to the editor untouched.
 
+import type { CameraUnit, CameraUnitLetter } from '../types';
+
 export interface CameraPreset {
   id: string;
   label: string;
@@ -36,7 +38,7 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     suffix: '',
     ext: '.MXF',
     exact: true,
-    note: 'The reel (A001) lives in the prefix. New card = bump the reel to A002C, A003C, and so on. R5C shoots .MP4 — change the extension if so.',
+    note: 'The reel (A001) lives in the prefix. New card = bump the reel to A002C, A003C, and so on. R5C shoots .MP4, so change the extension if so.',
   },
   {
     id: 'bmpcc',
@@ -46,7 +48,7 @@ export const CAMERA_PRESETS: readonly CameraPreset[] = [
     suffix: '',
     ext: '.braw',
     exact: false,
-    note: 'The * is a record-time stamp the camera adds and is unknowable in advance. ProRes shoots .MOV — change the extension if so.',
+    note: 'The * is a record-time stamp the camera adds and is unknowable in advance. ProRes shoots .MOV, so change the extension if so.',
   },
   {
     id: 'red',
@@ -119,4 +121,31 @@ export function findPreset(id: string | undefined): CameraPreset | undefined {
 export function renderClip(prefix: string, n: number, digits: number, suffix: string): string {
   const pad = Math.min(8, Math.max(1, digits || 1));
   return prefix + String(Math.max(0, n)).padStart(pad, '0') + suffix;
+}
+
+// --------------------------------------------------------------- multi-cam ---
+
+export const UNIT_LETTERS: readonly CameraUnitLetter[] = ['A', 'B', 'C', 'D'];
+
+/** Build a camera unit from a preset id, deriving its clip pattern from the type. */
+export function makeCameraUnit(
+  letter: CameraUnitLetter,
+  presetId: string,
+  startNumber: number,
+): CameraUnit {
+  const p = findPreset(presetId);
+  return {
+    letter,
+    camera: presetId,
+    clipPrefix: p?.prefix ?? 'C',
+    clipSuffix: p?.suffix ?? '',
+    clipPadding: p?.digits ?? 4,
+    clipExt: p?.ext ?? '.MP4',
+    nextClipNumber: Math.max(0, startNumber),
+  };
+}
+
+/** This unit's next clip name, e.g. "C0012". */
+export function renderUnitClip(u: CameraUnit): string {
+  return renderClip(u.clipPrefix, u.nextClipNumber, u.clipPadding, u.clipSuffix ?? '');
 }

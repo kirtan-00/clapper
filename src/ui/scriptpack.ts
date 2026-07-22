@@ -294,7 +294,7 @@ export const TREELAND_DEMO: ScriptPack[] = [
       {
         scriptRef: 'HD-1', order: 1,
         name: 'HD 1 · EXT. BENCHES · DAY (setup)',
-        summary: 'Two people on a bench, dogs on the next benches. “Oyee, shhh, sun na” — focus shifts to the dog.',
+        summary: 'Two people on a bench, dogs on the next benches. “Oyee, shhh, sun na”, then focus shifts to the dog.',
         keyMomentTags: ['people on bench', '“oyee sun na” voice', 'focus shift to dog'],
       },
       {

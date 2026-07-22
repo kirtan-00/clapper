@@ -1,13 +1,14 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 import type { Fps, Project } from '../types';
 import { store } from '../store';
-import { CAMERA_PRESETS, findPreset, renderClip } from './cameras';
+import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
 import { Sheet, Confirm, Rail } from './common';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
 import { extractPdfText } from './pdftext';
 import { breakdownScript, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
-import { useSession, signInWithGoogle } from '../net/auth';
+import { ProCta } from './ProCta';
+import { useSession, signInWithGoogle, signOut } from '../net/auth';
 import { getUsage, FREE_LIMIT, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
@@ -17,6 +18,17 @@ const FPS_OPTIONS: Fps[] = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
 // INSERT) plus the usual take-quality flags. Script Mode overrides these per
 // scene with its own chips.
 const DEFAULT_TAGS = ['WIDE', 'MID', 'CU', 'OTS', 'INSERT', 'GOLD', 'PICKUP', 'NOISE'];
+
+// Feedback goes straight to the maker's inbox — Clapper is an early beta, so a
+// prefilled mailto is enough. The body seeds the prompt; the trailing newlines
+// drop the cursor onto a blank line ready to type.
+const FEEDBACK_MAILTO =
+  'mailto:purohit.krick@gmail.com?subject=' +
+  encodeURIComponent('Clapper feedback') +
+  '&body=' +
+  encodeURIComponent(
+    "Clapper is an early beta version for testing. Please share your feedback, and tell us: would you use a tool like this? What's missing?\n\n\n",
+  );
 
 interface Row {
   project: Project;
@@ -145,16 +157,31 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         <span aria-hidden="true">≡</span> Script Mode · from a PDF
       </button>
 
-      <button
-        type="button"
-        className="newproject newproject--ghost newproject--help"
-        onClick={() => {
-          haptics.tap();
-          setShowHelp(true);
-        }}
-      >
-        <span aria-hidden="true">?</span> How to use
-      </button>
+      <div className="newproject-row">
+        <button
+          type="button"
+          className="newproject newproject--ghost newproject--help"
+          onClick={() => {
+            haptics.tap();
+            setShowHelp(true);
+          }}
+        >
+          <span aria-hidden="true">?</span> How to use
+        </button>
+
+        <button
+          type="button"
+          className="newproject newproject--ghost newproject--help"
+          onClick={() => {
+            haptics.tap();
+            window.location.href = FEEDBACK_MAILTO;
+          }}
+        >
+          <span aria-hidden="true">✉</span> Feedback
+        </button>
+      </div>
+
+      <AccountRow />
 
       <div style={{ marginTop: 22 }}>
         <Rail thin />
@@ -211,6 +238,67 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   );
 }
 
+// Always-reachable account affordance on the home screen. Signing in is never
+// forced: take logging + PDF export stay free and offline with no account. This
+// just makes the door visible, explains what it unlocks, and captures the email
+// (via the handle_new_user trigger) for the users who want the gated features.
+function AccountRow() {
+  const { session, loading } = useSession();
+  const [busy, setBusy] = useState(false);
+
+  async function onSignIn() {
+    setBusy(true);
+    try {
+      await signInWithGoogle(); // redirects to Google; nothing after this runs on success
+    } catch {
+      setBusy(false); // only reached if the redirect never started
+    }
+  }
+
+  if (loading) return null;
+
+  if (session) {
+    const email = session.user.email ?? 'your account';
+    return (
+      <>
+        <p className="camnote" style={{ textAlign: 'center', marginTop: 18, marginBottom: 0 }}>
+          Signed in as {email}
+        </p>
+        <button
+          type="button"
+          className="newproject newproject--ghost newproject--help"
+          onClick={() => {
+            haptics.tap();
+            void signOut();
+          }}
+        >
+          <span aria-hidden="true">←</span> Sign out
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="newproject newproject--ghost newproject--help"
+        disabled={busy}
+        onClick={() => {
+          haptics.tap();
+          void onSignIn();
+        }}
+      >
+        <span aria-hidden="true">→</span> {busy ? 'Opening Google…' : 'Sign in with Google'}
+      </button>
+      <p className="camnote" style={{ textAlign: 'center', marginTop: 8, marginBottom: 0 }}>
+        Sign in to unlock Script Mode and Premiere/CSV export. Logging takes and PDF export are
+        always free. No account needed.
+      </p>
+    </>
+  );
+}
+
 function CreateProjectSheet(props: {
   onClose: () => void;
   onCreated: (project: Project) => void;
@@ -228,6 +316,17 @@ function CreateProjectSheet(props: {
   const [tags, setTags] = useState<string[]>(DEFAULT_TAGS);
   const [tagDraft, setTagDraft] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Multi-cam. Default 1 keeps the single-cam flow above completely unchanged.
+  // Units B/C/D derive their clip pattern from the chosen type; the operator
+  // sets each one's starting number.
+  const [camCount, setCamCount] = useState(1);
+  const [units, setUnits] = useState<{ camera: string; start: string }[]>(() =>
+    UNIT_LETTERS.map(() => ({ camera: 'sony', start: '1' })),
+  );
+  function setUnit(i: number, patch: Partial<{ camera: string; start: string }>) {
+    setUnits((prev) => prev.map((u, idx) => (idx === i ? { ...u, ...patch } : u)));
+  }
 
   const canCreate = name.trim().length > 0 && !busy;
   const preset = findPreset(camera);
@@ -254,21 +353,31 @@ function CreateProjectSheet(props: {
   async function create() {
     if (!canCreate) return;
     setBusy(true);
+    const multi = camCount > 1;
+    const cameras = multi
+      ? units
+          .slice(0, camCount)
+          .map((u, i) => makeCameraUnit(UNIT_LETTERS[i], u.camera, Math.max(0, parseInt(u.start, 10) || 0)))
+      : undefined;
+    const unitA = cameras?.[0];
+    // The top-level clip fields stay populated (from unit A in multi-cam) so
+    // every legacy fallback and the Project contract keep working.
     const config = {
       name: name.trim(),
       fps,
-      camera,
-      clipPrefix: prefix,
-      clipSuffix: suffix,
-      clipExt: ext.trim(),
-      nextClipNumber: Math.max(0, parseInt(startNumber, 10) || 0),
-      clipPadding: Math.min(8, Math.max(1, parseInt(padding, 10) || 4)),
+      camera: unitA ? unitA.camera ?? camera : camera,
+      clipPrefix: unitA ? unitA.clipPrefix : prefix,
+      clipSuffix: unitA ? unitA.clipSuffix ?? '' : suffix,
+      clipExt: unitA ? unitA.clipExt ?? '' : ext.trim(),
+      nextClipNumber: unitA ? unitA.nextClipNumber : Math.max(0, parseInt(startNumber, 10) || 0),
+      clipPadding: unitA ? unitA.clipPadding : Math.min(8, Math.max(1, parseInt(padding, 10) || 4)),
+      ...(cameras ? { cameras } : {}),
       tags,
     };
     const project = props.pack
       ? await importScriptPack(props.pack, config)
       : await store.createProject(config);
-    track('project_created', { mode: props.pack ? 'script' : 'normal' });
+    track('project_created', { mode: props.pack ? 'script' : 'normal', cameras: camCount });
     props.onCreated(project);
   }
 
@@ -277,7 +386,7 @@ function CreateProjectSheet(props: {
       {props.pack && (
         <p className="camnote" style={{ marginTop: 0 }}>
           {props.pack.scenes.length} scenes ready from your script. Set your camera and clip
-          numbering, then start — the scenes load with their tap chips.
+          numbering, then start. The scenes load with their tap chips.
         </p>
       )}
       <div className="formrow">
@@ -294,104 +403,192 @@ function CreateProjectSheet(props: {
         />
       </div>
 
+      {/* Cameras: 1 keeps the simple single-cam flow; 2-4 reveals per-unit setup. */}
       <div className="formrow">
-        <label className="label" htmlFor="np-camera">
-          Camera
-        </label>
-        <select
-          id="np-camera"
-          className="field"
-          value={camera}
-          onChange={(e) => pickCamera(e.target.value)}
-        >
-          {CAMERA_PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
+        <span className="label">Cameras</span>
+        <div className="camcount" role="group" aria-label="Number of cameras">
+          {[1, 2, 3, 4].map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`camcount__opt${camCount === n ? ' camcount__opt--on' : ''}`}
+              aria-pressed={camCount === n}
+              onClick={() => setCamCount(n)}
+            >
+              {n}
+            </button>
           ))}
-        </select>
-        <div className="campreview">
-          <span className="campreview__eg">
-            <span className="label">Links in Premiere as</span>
-            <span className="tnum">{example}{ext}</span>
-          </span>
-          <span className={`cambadge${preset && !preset.exact ? ' cambadge--approx' : ''}`}>
-            {preset && !preset.exact ? 'approximate' : 'exact'}
-          </span>
-        </div>
-        {preset?.note && <p className="camnote">{preset.note}</p>}
-      </div>
-
-      <div className="formgrid">
-        <div className="formrow">
-          <label className="label" htmlFor="np-fps">
-            Frame rate
-          </label>
-          <select
-            id="np-fps"
-            className="field"
-            value={fps}
-            onChange={(e) => setFps(parseFloat(e.target.value) as Fps)}
-          >
-            {FPS_OPTIONS.map((f) => (
-              <option key={f} value={f}>
-                {f} fps
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="formrow">
-          <label className="label" htmlFor="np-prefix">
-            Clip prefix
-          </label>
-          <input
-            id="np-prefix"
-            className="field field--mono"
-            value={prefix}
-            placeholder="C"
-            onChange={(e) => setPrefix(e.target.value)}
-          />
         </div>
       </div>
 
-      <div className="formgrid">
-        <div className="formrow">
-          <label className="label" htmlFor="np-start">
-            Starting clip no.
-          </label>
-          <input
-            id="np-start"
-            className="field field--mono"
-            inputMode="numeric"
-            value={startNumber}
-            onChange={(e) => setStartNumber(e.target.value.replace(/[^0-9]/g, ''))}
-          />
-        </div>
-        <div className="formrow">
-          <label className="label" htmlFor="np-pad">
-            Number digits
-          </label>
-          <input
-            id="np-pad"
-            className="field field--mono"
-            inputMode="numeric"
-            value={padding}
-            onChange={(e) => setPadding(e.target.value.replace(/[^0-9]/g, ''))}
-          />
-        </div>
-        <div className="formrow">
-          <label className="label" htmlFor="np-ext">
-            File extension
-          </label>
-          <input
-            id="np-ext"
-            className="field field--mono"
-            placeholder=".MP4"
-            value={ext}
-            onChange={(e) => setExt(e.target.value)}
-          />
-        </div>
-      </div>
+      {camCount === 1 ? (
+        <>
+          <div className="formrow">
+            <label className="label" htmlFor="np-camera">
+              Camera
+            </label>
+            <select
+              id="np-camera"
+              className="field"
+              value={camera}
+              onChange={(e) => pickCamera(e.target.value)}
+            >
+              {CAMERA_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <div className="campreview">
+              <span className="campreview__eg">
+                <span className="label">Links in Premiere as</span>
+                <span className="tnum">{example}{ext}</span>
+              </span>
+              <span className={`cambadge${preset && !preset.exact ? ' cambadge--approx' : ''}`}>
+                {preset && !preset.exact ? 'approximate' : 'exact'}
+              </span>
+            </div>
+            {preset?.note && <p className="camnote">{preset.note}</p>}
+          </div>
+
+          <div className="formgrid">
+            <div className="formrow">
+              <label className="label" htmlFor="np-fps">
+                Frame rate
+              </label>
+              <select
+                id="np-fps"
+                className="field"
+                value={fps}
+                onChange={(e) => setFps(parseFloat(e.target.value) as Fps)}
+              >
+                {FPS_OPTIONS.map((f) => (
+                  <option key={f} value={f}>
+                    {f} fps
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="formrow">
+              <label className="label" htmlFor="np-prefix">
+                Clip prefix
+              </label>
+              <input
+                id="np-prefix"
+                className="field field--mono"
+                value={prefix}
+                placeholder="C"
+                onChange={(e) => setPrefix(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="formgrid">
+            <div className="formrow">
+              <label className="label" htmlFor="np-start">
+                Starting clip no.
+              </label>
+              <input
+                id="np-start"
+                className="field field--mono"
+                inputMode="numeric"
+                value={startNumber}
+                onChange={(e) => setStartNumber(e.target.value.replace(/[^0-9]/g, ''))}
+              />
+            </div>
+            <div className="formrow">
+              <label className="label" htmlFor="np-pad">
+                Number digits
+              </label>
+              <input
+                id="np-pad"
+                className="field field--mono"
+                inputMode="numeric"
+                value={padding}
+                onChange={(e) => setPadding(e.target.value.replace(/[^0-9]/g, ''))}
+              />
+            </div>
+            <div className="formrow">
+              <label className="label" htmlFor="np-ext">
+                File extension
+              </label>
+              <input
+                id="np-ext"
+                className="field field--mono"
+                placeholder=".MP4"
+                value={ext}
+                onChange={(e) => setExt(e.target.value)}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="formrow">
+            <label className="label" htmlFor="np-fps-multi">
+              Frame rate
+            </label>
+            <select
+              id="np-fps-multi"
+              className="field"
+              value={fps}
+              onChange={(e) => setFps(parseFloat(e.target.value) as Fps)}
+            >
+              {FPS_OPTIONS.map((f) => (
+                <option key={f} value={f}>
+                  {f} fps
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="stack">
+            {units.slice(0, camCount).map((u, i) => {
+              const p = findPreset(u.camera);
+              const n = Math.max(0, parseInt(u.start, 10) || 0);
+              const eg = p ? renderClip(p.prefix, n, p.digits, p.suffix) + p.ext : '';
+              return (
+                <div key={UNIT_LETTERS[i]} className="camunit">
+                  <div className="camunit__head">
+                    <span className="camunit__badge">{UNIT_LETTERS[i]}</span>
+                    <span className="camunit__eg tnum">
+                      {UNIT_LETTERS[i]} · {eg}
+                    </span>
+                  </div>
+                  <div className="formrow" style={{ margin: '12px 0 0' }}>
+                    <label className="label" htmlFor={`np-cam-${i}`}>
+                      Camera
+                    </label>
+                    <select
+                      id={`np-cam-${i}`}
+                      className="field"
+                      value={u.camera}
+                      onChange={(e) => setUnit(i, { camera: e.target.value })}
+                    >
+                      {CAMERA_PRESETS.map((cp) => (
+                        <option key={cp.id} value={cp.id}>
+                          {cp.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="formrow" style={{ margin: '10px 0 0' }}>
+                    <label className="label" htmlFor={`np-start-${i}`}>
+                      Starting clip no.
+                    </label>
+                    <input
+                      id={`np-start-${i}`}
+                      className="field field--mono"
+                      inputMode="numeric"
+                      value={u.start}
+                      onChange={(e) => setUnit(i, { start: e.target.value.replace(/[^0-9]/g, '') })}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <div className="formrow">
         <span className="label">Quick tags</span>
@@ -453,6 +650,8 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
   const [showSignIn, setShowSignIn] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
+  // True once Script Mode is refused for being out of free uses — shows "go Pro".
+  const [capped, setCapped] = useState(false);
 
   const busy = phase !== 'idle';
   const signedIn = !!session;
@@ -476,15 +675,16 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
     e.target.value = ''; // let the same file be picked again after an error
     if (!file) return;
     setError(null);
+    setCapped(false);
     try {
       setPhase('reading');
       const text = await extractPdfText(file);
       if (text.trim().length < 40) {
-        throw new Error('That PDF had no readable text — a scan/photo will not work. Use a text PDF.');
+        throw new Error('That PDF had no readable text. A scan or photo will not work. Use a text PDF.');
       }
       setPhase('thinking');
       const pack = await breakdownScript(text, file.name);
-      if (!pack.scenes?.length) throw new Error('No scenes came back — try a clearer script PDF.');
+      if (!pack.scenes?.length) throw new Error('No scenes came back. Try a clearer script PDF.');
       haptics.tap();
       props.onPack(pack); // hand to the camera-setup step
     } catch (err) {
@@ -495,7 +695,8 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
       }
       if (err instanceof Error && err.message === 'CAP') {
         track('cap_hit', { which: 'script' });
-        setError('Free limit reached — more coming soon.');
+        setError('Free limit reached. More coming soon.');
+        setCapped(true);
         return;
       }
       setError(err instanceof Error ? err.message : 'Could not process that PDF.');
@@ -525,8 +726,8 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
   return (
     <Sheet title="Script Mode" onClose={props.onClose}>
       <p className="camnote" style={{ marginTop: 0 }}>
-        Upload your script as a PDF. We break it into scenes shot by shot — each with tappable
-        coverage and key-moment chips — and load it as a project, so on set you just tap.
+        Upload your script as a PDF. We break it into scenes shot by shot, each with tappable
+        coverage and key-moment chips, then load it as a project, so on set you just tap.
       </p>
 
       {loading ? (
@@ -570,6 +771,7 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
           {error}
         </span>
       )}
+      {capped && <ProCta gate="script" />}
 
       <div className="sp-or">
         <span>or try an example</span>
@@ -607,19 +809,19 @@ function HowToSheet(props: { onClose: () => void }) {
           <h4>Log every shot with one tap</h4>
           <p>
             Hit the big ROLL when the camera rolls, CUT when it stops (or just say “roll” / “cut”).
-            The timer is your shot length. Tap a chip the instant something happens — it becomes a
+            The timer is your shot length. Tap a chip the instant something happens and it becomes a
             marker the editor jumps straight to.
           </p>
         </section>
         <section>
-          <h4>Normal mode — you build the scenes</h4>
+          <h4>Normal mode: you build the scenes</h4>
           <p>
-            Add a scene, then on set tap the coverage as you get it: <b>WIDE · MID · CU · OTS ·
+            Add a scene, then tap it to begin rolling. On set, tap the coverage as you get it: <b>WIDE · MID · CU · OTS ·
             INSERT</b>, plus <b>GOLD</b> for the keeper. MARK IN / OUT flags a range. Nothing to type.
           </p>
         </section>
         <section>
-          <h4>Script Mode — the script builds them for you</h4>
+          <h4>Script Mode: the script builds them for you</h4>
           <p>
             Upload your script PDF. We break it into scenes shot by shot, each with its own tappable
             beats (“door slams”, “she turns”). You just tap the beat as it happens.
@@ -636,7 +838,7 @@ function HowToSheet(props: { onClose: () => void }) {
         <section>
           <h4>Timecode on set</h4>
           <p>
-            The big number is elapsed shot length — Clapper can’t read the camera’s clock. After CUT
+            The big number is elapsed shot length, since Clapper can’t read the camera’s clock. After CUT
             you can type the camera timecode and a note, so the editor matches by TC later.
           </p>
         </section>

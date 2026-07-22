@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { Project, Slate } from '../types';
+import type { CameraUnit, Project, Slate } from '../types';
+import { isMultiCam } from '../types';
 import { store } from '../store';
 import { tc } from '../export/timecode';
 import { exporter, shareBlob } from '../export';
-import { findPreset } from './cameras';
+import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
 import { Sheet, Confirm, Rail } from './common';
 import { SignInSheet } from './SignInSheet';
+import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
 import { gateExport, FREE_LIMIT } from '../net/quota';
 import { track } from '../net/analytics';
@@ -23,6 +25,24 @@ function clipName(prefix: string, n: number, pad: number, suffix = ''): string {
   return prefix + String(Math.max(0, n)).padStart(pad, '0') + suffix;
 }
 
+// One-time "tap a scene to roll" hint. Dismissed for good the first time a user
+// opens any scene into Rolling, since by then they clearly get it.
+const ROLL_HINT_KEY = 'clapper.rollHintSeen';
+function rollHintSeen(): boolean {
+  try {
+    return localStorage.getItem(ROLL_HINT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function markRollHintSeen(): void {
+  try {
+    localStorage.setItem(ROLL_HINT_KEY, '1');
+  } catch {
+    /* private mode / storage blocked: fine, hint just shows again next time */
+  }
+}
+
 export function ProjectScreen(props: {
   project: Project;
   onBack: () => void;
@@ -34,6 +54,15 @@ export function ProjectScreen(props: {
   const [addName, setAddName] = useState('');
   const [renaming, setRenaming] = useState<Slate | null>(null);
   const [deleting, setDeleting] = useState<Slate | null>(null);
+  const [hintSeen, setHintSeen] = useState<boolean>(() => rollHintSeen());
+
+  function openSlate(slate: Slate) {
+    if (!hintSeen) {
+      markRollHintSeen();
+      setHintSeen(true);
+    }
+    props.onOpenSlate(project, slate);
+  }
 
   useEffect(() => {
     setProject(props.project);
@@ -79,8 +108,19 @@ export function ProjectScreen(props: {
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 className="topbar__title">{project.name}</h1>
           <div className="topbar__sub">
-            {project.fps} fps <span aria-hidden="true">&middot;</span> next clip{' '}
-            <span className="tnum">{clipName(project.clipPrefix, project.nextClipNumber, project.clipPadding, project.clipSuffix ?? '')}</span>
+            {project.fps} fps <span aria-hidden="true">&middot;</span>{' '}
+            {isMultiCam(project) ? (
+              <span className="tnum">
+                {(project.cameras ?? []).map((u) => `${u.letter} ${renderUnitClip(u)}`).join('  ·  ')}
+              </span>
+            ) : (
+              <>
+                next clip{' '}
+                <span className="tnum">
+                  {clipName(project.clipPrefix, project.nextClipNumber, project.clipPadding, project.clipSuffix ?? '')}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -105,13 +145,22 @@ export function ProjectScreen(props: {
             Add a scene for your first setup, then tap it to start rolling.
           </div>
         ) : (
-          <div className="stack">
+          <>
+            {!hintSeen && (
+              <div className="rollhint">
+                Tap a scene to start rolling
+                <span className="rollhint__arrow" aria-hidden="true">
+                  ↓
+                </span>
+              </div>
+            )}
+            <div className="stack">
             {slates.map(({ slate, takeCount, goodCount, totalMs }) => (
               <button
                 key={slate.id}
                 type="button"
                 className={`card${goodCount > 0 ? ' card--done' : ''}`}
-                onClick={() => props.onOpenSlate(project, slate)}
+                onClick={() => openSlate(slate)}
               >
                 <div className="card__row">
                   <span className="card__namewrap">
@@ -122,6 +171,9 @@ export function ProjectScreen(props: {
                     <span className="card__name">{slate.name}</span>
                   </span>
                   <span className="card__count">{takeCount}</span>
+                  <span className="card__chevron" aria-hidden="true">
+                    ›
+                  </span>
                 </div>
                 {slate.summary && <div className="card__summary">{slate.summary}</div>}
                 <div className="card__meta">
@@ -172,7 +224,8 @@ export function ProjectScreen(props: {
                 </div>
               </button>
             ))}
-          </div>
+            </div>
+          </>
         )}
 
         <div className="addline">
@@ -191,12 +244,7 @@ export function ProjectScreen(props: {
         </div>
       </section>
 
-      <ClipConfig
-        project={project}
-        onSave={(prefix, n, pad, ext) =>
-          commitProject({ clipPrefix: prefix, nextClipNumber: n, clipPadding: pad, clipExt: ext })
-        }
-      />
+      <ClipCounterSection project={project} onCommit={commitProject} />
 
       <TcCalculator project={project} />
 
@@ -244,114 +292,230 @@ export function ProjectScreen(props: {
   }
 }
 
-function ClipConfig(props: {
+interface UnitDraft {
+  camera?: string;
+  prefix: string;
+  num: string;
+  pad: string;
+  ext: string;
+  suffix: string;
+}
+
+// Seed one draft per possible unit (A-D) from the project. Unit A of a single-cam
+// project comes from the top-level clip fields; empty slots get sensible defaults.
+function draftsFromProject(project: Project): UnitDraft[] {
+  const presetExt = findPreset(project.camera)?.ext ?? '';
+  return UNIT_LETTERS.map((_, i) => {
+    const u = project.cameras?.[i];
+    if (u) {
+      return {
+        camera: u.camera,
+        prefix: u.clipPrefix,
+        num: String(u.nextClipNumber),
+        pad: String(u.clipPadding),
+        ext: u.clipExt ?? '',
+        suffix: u.clipSuffix ?? '',
+      };
+    }
+    if (i === 0 && !project.cameras) {
+      return {
+        camera: project.camera,
+        prefix: project.clipPrefix,
+        num: String(project.nextClipNumber),
+        pad: String(project.clipPadding),
+        ext: project.clipExt ?? presetExt,
+        suffix: project.clipSuffix ?? '',
+      };
+    }
+    return { camera: 'sony', prefix: 'C', num: '1', pad: '4', ext: '.MP4', suffix: '' };
+  });
+}
+
+const clampNum = (s: string) => Math.max(0, parseInt(s, 10) || 0);
+const clampPad = (s: string) => Math.min(8, Math.max(1, parseInt(s, 10) || 1));
+
+// Camera clip counter. Single-cam keeps the original one-counter widget; a
+// Cameras 1-4 control lets a shoot go multi-cam, revealing an independent
+// counter card per unit (A-D). Editing the count and each unit's numbers is all
+// here, in the same handmade clip-counter register.
+function ClipCounterSection(props: {
   project: Project;
-  onSave: (prefix: string, n: number, pad: number, ext: string) => Promise<void>;
+  onCommit: (patch: Partial<Project>) => Promise<void>;
 }) {
-  // Old projects predate clipExt: fall back to the camera preset's extension so
-  // iPhone/RED/etc. projects pre-fill the right one and Premiere can relink.
-  const presetExt = findPreset(props.project.camera)?.ext ?? '';
-  const [prefix, setPrefix] = useState(props.project.clipPrefix);
-  const [num, setNum] = useState(String(props.project.nextClipNumber));
-  const [pad, setPad] = useState(String(props.project.clipPadding));
-  const [ext, setExt] = useState(props.project.clipExt ?? presetExt);
+  const { project } = props;
+  const [camCount, setCamCount] = useState(project.cameras?.length ?? 1);
+  const [units, setUnits] = useState<UnitDraft[]>(() => draftsFromProject(project));
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setPrefix(props.project.clipPrefix);
-    setNum(String(props.project.nextClipNumber));
-    setPad(String(props.project.clipPadding));
-    setExt(props.project.clipExt ?? presetExt);
-  }, [props.project.clipPrefix, props.project.nextClipNumber, props.project.clipPadding, props.project.clipExt, presetExt]);
+    setCamCount(project.cameras?.length ?? 1);
+    setUnits(draftsFromProject(project));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, project.cameras, project.clipPrefix, project.nextClipNumber, project.clipPadding, project.clipExt]);
 
-  const nNum = Math.max(0, parseInt(num, 10) || 0);
-  const nPad = Math.min(8, Math.max(1, parseInt(pad, 10) || 1));
-  const nExt = ext.trim();
-  const dirty =
-    prefix !== props.project.clipPrefix ||
-    nNum !== props.project.nextClipNumber ||
-    nPad !== props.project.clipPadding ||
-    nExt !== (props.project.clipExt ?? '');
+  function setUnit(i: number, patch: Partial<UnitDraft>) {
+    setUnits((prev) => prev.map((u, idx) => (idx === i ? { ...u, ...patch } : u)));
+  }
 
-  const cameraLabel = findPreset(props.project.camera)?.label;
-  const suffix = props.project.clipSuffix ?? '';
+  function previewOf(u: UnitDraft): string {
+    return u.prefix + String(clampNum(u.num)).padStart(clampPad(u.pad), '0') + u.suffix + u.ext.trim();
+  }
+
+  async function save() {
+    if (camCount === 1) {
+      const u = units[0];
+      await props.onCommit({
+        camera: u.camera,
+        clipPrefix: u.prefix,
+        clipSuffix: u.suffix,
+        nextClipNumber: clampNum(u.num),
+        clipPadding: clampPad(u.pad),
+        clipExt: u.ext.trim(),
+        cameras: undefined, // drop back to single-cam if we came from multi
+      });
+    } else {
+      const cameras: CameraUnit[] = units.slice(0, camCount).map((u, i) => ({
+        letter: UNIT_LETTERS[i],
+        ...(u.camera ? { camera: u.camera } : {}),
+        clipPrefix: u.prefix,
+        nextClipNumber: clampNum(u.num),
+        clipPadding: clampPad(u.pad),
+        clipSuffix: u.suffix,
+        clipExt: u.ext.trim(),
+      }));
+      const a = cameras[0];
+      await props.onCommit({
+        cameras,
+        camera: a.camera,
+        clipPrefix: a.clipPrefix,
+        clipSuffix: a.clipSuffix,
+        nextClipNumber: a.nextClipNumber,
+        clipPadding: a.clipPadding,
+        clipExt: a.clipExt ?? '',
+      });
+    }
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1400);
+  }
+
+  const cameraLabel = findPreset(project.camera)?.label;
+
+  const numFields = (u: UnitDraft, i: number, idBase: string) => (
+    <>
+      <div className="clipgrid">
+        <div className="formrow" style={{ margin: 0 }}>
+          <label className="label" htmlFor={`${idBase}-prefix`}>
+            Prefix
+          </label>
+          <input
+            id={`${idBase}-prefix`}
+            className="field field--mono"
+            value={u.prefix}
+            onChange={(e) => setUnit(i, { prefix: e.target.value })}
+          />
+        </div>
+        <div className="formrow" style={{ margin: 0 }}>
+          <label className="label" htmlFor={`${idBase}-num`}>
+            Number
+          </label>
+          <input
+            id={`${idBase}-num`}
+            className="field field--mono"
+            inputMode="numeric"
+            value={u.num}
+            onChange={(e) => setUnit(i, { num: e.target.value.replace(/[^0-9]/g, '') })}
+          />
+        </div>
+        <div className="formrow" style={{ margin: 0 }}>
+          <label className="label" htmlFor={`${idBase}-pad`}>
+            Digits
+          </label>
+          <input
+            id={`${idBase}-pad`}
+            className="field field--mono"
+            inputMode="numeric"
+            value={u.pad}
+            onChange={(e) => setUnit(i, { pad: e.target.value.replace(/[^0-9]/g, '') })}
+          />
+        </div>
+      </div>
+      <div className="formrow" style={{ marginTop: 12, marginBottom: 0 }}>
+        <label className="label" htmlFor={`${idBase}-ext`}>
+          File extension <span className="section__note">links footage in Premiere</span>
+        </label>
+        <input
+          id={`${idBase}-ext`}
+          className="field field--mono"
+          value={u.ext}
+          placeholder=".MOV"
+          autoCapitalize="characters"
+          spellCheck={false}
+          onChange={(e) => setUnit(i, { ext: e.target.value })}
+        />
+      </div>
+    </>
+  );
 
   return (
     <section className="section">
       <div className="section__head">
         <span className="label">Camera clip counter</span>
-        {cameraLabel && <span className="section__note">{cameraLabel}</span>}
+        {camCount > 1 ? (
+          <span className="section__note">{camCount} cameras</span>
+        ) : (
+          cameraLabel && <span className="section__note">{cameraLabel}</span>
+        )}
       </div>
-      <div className="clipwidget">
-        <div className="clipwidget__preview">
-          <span className="label">Next clip</span>
-          <span className="tnum">{clipName(prefix, nNum, nPad, suffix)}{nExt}</span>
+
+      <div className="formrow" style={{ marginBottom: 14 }}>
+        <span className="label">Cameras</span>
+        <div className="camcount" role="group" aria-label="Number of cameras">
+          {[1, 2, 3, 4].map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`camcount__opt${camCount === n ? ' camcount__opt--on' : ''}`}
+              aria-pressed={camCount === n}
+              onClick={() => setCamCount(n)}
+            >
+              {n}
+            </button>
+          ))}
         </div>
-        <div className="clipgrid">
-          <div className="formrow" style={{ margin: 0 }}>
-            <label className="label" htmlFor="cc-prefix">
-              Prefix
-            </label>
-            <input
-              id="cc-prefix"
-              className="field field--mono"
-              value={prefix}
-              onChange={(e) => setPrefix(e.target.value)}
-            />
-          </div>
-          <div className="formrow" style={{ margin: 0 }}>
-            <label className="label" htmlFor="cc-num">
-              Number
-            </label>
-            <input
-              id="cc-num"
-              className="field field--mono"
-              inputMode="numeric"
-              value={num}
-              onChange={(e) => setNum(e.target.value.replace(/[^0-9]/g, ''))}
-            />
-          </div>
-          <div className="formrow" style={{ margin: 0 }}>
-            <label className="label" htmlFor="cc-pad">
-              Digits
-            </label>
-            <input
-              id="cc-pad"
-              className="field field--mono"
-              inputMode="numeric"
-              value={pad}
-              onChange={(e) => setPad(e.target.value.replace(/[^0-9]/g, ''))}
-            />
-          </div>
-        </div>
-        <div className="formrow" style={{ marginTop: 12, marginBottom: 0 }}>
-          <label className="label" htmlFor="cc-ext">
-            File extension <span className="section__note">links footage in Premiere</span>
-          </label>
-          <input
-            id="cc-ext"
-            className="field field--mono"
-            value={ext}
-            placeholder=".MOV"
-            autoCapitalize="characters"
-            spellCheck={false}
-            onChange={(e) => setExt(e.target.value)}
-          />
-        </div>
-        <button
-          type="button"
-          className="btn btn--full"
-          style={{ marginTop: 12 }}
-          disabled={!dirty}
-          onClick={async () => {
-            await props.onSave(prefix, nNum, nPad, nExt);
-            setSaved(true);
-            window.setTimeout(() => setSaved(false), 1400);
-          }}
-        >
-          {saved ? 'Saved' : 'Set clip counter'}
-        </button>
       </div>
+
+      {camCount === 1 ? (
+        <div className="clipwidget">
+          <div className="clipwidget__preview">
+            <span className="label">Next clip</span>
+            <span className="tnum">{previewOf(units[0])}</span>
+          </div>
+          {numFields(units[0], 0, 'cc')}
+          <button
+            type="button"
+            className="btn btn--full"
+            style={{ marginTop: 12 }}
+            onClick={() => void save()}
+          >
+            {saved ? 'Saved' : 'Set clip counter'}
+          </button>
+        </div>
+      ) : (
+        <div className="stack">
+          {units.slice(0, camCount).map((u, i) => (
+            <div key={UNIT_LETTERS[i]} className="camunit">
+              <div className="camunit__head">
+                <span className="camunit__badge">{UNIT_LETTERS[i]}</span>
+                <span className="camunit__eg tnum">{previewOf(u)}</span>
+              </div>
+              <div style={{ marginTop: 12 }}>{numFields(u, i, `cc-${i}`)}</div>
+            </div>
+          ))}
+          <button type="button" className="btn btn--full" onClick={() => void save()}>
+            {saved ? 'Saved' : 'Set clip counters'}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -424,7 +588,7 @@ function TcCalculator(props: { project: Project }) {
 // editor-handoff: each needs a signed-in account and burns one of 5 server-side
 // quota units. The client only builds the blob after `export-gate` says allow.
 const EXPORT_OFFLINE_MSG =
-  "You're offline — Premiere and CSV export need a connection. Logging takes and PDF export work offline.";
+  "You're offline. Premiere and CSV export need a connection. Logging takes and PDF export work offline.";
 
 function ExportBar(props: { project: Project }) {
   const { session } = useSession();
@@ -432,6 +596,8 @@ function ExportBar(props: { project: Project }) {
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [showSignIn, setShowSignIn] = useState(false);
+  // Which export got refused for being out of free uses — drives the "go Pro" CTA.
+  const [capped, setCapped] = useState<'premiere' | 'csv' | null>(null);
 
   async function exportPdf() {
     setBusy('pdf');
@@ -448,6 +614,7 @@ function ExportBar(props: { project: Project }) {
   async function exportGated(kind: 'xml' | 'csv') {
     setError(null);
     setNote(null);
+    setCapped(null);
     if (!session) {
       setShowSignIn(true);
       return;
@@ -459,7 +626,8 @@ function ExportBar(props: { project: Project }) {
       if (!gate.allow) {
         if (gate.reason === 'quota_exceeded') {
           track('cap_hit', { which: format });
-          setError('Free limit reached — more coming soon.');
+          setError('Free limit reached. More coming soon.');
+          setCapped(format);
         } else if (gate.reason === 'auth') {
           // Session missing/expired — same handling as signed-out.
           setShowSignIn(true);
@@ -509,6 +677,7 @@ function ExportBar(props: { project: Project }) {
           {error}
         </span>
       )}
+      {capped && <ProCta gate={capped} />}
       {note && !error && (
         <span className="section__note" style={{ display: 'block', marginTop: 10 }}>
           {note}

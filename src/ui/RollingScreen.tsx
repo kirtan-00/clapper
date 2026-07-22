@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import type { MomentKind, Project, Slate, Take } from '../types';
+import type {
+  CameraUnit,
+  CameraUnitLetter,
+  MomentKind,
+  Project,
+  Slate,
+  Take,
+  TakeClip,
+  TakeStatus,
+} from '../types';
+import { isMultiCam } from '../types';
 import { store } from '../store';
+import { parseClipNumber } from '../store/util';
 import { tc } from '../export/timecode';
+import { renderUnitClip } from './cameras';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
 import { Sheet, Rail, Toast, Confirm } from './common';
 import { track } from '../net/analytics';
@@ -21,6 +33,11 @@ function clipName(p: Project): string {
     String(Math.max(0, p.nextClipNumber)).padStart(p.clipPadding, '0') +
     (p.clipSuffix ?? '')
   );
+}
+
+/** A saved take's clip(s) for a compact row: single name, or all units joined. */
+function takeClipLabel(t: Take): string {
+  return t.clips && t.clips.length ? t.clips.map((c) => `${c.unit} ${c.clipName}`).join(' · ') : t.clipName;
 }
 
 export function RollingScreen(props: {
@@ -61,7 +78,10 @@ export function RollingScreen(props: {
   const [rangeLabelTarget, setRangeLabelTarget] = useState<number | null>(null);
   const [postCut, setPostCut] = useState<{ take: Take } | null>(null);
   const [deletingTake, setDeletingTake] = useState<Take | null>(null);
+  const [editingTake, setEditingTake] = useState<Take | null>(null);
   const [editingClip, setEditingClip] = useState(false);
+  // A single camera unit whose NEXT clip number is being fixed inline (idle only).
+  const [editingUnit, setEditingUnit] = useState<CameraUnit | null>(null);
   const [flashes, setFlashes] = useState<Record<string, number>>({});
   const [clapKey, setClapKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
@@ -207,6 +227,8 @@ export function RollingScreen(props: {
 
   const rolling = timer.rolling;
   const rangeArmedMs = markInMs !== null ? Math.max(0, timer.elapsedMs - markInMs) : 0;
+  const multi = isMultiCam(project);
+  const cameras = project.cameras ?? [];
 
   return (
     <div className={`roll${rolling ? ' roll--live' : ''}`}>
@@ -221,15 +243,27 @@ export function RollingScreen(props: {
               shot <span className="tnum">{nextTakeNumber}</span>
             </span>
             <span aria-hidden="true">&middot;</span>
-            <button
-              type="button"
-              className="clipedit"
-              aria-label={`Clip ${clipName(project)} — tap to fix the number`}
-              onClick={() => setEditingClip(true)}
-            >
-              clip <span className="tnum">{clipName(project)}</span>
-              <span className="clipedit__pen" aria-hidden="true">✎</span>
-            </button>
+            {multi ? (
+              <button
+                type="button"
+                className="clipedit"
+                aria-label="Fix the camera clip numbers"
+                onClick={() => setEditingClip(true)}
+              >
+                {cameras.length} cams
+                <span className="clipedit__pen" aria-hidden="true">✎</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="clipedit"
+                aria-label={`Clip ${clipName(project)}, tap to fix the number`}
+                onClick={() => setEditingClip(true)}
+              >
+                clip <span className="tnum">{clipName(project)}</span>
+                <span className="clipedit__pen" aria-hidden="true">✎</span>
+              </button>
+            )}
           </div>
         </div>
         {listener.supported && (
@@ -285,7 +319,7 @@ export function RollingScreen(props: {
         <div className="stage__hint">
           {rolling ? (
             <span className="stage__reclabel">
-              <span className="recdot" aria-hidden="true" /> ROLLING
+              <span className="recdot" aria-hidden="true" /> ROLLING{multi ? ' · ALL CAMERAS' : ''}
             </span>
           ) : postCut ? (
             'Shot saved'
@@ -293,6 +327,36 @@ export function RollingScreen(props: {
             'Tap ROLL' + (listener.supported ? ' or say "roll camera"' : '')
           )}
         </div>
+
+        {multi && (
+          <div
+            className={`camstack${rolling ? ' camstack--live' : ''}`}
+            aria-label="Current clip on each camera"
+          >
+            {cameras.map((u) =>
+              rolling ? (
+                <div key={u.letter} className="camslot">
+                  <span className="camslot__badge">{u.letter}</span>
+                  <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+                </div>
+              ) : (
+                // Idle only: tap a readout to fix that camera's NEXT clip number
+                // before rolling. Locked out while rolling to avoid mis-taps.
+                <button
+                  key={u.letter}
+                  type="button"
+                  className="camslot camslot--edit"
+                  aria-label={`Camera ${u.letter} next clip ${renderUnitClip(u)}, tap to set`}
+                  onClick={() => setEditingUnit(u)}
+                >
+                  <span className="camslot__badge">{u.letter}</span>
+                  <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+                  <span className="camslot__pen" aria-hidden="true">✎</span>
+                </button>
+              ),
+            )}
+          </div>
+        )}
 
         {rolling ? (
           buffered.length > 0 && (
@@ -325,9 +389,17 @@ export function RollingScreen(props: {
                   key={t.id}
                   className={`minitake${t.status === 'discarded' ? ' minitake--discarded' : ''}`}
                 >
-                  <span className="tnum">S{t.number}</span>
-                  <span className="clip">{t.clipName}</span>
-                  <span className="dur tnum">{tc.msToClock(t.durationMs)}</span>
+                  <button
+                    type="button"
+                    className="minitake__open"
+                    aria-label={`Edit shot ${t.number} (${takeClipLabel(t)})`}
+                    onClick={() => setEditingTake(t)}
+                  >
+                    <span className="tnum">S{t.number}</span>
+                    <span className="clip">{takeClipLabel(t)}</span>
+                    <span className="dur tnum">{tc.msToClock(t.durationMs)}</span>
+                    <span className="minitake__pen" aria-hidden="true">✎</span>
+                  </button>
                   <button
                     type="button"
                     className="minitake__del"
@@ -485,10 +557,45 @@ export function RollingScreen(props: {
         />
       )}
 
+      {editingUnit && (
+        <MultiClipSheet
+          cameras={[editingUnit]}
+          onClose={() => setEditingUnit(null)}
+          onSet={async (edited) => {
+            const one = edited[0];
+            // Merge just this unit back; other cameras' counters are untouched.
+            const merged = cameras.map((u) => (u.letter === one.letter ? one : u));
+            const updated = await store.updateProject(project.id, { cameras: merged });
+            setProject(updated);
+            setEditingUnit(null);
+            haptics.tap();
+          }}
+        />
+      )}
+
+      {editingTake && (
+        <TakeEditSheet
+          project={project}
+          slate={slate}
+          take={editingTake}
+          onClose={() => setEditingTake(null)}
+          onSaved={async (updatedProject, shifted) => {
+            setEditingTake(null);
+            // The rebase may have moved this camera's live counter, so take the
+            // project back from the store rather than keeping the stale copy.
+            setProject(updatedProject);
+            if (shifted > 0) {
+              setToast(`Clip fixed - ${shifted} later shot${shifted === 1 ? '' : 's'} moved too`);
+            }
+            await refreshMeta();
+          }}
+        />
+      )}
+
       {deletingTake && (
         <Confirm
           title={`Delete shot ${deletingTake.number}?`}
-          message={`This removes clip ${deletingTake.clipName} and every moment tagged in it. Schedules change — this frees the slot. Cannot be undone.`}
+          message={`This removes clip ${deletingTake.clipName} and every moment tagged in it. Schedules change, so this frees the slot. Cannot be undone.`}
           confirmLabel="Delete shot"
           onCancel={() => setDeletingTake(null)}
           onConfirm={async () => {
@@ -499,18 +606,30 @@ export function RollingScreen(props: {
         />
       )}
 
-      {editingClip && (
-        <ClipNumberSheet
-          project={project}
-          onClose={() => setEditingClip(false)}
-          onSet={async (n) => {
-            const updated = await store.updateProject(project.id, { nextClipNumber: n });
-            setProject(updated);
-            setEditingClip(false);
-            haptics.tap();
-          }}
-        />
-      )}
+      {editingClip &&
+        (multi ? (
+          <MultiClipSheet
+            cameras={cameras}
+            onClose={() => setEditingClip(false)}
+            onSet={async (units) => {
+              const updated = await store.updateProject(project.id, { cameras: units });
+              setProject(updated);
+              setEditingClip(false);
+              haptics.tap();
+            }}
+          />
+        ) : (
+          <ClipNumberSheet
+            project={project}
+            onClose={() => setEditingClip(false)}
+            onSet={async (n) => {
+              const updated = await store.updateProject(project.id, { nextClipNumber: n });
+              setProject(updated);
+              setEditingClip(false);
+              haptics.tap();
+            }}
+          />
+        ))}
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
@@ -580,6 +699,317 @@ function ClipNumberSheet(props: {
   );
 }
 
+// The per-unit clip-number stepper stack, shared by the save-time editor
+// (MultiClipSheet) and the take editor (TakeEditSheet). Each row shows the unit
+// letter (multi-cam), a live formatted preview, and a - / value / + control.
+function ClipNumberRows(props: {
+  units: CameraUnit[];
+  nums: string[];
+  showLetter?: boolean;
+  onNum: (i: number, value: string) => void;
+}) {
+  const showLetter = props.showLetter !== false;
+  return (
+    <div className="stack">
+      {props.units.map((u, i) => {
+        const n = Math.max(0, parseInt(props.nums[i], 10) || 0);
+        const preview = renderUnitClip({ ...u, nextClipNumber: n }) + (u.clipExt ?? '');
+        const who = showLetter ? `camera ${u.letter}` : 'clip';
+        return (
+          <div key={u.letter} className="camunit">
+            <div className="camunit__head">
+              {showLetter && <span className="camunit__badge">{u.letter}</span>}
+              <span className="camunit__eg tnum">{preview}</span>
+            </div>
+            <div className="clipset" style={{ marginBottom: 0 }}>
+              <button
+                type="button"
+                className="clipset__step"
+                aria-label={`Lower ${who}`}
+                onClick={() => props.onNum(i, String(Math.max(0, n - 1)))}
+              >
+                &minus;
+              </button>
+              <input
+                className="field field--mono clipset__input"
+                inputMode="numeric"
+                value={props.nums[i]}
+                onChange={(e) => props.onNum(i, e.target.value.replace(/[^0-9]/g, ''))}
+              />
+              <button
+                type="button"
+                className="clipset__step"
+                aria-label={`Raise ${who}`}
+                onClick={() => props.onNum(i, String(n + 1))}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Multi-cam counterpart to ClipNumberSheet: fix each camera unit's next clip
+// number independently. The next shot takes these and each unit counts on.
+function MultiClipSheet(props: {
+  cameras: CameraUnit[];
+  onClose: () => void;
+  onSet: (cameras: CameraUnit[]) => void;
+}) {
+  const [nums, setNums] = useState(props.cameras.map((u) => String(u.nextClipNumber)));
+
+  function setNum(i: number, value: string) {
+    setNums((prev) => prev.map((v, idx) => (idx === i ? value : v)));
+  }
+  const parsed = props.cameras.map((u, i) => ({
+    ...u,
+    nextClipNumber: Math.max(0, parseInt(nums[i], 10) || 0),
+  }));
+
+  return (
+    <Sheet title="Clip numbers" onClose={props.onClose}>
+      <p className="camnote" style={{ marginTop: 0 }}>
+        A camera skipped or repeated a number? Set each one right. The next shot takes these numbers
+        and every camera counts on from there.
+      </p>
+      <ClipNumberRows units={props.cameras} nums={nums} onNum={setNum} />
+      <div className="sheet__actions">
+        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+          Cancel
+        </button>
+        <button type="button" className="btn btn--go" onClick={() => props.onSet(parsed)}>
+          Set clips
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+// Correct an already-logged take: the mis-typed clip number(s) first (the main
+// ask, driven by the same ClipNumberRows stepper as the save-time editor), then
+// the adjacent status / tags / note. This only rewrites THIS take's row - it
+// never moves the live per-camera clip counter or renumbers other takes.
+function TakeEditSheet(props: {
+  project: Project;
+  slate: Slate;
+  take: Take;
+  onClose: () => void;
+  onSaved: (project: Project, shifted: number) => void;
+}) {
+  const { project, slate, take } = props;
+  const multi = (take.clips?.length ?? 0) > 0;
+
+  // Editable per-unit clip definitions rebuilt from the take's recorded clips,
+  // using each unit's current prefix/padding/suffix so the stepper reformats
+  // exactly like the save-time editor.
+  const [units] = useState<CameraUnit[]>(() =>
+    multi
+      ? (take.clips ?? []).map((clip) => {
+          const cam = project.cameras?.find((c) => c.letter === clip.unit);
+          const clipPrefix = cam?.clipPrefix ?? project.clipPrefix;
+          const clipPadding = cam?.clipPadding ?? project.clipPadding;
+          const clipSuffix = cam?.clipSuffix ?? project.clipSuffix ?? '';
+          const clipExt = cam?.clipExt ?? project.clipExt ?? '';
+          return {
+            letter: clip.unit,
+            ...(cam?.camera ? { camera: cam.camera } : {}),
+            clipPrefix,
+            clipPadding,
+            clipSuffix,
+            clipExt,
+            nextClipNumber: parseClipNumber(clip.clipName, clipPrefix, clipSuffix),
+          };
+        })
+      : [
+          {
+            letter: 'A' as const,
+            clipPrefix: project.clipPrefix,
+            clipPadding: project.clipPadding,
+            clipSuffix: project.clipSuffix ?? '',
+            clipExt: project.clipExt ?? '',
+            nextClipNumber: parseClipNumber(take.clipName, project.clipPrefix, project.clipSuffix ?? ''),
+          },
+        ],
+  );
+
+  const [nums, setNums] = useState(units.map((u) => String(u.nextClipNumber)));
+  const [status, setStatus] = useState<TakeStatus>(take.status);
+  const [note, setNote] = useState(take.note ?? '');
+  // Tags live as tagged moments; we surface presence as toggle chips and
+  // reconcile on save (add a point moment when turned on, delete the take's
+  // moments of that tag when turned off).
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+  const [origTags, setOrigTags] = useState<Set<string>>(new Set());
+  const [momentIdsByTag, setMomentIdsByTag] = useState<Map<string, string[]>>(new Map());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void store.listMoments(take.id).then((ms) => {
+      if (!alive) return;
+      const byTag = new Map<string, string[]>();
+      for (const m of ms) {
+        if (!m.tag) continue;
+        const list = byTag.get(m.tag) ?? [];
+        list.push(m.id);
+        byTag.set(m.tag, list);
+      }
+      setMomentIdsByTag(byTag);
+      setActiveTags(new Set(byTag.keys()));
+      setOrigTags(new Set(byTag.keys()));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [take.id]);
+
+  // Offered chips mirror the rolling deck: scene coverage + GOLD + key beats in
+  // Script Mode, else the project quick tags. Any already-present tag outside
+  // that set is appended so it stays visible and removable.
+  const coverage = (slate.tags ?? [])
+    .filter((t) => t.tier === 'coverage')
+    .sort((a, b) => a.order - b.order)
+    .map((t) => t.label);
+  const keyBeats = (slate.tags ?? [])
+    .filter((t) => t.tier === 'keyMoment')
+    .sort((a, b) => a.order - b.order)
+    .map((t) => t.label);
+  const scriptMode = coverage.length > 0 || keyBeats.length > 0;
+  const offered = scriptMode ? [...coverage, 'GOLD', ...keyBeats] : project.tags;
+  const tagChips = [...offered, ...[...origTags].filter((t) => !offered.includes(t))];
+
+  function setNum(i: number, value: string) {
+    setNums((prev) => prev.map((v, idx) => (idx === i ? value : v)));
+  }
+  function toggleTag(tag: string) {
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    haptics.tap();
+
+    // A camera counts its own files monotonically, so correcting THIS clip
+    // number means every later file that camera wrote is off by the same delta,
+    // and so is the live counter. rebaseClips carries the correction forward
+    // (per unit, later shots only) in one atomic write.
+    const newNumbers: Partial<Record<CameraUnitLetter, number>> = {};
+    units.forEach((u, i) => {
+      newNumbers[u.letter] = Math.max(0, parseInt(nums[i], 10) || 0);
+    });
+    const rebased = await store.rebaseClips(project.id, take.id, newNumbers);
+
+    const trimmedNote = note.trim();
+    // Status/tags/note are this row's alone; the clip names were just written
+    // by the rebase, so this patch must not carry them.
+    await store.updateTake(take.id, {
+      status,
+      note: trimmedNote ? trimmedNote : undefined,
+    });
+
+    for (const tag of activeTags) {
+      if (!origTags.has(tag)) {
+        await store.createMoment({ takeId: take.id, kind: 'point', atMs: 0, label: '', tag });
+      }
+    }
+    for (const tag of origTags) {
+      if (!activeTags.has(tag)) {
+        for (const id of momentIdsByTag.get(tag) ?? []) await store.deleteMoment(id);
+      }
+    }
+
+    props.onSaved(rebased.project, rebased.shifted);
+  }
+
+  return (
+    <Sheet title={`Edit shot ${take.number}`} onClose={props.onClose}>
+      <p className="camnote" style={{ marginTop: 0 }}>
+        Fix a mis-logged clip number, status, tags or note. Correcting a clip number also shifts
+        every LATER shot on that camera by the same amount, and the live counter with them - the
+        camera kept counting, so they are all off by the same gap. Earlier shots never move.
+      </p>
+
+      <ClipNumberRows units={units} nums={nums} showLetter={multi} onNum={setNum} />
+
+      <div className="formrow" style={{ marginTop: 16 }}>
+        <span className="label">Status</span>
+        <div className="camcount" role="group" aria-label="Take status" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <button
+            type="button"
+            className={`camcount__opt${status === 'good' ? ' camcount__opt--on' : ''}`}
+            style={{ fontFamily: 'var(--font-ui)', fontSize: '0.9rem' }}
+            aria-pressed={status === 'good'}
+            onClick={() => setStatus('good')}
+          >
+            Good
+          </button>
+          <button
+            type="button"
+            className={`camcount__opt${status === 'discarded' ? ' camcount__opt--on' : ''}`}
+            style={{ fontFamily: 'var(--font-ui)', fontSize: '0.9rem' }}
+            aria-pressed={status === 'discarded'}
+            onClick={() => setStatus('discarded')}
+          >
+            No good
+          </button>
+        </div>
+      </div>
+
+      <div className="formrow">
+        <span className="label">Tags</span>
+        <div className="chips">
+          {tagChips.map((tag) => {
+            const on = activeTags.has(tag);
+            const gold = tag === 'GOLD';
+            return (
+              <button
+                key={tag}
+                type="button"
+                className={`chip${gold ? ' chip--gold' : ''}${on ? ' chip--on' : ' chip--off'}`}
+                aria-pressed={on}
+                onClick={() => toggleTag(tag)}
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="formrow">
+        <label className="label" htmlFor="te-note">
+          Note
+        </label>
+        <textarea
+          id="te-note"
+          className="field"
+          placeholder="e.g. lens flare on the door"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </div>
+
+      <div className="sheet__actions">
+        <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={saving}>
+          Cancel
+        </button>
+        <button type="button" className="btn btn--go" disabled={saving} onClick={() => void save()}>
+          Save shot
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 function PostCutSheet(props: {
   take: Take;
   tcValid: (s: string) => boolean;
@@ -594,13 +1024,26 @@ function PostCutSheet(props: {
   const savedTC = trimmedTC !== '' && props.tcValid(trimmedTC) ? trimmedTC : undefined;
   const savedNote = note.trim() !== '' ? note.trim() : undefined;
 
+  const clips = props.take.clips ?? [];
   return (
     <Sheet title={`Shot ${props.take.number} saved`}>
-      <div className="takesummary">
-        <div className="takesummary__cell">
-          <div className="label">Clip</div>
-          <div className="val val--clip">{props.take.clipName}</div>
+      {clips.length > 0 && (
+        <div className="camstack camstack--sheet" aria-label="Clip on each camera">
+          {clips.map((c) => (
+            <div key={c.unit} className="camslot">
+              <span className="camslot__badge">{c.unit}</span>
+              <span className="camslot__clip tnum">{c.clipName}</span>
+            </div>
+          ))}
         </div>
+      )}
+      <div className="takesummary">
+        {clips.length === 0 && (
+          <div className="takesummary__cell">
+            <div className="label">Clip</div>
+            <div className="val val--clip">{props.take.clipName}</div>
+          </div>
+        )}
         <div className="takesummary__cell">
           <div className="label">Shot</div>
           <div className="val">{props.take.number}</div>

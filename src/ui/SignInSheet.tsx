@@ -26,7 +26,7 @@ export function SignInSheet(props: { onClose: () => void }) {
   return (
     <Sheet title="Sign in" onClose={props.onClose}>
       <p className="camnote" style={{ marginTop: 0 }}>
-        Script Mode and Premiere/CSV exports need a free account — logging takes and
+        Script Mode and Premiere/CSV exports need a free account. Logging takes and
         PDF export are always free.
       </p>
 

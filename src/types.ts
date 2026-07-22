@@ -3,6 +3,26 @@
 
 export type Fps = 23.976 | 24 | 25 | 29.97 | 30 | 50 | 59.94 | 60;
 
+/** A/B/C/D camera unit letters, auto-assigned by position. */
+export type CameraUnitLetter = 'A' | 'B' | 'C' | 'D';
+
+/**
+ * One camera in a multi-cam shoot. Each unit carries its OWN independent clip
+ * counter (same shape as the project's single-cam fields) that advances on its
+ * own at every CUT. Two units of the same type natively write identical
+ * filenames — that is expected; the UNIT LETTER (carried as the FCP7 reel/tape
+ * name on export) is what disambiguates them, never a filename change.
+ */
+export interface CameraUnit {
+  letter: CameraUnitLetter;
+  camera?: string;         // camera preset id the clip format came from, e.g. "sony"
+  clipPrefix: string;
+  nextClipNumber: number;  // advances on this unit's own CUTs
+  clipPadding: number;
+  clipSuffix?: string;
+  clipExt?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -13,9 +33,24 @@ export interface Project {
   clipSuffix?: string;     // static tail after the counter, e.g. "_*" (RED) or "_D" (DJI)
   clipExt?: string;        // media file extension incl. dot, e.g. ".MP4" / ".R3D" — lets Premiere relink
   camera?: string;         // camera preset id the clip format came from, e.g. "sony"
+  // Multi-cam: 2-4 camera units, A..D by position. ABSENT for single-cam
+  // projects, which keep behaving EXACTLY through the top-level clip fields
+  // above. Present (length >= 2) switches the app into multi-cam mode.
+  cameras?: CameraUnit[];
   tags: string[];          // quick-tag chips, default ["FLUB","GOLD","PICKUP","NOISE"]
   createdAt: number;
   updatedAt: number;
+}
+
+export const MAX_CAMERAS = 4;
+
+/**
+ * Multi-cam is active only when a project carries 2+ camera units. A missing
+ * `cameras` array (every legacy/saved project) or a single unit is single-cam
+ * and runs every original code path untouched.
+ */
+export function isMultiCam(p: Pick<Project, 'cameras'>): boolean {
+  return !!(p.cameras && p.cameras.length >= 2);
 }
 
 /**
@@ -48,12 +83,21 @@ export interface Slate {
 
 export type TakeStatus = 'good' | 'discarded';
 
+/** One camera unit's clip within a multi-cam take. */
+export interface TakeClip {
+  unit: CameraUnitLetter;  // A/B/C/D
+  clipName: string;        // that camera's native clip name captured at roll time
+}
+
 export interface Take {
   id: string;
   slateId: string;
   projectId: string;
   number: number;          // per-slate, auto-increment
-  clipName: string;        // e.g. "C0042", assigned at CUT
+  clipName: string;        // e.g. "C0042", assigned at CUT. Multi-cam: unit A's clip
+  // Multi-cam: one clip per camera unit (incl. A), captured together at CUT.
+  // ABSENT for single-cam takes, which carry their single clip in clipName only.
+  clips?: TakeClip[];
   status: TakeStatus;
   startedAt: number;       // epoch ms
   durationMs: number;
@@ -114,6 +158,16 @@ export interface Store {
     note?: string;
   }): Promise<Take>;
   updateTake(id: string, patch: Partial<Take>): Promise<Take>;
+  /**
+   * Correct a mis-logged clip number on one take and carry the correction
+   * forward: every LATER take on that camera unit shifts by the same delta, and
+   * so does the unit's live counter. Atomic. Returns the updated project.
+   */
+  rebaseClips(
+    projectId: string,
+    takeId: string,
+    newNumbers: Partial<Record<CameraUnitLetter, number>>,
+  ): Promise<{ project: Project; shifted: number }>;
   deleteTake(id: string): Promise<void>; // cascades the take's moments
 
   listMoments(takeId: string): Promise<Moment[]>; // ordered by atMs

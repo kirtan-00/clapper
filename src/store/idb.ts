@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Moment, Project, ProjectBundle, Slate, Store, Take } from '../types';
-import { newId, notFound } from './util';
+import { buildTakeClips, newId, notFound, rebaseClipNumbers } from './util';
 
 interface ClapperDB extends DBSchema {
   projects: { key: string; value: Project };
@@ -138,33 +138,13 @@ export async function openIdbStore(): Promise<Store> {
       const project = (await projects.get(input.projectId)) ?? notFound('project', input.projectId);
       const siblings = await takes.index('bySlate').getAll(input.slateId);
       const number = siblings.reduce((max, t) => Math.max(max, t.number), 0) + 1;
-
-      const clipNumber = project.nextClipNumber;
-      const clipName =
-        project.clipPrefix +
-        String(clipNumber).padStart(project.clipPadding, '0') +
-        (project.clipSuffix ?? '');
       const now = Date.now();
 
-      const take: Take = {
-        id: newId(),
-        slateId: input.slateId,
-        projectId: input.projectId,
-        number,
-        clipName,
-        status: 'good',
-        startedAt: input.startedAt,
-        durationMs: input.durationMs,
-        ...(input.cameraTC !== undefined ? { cameraTC: input.cameraTC } : {}),
-        ...(input.note !== undefined ? { note: input.note } : {}),
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      await takes.put(take);
-      await projects.put({ ...project, nextClipNumber: clipNumber + 1, updatedAt: now });
+      const built = buildTakeClips(project, number, input, now);
+      await takes.put(built.take);
+      await projects.put(built.project);
       await tx.done;
-      return take;
+      return built.take;
     },
 
     async updateTake(id, patch) {
@@ -174,6 +154,21 @@ export async function openIdbStore(): Promise<Store> {
       await tx.store.put(updated);
       await tx.done;
       return updated;
+    },
+
+    async rebaseClips(projectId, takeId, newNumbers) {
+      const tx = db.transaction(['takes', 'projects'], 'readwrite');
+      const projects = tx.objectStore('projects');
+      const takes = tx.objectStore('takes');
+
+      const project = (await projects.get(projectId)) ?? notFound('project', projectId);
+      const all = await takes.index('byProject').getAll(projectId);
+      const result = rebaseClipNumbers(project, all, takeId, newNumbers, Date.now());
+
+      for (const t of result.takes) await takes.put(t);
+      await projects.put(result.project);
+      await tx.done;
+      return { project: result.project, shifted: Math.max(0, result.takes.length - 1) };
     },
 
     async listMoments(takeId) {

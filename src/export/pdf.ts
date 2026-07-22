@@ -109,6 +109,17 @@ function momentTime(m: Moment): string {
     : tc.msToClock(m.atMs);
 }
 
+/**
+ * A take's clip(s) for a table cell. Single-cam is just the clip name; multi-cam
+ * lists every camera with its unit letter, e.g. "A C0012 · B C0007 · C C0003".
+ */
+function clipLabel(take: Take): string {
+  if (take.clips && take.clips.length) {
+    return take.clips.map((c) => `${c.unit} ${c.clipName}`).join('  ·  ');
+  }
+  return take.clipName;
+}
+
 export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   const { project, slates, takes, moments } = bundle;
   const fps = project.fps;
@@ -250,7 +261,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
       const base = baselineOf(bottom, h, 8);
       cell(G_SCENE, slateName.get(take.slateId) ?? '', base, { trunc: true });
       cell(G_SHOT, `Shot ${take.number}`, base, { trunc: true });
-      cell(G_CLIP, take.clipName, base, { trunc: true });
+      cell(G_CLIP, clipLabel(take), base, { trunc: true });
       cell(G_TIME, momentTime(m), base, { size: 7.5 });
       cell(G_LABEL, m.label || '-', base, { trunc: true });
       y -= h;
@@ -277,7 +288,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
       ensure(bandH);
       const bandBottom = y - bandH;
       page.drawRectangle({ x: MARGIN, y: bandBottom, width: CONTENT_WIDTH, height: bandH, color: BAND });
-      const bandParts = [`Shot ${take.number}`, take.clipName, tc.msToClock(take.durationMs)];
+      const bandParts = [`Shot ${take.number}`, clipLabel(take), tc.msToClock(take.durationMs)];
       if (take.cameraTC) bandParts.push(`TC ${take.cameraTC}`);
       bandParts.push(`clock ${wallClockTC(take.startedAt, fps)}`);
       page.drawText(truncate(sanitize(bandParts.join('  -  ')), bold, 8.5, CONTENT_WIDTH - 8), {
@@ -348,7 +359,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
         'DISCARDED',
         slateName.get(take.slateId) ?? '',
         `Shot ${take.number}`,
-        take.clipName,
+        clipLabel(take),
         tc.msToClock(take.durationMs),
       ].filter(Boolean);
       const line = truncate(sanitize(parts.join('  -  ')), helv, 8, CONTENT_WIDTH);

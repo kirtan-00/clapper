@@ -1,5 +1,5 @@
 import type { Moment, Project, ProjectBundle, Slate, Store, Take } from '../types';
-import { newId, notFound } from './util';
+import { buildTakeClips, newId, notFound, rebaseClipNumbers } from './util';
 
 // A localStorage-backed Store, used when IndexedDB cannot be opened (common on
 // file:// in some browsers, and in private windows). Data volumes here are tiny
@@ -164,34 +164,14 @@ export function createLocalStore(): Store {
       const project = tables.projects.get(input.projectId) ?? notFound('project', input.projectId);
       const siblings = [...tables.takes.values()].filter((t) => t.slateId === input.slateId);
       const number = siblings.reduce((max, t) => Math.max(max, t.number), 0) + 1;
-
-      const clipNumber = project.nextClipNumber;
-      const clipName =
-        project.clipPrefix +
-        String(clipNumber).padStart(project.clipPadding, '0') +
-        (project.clipSuffix ?? '');
       const now = Date.now();
 
-      const take: Take = {
-        id: newId(),
-        slateId: input.slateId,
-        projectId: input.projectId,
-        number,
-        clipName,
-        status: 'good',
-        startedAt: input.startedAt,
-        durationMs: input.durationMs,
-        ...(input.cameraTC !== undefined ? { cameraTC: input.cameraTC } : {}),
-        ...(input.note !== undefined ? { note: input.note } : {}),
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      tables.takes.set(take.id, take);
-      tables.projects.set(project.id, { ...project, nextClipNumber: clipNumber + 1, updatedAt: now });
+      const built = buildTakeClips(project, number, input, now);
+      tables.takes.set(built.take.id, built.take);
+      tables.projects.set(project.id, built.project);
       persist('takes');
       persist('projects');
-      return take;
+      return built.take;
     },
 
     async updateTake(id, patch) {
@@ -200,6 +180,18 @@ export function createLocalStore(): Store {
       tables.takes.set(id, updated);
       persist('takes');
       return updated;
+    },
+
+    async rebaseClips(projectId, takeId, newNumbers) {
+      const project = tables.projects.get(projectId) ?? notFound('project', projectId);
+      const all = [...tables.takes.values()].filter((t) => t.projectId === projectId);
+      const result = rebaseClipNumbers(project, all, takeId, newNumbers, Date.now());
+
+      for (const t of result.takes) tables.takes.set(t.id, t);
+      tables.projects.set(project.id, result.project);
+      persist('takes');
+      persist('projects');
+      return { project: result.project, shifted: Math.max(0, result.takes.length - 1) };
     },
 
     async deleteTake(id) {

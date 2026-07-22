@@ -1,0 +1,27 @@
+  <script>
+    /* landing_view beacon — cookie-free, fire-and-forget, never blocks or throws.
+       Inserts one row into the same Supabase `events` table the app uses, so the
+       report can count landing hits and (via ?ref=landing on the CTAs) how many
+       cross into the app. Anon key is a public client key by design. */
+    (function () {
+      try {
+        var URL_ = 'https://sqqdivfgdfaztfzrzkhu.supabase.co/rest/v1/events';
+        var KEY_ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxcWRpdmZnZGZhenRmenJ6a2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTA2NTYsImV4cCI6MjA5OTU4NjY1Nn0.MUhO3nmPg4gmQI5vLK5LGpOMIzrcA_j9ZDj8sp8ftH4';
+        var ref = null;
+        try { ref = new URLSearchParams(window.location.search).get('ref'); } catch (e) { ref = null; }
+        fetch(URL_, {
+          method: 'POST',
+          keepalive: true,
+          headers: {
+            'apikey': KEY_,
+            'Authorization': 'Bearer ' + KEY_,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ name: 'landing_view', props: { ref: ref, path: window.location.pathname }, user_id: null })
+        }).catch(function () { /* best-effort */ });
+      } catch (e) { /* never surface */ }
+    })();
+  </script>
+</body>
+</html>

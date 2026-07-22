@@ -8,6 +8,7 @@ const HEADER = [
   'scene',
   'shot',
   'clip',
+  'camera',
   'status',
   'kind',
   'tag',
@@ -77,28 +78,36 @@ export function toCsv(bundle: ProjectBundle): Blob {
         }
       }
 
-      // One row for the take itself.
-      lines.push(
-        row([
-          sName,
-          String(take.number),
-          take.clipName,
-          take.status,
-          'shot',
-          '',
-          '',
-          tc.msToClock(0),
-          tc.msToClock(take.durationMs),
-          tc.msToTimecode(0, fps),
-          tc.msToTimecode(take.durationMs, fps),
-          cameraTC ?? '',
-          cameraTC ? tc.addMsToTimecode(cameraTC, take.durationMs, fps) : '',
-          wallClockTC(take.startedAt, fps),
-          wallClockTC(take.startedAt + take.durationMs, fps),
-          String(take.durationMs),
-          take.note ?? '',
-        ]),
-      );
+      // One take row per camera unit (multi-cam) or a single row (single-cam),
+      // so every camera's clip is present with its unit letter.
+      const takeClips =
+        take.clips && take.clips.length
+          ? take.clips.map((c) => ({ camera: c.unit as string, clipName: c.clipName }))
+          : [{ camera: '', clipName: take.clipName }];
+      for (const c of takeClips) {
+        lines.push(
+          row([
+            sName,
+            String(take.number),
+            c.clipName,
+            c.camera,
+            take.status,
+            'shot',
+            '',
+            '',
+            tc.msToClock(0),
+            tc.msToClock(take.durationMs),
+            tc.msToTimecode(0, fps),
+            tc.msToTimecode(take.durationMs, fps),
+            cameraTC ?? '',
+            cameraTC ? tc.addMsToTimecode(cameraTC, take.durationMs, fps) : '',
+            wallClockTC(take.startedAt, fps),
+            wallClockTC(take.startedAt + take.durationMs, fps),
+            String(take.durationMs),
+            take.note ?? '',
+          ]),
+        );
+      }
 
       const takeMoments = (momentsByTake.get(take.id) ?? []).slice().sort((a, b) => a.atMs - b.atMs);
       for (const m of takeMoments) {
@@ -108,6 +117,7 @@ export function toCsv(bundle: ProjectBundle): Blob {
             sName,
             String(take.number),
             take.clipName,
+            '',
             take.status,
             m.kind,
             m.tag ?? '',

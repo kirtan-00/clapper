@@ -36,7 +36,7 @@ export async function breakdownScript(text: string, docName: string): Promise<Sc
   try {
     turnstileToken = await getTurnstileToken();
   } catch {
-    throw new Error('Could not verify you are human — please try again.');
+    throw new Error('Could not verify you are human. Please try again.');
   }
 
   const { data, error } = await supabase.functions.invoke<ScriptPack>('breakdown', {
@@ -57,9 +57,9 @@ export async function breakdownScript(text: string, docName: string): Promise<Sc
       }
       if (status === 401) throw new SignInRequiredError();
       if (status === 402 || reason === 'quota_exceeded') throw new Error('CAP');
-      if (status === 429) throw new Error('Too fast — give it a moment and try again.');
-      if (status === 503) throw new Error('Script Mode is taking a breather — try again later.');
-      if (status === 403) throw new Error('Bot check failed — please try again.');
+      if (status === 429) throw new Error('Too fast. Give it a moment and try again.');
+      if (status === 503) throw new Error('Script Mode is taking a breather. Try again later.');
+      if (status === 403) throw new Error('Bot check failed. Please try again.');
       throw new Error(reason || `Breakdown failed (${status}).`);
     }
     // Relay / fetch error → we never reached the function (offline, DNS, etc.).
