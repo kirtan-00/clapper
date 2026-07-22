@@ -321,10 +321,10 @@ function CreateProjectSheet(props: {
   // Units B/C/D derive their clip pattern from the chosen type; the operator
   // sets each one's starting number.
   const [camCount, setCamCount] = useState(1);
-  const [units, setUnits] = useState<{ camera: string; start: string }[]>(() =>
-    UNIT_LETTERS.map(() => ({ camera: 'sony', start: '1' })),
+  const [units, setUnits] = useState<{ camera: string; start: string; operator: string }[]>(() =>
+    UNIT_LETTERS.map(() => ({ camera: 'sony', start: '1', operator: '' })),
   );
-  function setUnit(i: number, patch: Partial<{ camera: string; start: string }>) {
+  function setUnit(i: number, patch: Partial<{ camera: string; start: string; operator: string }>) {
     setUnits((prev) => prev.map((u, idx) => (idx === i ? { ...u, ...patch } : u)));
   }
 
@@ -357,7 +357,9 @@ function CreateProjectSheet(props: {
     const cameras = multi
       ? units
           .slice(0, camCount)
-          .map((u, i) => makeCameraUnit(UNIT_LETTERS[i], u.camera, Math.max(0, parseInt(u.start, 10) || 0)))
+          .map((u, i) =>
+            makeCameraUnit(UNIT_LETTERS[i], u.camera, Math.max(0, parseInt(u.start, 10) || 0), u.operator),
+          )
       : undefined;
     const unitA = cameras?.[0];
     // The top-level clip fields stay populated (from unit A in multi-cam) so
@@ -581,6 +583,18 @@ function CreateProjectSheet(props: {
                       inputMode="numeric"
                       value={u.start}
                       onChange={(e) => setUnit(i, { start: e.target.value.replace(/[^0-9]/g, '') })}
+                    />
+                  </div>
+                  <div className="formrow" style={{ margin: '10px 0 0' }}>
+                    <label className="label" htmlFor={`np-operator-${i}`}>
+                      Operator <span className="section__note">optional</span>
+                    </label>
+                    <input
+                      id={`np-operator-${i}`}
+                      className="field"
+                      placeholder="e.g. Rohan"
+                      value={u.operator}
+                      onChange={(e) => setUnit(i, { operator: e.target.value })}
                     />
                   </div>
                 </div>

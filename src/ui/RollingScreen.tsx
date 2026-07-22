@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { isMultiCam } from '../types';
 import { store } from '../store';
-import { parseClipNumber, rebaseClipNumbers } from '../store/util';
+import { parseClipNumber, rebaseClipNumbers, type TakeUnitRoll } from '../store/util';
 import { tc } from '../export/timecode';
 import { renderUnitClip } from './cameras';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
@@ -55,6 +55,9 @@ export function RollingScreen(props: {
   const [recentTakes, setRecentTakes] = useState<Take[]>([]);
   const [siblings, setSiblings] = useState<Slate[]>([]);
 
+  const multi = isMultiCam(project);
+  const cameras = project.cameras ?? [];
+
   // Script Mode: two-tier tap chips baked onto the scene. A hand-made scene has
   // no tags and falls back to the project's quick tags (FLUB/GOLD/…).
   const coverageChips = (slate.tags ?? [])
@@ -94,6 +97,147 @@ export function RollingScreen(props: {
   const doRollRef = useRef<() => void>(() => {});
   const doCutRef = useRef<() => void>(() => {});
 
+  // ---- multi-cam: each unit rolls and cuts independently ----------------
+  // `camRolls` holds ONLY the units currently rolling (letter -> the epoch ms
+  // it started); a unit not in here never rolled, or already cut. The take
+  // opens the instant the FIRST unit rolls and closes the instant the LAST
+  // rolling unit cuts, so `finishedRolls` carries the timing of units that
+  // already cut while others kept going.
+  const [camRolls, setCamRolls] = useState<Partial<Record<CameraUnitLetter, number>>>({});
+  const [finishedRolls, setFinishedRolls] = useState<TakeUnitRoll[]>([]);
+  const [takeStartedAt, setTakeStartedAt] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  const anyCamRolling = Object.keys(camRolls).length > 0;
+
+  // Repaint every 100ms while any unit is rolling, same cadence as the
+  // single-cam timer, so the readout and per-camera elapsed times stay live.
+  useEffect(() => {
+    if (!anyCamRolling) return;
+    setNowTick(Date.now());
+    const id = window.setInterval(() => setNowTick(Date.now()), 100);
+    return () => window.clearInterval(id);
+  }, [anyCamRolling]);
+
+  function elapsedForCam(letter: CameraUnitLetter): number {
+    const startedAt = camRolls[letter];
+    return startedAt === undefined ? 0 : Math.max(0, nowTick - startedAt);
+  }
+
+  /** First roll of a fresh take: reset the moment buffer, same as doRoll(). */
+  function openMultiTake(now: number) {
+    if (takeStartedAt !== null) return; // a take is already running
+    setTakeStartedAt(now);
+    setFinishedRolls([]);
+    setBuffered([]);
+    setMarkInMs(null);
+    setRangeLabelTarget(null);
+    bumpClap();
+  }
+
+  /** Tap ONE camera's own ROLL. Starts a take if none is running, else joins it. */
+  function soloRoll(letter: CameraUnitLetter) {
+    if (postCut || camRolls[letter] !== undefined) return;
+    haptics.thump();
+    track('roll');
+    const now = Date.now();
+    openMultiTake(now);
+    setCamRolls((prev) => ({ ...prev, [letter]: now }));
+  }
+
+  /** The big ROLL: starts (or joins) every configured unit not already rolling. */
+  function bigRollMulti() {
+    if (postCut) return;
+    haptics.thump();
+    track('roll');
+    const now = Date.now();
+    openMultiTake(now);
+    setCamRolls((prev) => {
+      const next = { ...prev };
+      for (const u of cameras) if (next[u.letter] === undefined) next[u.letter] = now;
+      return next;
+    });
+  }
+
+  function finishCam(letter: CameraUnitLetter, startedAt: number, now: number): TakeUnitRoll {
+    const takeStart = takeStartedAt ?? startedAt;
+    return {
+      unit: letter,
+      startOffsetMs: Math.max(0, startedAt - takeStart),
+      durationMs: Math.max(0, now - startedAt),
+    };
+  }
+
+  /** Every rolling unit accounted for: write the take and reset for the next one. */
+  async function closeMultiTake(units: TakeUnitRoll[], endedAt: number) {
+    const start = takeStartedAt ?? endedAt;
+    const durationMs = Math.max(0, endedAt - start);
+    const finalBuffer: Buffered[] =
+      markInMs !== null
+        ? [...buffered, { kind: 'range', atMs: markInMs, endMs: durationMs, label: '' }]
+        : buffered;
+    setMarkInMs(null);
+    setRangeLabelTarget(null);
+
+    const take = await store.createTake({
+      slateId: slate.id,
+      projectId: project.id,
+      startedAt: start,
+      durationMs,
+      units,
+    });
+    for (const m of finalBuffer) {
+      await store.createMoment({
+        takeId: take.id,
+        kind: m.kind,
+        atMs: m.atMs,
+        ...(m.endMs !== undefined ? { endMs: m.endMs } : {}),
+        label: m.label,
+        ...(m.tag !== undefined ? { tag: m.tag } : {}),
+      });
+    }
+    setBuffered([]);
+    setCamRolls({});
+    setFinishedRolls([]);
+    setTakeStartedAt(null);
+    setPostCut({ take });
+    await refreshMeta();
+  }
+
+  /** Tap ONE camera's own CUT. Closes the take only if it was the last one rolling. */
+  async function soloCut(letter: CameraUnitLetter) {
+    const startedAt = camRolls[letter];
+    if (startedAt === undefined) return;
+    haptics.doubleThump();
+    track('cut');
+    bumpClap();
+    const now = Date.now();
+    const clip = finishCam(letter, startedAt, now);
+    const remaining = { ...camRolls };
+    delete remaining[letter];
+    const allFinished = [...finishedRolls, clip];
+    if (Object.keys(remaining).length === 0) {
+      await closeMultiTake(allFinished, now);
+    } else {
+      setCamRolls(remaining);
+      setFinishedRolls(allFinished);
+    }
+  }
+
+  /** The big CUT: stops every unit still rolling, always closing the take. */
+  async function bigCutMulti() {
+    if (!anyCamRolling) return;
+    haptics.doubleThump();
+    track('cut');
+    bumpClap();
+    const now = Date.now();
+    const clips: TakeUnitRoll[] = [...finishedRolls];
+    for (const letter of Object.keys(camRolls) as CameraUnitLetter[]) {
+      clips.push(finishCam(letter, camRolls[letter]!, now));
+    }
+    await closeMultiTake(clips, now);
+  }
+
   async function refreshMeta() {
     const [p, takes] = await Promise.all([
       store.getProject(project.id),
@@ -132,7 +276,7 @@ export function RollingScreen(props: {
   }
 
   function doRoll() {
-    if (timer.rolling || postCut) return;
+    if (multi || timer.rolling || postCut) return; // multi-cam uses bigRollMulti/soloRoll instead
     haptics.thump();
     track('roll'); // fire-and-forget; never blocks or throws
     setBuffered([]);
@@ -143,7 +287,7 @@ export function RollingScreen(props: {
   }
 
   async function doCut() {
-    if (!timer.rolling) return;
+    if (multi || !timer.rolling) return; // multi-cam uses bigCutMulti/soloCut instead
     haptics.doubleThump();
     track('cut'); // fire-and-forget; never blocks or throws
     bumpClap();
@@ -176,26 +320,28 @@ export function RollingScreen(props: {
     await refreshMeta();
   }
 
-  // keep refs pointing at the freshest closures for voice commands
-  doRollRef.current = doRoll;
-  doCutRef.current = doCut;
+  // keep refs pointing at the freshest closures for voice commands. Multi-cam
+  // routes voice to the BIG roll/cut (everyone together) - there is no way to
+  // say "just camera B" out loud.
+  doRollRef.current = multi ? bigRollMulti : doRoll;
+  doCutRef.current = multi ? () => void bigCutMulti() : doCut;
 
   function tapTag(tag: string) {
-    if (!timer.rolling) return;
+    if (!rolling) return;
     haptics.tap();
-    setBuffered((prev) => [...prev, { kind: 'point', atMs: timer.elapsedMs, label: '', tag }]);
+    setBuffered((prev) => [...prev, { kind: 'point', atMs: elapsedMs, label: '', tag }]);
     setFlashes((prev) => ({ ...prev, [tag]: (prev[tag] ?? 0) + 1 }));
     setToast(tag === 'GOLD' ? 'GOLD marked' : `${tag} marked`);
   }
 
   function markInOut() {
-    if (!timer.rolling) return;
+    if (!rolling) return;
     haptics.tap();
     if (markInMs === null) {
-      setMarkInMs(timer.elapsedMs);
+      setMarkInMs(elapsedMs);
     } else {
       const start = markInMs;
-      const end = timer.elapsedMs;
+      const end = elapsedMs;
       setMarkInMs(null);
       setBuffered((prev) => {
         const next: Buffered[] = [...prev, { kind: 'range', atMs: start, endMs: end, label: '' }];
@@ -225,10 +371,13 @@ export function RollingScreen(props: {
     }
   }
 
-  const rolling = timer.rolling;
-  const rangeArmedMs = markInMs !== null ? Math.max(0, timer.elapsedMs - markInMs) : 0;
-  const multi = isMultiCam(project);
-  const cameras = project.cameras ?? [];
+  // Single-cam: one global timer, unchanged. Multi-cam: "rolling" means ANY
+  // configured unit is currently rolling; the overall clock runs from the
+  // first camera's roll to now, same number moments are timestamped against.
+  const rolling = multi ? anyCamRolling : timer.rolling;
+  const elapsedMs = multi ? (takeStartedAt !== null ? Math.max(0, nowTick - takeStartedAt) : 0) : timer.elapsedMs;
+  const rangeArmedMs = markInMs !== null ? Math.max(0, elapsedMs - markInMs) : 0;
+  const rollingLetters = (Object.keys(camRolls) as CameraUnitLetter[]).sort();
 
   return (
     <div className={`roll${rolling ? ' roll--live' : ''}`}>
@@ -314,12 +463,13 @@ export function RollingScreen(props: {
 
       <div className="roll__stage">
         <div className={`readout${rolling ? ' readout--live' : ' readout--idle'}`}>
-          {tc.msToClock(timer.elapsedMs)}
+          {tc.msToClock(elapsedMs)}
         </div>
         <div className="stage__hint">
           {rolling ? (
             <span className="stage__reclabel">
-              <span className="recdot" aria-hidden="true" /> ROLLING{multi ? ' · ALL CAMERAS' : ''}
+              <span className="recdot" aria-hidden="true" /> ROLLING
+              {multi ? ` · ${rollingLetters.join(', ')}` : ''}
             </span>
           ) : postCut ? (
             'Shot saved'
@@ -329,32 +479,75 @@ export function RollingScreen(props: {
         </div>
 
         {multi && (
-          <div
-            className={`camstack${rolling ? ' camstack--live' : ''}`}
-            aria-label="Current clip on each camera"
-          >
-            {cameras.map((u) =>
-              rolling ? (
-                <div key={u.letter} className="camslot">
-                  <span className="camslot__badge">{u.letter}</span>
-                  <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+          <div className="camstack" aria-label="Every camera - tap one to roll, join, or cut it alone">
+            {cameras.map((u) => {
+              const camIsRolling = camRolls[u.letter] !== undefined;
+              if (camIsRolling) {
+                // This unit is rolling: tap it to cut just this camera. If it
+                // is the last one still rolling, the whole shot closes.
+                return (
+                  <button
+                    key={u.letter}
+                    type="button"
+                    className="camslot camslot--rolling"
+                    aria-label={`Camera ${u.letter} rolling ${renderUnitClip(u)}, tap to cut it`}
+                    onClick={() => void soloCut(u.letter)}
+                  >
+                    <span className="camslot__badge">{u.letter}</span>
+                    <span className="camslot__body">
+                      <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+                      {u.operator && <span className="camslot__operator">{u.operator}</span>}
+                    </span>
+                    <span className="camslot__elapsed tnum">{tc.msToClock(elapsedForCam(u.letter))}</span>
+                  </button>
+                );
+              }
+              if (rolling) {
+                // A shot is running but this camera has not joined yet.
+                return (
+                  <button
+                    key={u.letter}
+                    type="button"
+                    className="camslot camslot--join"
+                    aria-label={`Join camera ${u.letter} into this shot, next clip ${renderUnitClip(u)}`}
+                    onClick={() => soloRoll(u.letter)}
+                  >
+                    <span className="camslot__badge">{u.letter}</span>
+                    <span className="camslot__body">
+                      <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+                      {u.operator && <span className="camslot__operator">{u.operator}</span>}
+                    </span>
+                    <span className="camslot__join">JOIN</span>
+                  </button>
+                );
+              }
+              // Fully idle: tap the slot to roll THIS camera alone; the pencil
+              // fixes its next clip number without starting anything.
+              return (
+                <div key={u.letter} className="camslot camslot--edit">
+                  <button
+                    type="button"
+                    className="camslot__main"
+                    aria-label={`Roll camera ${u.letter} alone, next clip ${renderUnitClip(u)}`}
+                    onClick={() => soloRoll(u.letter)}
+                  >
+                    <span className="camslot__badge">{u.letter}</span>
+                    <span className="camslot__body">
+                      <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+                      {u.operator && <span className="camslot__operator">{u.operator}</span>}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="camslot__penbtn"
+                    aria-label={`Fix camera ${u.letter} next clip number`}
+                    onClick={() => setEditingUnit(u)}
+                  >
+                    <span className="camslot__pen" aria-hidden="true">✎</span>
+                  </button>
                 </div>
-              ) : (
-                // Idle only: tap a readout to fix that camera's NEXT clip number
-                // before rolling. Locked out while rolling to avoid mis-taps.
-                <button
-                  key={u.letter}
-                  type="button"
-                  className="camslot camslot--edit"
-                  aria-label={`Camera ${u.letter} next clip ${renderUnitClip(u)}, tap to set`}
-                  onClick={() => setEditingUnit(u)}
-                >
-                  <span className="camslot__badge">{u.letter}</span>
-                  <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
-                  <span className="camslot__pen" aria-hidden="true">✎</span>
-                </button>
-              ),
-            )}
+              );
+            })}
           </div>
         )}
 
@@ -527,8 +720,22 @@ export function RollingScreen(props: {
         <button
           type="button"
           className={`bigbtn${rolling ? ' bigbtn--cut' : ' bigbtn--go'}`}
-          aria-label={rolling ? 'Cut and save shot' : 'Roll, start rolling'}
-          onClick={rolling ? () => void doCut() : doRoll}
+          aria-label={
+            rolling
+              ? multi
+                ? 'Cut every camera still rolling and save the shot'
+                : 'Cut and save shot'
+              : multi
+                ? 'Roll every camera together'
+                : 'Roll, start rolling'
+          }
+          onClick={
+            rolling
+              ? () => void (multi ? bigCutMulti() : doCut())
+              : multi
+                ? () => bigRollMulti()
+                : doRoll
+          }
         >
           {rolling ? 'CUT' : 'ROLL'}
         </button>

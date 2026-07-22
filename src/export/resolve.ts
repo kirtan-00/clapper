@@ -45,7 +45,7 @@
 // spec-legal FCPXML, and still land every angle in sync at the correct
 // offset for the editor to look at and group by hand.
 
-import type { CameraUnitLetter, Fps, Moment, ProjectBundle, Take } from '../types';
+import type { CameraUnitLetter, Fps, Moment, ProjectBundle, Take, TakeClip } from '../types';
 import { isMultiCam } from '../types';
 import { tc } from './timecode';
 
@@ -167,12 +167,17 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
   let assetSeq = 0;
 
   for (const take of allTakesInStoryOrder(bundle)) {
-    const durationFrames = Math.max(1, msToFrames(take.durationMs, fps));
     for (const unit of units) {
       const clipName = clipNameFor(take, unit, multi);
       if (!clipName) continue;
       const key = `${clipName}|${unit.letter}`;
       if (!assets.has(key)) {
+        // The asset's own registered duration is THAT unit's own recorded
+        // roll length where we have it (a unit that joined late or cut early
+        // only really ran for part of the take), falling back to the take's
+        // overall duration for pre-timing saved takes.
+        const ownMs = multi ? take.clips?.find((c) => c.unit === unit.letter)?.durationMs : undefined;
+        const durationFrames = Math.max(1, msToFrames(ownMs ?? take.durationMs, fps));
         assets.set(key, {
           id: `a${(assetSeq += 1)}`,
           clipName,
@@ -184,21 +189,34 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     }
   }
 
+  /** This unit's own clip on `take`, or undefined if it never rolled it. */
+  function clipOf(take: Take, unit: Unit): TakeClip | undefined {
+    if (!multi) return undefined;
+    return take.clips?.find((c) => c.unit === unit.letter);
+  }
+
   // ---------------------------------------------------------------- spine --
-  function markersXml(take: Take, durationFrames: number): string {
+  // `anchorOffsetMs`/`anchorDurationFrames` are the anchor clip's OWN local
+  // timeline - a moment's atMs (relative to the TAKE start) has to be
+  // re-based onto the anchor's own start before it means anything as a
+  // marker inside that asset-clip.
+  function markersXml(take: Take, anchorOffsetMs: number, anchorDurationFrames: number): string {
     return (momentsByTake.get(take.id) ?? [])
       .slice()
       .sort((a, b) => a.atMs - b.atMs)
       .map((m) => {
         const value = [m.tag, m.label].filter(Boolean).join(' ') || 'Marker';
-        const startFrame = Math.min(msToFrames(m.atMs, fps), Math.max(0, durationFrames - 1));
+        const startFrame = Math.min(
+          Math.max(0, msToFrames(m.atMs - anchorOffsetMs, fps)),
+          Math.max(0, anchorDurationFrames - 1),
+        );
         // FCPXML markers are fundamentally a point in time; a range moment's
         // span is carried as `duration` on a best-effort basis - most NLE UIs
         // (Resolve included, as far as we can tell without testing) still
         // just draw the flag at `start` and ignore the span visually.
         const durFrames =
           m.kind === 'range' && m.endMs !== undefined
-            ? Math.max(1, msToFrames(m.endMs, fps) - startFrame)
+            ? Math.max(1, msToFrames(m.endMs - anchorOffsetMs, fps) - startFrame)
             : 1;
         const note = m.label ? ` note="${escapeXml(m.label)}"` : '';
         return (
@@ -211,20 +229,33 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
 
   const spineItems: string[] = [];
 
-  /** Lay one take at `startFrames`; returns its duration in frames. */
+  /**
+   * Lay one take at `startFrames`; returns the WHOLE take's duration in
+   * frames (unaffected by any one unit's own timing, so takes stay
+   * back-to-back regardless of which cameras rolled).
+   *
+   * Each unit's own clip sits at `startFrames` + its own startOffsetMs and
+   * runs its own durationMs. The anchor - the unit that started earliest
+   * (offset 0 in the common case), camera-letter order breaking ties, so a
+   * single-cam-shaped multi-cam take keeps anchoring on A - carries the
+   * spine position; every other unit that rolled this take rides as a lane
+   * child, offset by the DIFFERENCE between its own start and the anchor's.
+   */
   function placeTake(take: Take, startFrames: number): number {
-    const durationFrames = Math.max(1, msToFrames(take.durationMs, fps));
+    const takeDurationFrames = Math.max(1, msToFrames(take.durationMs, fps));
     const offsetStr = framesToRational(startFrames, fd);
-    const durationStr = framesToRational(durationFrames, fd);
+    const takeDurationStr = framesToRational(takeDurationFrames, fd);
 
-    // Anchor on the first unit (camera order, "A" first) that actually has a
-    // clip for this take, so every OTHER present unit can ride as a synced
-    // lane child at offset 0 within it.
     let anchor: Unit | undefined;
+    let anchorOffsetMs = 0;
     for (const u of units) {
-      if (clipNameFor(take, u, multi)) {
+      const clip = clipOf(take, u);
+      const cn = multi ? clip?.clipName : clipNameFor(take, u, multi);
+      if (!cn) continue;
+      const offset = multi ? clip?.startOffsetMs ?? 0 : 0;
+      if (anchor === undefined || offset < anchorOffsetMs) {
         anchor = u;
-        break;
+        anchorOffsetMs = offset;
       }
     }
 
@@ -233,38 +264,49 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
       // math intact with a bare gap rather than silently shortening the
       // sequence (mirrors the defensive `if (!clip) return;` in fcpxml.ts).
       spineItems.push(
-        `        <gap offset="${offsetStr}" duration="${durationStr}" name="${escapeXml(take.clipName || 'missing take')}"/>`,
+        `        <gap offset="${offsetStr}" duration="${takeDurationStr}" name="${escapeXml(take.clipName || 'missing take')}"/>`,
       );
-      return durationFrames;
+      return takeDurationFrames;
     }
 
     const anchorClip = clipNameFor(take, anchor, multi)!;
     const anchorId = assets.get(`${anchorClip}|${anchor.letter}`)!.id;
+    const anchorClipInfo = clipOf(take, anchor);
+    const anchorDurationFrames = Math.max(
+      1,
+      msToFrames(anchorClipInfo?.durationMs ?? take.durationMs, fps),
+    );
+    const anchorDurationStr = framesToRational(anchorDurationFrames, fd);
+    const anchorStartFrames = startFrames + msToFrames(anchorOffsetMs, fps);
+    const anchorOffsetStr = framesToRational(anchorStartFrames, fd);
 
     // Beats belong to the take, not one angle - carried on the anchor clip
     // only. Same rule fcpxml.ts's multi-cam pass uses for its <marker>s.
-    const markers = markersXml(take, durationFrames);
+    const markers = markersXml(take, anchorOffsetMs, anchorDurationFrames);
 
     const laneChildren: string[] = [];
     let lane = 0;
     for (const u of units) {
       if (u === anchor) continue;
-      const cn = clipNameFor(take, u, multi);
+      const clip = clipOf(take, u);
+      const cn = multi ? clip?.clipName : clipNameFor(take, u, multi);
       if (!cn) continue;
       lane += 1;
       const id = assets.get(`${cn}|${u.letter}`)!.id;
+      const offsetMs = (multi ? clip?.startOffsetMs ?? 0 : 0) - anchorOffsetMs;
+      const durationFrames = Math.max(1, msToFrames((multi ? clip?.durationMs : undefined) ?? take.durationMs, fps));
       laneChildren.push(
-        `          <asset-clip ref="${id}" lane="${lane}" offset="0s" name="${escapeXml(cn)}" duration="${durationStr}" start="0s"/>`,
+        `          <asset-clip ref="${id}" lane="${lane}" offset="${framesToRational(Math.max(0, msToFrames(offsetMs, fps)), fd)}" name="${escapeXml(cn)}" duration="${framesToRational(durationFrames, fd)}" start="0s"/>`,
       );
     }
 
     const inner = [markers, laneChildren.join('\n')].filter(Boolean).join('\n');
     spineItems.push(
       inner
-        ? `        <asset-clip ref="${anchorId}" offset="${offsetStr}" name="${escapeXml(anchorClip)}" duration="${durationStr}" start="0s">\n${inner}\n        </asset-clip>`
-        : `        <asset-clip ref="${anchorId}" offset="${offsetStr}" name="${escapeXml(anchorClip)}" duration="${durationStr}" start="0s"/>`,
+        ? `        <asset-clip ref="${anchorId}" offset="${anchorOffsetStr}" name="${escapeXml(anchorClip)}" duration="${anchorDurationStr}" start="0s">\n${inner}\n        </asset-clip>`
+        : `        <asset-clip ref="${anchorId}" offset="${anchorOffsetStr}" name="${escapeXml(anchorClip)}" duration="${anchorDurationStr}" start="0s"/>`,
     );
-    return durationFrames;
+    return takeDurationFrames;
   }
 
   // Pass 1: GOOD takes, story order, back-to-back from 0.

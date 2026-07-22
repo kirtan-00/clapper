@@ -238,6 +238,18 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
     font: helv,
     color: LIGHT,
   });
+
+  // Operators: "Camera A - Rohan's cam", one per configured unit that has a
+  // name. Multi-cam only; skipped entirely if nobody bothered to name anyone.
+  const operatorLine = (project.cameras ?? [])
+    .filter((u) => u.operator && u.operator.trim())
+    .map((u) => `Camera ${u.letter} - ${u.operator}`)
+    .join('   ·   ');
+  if (operatorLine) {
+    y -= 12;
+    page.drawText(sanitize(operatorLine), { x: MARGIN, y, size: 8, font: helv, color: GRAY });
+  }
+
   y -= 14;
   rule();
   y -= 20;

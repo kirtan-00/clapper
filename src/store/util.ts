@@ -233,6 +233,13 @@ export function reclaimClipNumbers(
   return { takes: changed, project: nextProject };
 }
 
+/** One participating unit's own roll timing within a take (mirrors Store.createTake's arg). */
+export interface TakeUnitRoll {
+  unit: CameraUnitLetter;
+  startOffsetMs: number; // ms after the take started that this unit began rolling
+  durationMs: number;    // how long this unit rolled
+}
+
 /** The CUT-time inputs a take is built from (mirrors Store.createTake's arg). */
 export interface TakeInput {
   slateId: string;
@@ -241,6 +248,10 @@ export interface TakeInput {
   durationMs: number;
   cameraTC?: string;
   note?: string;
+  // Multi-cam only: which units actually rolled, and each one's own timing.
+  // ABSENT/empty = every configured unit rolled together for the whole take
+  // (the big-ROLL common case) - matches every take built before this existed.
+  units?: TakeUnitRoll[];
 }
 
 /**
@@ -248,9 +259,14 @@ export interface TakeInput {
  * Pure and backend-agnostic so idb + localStorage stay byte-identical.
  *
  * Single-cam (no `project.cameras`): consumes the top-level `nextClipNumber`,
- * exactly as before — one clip in `clipName`, no `clips` array.
- * Multi-cam: consumes EACH camera unit's own counter, records one clip per unit
- * in `clips`, mirrors unit A's clip into `clipName`, and advances every unit.
+ * exactly as before — one clip in `clipName`, no `clips` array. `input.units`
+ * is meaningless here and ignored.
+ *
+ * Multi-cam: consumes ONLY the counters of units that actually rolled
+ * (`input.units`, or - absent - every configured unit, full take duration, no
+ * offset). Only those units get a clip in `clips`. `clipName` mirrors the
+ * first participating unit in camera-letter order, so a legacy reader that
+ * only looks at `clipName` still sees a real clip whether or not A rolled.
  */
 export function buildTakeClips(
   project: Project,
@@ -261,17 +277,31 @@ export function buildTakeClips(
   const units = project.cameras;
 
   if (units && units.length > 0) {
-    const clips: TakeClip[] = units.map((u) => ({
-      unit: u.letter,
-      clipName: formatClip(u.clipPrefix, u.nextClipNumber, u.clipPadding, u.clipSuffix),
-    }));
-    const advanced = units.map((u) => ({ ...u, nextClipNumber: u.nextClipNumber + 1 }));
+    const rolls = new Map<CameraUnitLetter, TakeUnitRoll>(
+      input.units && input.units.length > 0
+        ? input.units.map((r) => [r.unit, r])
+        : units.map((u) => [u.letter, { unit: u.letter, startOffsetMs: 0, durationMs: input.durationMs }]),
+    );
+
+    const rollingUnits = units.filter((u) => rolls.has(u.letter));
+    const clips: TakeClip[] = rollingUnits.map((u) => {
+      const roll = rolls.get(u.letter)!;
+      return {
+        unit: u.letter,
+        clipName: formatClip(u.clipPrefix, u.nextClipNumber, u.clipPadding, u.clipSuffix),
+        startOffsetMs: roll.startOffsetMs,
+        durationMs: roll.durationMs,
+      };
+    });
+    const advanced = units.map((u) =>
+      rolls.has(u.letter) ? { ...u, nextClipNumber: u.nextClipNumber + 1 } : u,
+    );
     const take: Take = {
       id: newId(),
       slateId: input.slateId,
       projectId: input.projectId,
       number,
-      clipName: clips[0].clipName,
+      clipName: clips[0]?.clipName ?? '',
       clips,
       status: 'good',
       startedAt: input.startedAt,

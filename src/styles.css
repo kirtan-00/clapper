@@ -1469,7 +1469,9 @@ select.field {
   white-space: nowrap;
 }
 
-/* Rolling-screen stacked readout: every camera's current clip, glanceable. */
+/* Rolling-screen stacked readout: every camera's current clip, glanceable, and
+   (multi-cam) each one's own tap target - roll it alone, join a running shot,
+   or cut just that camera. */
 .camstack {
   width: 100%;
   max-width: 420px;
@@ -1496,6 +1498,13 @@ select.field {
   color: var(--chalk-dim);
   background: var(--ink-800);
   border-color: var(--line);
+  flex: none;
+}
+.camslot__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
 }
 .camslot__clip {
   color: var(--go);
@@ -1505,26 +1514,92 @@ select.field {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Idle: readout is a tap target to fix that camera's next clip number. */
+.camslot__operator {
+  color: var(--chalk-faint);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Idle: tap the slot to roll that camera alone; the pencil (a separate,
+   smaller target) fixes its next clip number without rolling anything. */
 .camslot--edit {
+  padding: 6px 6px 6px 10px;
+  cursor: pointer;
+}
+.camslot__main {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  transition: opacity 100ms ease;
+}
+.camslot__main:active { opacity: 0.7; }
+.camslot__penbtn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-850);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.camslot__penbtn:active { background: var(--ink-800); }
+.camslot__pen { color: var(--chalk-faint); font-size: 0.82rem; }
+
+/* Rolling: this specific unit is live right now - tap it to cut just this
+   camera. Reads red/hot, matching the CUT button. */
+.camslot--rolling {
   width: 100%;
   min-height: var(--tap);
   text-align: left;
-  cursor: pointer;
-  transition: transform 70ms ease, border-color 120ms ease;
+  border-color: color-mix(in srgb, var(--rec) 45%, var(--line-soft));
+  background: color-mix(in srgb, var(--rec) 10%, var(--ink-900));
+  transition: transform 70ms ease;
 }
-.camslot--edit:active {
-  transform: scale(0.98);
-  border-color: color-mix(in srgb, var(--go) 45%, var(--line-soft));
+.camslot--rolling:active { transform: scale(0.98); }
+.camslot--rolling .camslot__badge {
+  color: var(--rec);
+  background: color-mix(in srgb, var(--rec) 20%, var(--ink-800));
+  border-color: color-mix(in srgb, var(--rec) 55%, transparent);
 }
-.camslot__pen { margin-left: auto; color: var(--chalk-faint); font-size: 0.82rem; }
+.camslot__elapsed {
+  margin-left: auto;
+  flex: none;
+  font-size: 0.86rem;
+  color: var(--chalk-dim);
+}
 
-/* Rolling: all cameras read as live together. */
-.camstack--live .camslot { border-color: color-mix(in srgb, var(--rec) 38%, var(--line-soft)); }
-.camstack--live .camslot__badge {
+/* A shot is running but this unit has not joined yet - dim and dashed, tap
+   to roll it in. */
+.camslot--join {
+  width: 100%;
+  min-height: var(--tap);
+  text-align: left;
+  border-style: dashed;
+  opacity: 0.8;
+  transition: transform 70ms ease, opacity 100ms ease;
+}
+.camslot--join:active { transform: scale(0.98); opacity: 1; }
+.camslot__join {
+  margin-left: auto;
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   color: var(--go);
-  background: color-mix(in srgb, var(--go) 16%, var(--ink-800));
-  border-color: color-mix(in srgb, var(--go) 45%, transparent);
 }
 
 /* Tap the take row to edit it; the info spans become one big target. */

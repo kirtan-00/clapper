@@ -132,6 +132,7 @@ export function makeCameraUnit(
   letter: CameraUnitLetter,
   presetId: string,
   startNumber: number,
+  operator?: string,
 ): CameraUnit {
   const p = findPreset(presetId);
   return {
@@ -142,6 +143,7 @@ export function makeCameraUnit(
     clipPadding: p?.digits ?? 4,
     clipExt: p?.ext ?? '.MP4',
     nextClipNumber: Math.max(0, startNumber),
+    ...(operator && operator.trim() ? { operator: operator.trim() } : {}),
   };
 }
 

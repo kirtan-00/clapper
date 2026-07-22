@@ -299,6 +299,7 @@ interface UnitDraft {
   pad: string;
   ext: string;
   suffix: string;
+  operator: string;
 }
 
 // Seed one draft per possible unit (A-D) from the project. Unit A of a single-cam
@@ -315,6 +316,7 @@ function draftsFromProject(project: Project): UnitDraft[] {
         pad: String(u.clipPadding),
         ext: u.clipExt ?? '',
         suffix: u.clipSuffix ?? '',
+        operator: u.operator ?? '',
       };
     }
     if (i === 0 && !project.cameras) {
@@ -325,9 +327,10 @@ function draftsFromProject(project: Project): UnitDraft[] {
         pad: String(project.clipPadding),
         ext: project.clipExt ?? presetExt,
         suffix: project.clipSuffix ?? '',
+        operator: '',
       };
     }
-    return { camera: 'sony', prefix: 'C', num: '1', pad: '4', ext: '.MP4', suffix: '' };
+    return { camera: 'sony', prefix: 'C', num: '1', pad: '4', ext: '.MP4', suffix: '', operator: '' };
   });
 }
 
@@ -382,6 +385,7 @@ function ClipCounterSection(props: {
         clipPadding: clampPad(u.pad),
         clipSuffix: u.suffix,
         clipExt: u.ext.trim(),
+        ...(u.operator.trim() ? { operator: u.operator.trim() } : {}),
       }));
       const a = cameras[0];
       await props.onCommit({
@@ -509,6 +513,18 @@ function ClipCounterSection(props: {
                 <span className="camunit__eg tnum">{previewOf(u)}</span>
               </div>
               <div style={{ marginTop: 12 }}>{numFields(u, i, `cc-${i}`)}</div>
+              <div className="formrow" style={{ marginTop: 12, marginBottom: 0 }}>
+                <label className="label" htmlFor={`cc-${i}-operator`}>
+                  Operator <span className="section__note">optional</span>
+                </label>
+                <input
+                  id={`cc-${i}-operator`}
+                  className="field"
+                  placeholder="e.g. Rohan"
+                  value={u.operator}
+                  onChange={(e) => setUnit(i, { operator: e.target.value })}
+                />
+              </div>
             </div>
           ))}
           <button type="button" className="btn btn--full" onClick={() => void save()}>

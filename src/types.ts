@@ -21,6 +21,7 @@ export interface CameraUnit {
   clipPadding: number;
   clipSuffix?: string;
   clipExt?: string;
+  operator?: string;       // who is running this camera; shown on its slot while shooting
 }
 
 export interface Project {
@@ -87,6 +88,12 @@ export type TakeStatus = 'good' | 'discarded';
 export interface TakeClip {
   unit: CameraUnitLetter;  // A/B/C/D
   clipName: string;        // that camera's native clip name captured at roll time
+  // Independent per-camera rolling: this unit may have started after the take
+  // did (joined mid-take) and stopped before the take closed. Both optional so
+  // every take saved before this feature keeps loading/exporting unchanged:
+  // missing = "started with the take" (0) / "ran the whole take" (take.durationMs).
+  startOffsetMs?: number;  // ms after Take.startedAt that THIS unit began rolling
+  durationMs?: number;     // how long THIS unit rolled, in ms
 }
 
 export interface Take {
@@ -152,10 +159,15 @@ export interface Store {
   createTake(input: {
     slateId: string;
     projectId: string;
-    startedAt: number;
-    durationMs: number;
+    startedAt: number;      // when the FIRST camera rolled
+    durationMs: number;     // first roll to last cut, across every participating unit
     cameraTC?: string;
     note?: string;
+    // Multi-cam only: which units actually rolled this take, and each one's own
+    // timing. ABSENT (or omitted) means "every configured unit rolled together,
+    // full take duration, no offset" - the big-ROLL common case, and also what a
+    // single-cam project always gets (units is meaningless there and ignored).
+    units?: { unit: CameraUnitLetter; startOffsetMs: number; durationMs: number }[];
   }): Promise<Take>;
   updateTake(id: string, patch: Partial<Take>): Promise<Take>;
   /**

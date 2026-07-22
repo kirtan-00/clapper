@@ -16,7 +16,7 @@
 // identical same-type filenames (both "C0001.MP4") still relink to the right
 // card without any filename change.
 
-import type { CameraUnit, Fps, Moment, ProjectBundle, Take } from '../types';
+import type { CameraUnit, CameraUnitLetter, Fps, Moment, ProjectBundle, Take } from '../types';
 import { isMultiCam } from '../types';
 
 function escapeXml(s: string): string {
@@ -245,16 +245,24 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
   let clipitemSeq = 0;
   let fileSeq = 0;
 
-  function markersFor(take: Take, durationFrames: number): string {
+  // `anchorOffsetMs` shifts every moment's atMs into the anchor CLIP's own
+  // local timeline (its <in>/<out> are frame offsets from ITS OWN start, not
+  // the sequence start) and `anchorDurationFrames` clamps into that clip's
+  // own span - a unit that joined late or cut early only owns the beats that
+  // actually fall inside the time it was rolling.
+  function markersFor(take: Take, anchorOffsetMs: number, anchorDurationFrames: number): string {
     return (momentsByTake.get(take.id) ?? [])
       .slice()
       .sort((a, b) => a.atMs - b.atMs)
       .map((m) => {
         const markerName = [m.tag, m.label].filter(Boolean).join(' ') || 'Marker';
-        const inFrame = Math.min(msToFrames(m.atMs, fps), Math.max(0, durationFrames - 1));
+        const inFrame = Math.min(
+          Math.max(0, msToFrames(m.atMs - anchorOffsetMs, fps)),
+          Math.max(0, anchorDurationFrames - 1),
+        );
         const outFrame =
           m.kind === 'range' && m.endMs !== undefined
-            ? Math.min(Math.max(msToFrames(m.endMs, fps), inFrame + 1), durationFrames)
+            ? Math.min(Math.max(msToFrames(m.endMs - anchorOffsetMs, fps), inFrame + 1), anchorDurationFrames)
             : -1;
         return (
           `<marker><name>${escapeXml(markerName)}</name>` +
@@ -265,17 +273,42 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       .join('');
   }
 
-  // Lay one take across every unit's V/A track pair, aligned at `start`.
+  // Lay one take across every unit's V/A track pair. Each unit's own clip
+  // sits at `start` + its own startOffsetMs and runs its own durationMs -
+  // only cameras that actually rolled this take get a clipitem at all.
+  // `start` -> `start + takeDurationFrames` is still the timeline slot the
+  // WHOLE take occupies (unaffected by any one unit's own timing), so takes
+  // stay laid back-to-back regardless of which camera happened to roll.
   function placeTake(take: Take, start: number): number {
-    const durationFrames = Math.max(1, msToFrames(take.durationMs, fps));
-    const end = start + durationFrames;
+    const takeDurationFrames = Math.max(1, msToFrames(take.durationMs, fps));
+    const clips = take.clips ?? [];
+
+    // Beats belong to the take, not one angle - carried on whichever unit
+    // started earliest (offset 0 in the common case), by camera-letter order
+    // on ties, so single-cam-shaped multi-cam takes keep anchoring on A.
+    let anchorLetter: CameraUnitLetter | undefined;
+    let anchorOffsetMs = 0;
+    for (const unit of units) {
+      const clip = clips.find((c) => c.unit === unit.letter);
+      if (!clip) continue;
+      const offset = clip.startOffsetMs ?? 0;
+      if (anchorLetter === undefined || offset < anchorOffsetMs) {
+        anchorLetter = unit.letter;
+        anchorOffsetMs = offset;
+      }
+    }
 
     units.forEach((unit, ui) => {
-      const clip = (take.clips ?? []).find((c) => c.unit === unit.letter);
+      const clip = clips.find((c) => c.unit === unit.letter);
       if (!clip) return;
       const ext = unit.clipExt ?? '';
       const trackIndex = ui + 1; // V(trackIndex) and A(trackIndex) run in sync
       const clipIndex = (counts[ui] += 1);
+
+      const offsetMs = clip.startOffsetMs ?? 0;
+      const clipDurationFrames = Math.max(1, msToFrames(clip.durationMs ?? take.durationMs, fps));
+      const clipStart = start + msToFrames(offsetMs, fps);
+      const clipEnd = clipStart + clipDurationFrames;
 
       const vId = `clipitem-${(clipitemSeq += 1)}`;
       const aId = `clipitem-${(clipitemSeq += 1)}`;
@@ -295,7 +328,7 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
           `<name>${fileName}</name>` +
           `<pathurl>file://localhost/${fileName}</pathurl>` +
           rateXml +
-          `<duration>${durationFrames}</duration>` +
+          `<duration>${clipDurationFrames}</duration>` +
           // Reel/tape name = the camera unit letter. This is what disambiguates
           // two same-type cards that natively wrote identical filenames.
           `<timecode>${rateXml}<string>00:00:00:00</string><frame>0</frame>` +
@@ -312,13 +345,12 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
         `<link><linkclipref>${aId}</linkclipref><mediatype>audio</mediatype>` +
         `<trackindex>${trackIndex}</trackindex><clipindex>${clipIndex}</clipindex></link>`;
 
-      // Beats belong to the take, not one angle: carry them on unit A's picture.
-      const markers = ui === 0 ? markersFor(take, durationFrames) : '';
+      const markers = unit.letter === anchorLetter ? markersFor(take, anchorOffsetMs, clipDurationFrames) : '';
 
       vTracks[ui].push(
         `        <clipitem id="${vId}">` +
-          `<name>${name}</name><duration>${durationFrames}</duration>${rateXml}` +
-          `<start>${start}</start><end>${end}</end><in>0</in><out>${durationFrames}</out>` +
+          `<name>${name}</name><duration>${clipDurationFrames}</duration>${rateXml}` +
+          `<start>${clipStart}</start><end>${clipEnd}</end><in>0</in><out>${clipDurationFrames}</out>` +
           fileVideoXml +
           `<sourcetrack><mediatype>video</mediatype></sourcetrack>` +
           links +
@@ -327,8 +359,8 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       );
       aTracks[ui].push(
         `        <clipitem id="${aId}">` +
-          `<name>${name}</name><duration>${durationFrames}</duration>${rateXml}` +
-          `<start>${start}</start><end>${end}</end><in>0</in><out>${durationFrames}</out>` +
+          `<name>${name}</name><duration>${clipDurationFrames}</duration>${rateXml}` +
+          `<start>${clipStart}</start><end>${clipEnd}</end><in>0</in><out>${clipDurationFrames}</out>` +
           fileAudioXml +
           `<sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>` +
           links +
@@ -336,7 +368,7 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       );
     });
 
-    return durationFrames;
+    return takeDurationFrames;
   }
 
   // Pass 1: GOOD takes, story order, back-to-back from 0.

@@ -9,6 +9,7 @@ const HEADER = [
   'shot',
   'clip',
   'camera',
+  'operator',
   'status',
   'kind',
   'tag',
@@ -40,6 +41,9 @@ export function toCsv(bundle: ProjectBundle): Blob {
   const { project, slates, takes, moments } = bundle;
   const fps = project.fps;
 
+  const operatorByUnit = new Map<string, string>(
+    (project.cameras ?? []).map((u) => [u.letter, u.operator ?? '']),
+  );
   const slateName = new Map(slates.map((s) => [s.id, s.name]));
   const momentsByTake = new Map<string, Moment[]>();
   for (const m of moments) {
@@ -91,6 +95,7 @@ export function toCsv(bundle: ProjectBundle): Blob {
             String(take.number),
             c.clipName,
             c.camera,
+            operatorByUnit.get(c.camera) ?? '',
             take.status,
             'shot',
             '',
@@ -117,6 +122,7 @@ export function toCsv(bundle: ProjectBundle): Blob {
             sName,
             String(take.number),
             take.clipName,
+            '',
             '',
             take.status,
             m.kind,
