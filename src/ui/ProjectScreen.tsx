@@ -584,11 +584,13 @@ function TcCalculator(props: { project: Project }) {
   );
 }
 
-// PDF is free, offline, and never gated. Premiere (FCP7 XML) and CSV are the pro
-// editor-handoff: each needs a signed-in account and burns one of 5 server-side
-// quota units. The client only builds the blob after `export-gate` says allow.
+// PDF is free, offline, and never gated. Premiere (FCP7 XML), Resolve (FCPXML)
+// and CSV are the pro editor-handoff: each needs a signed-in account. Resolve
+// shares Premiere's server-side quota counter (same "editor timeline handoff"
+// allowance, no separate counter to add) — CSV has its own. The client only
+// builds the blob after `export-gate` says allow.
 const EXPORT_OFFLINE_MSG =
-  "You're offline. Premiere and CSV export need a connection. Logging takes and PDF export work offline.";
+  "You're offline. Premiere, Resolve and CSV export need a connection. Logging takes and PDF export work offline.";
 
 function ExportBar(props: { project: Project }) {
   const { session } = useSession();
@@ -611,7 +613,7 @@ function ExportBar(props: { project: Project }) {
     }
   }
 
-  async function exportGated(kind: 'xml' | 'csv') {
+  async function exportGated(kind: 'xml' | 'resolve' | 'csv') {
     setError(null);
     setNote(null);
     setCapped(null);
@@ -619,13 +621,17 @@ function ExportBar(props: { project: Project }) {
       setShowSignIn(true);
       return;
     }
-    const format = kind === 'xml' ? 'premiere' : 'csv';
+    // Resolve rides the SAME gate call as Premiere ('premiere' format) — one
+    // shared "editor timeline" quota bucket, not a new rule. `label` is only
+    // for what we show/log, so a Resolve export doesn't get logged as one.
+    const format = kind === 'csv' ? 'csv' : 'premiere';
+    const label = kind === 'xml' ? 'premiere' : kind === 'resolve' ? 'resolve' : 'csv';
     setBusy(kind);
     try {
       const gate = await gateExport(format);
       if (!gate.allow) {
         if (gate.reason === 'quota_exceeded') {
-          track('cap_hit', { which: format });
+          track('cap_hit', { which: label });
           setError('Free limit reached. More coming soon.');
           setCapped(format);
         } else if (gate.reason === 'auth') {
@@ -641,13 +647,16 @@ function ExportBar(props: { project: Project }) {
       if (kind === 'xml') {
         const blob = exporter.toFcpXml(bundle);
         await shareBlob(blob, `${base}-log.xml`, 'text/xml');
+      } else if (kind === 'resolve') {
+        const blob = exporter.toResolveXml(bundle);
+        await shareBlob(blob, `${base}-log.fcpxml`, 'text/xml');
       } else {
         const blob = exporter.toCsv(bundle);
         await shareBlob(blob, `${base}-log.csv`, 'text/csv');
       }
-      track('export', { format });
+      track('export', { format: label });
       if (typeof gate.remaining === 'number') {
-        setNote(`${gate.remaining} of ${FREE_LIMIT} ${format} exports left`);
+        setNote(`${gate.remaining} of ${FREE_LIMIT} ${label} exports left`);
       }
     } catch {
       setError(EXPORT_OFFLINE_MSG);
@@ -661,12 +670,15 @@ function ExportBar(props: { project: Project }) {
       <div className="section__head">
         <span className="label">Hand off to editor</span>
       </div>
-      <div className="formgrid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+      <div className="formgrid" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
         <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportPdf()}>
           {busy === 'pdf' ? '...' : 'PDF'}
         </button>
         <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('xml')}>
           {busy === 'xml' ? '...' : 'Premiere'}
+        </button>
+        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('resolve')}>
+          {busy === 'resolve' ? '...' : 'Resolve'}
         </button>
         <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('csv')}>
           {busy === 'csv' ? '...' : 'CSV'}

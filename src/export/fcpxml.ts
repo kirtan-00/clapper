@@ -1,8 +1,10 @@
 // FCP7 xmeml (version 5) export. Premiere Pro imports this natively.
 //
-// SINGLE-CAM: one sequence at project fps, one clipitem per GOOD take laid
-// back-to-back on video track 1, offline <file> children the editor relinks,
-// and one <marker> per moment. This is the original, unchanged output shape.
+// SINGLE-CAM: one sequence at project fps, one video track, no <reel> (there is
+// only ever one card). Two passes, same as multi-cam below: the GOOD takes in
+// story order, then a GAP_SECONDS gap, then EVERY take (good and bad) as a
+// selects pool. A good take appears in both passes and each one gets its own
+// <marker>s, so nothing about tapped moments is lost in either band.
 //
 // MULTI-CAM (project.cameras, 2-4 units): each camera is a synced A/V pair on
 // its own paired tracks - V1/A1 = unit A, V2/A2 = unit B, and so on. Every
@@ -78,11 +80,11 @@ export function toFcpXml(bundle: ProjectBundle): Blob {
 }
 
 // ---------------------------------------------------------------- single ---
-// Unchanged from the original single-track export. Kept intact so existing
-// single-cam projects produce byte-for-byte the same XML they always have.
+
+const GAP_SECONDS = 3; // breathing room between the story cut and the selects pool
 
 function singleCamFcpXml(bundle: ProjectBundle): Blob {
-  const { project, slates, takes, moments } = bundle;
+  const { project, moments } = bundle;
   const fps = project.fps;
   const ext = project.clipExt ?? '';
   const { timebase, ntsc } = ratePair(fps);
@@ -95,30 +97,8 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
     momentsByTake.set(m.takeId, list);
   }
 
-  // Good takes in slate order, then take number, back-to-back on track 1.
-  const slateOrder = new Map([...slates].sort((a, b) => a.order - b.order).map((s, i) => [s.id, i]));
-  const goodTakes: Take[] = takes
-    .filter((t) => t.status === 'good')
-    .sort((a, b) => {
-      const sa = slateOrder.get(a.slateId) ?? Number.MAX_SAFE_INTEGER;
-      const sb = slateOrder.get(b.slateId) ?? Number.MAX_SAFE_INTEGER;
-      return sa !== sb ? sa - sb : a.number - b.number;
-    });
-
-  let timelinePos = 0;
-  const clipItems: string[] = [];
-
-  goodTakes.forEach((take, i) => {
-    const durationFrames = Math.max(1, msToFrames(take.durationMs, fps));
-    const start = timelinePos;
-    const end = timelinePos + durationFrames;
-    timelinePos = end;
-
-    const name = escapeXml(take.clipName);
-    // The real media file the editor relinks to, e.g. "C0001.MP4".
-    const fileName = escapeXml(take.clipName + ext);
-
-    const markers = (momentsByTake.get(take.id) ?? [])
+  function markersFor(take: Take, durationFrames: number): string {
+    return (momentsByTake.get(take.id) ?? [])
       .slice()
       .sort((a, b) => a.atMs - b.atMs)
       .map((m) => {
@@ -139,11 +119,48 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
         ].join('');
       })
       .join('\n          ');
+  }
 
-    // <file> has a name but no <pathurl>: Premiere imports the media offline
-    // and the editor relinks to the real camera files.
+  let clipSeq = 0;
+  const clipItems: string[] = [];
+
+  // A physical card (fileName) is defined once; a good take, present in BOTH
+  // the story cut and the selects pool below, relinks to the same file both
+  // times via a <file id="..."/> reference on its second appearance.
+  const fileIdByName = new Map<string, string>();
+  let fileSeq = 0;
+
+  // Lay one take at `start`; returns its duration in frames so the caller can
+  // advance the timeline cursor. Each call gets its own clipitem/marker set,
+  // so a take that appears in both bands is marked up correctly in both.
+  function placeTake(take: Take, start: number): number {
+    const durationFrames = Math.max(1, msToFrames(take.durationMs, fps));
+    const end = start + durationFrames;
+    const name = escapeXml(take.clipName);
+    // The real media file the editor relinks to, e.g. "C0001.MP4".
+    const fileName = escapeXml(take.clipName + ext);
+
+    let fileId = fileIdByName.get(fileName);
+    let fileXml: string; // full <file> on first sight of this card, else a ref
+    if (fileId) {
+      fileXml = `<file id="${fileId}"/>`;
+    } else {
+      fileId = `file-${(fileSeq += 1)}`;
+      fileIdByName.set(fileName, fileId);
+      fileXml =
+        `<file id="${fileId}">` +
+        `<name>${fileName}</name>` +
+        `<pathurl>file://localhost/${fileName}</pathurl>` +
+        rateXml +
+        `<duration>${durationFrames}</duration>` +
+        `<media><video/></media>` +
+        `</file>`;
+    }
+
+    const markers = markersFor(take, durationFrames);
+
     clipItems.push(
-      `        <clipitem id="clipitem-${i + 1}">
+      `        <clipitem id="clipitem-${(clipSeq += 1)}">
           <name>${name}</name>
           <duration>${durationFrames}</duration>
           ${rateXml}
@@ -151,25 +168,30 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
           <end>${end}</end>
           <in>0</in>
           <out>${durationFrames}</out>
-          <file id="file-${i + 1}">
-            <name>${fileName}</name>
-            <pathurl>file://localhost/${fileName}</pathurl>
-            ${rateXml}
-            <duration>${durationFrames}</duration>
-            <media>
-              <video/>
-            </media>
-          </file>${markers ? '\n          ' + markers : ''}
+          ${fileXml}${markers ? '\n          ' + markers : ''}
         </clipitem>`,
     );
-  });
+
+    return durationFrames;
+  }
+
+  // Pass 1: GOOD takes, story order, back-to-back from 0.
+  let pos = 0;
+  for (const take of goodTakesInStoryOrder(bundle)) pos += placeTake(take, pos);
+  const storyEnd = pos;
+
+  // Gap, then Pass 2: EVERY take (good and bad) as a selects pool.
+  const gapFrames = Math.max(1, Math.round(timebase * GAP_SECONDS));
+  let sel = storyEnd + gapFrames;
+  for (const take of allTakesInStoryOrder(bundle)) sel += placeTake(take, sel);
+  const seqDuration = Math.max(1, sel);
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
 <xmeml version="5">
   <sequence id="sequence-1">
     <name>${escapeXml(project.name)}</name>
-    <duration>${timelinePos}</duration>
+    <duration>${seqDuration}</duration>
     ${rateXml}
     <media>
       <video>
@@ -194,8 +216,6 @@ ${clipItems.join('\n')}
 }
 
 // ----------------------------------------------------------------- multi ---
-
-const GAP_SECONDS = 3; // breathing room between the story cut and the selects pool
 
 function multiCamFcpXml(bundle: ProjectBundle): Blob {
   const { project, moments } = bundle;

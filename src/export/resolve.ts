@@ -1,0 +1,328 @@
+// FCPXML (the Final Cut Pro X interchange format, DTD `fcpxml`) export for
+// DaVinci Resolve.
+//
+// WHY FCPXML over the other candidates Resolve can ingest:
+//
+//   - Legacy FCP7 xmeml (fcpxml.ts, already emitted for "Premiere") MAY
+//     already partly open in Resolve - Resolve's "Import AAF, EDL, XML..."
+//     dialog reads that format too. It was rejected as the dedicated Resolve
+//     deliverable because its <link>-based linked-track shape (what our
+//     multi-cam pass emits) is exercised far more by Premiere/FCP7 than by
+//     Resolve, and we have no way to confirm Resolve's parser round-trips it
+//     correctly without opening Resolve. FCPXML is the format Resolve's own
+//     interchange docs lean on for anything past a flat single-track cut.
+//   - CMX3600 EDL was rejected: reel/event names are truncated to 8
+//     characters in the strict spec (our clip names can run longer), it has
+//     no real multi-track concept for stacking A-D camera units (classic EDL
+//     is effectively A/B-roll, two tracks), and per-clip text markers only
+//     exist as the informal Avid "* LOC" comment convention, not a real field.
+//     It IS the most universally-read format of the three, but it cannot
+//     faithfully carry our data.
+//   - ALE / CSV metadata sidecars were rejected outright: they carry
+//     metadata, not a cuttable timeline, so on their own they cannot
+//     reproduce the two-band story-cut + selects-pool structure at all.
+//
+// FCPXML gives us two things natively that the alternatives do not: a real
+// <marker> element per clip (value + note, frame-accurate start/duration),
+// and the `lane` attribute for stacking synced camera angles at one offset -
+// a close structural fit for our A-D multi-cam takes.
+//
+// STRUCTURE mirrors fcpxml.ts: SINGLE-CAM (project.cameras absent/<2, one
+// lane, no stacking) and MULTI-CAM (2-4 units) share this one generator,
+// switching on `isMultiCam`. Two passes, same rule as the rest of this app:
+// GOOD takes in story order, a GAP_SECONDS gap - an explicit <gap> spine
+// element here rather than xmeml's implicit blank timeline space - then
+// EVERY take (good and bad) as a selects pool. A take that appears in both
+// passes references the SAME <asset> resource both times: FCPXML always
+// references media by id (never inlines a file), so there is no separate
+// "first sight vs later reference" bookkeeping the way the xmeml dedup needs.
+//
+// NOT DONE: a true FCPX <media> multicam-clip resource - the thing that would
+// give Resolve its own "Camera 1/2/3/4" angle switcher on import. Authoring a
+// valid mc-angle multicam clip correctly is a materially bigger, harder to
+// validate structure, and we cannot confirm it imports right without a real
+// Resolve install. Lane-stacked connected clips are simpler, are unambiguous,
+// spec-legal FCPXML, and still land every angle in sync at the correct
+// offset for the editor to look at and group by hand.
+
+import type { CameraUnitLetter, Fps, Moment, ProjectBundle, Take } from '../types';
+import { isMultiCam } from '../types';
+import { tc } from './timecode';
+
+const GAP_SECONDS = 3; // same breathing room as the Premiere (xmeml) export
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/** ms -> exact frame count, routed through the shared `tc` helper (never
+ *  hand-rolled here) so drop-frame 29.97/59.94 math stays in exactly one
+ *  place in the codebase: round-tripping ms -> timecode string -> frames
+ *  recovers the same integer frame count msToFrames() would, because the
+ *  drop-frame compensation tc applies going out is exactly inverted coming
+ *  back in. */
+function msToFrames(ms: number, fps: Fps): number {
+  return tc.timecodeToFrames(tc.msToTimecode(ms, fps), fps);
+}
+
+function isDropFrame(fps: Fps): boolean {
+  return fps === 29.97 || fps === 59.94;
+}
+
+/** FCPXML <format> frameDuration as an exact rational, e.g. 23.976 -> 1001/24000s. */
+function frameDuration(fps: Fps): { num: number; den: number } {
+  if (fps === 23.976) return { num: 1001, den: 24000 };
+  if (fps === 29.97) return { num: 1001, den: 30000 };
+  if (fps === 59.94) return { num: 1001, den: 60000 };
+  return { num: 1, den: fps };
+}
+
+/** frame count -> FCPXML rational time string, e.g. 48 frames @ 24fps -> "48/24s". */
+function framesToRational(frames: number, fd: { num: number; den: number }): string {
+  return `${frames * fd.num}/${fd.den}s`;
+}
+
+/** Good takes in slate order, then take number. Same ordering rule as fcpxml.ts. */
+function goodTakesInStoryOrder(bundle: ProjectBundle): Take[] {
+  const slateOrder = new Map(
+    [...bundle.slates].sort((a, b) => a.order - b.order).map((s, i) => [s.id, i]),
+  );
+  return bundle.takes
+    .filter((t) => t.status === 'good')
+    .sort((a, b) => {
+      const sa = slateOrder.get(a.slateId) ?? Number.MAX_SAFE_INTEGER;
+      const sb = slateOrder.get(b.slateId) ?? Number.MAX_SAFE_INTEGER;
+      return sa !== sb ? sa - sb : a.number - b.number;
+    });
+}
+
+/** All takes (good AND bad) in slate order, then take number. */
+function allTakesInStoryOrder(bundle: ProjectBundle): Take[] {
+  const slateOrder = new Map(
+    [...bundle.slates].sort((a, b) => a.order - b.order).map((s, i) => [s.id, i]),
+  );
+  return [...bundle.takes].sort((a, b) => {
+    const sa = slateOrder.get(a.slateId) ?? Number.MAX_SAFE_INTEGER;
+    const sb = slateOrder.get(b.slateId) ?? Number.MAX_SAFE_INTEGER;
+    return sa !== sb ? sa - sb : a.number - b.number;
+  });
+}
+
+/** One camera "unit" as far as this exporter cares: a letter plus its ext.
+ *  Single-cam projects get one synthetic unit ("A") built from the project's
+ *  own clip fields, so the rest of the generator never has to branch on
+ *  single vs multi. */
+interface Unit {
+  letter: CameraUnitLetter;
+  clipExt?: string;
+}
+
+function unitsOf(bundle: ProjectBundle): Unit[] {
+  const { project } = bundle;
+  if (isMultiCam(project)) {
+    return (project.cameras ?? []).map((u) => ({ letter: u.letter, clipExt: u.clipExt }));
+  }
+  return [{ letter: 'A', clipExt: project.clipExt }];
+}
+
+function clipNameFor(take: Take, unit: Unit, multi: boolean): string | undefined {
+  if (!multi) return take.clipName;
+  return take.clips?.find((c) => c.unit === unit.letter)?.clipName;
+}
+
+export function toResolveXml(bundle: ProjectBundle): Blob {
+  const { project, moments } = bundle;
+  const fps = project.fps;
+  const multi = isMultiCam(project);
+  const units = unitsOf(bundle);
+  const fd = frameDuration(fps);
+  const tcFormat = isDropFrame(fps) ? 'DF' : 'NDF';
+  const timebase = Math.round(fps);
+
+  const momentsByTake = new Map<string, Moment[]>();
+  for (const m of moments) {
+    const list = momentsByTake.get(m.takeId) ?? [];
+    list.push(m);
+    momentsByTake.set(m.takeId, list);
+  }
+
+  // ------------------------------------------------------------ resources --
+  // One <asset> per distinct (clipName, unit) card, registered once up front.
+  // Both bands of a good take - and both passes' worth of any take at all -
+  // reference the SAME asset id; FCPXML always references media by id, so
+  // there's nothing else to dedup.
+  interface AssetEntry {
+    id: string;
+    clipName: string;
+    ext: string;
+    unitLetter: CameraUnitLetter;
+    durationFrames: number;
+  }
+  const assets = new Map<string, AssetEntry>(); // key: `${clipName}|${unit.letter}`
+  let assetSeq = 0;
+
+  for (const take of allTakesInStoryOrder(bundle)) {
+    const durationFrames = Math.max(1, msToFrames(take.durationMs, fps));
+    for (const unit of units) {
+      const clipName = clipNameFor(take, unit, multi);
+      if (!clipName) continue;
+      const key = `${clipName}|${unit.letter}`;
+      if (!assets.has(key)) {
+        assets.set(key, {
+          id: `a${(assetSeq += 1)}`,
+          clipName,
+          ext: unit.clipExt ?? '',
+          unitLetter: unit.letter,
+          durationFrames,
+        });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- spine --
+  function markersXml(take: Take, durationFrames: number): string {
+    return (momentsByTake.get(take.id) ?? [])
+      .slice()
+      .sort((a, b) => a.atMs - b.atMs)
+      .map((m) => {
+        const value = [m.tag, m.label].filter(Boolean).join(' ') || 'Marker';
+        const startFrame = Math.min(msToFrames(m.atMs, fps), Math.max(0, durationFrames - 1));
+        // FCPXML markers are fundamentally a point in time; a range moment's
+        // span is carried as `duration` on a best-effort basis - most NLE UIs
+        // (Resolve included, as far as we can tell without testing) still
+        // just draw the flag at `start` and ignore the span visually.
+        const durFrames =
+          m.kind === 'range' && m.endMs !== undefined
+            ? Math.max(1, msToFrames(m.endMs, fps) - startFrame)
+            : 1;
+        const note = m.label ? ` note="${escapeXml(m.label)}"` : '';
+        return (
+          `          <marker start="${framesToRational(startFrame, fd)}" ` +
+          `duration="${framesToRational(durFrames, fd)}" value="${escapeXml(value)}"${note}/>`
+        );
+      })
+      .join('\n');
+  }
+
+  const spineItems: string[] = [];
+
+  /** Lay one take at `startFrames`; returns its duration in frames. */
+  function placeTake(take: Take, startFrames: number): number {
+    const durationFrames = Math.max(1, msToFrames(take.durationMs, fps));
+    const offsetStr = framesToRational(startFrames, fd);
+    const durationStr = framesToRational(durationFrames, fd);
+
+    // Anchor on the first unit (camera order, "A" first) that actually has a
+    // clip for this take, so every OTHER present unit can ride as a synced
+    // lane child at offset 0 within it.
+    let anchor: Unit | undefined;
+    for (const u of units) {
+      if (clipNameFor(take, u, multi)) {
+        anchor = u;
+        break;
+      }
+    }
+
+    if (!anchor) {
+      // No camera at all logged a clip for this take - keep the timeline
+      // math intact with a bare gap rather than silently shortening the
+      // sequence (mirrors the defensive `if (!clip) return;` in fcpxml.ts).
+      spineItems.push(
+        `        <gap offset="${offsetStr}" duration="${durationStr}" name="${escapeXml(take.clipName || 'missing take')}"/>`,
+      );
+      return durationFrames;
+    }
+
+    const anchorClip = clipNameFor(take, anchor, multi)!;
+    const anchorId = assets.get(`${anchorClip}|${anchor.letter}`)!.id;
+
+    // Beats belong to the take, not one angle - carried on the anchor clip
+    // only. Same rule fcpxml.ts's multi-cam pass uses for its <marker>s.
+    const markers = markersXml(take, durationFrames);
+
+    const laneChildren: string[] = [];
+    let lane = 0;
+    for (const u of units) {
+      if (u === anchor) continue;
+      const cn = clipNameFor(take, u, multi);
+      if (!cn) continue;
+      lane += 1;
+      const id = assets.get(`${cn}|${u.letter}`)!.id;
+      laneChildren.push(
+        `          <asset-clip ref="${id}" lane="${lane}" offset="0s" name="${escapeXml(cn)}" duration="${durationStr}" start="0s"/>`,
+      );
+    }
+
+    const inner = [markers, laneChildren.join('\n')].filter(Boolean).join('\n');
+    spineItems.push(
+      inner
+        ? `        <asset-clip ref="${anchorId}" offset="${offsetStr}" name="${escapeXml(anchorClip)}" duration="${durationStr}" start="0s">\n${inner}\n        </asset-clip>`
+        : `        <asset-clip ref="${anchorId}" offset="${offsetStr}" name="${escapeXml(anchorClip)}" duration="${durationStr}" start="0s"/>`,
+    );
+    return durationFrames;
+  }
+
+  // Pass 1: GOOD takes, story order, back-to-back from 0.
+  let pos = 0;
+  for (const take of goodTakesInStoryOrder(bundle)) pos += placeTake(take, pos);
+  const storyEnd = pos;
+
+  // Gap, then Pass 2: EVERY take (good and bad) as a selects pool. The gap is
+  // an explicit spine element - FCPXML has no notion of implicit blank space
+  // the way an xmeml track does.
+  const gapFrames = Math.max(1, Math.round(timebase * GAP_SECONDS));
+  spineItems.push(
+    `        <gap offset="${framesToRational(storyEnd, fd)}" duration="${framesToRational(gapFrames, fd)}" name="Selects pool gap"/>`,
+  );
+  let sel = storyEnd + gapFrames;
+  for (const take of allTakesInStoryOrder(bundle)) sel += placeTake(take, sel);
+  const seqDurationFrames = Math.max(1, sel);
+
+  // -------------------------------------------------------------- output ---
+  const resourceLines: string[] = [
+    `    <format id="r1" name="ClapperFormat" frameDuration="${fd.num}/${fd.den}s" width="1920" height="1080"/>`,
+  ];
+  for (const entry of assets.values()) {
+    const fileName = escapeXml(entry.clipName + entry.ext);
+    // FCPXML has no equivalent of xmeml's <reel> tape name, and two camera
+    // units natively write identically-named files - so a bare filename here
+    // would give two DIFFERENT physical clips the exact same src URL, which
+    // risks Resolve (or the editor's own manual relink) treating them as one
+    // asset. Nest multi-cam assets under a per-unit-letter path segment so
+    // every asset's src is unique; single-cam keeps the plain filename since
+    // there is only ever one card and nothing to disambiguate.
+    const srcPath = multi ? `${escapeXml(entry.unitLetter)}/${fileName}` : fileName;
+    resourceLines.push(
+      `    <asset id="${entry.id}" name="${escapeXml(entry.clipName)}" start="0s" duration="${framesToRational(entry.durationFrames, fd)}" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" format="r1">
+      <media-rep kind="original-media" src="file:///${srcPath}"/>
+    </asset>`,
+    );
+  }
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.9">
+  <resources>
+${resourceLines.join('\n')}
+  </resources>
+  <library>
+    <event name="${escapeXml(project.name)}">
+      <project name="${escapeXml(project.name)}">
+        <sequence format="r1" tcStart="0s" tcFormat="${tcFormat}" duration="${framesToRational(seqDurationFrames, fd)}">
+          <spine>
+${spineItems.join('\n')}
+          </spine>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>
+`;
+
+  return new Blob([xml], { type: 'application/xml' });
+}

@@ -209,6 +209,8 @@ export interface Exporter {
   toPdf(bundle: ProjectBundle): Promise<Blob>;
   /** FCP7 xmeml Premiere imports natively; markers per moment. */
   toFcpXml(bundle: ProjectBundle): Blob;
+  /** FCPXML (Final Cut Pro X format) DaVinci Resolve imports natively. */
+  toResolveXml(bundle: ProjectBundle): Blob;
   /** Flat CSV of all moments/takes. */
   toCsv(bundle: ProjectBundle): Blob;
 }

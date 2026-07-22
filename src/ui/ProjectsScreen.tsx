@@ -939,8 +939,8 @@ function HowToScreen(props: { onClose: () => void }) {
               field in setup matters.
             </p>
             <p className="gnote">
-              The selects pool ships on projects with two or more cameras. A single-camera export is
-              the story cut only.
+              Single-camera and multi-camera exports both get the story cut plus the selects pool —
+              multi-camera just stacks every camera unit in sync at each position.
             </p>
           </section>
 
@@ -1020,7 +1020,7 @@ function HowToScreen(props: { onClose: () => void }) {
                 <p>
                   There is a file. The camera rolled and wrote it, the take was just no good. It
                   keeps its clip number, prints on the PDF struck through in the discarded list, and
-                  still reaches the editor in the selects pool of a multi-camera XML.
+                  still reaches the editor in the selects pool of the exported XML.
                 </p>
                 <p>Flubbed take, false start, a roll nobody meant to make.</p>
               </div>
