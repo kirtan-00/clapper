@@ -44,6 +44,13 @@ export function SignInSheet(props: { onClose: () => void }) {
       >
         {busy ? 'Opening Google…' : 'Sign in with Google'}
       </button>
+
+      <p className="camnote" style={{ fontSize: '12px', marginBottom: 0 }}>
+        By signing in you agree to our{' '}
+        <a href="/legal/#terms" target="_blank" rel="noopener">Terms</a> and{' '}
+        <a href="/legal/#privacy" target="_blank" rel="noopener">Privacy Policy</a>. We only receive
+        your email; your projects stay on your device.
+      </p>
     </Sheet>
   );
 }

@@ -8,6 +8,7 @@ import {
   reclaimClipNumbers,
   reorderSlateList,
 } from './util';
+import type { RawStore, SyncTable } from './outbox';
 
 interface ClapperDB extends DBSchema {
   projects: { key: string; value: Project };
@@ -22,7 +23,7 @@ interface ClapperDB extends DBSchema {
  * some browsers on file:// or in private windows). The picker in index.ts
  * catches that rejection and falls back to the localStorage store.
  */
-export async function openIdbStore(): Promise<Store> {
+export async function openIdbStore(): Promise<Store & RawStore> {
   if (typeof indexedDB === 'undefined') {
     throw new Error('IndexedDB unavailable');
   }
@@ -186,14 +187,14 @@ export async function openIdbStore(): Promise<Store> {
       return updated;
     },
 
-    async rebaseClips(projectId, takeId, newNumbers) {
+    async rebaseClips(projectId, takeId, newNumbers, soundNumber) {
       const tx = db.transaction(['takes', 'projects'], 'readwrite');
       const projects = tx.objectStore('projects');
       const takes = tx.objectStore('takes');
 
       const project = (await projects.get(projectId)) ?? notFound('project', projectId);
       const all = await takes.index('byProject').getAll(projectId);
-      const result = rebaseClipNumbers(project, all, takeId, newNumbers, Date.now());
+      const result = rebaseClipNumbers(project, all, takeId, newNumbers, Date.now(), soundNumber);
 
       for (const t of result.takes) await takes.put(t);
       await projects.put(result.project);
@@ -242,6 +243,62 @@ export async function openIdbStore(): Promise<Store> {
       const moments = momentsPerTake.flatMap((ms) => ms.sort((a, b) => a.atMs - b.atMs));
       const bundle: ProjectBundle = { project, slates, takes, moments };
       return bundle;
+    },
+
+    // ---------------------------------------------------------- sync raw ---
+    // Low-level bypass path for the sync engine (src/net/sync.ts) ONLY: a
+    // plain get/put/delete on the named object store with no business logic
+    // (no clip counters, no cascades, no updatedAt stamping). Used to (a)
+    // cheaply look up a parent record's projectId when tombstoning a delete
+    // in index.ts, and (b) apply a pulled server row straight to local
+    // storage without re-enqueueing it back into the outbox. Never called
+    // from UI code — always go through the Store methods above for that.
+
+    async rawGet(table: SyncTable, id: string) {
+      switch (table) {
+        case 'projects':
+          return db.get('projects', id);
+        case 'slates':
+          return db.get('slates', id);
+        case 'takes':
+          return db.get('takes', id);
+        case 'moments':
+          return db.get('moments', id);
+      }
+    },
+
+    async rawPut(table: SyncTable, entity: Project | Slate | Take | Moment) {
+      switch (table) {
+        case 'projects':
+          await db.put('projects', entity as Project);
+          return;
+        case 'slates':
+          await db.put('slates', entity as Slate);
+          return;
+        case 'takes':
+          await db.put('takes', entity as Take);
+          return;
+        case 'moments':
+          await db.put('moments', entity as Moment);
+          return;
+      }
+    },
+
+    async rawDelete(table: SyncTable, id: string) {
+      switch (table) {
+        case 'projects':
+          await db.delete('projects', id);
+          return;
+        case 'slates':
+          await db.delete('slates', id);
+          return;
+        case 'takes':
+          await db.delete('takes', id);
+          return;
+        case 'moments':
+          await db.delete('moments', id);
+          return;
+      }
     },
   };
 }

@@ -5,13 +5,21 @@ import type {
   MomentKind,
   Project,
   Slate,
+  SoundUnit,
   Take,
   TakeClip,
   TakeStatus,
 } from '../types';
-import { isMultiCam } from '../types';
+import { hasSound, isMultiCam } from '../types';
 import { store } from '../store';
-import { parseClipNumber, rebaseClipNumbers, sortForDisplay, type TakeUnitRoll } from '../store/util';
+import {
+  clipUnits,
+  formatClip,
+  parseClipNumber,
+  rebaseClipNumbers,
+  sortForDisplay,
+  type TakeUnitRoll,
+} from '../store/util';
 import { tc } from '../export/timecode';
 import { renderUnitClip } from './cameras';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
@@ -35,10 +43,52 @@ function clipName(p: Project): string {
   );
 }
 
+/** Display-only MM:SS (zero-padded) clock for the big rolling readout and the
+ * tally band. Deliberately NOT tc.msToClock (which is shared with exports and
+ * shows M:SS): this pad is a screen concern only and must never touch the
+ * export/timecode formatting. Rolls over to H:MM:SS past an hour. */
+function clockMMSS(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const s = totalSeconds % 60;
+  if (totalSeconds < 3600) {
+    const min = Math.floor(totalSeconds / 60);
+    return `${String(min).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  const h = Math.floor(totalSeconds / 3600);
+  const min = Math.floor(totalSeconds / 60) % 60;
+  return `${h}:${String(min).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 /** A saved take's clip(s) for a compact row: single name, or all units joined. */
 function takeClipLabel(t: Take): string {
   return t.clips && t.clips.length ? t.clips.map((c) => `${c.unit} ${c.clipName}`).join(' · ') : t.clipName;
 }
+
+/** This unit's next sound file name, e.g. "SND_0012" (no extension, matching renderUnitClip). */
+function renderSoundFile(s: SoundUnit): string {
+  return formatClip(s.filePrefix, s.nextFileNumber, s.filePadding, s.fileSuffix);
+}
+
+// Production sound accent - a cool blue, deliberately distinct from every
+// camera-side color (green ROLL, red CUT/rolling, brass GOLD) so the Sound
+// slot never reads as a fifth camera. Reuses the SAME .camslot/.camunit
+// classes cameras already use (identical structure, spacing, tap targets),
+// applied as inline overrides on the color-bearing bits only - styling stays
+// scoped to src/ui/ rather than adding new selectors to the shared stylesheet.
+// The shared --sound token (styles.css) carries the actual value now; kept as a
+// JS handle so the inline color-mix overrides below stay in sync with the rest
+// of the app instead of hard-coding a hex here.
+const SOUND_ACCENT = 'var(--sound)';
+const soundBadgeStyle = {
+  color: SOUND_ACCENT,
+  background: `color-mix(in srgb, ${SOUND_ACCENT} 16%, var(--ink-800))`,
+  borderColor: `color-mix(in srgb, ${SOUND_ACCENT} 45%, transparent)`,
+};
+const soundTextStyle = { color: SOUND_ACCENT };
+const soundRollingStyle = {
+  borderColor: `color-mix(in srgb, ${SOUND_ACCENT} 45%, var(--line-soft))`,
+  background: `color-mix(in srgb, ${SOUND_ACCENT} 10%, var(--ink-900))`,
+};
 
 export function RollingScreen(props: {
   project: Project;
@@ -56,7 +106,14 @@ export function RollingScreen(props: {
   const [siblings, setSiblings] = useState<Slate[]>([]);
 
   const multi = isMultiCam(project);
-  const cameras = project.cameras ?? [];
+  // clipUnits() is the same "one shape either way" helper the store uses:
+  // multi-cam's real units, or a synthetic single 'A' unit built from the
+  // top-level clip fields. That synthetic unit is what lets a single-cam
+  // project ride the SAME roll/join engine as multi-cam once sound is
+  // involved (see `useEngine` below) without ever rendering a camera slot.
+  const cameras = clipUnits(project);
+  const soundUnit = project.sound;
+  const hasSoundUnit = hasSound(project);
 
   // Script Mode: two-tier tap chips baked onto the scene. A hand-made scene has
   // no tags and falls back to the project's quick tags (FLUB/GOLD/…).
@@ -85,6 +142,9 @@ export function RollingScreen(props: {
   const [editingClip, setEditingClip] = useState(false);
   // A single camera unit whose NEXT clip number is being fixed inline (idle only).
   const [editingUnit, setEditingUnit] = useState<CameraUnit | null>(null);
+  // The Sound unit's NEXT file number being fixed inline (idle only) - same
+  // escape hatch as `editingUnit`, just for the one recorder instead of a camera.
+  const [editingSoundUnit, setEditingSoundUnit] = useState(false);
   const [flashes, setFlashes] = useState<Record<string, number>>({});
   const [clapKey, setClapKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
@@ -108,20 +168,42 @@ export function RollingScreen(props: {
   const [takeStartedAt, setTakeStartedAt] = useState<number | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
+  // Sound rides the SAME take-open/close orchestration as the camera units
+  // above, but stays in its OWN parallel state - never a key in `camRolls` -
+  // because it is not a CameraUnitLetter and never a picture angle.
+  // `soundStartedAt` is the epoch ms it started (null = not rolling);
+  // `soundFinished` holds its timing once it cuts, in case a camera is still
+  // going and the take has not closed yet.
+  const [soundStartedAt, setSoundStartedAt] = useState<number | null>(null);
+  const [soundFinished, setSoundFinished] = useState<{ startOffsetMs: number; durationMs: number } | null>(
+    null,
+  );
+
   const anyCamRolling = Object.keys(camRolls).length > 0;
+  const soundRolling = soundStartedAt !== null;
+  const anyRolling = anyCamRolling || soundRolling;
+  // Single-cam gains the multi-cam join/cut engine the moment it also has a
+  // Sound unit, since there are now two independent roll targets (camera +
+  // sound) instead of one. Single-cam with no sound is completely untouched:
+  // `useEngine` stays false there and every original doRoll/doCut path runs.
+  const useEngine = multi || hasSoundUnit;
 
   // Repaint every 100ms while any unit is rolling, same cadence as the
   // single-cam timer, so the readout and per-camera elapsed times stay live.
   useEffect(() => {
-    if (!anyCamRolling) return;
+    if (!anyRolling) return;
     setNowTick(Date.now());
     const id = window.setInterval(() => setNowTick(Date.now()), 100);
     return () => window.clearInterval(id);
-  }, [anyCamRolling]);
+  }, [anyRolling]);
 
   function elapsedForCam(letter: CameraUnitLetter): number {
     const startedAt = camRolls[letter];
     return startedAt === undefined ? 0 : Math.max(0, nowTick - startedAt);
+  }
+
+  function elapsedForSound(): number {
+    return soundStartedAt === null ? 0 : Math.max(0, nowTick - soundStartedAt);
   }
 
   /** First roll of a fresh take: reset the moment buffer, same as doRoll(). */
@@ -130,6 +212,7 @@ export function RollingScreen(props: {
     setTakeStartedAt(now);
     setFinishedRolls([]);
     setBuffered([]);
+    setFlashes({}); // per-chip tap counts are scoped to THIS take
     setMarkInMs(null);
     setRangeLabelTarget(null);
     bumpClap();
@@ -145,7 +228,8 @@ export function RollingScreen(props: {
     setCamRolls((prev) => ({ ...prev, [letter]: now }));
   }
 
-  /** The big ROLL: starts (or joins) every configured unit not already rolling. */
+  /** The big ROLL: starts (or joins) every configured unit not already rolling,
+   * AND the Sound unit if it has not rolled yet this take. */
   function bigRollMulti() {
     if (postCut) return;
     haptics.thump();
@@ -157,6 +241,10 @@ export function RollingScreen(props: {
       for (const u of cameras) if (next[u.letter] === undefined) next[u.letter] = now;
       return next;
     });
+    // Only starts sound that has never rolled this take - if it already rolled
+    // and cut (soundFinished set), the big ROLL bringing in more cameras must
+    // not silently restart a file that already closed.
+    if (hasSoundUnit && soundStartedAt === null && soundFinished === null) setSoundStartedAt(now);
   }
 
   function finishCam(letter: CameraUnitLetter, startedAt: number, now: number): TakeUnitRoll {
@@ -168,8 +256,21 @@ export function RollingScreen(props: {
     };
   }
 
+  /** Same timing math as finishCam, for the one Sound unit. */
+  function finishSound(startedAt: number, now: number): { startOffsetMs: number; durationMs: number } {
+    const takeStart = takeStartedAt ?? startedAt;
+    return {
+      startOffsetMs: Math.max(0, startedAt - takeStart),
+      durationMs: Math.max(0, now - startedAt),
+    };
+  }
+
   /** Every rolling unit accounted for: write the take and reset for the next one. */
-  async function closeMultiTake(units: TakeUnitRoll[], endedAt: number) {
+  async function closeMultiTake(
+    units: TakeUnitRoll[],
+    endedAt: number,
+    soundRoll?: { startOffsetMs: number; durationMs: number },
+  ) {
     const start = takeStartedAt ?? endedAt;
     const durationMs = Math.max(0, endedAt - start);
     const finalBuffer: Buffered[] =
@@ -185,6 +286,7 @@ export function RollingScreen(props: {
       startedAt: start,
       durationMs,
       units,
+      ...(soundRoll ? { sound: soundRoll } : {}),
     });
     for (const m of finalBuffer) {
       await store.createMoment({
@@ -199,12 +301,31 @@ export function RollingScreen(props: {
     setBuffered([]);
     setCamRolls({});
     setFinishedRolls([]);
+    setSoundStartedAt(null);
+    setSoundFinished(null);
     setTakeStartedAt(null);
     setPostCut({ take });
     await refreshMeta();
   }
 
-  /** Tap ONE camera's own CUT. Closes the take only if it was the last one rolling. */
+  /** Abandon a take that opened but never got a picture clip - a single-cam
+   * project has no way to represent a camera-less shot (there is always
+   * exactly one clip), so if sound rolled solo and gets cut before the camera
+   * ever joins, there is nothing to save. Clears the slate rather than
+   * fabricate a clip number the camera never wrote. */
+  function abortPendingTake() {
+    setCamRolls({});
+    setFinishedRolls([]);
+    setSoundStartedAt(null);
+    setSoundFinished(null);
+    setTakeStartedAt(null);
+    setBuffered([]);
+    setMarkInMs(null);
+    setRangeLabelTarget(null);
+  }
+
+  /** Tap ONE camera's own CUT. Closes the take only if it was the last thing
+   * rolling - a camera and sound rolling simultaneously never gets cut alone. */
   async function soloCut(letter: CameraUnitLetter) {
     const startedAt = camRolls[letter];
     if (startedAt === undefined) return;
@@ -216,17 +337,48 @@ export function RollingScreen(props: {
     const remaining = { ...camRolls };
     delete remaining[letter];
     const allFinished = [...finishedRolls, clip];
-    if (Object.keys(remaining).length === 0) {
-      await closeMultiTake(allFinished, now);
+    if (Object.keys(remaining).length === 0 && soundStartedAt === null) {
+      await closeMultiTake(allFinished, now, soundFinished ?? undefined);
     } else {
       setCamRolls(remaining);
       setFinishedRolls(allFinished);
     }
   }
 
-  /** The big CUT: stops every unit still rolling, always closing the take. */
+  /** Tap Sound's own CUT. Closes the take only once every camera is done too. */
+  async function soundSoloCut() {
+    if (soundStartedAt === null) return;
+    haptics.doubleThump();
+    track('cut');
+    bumpClap();
+    const now = Date.now();
+    const roll = finishSound(soundStartedAt, now);
+    if (anyCamRolling) {
+      // A camera is still going - sound is done, but the take stays open.
+      setSoundFinished(roll);
+      setSoundStartedAt(null);
+      return;
+    }
+    if (finishedRolls.length > 0) {
+      // Every camera already finished; sound was the last thing running.
+      await closeMultiTake(finishedRolls, now, roll);
+      return;
+    }
+    if (!multi) {
+      // Single-cam: the one picture clip never rolled this take - nothing to
+      // save yet. Stop sound and wait; the take reopens the moment the
+      // camera actually rolls (openMultiTake no-ops while takeStartedAt holds).
+      abortPendingTake();
+      return;
+    }
+    // Multi-cam CAN log a sound-only "wild line" with no camera at all.
+    await closeMultiTake([], now, roll);
+  }
+
+  /** The big CUT: stops every unit still rolling (cameras and sound), always
+   * closing the take - unless, single-cam, no camera ever rolled at all. */
   async function bigCutMulti() {
-    if (!anyCamRolling) return;
+    if (!anyRolling) return;
     haptics.doubleThump();
     track('cut');
     bumpClap();
@@ -235,7 +387,25 @@ export function RollingScreen(props: {
     for (const letter of Object.keys(camRolls) as CameraUnitLetter[]) {
       clips.push(finishCam(letter, camRolls[letter]!, now));
     }
-    await closeMultiTake(clips, now);
+    const soundRoll = soundStartedAt !== null ? finishSound(soundStartedAt, now) : (soundFinished ?? undefined);
+    if (!multi && clips.length === 0) {
+      // Single-cam and the camera never joined this "take" - sound rolled
+      // solo and CUT got pressed before it caught up. Nothing to save.
+      abortPendingTake();
+      return;
+    }
+    await closeMultiTake(clips, now, soundRoll);
+  }
+
+  /** Tap Sound's own ROLL. Starts a take if none is running (typically FIRST,
+   * before any camera), else joins the one already open. */
+  function soundSoloRoll() {
+    if (postCut || soundStartedAt !== null) return;
+    haptics.thump();
+    track('roll');
+    const now = Date.now();
+    openMultiTake(now);
+    setSoundStartedAt(now);
   }
 
   async function refreshMeta() {
@@ -279,10 +449,11 @@ export function RollingScreen(props: {
   }
 
   function doRoll() {
-    if (multi || timer.rolling || postCut) return; // multi-cam uses bigRollMulti/soloRoll instead
+    if (useEngine || timer.rolling || postCut) return; // multi-cam/sound uses bigRollMulti/soloRoll instead
     haptics.thump();
     track('roll'); // fire-and-forget; never blocks or throws
     setBuffered([]);
+    setFlashes({}); // per-chip tap counts are scoped to THIS take
     setMarkInMs(null);
     setRangeLabelTarget(null);
     bumpClap();
@@ -290,7 +461,7 @@ export function RollingScreen(props: {
   }
 
   async function doCut() {
-    if (multi || !timer.rolling) return; // multi-cam uses bigCutMulti/soloCut instead
+    if (useEngine || !timer.rolling) return; // multi-cam/sound uses bigCutMulti/soloCut instead
     haptics.doubleThump();
     track('cut'); // fire-and-forget; never blocks or throws
     bumpClap();
@@ -324,10 +495,10 @@ export function RollingScreen(props: {
   }
 
   // keep refs pointing at the freshest closures for voice commands. Multi-cam
-  // routes voice to the BIG roll/cut (everyone together) - there is no way to
-  // say "just camera B" out loud.
-  doRollRef.current = multi ? bigRollMulti : doRoll;
-  doCutRef.current = multi ? () => void bigCutMulti() : doCut;
+  // (and single-cam once it has sound) routes voice to the BIG roll/cut
+  // (everyone together) - there is no way to say "just camera B" out loud.
+  doRollRef.current = useEngine ? bigRollMulti : doRoll;
+  doCutRef.current = useEngine ? () => void bigCutMulti() : doCut;
 
   function tapTag(tag: string) {
     if (!rolling) return;
@@ -374,16 +545,50 @@ export function RollingScreen(props: {
     }
   }
 
-  // Single-cam: one global timer, unchanged. Multi-cam: "rolling" means ANY
-  // configured unit is currently rolling; the overall clock runs from the
-  // first camera's roll to now, same number moments are timestamped against.
-  const rolling = multi ? anyCamRolling : timer.rolling;
-  const elapsedMs = multi ? (takeStartedAt !== null ? Math.max(0, nowTick - takeStartedAt) : 0) : timer.elapsedMs;
+  // Single-cam with no sound: one global timer, unchanged. Everyone else
+  // (multi-cam, or single-cam once it has a Sound unit) runs on the shared
+  // engine: "rolling" means ANY participant - camera or sound - is currently
+  // going, and the clock runs from whichever one started first to now, the
+  // same number moments get timestamped against.
+  const rolling = useEngine ? anyRolling : timer.rolling;
+  const elapsedMs = useEngine
+    ? takeStartedAt !== null
+      ? Math.max(0, nowTick - takeStartedAt)
+      : 0
+    : timer.elapsedMs;
   const rangeArmedMs = markInMs !== null ? Math.max(0, elapsedMs - markInMs) : 0;
   const rollingLetters = (Object.keys(camRolls) as CameraUnitLetter[]).sort();
+  // The big button's own ROLL/CUT state is NOT the same as `rolling`: sound
+  // commonly rolls solo before any camera, and while that is the ONLY thing
+  // going the big button must still say ROLL (its job is bringing the camera
+  // in) rather than CUT (which would just stop sound with the camera never
+  // having joined). So it tracks whether the CAMERA side has engaged this
+  // take - currently rolling, or already finished - not "is anything at all
+  // going". For single-cam-no-sound and multi-cam-no-sound this is always
+  // identical to `rolling` (a camera finishing always closes the take
+  // immediately when there is no sound to wait on), so neither is affected.
+  const cameraActive = anyCamRolling || finishedRolls.length > 0;
+  const bigButtonCutMode = useEngine ? cameraActive : timer.rolling;
 
   return (
     <div className={`roll${rolling ? ' roll--live' : ''}`}>
+      {rolling && (
+        // Tally band: the PRIMARY recording tell. A committed solid-red fill at
+        // the very top, daylight-legible and readable even when a thumb covers
+        // the CUT button. Present only while live - a hard, binary switch, like
+        // a camera tally light - with the running clock mirrored small.
+        <div className="tally" role="status" aria-label="Recording">
+          <span className="tally__rec">
+            <span className="tally__dot" aria-hidden="true" /> REC
+          </span>
+          <span className="tally__clock tnum">{clockMMSS(elapsedMs)}</span>
+        </div>
+      )}
+      {/* Two-pane wrapper — phone/portrait stack is unchanged; on a landscape
+          tablet these split into clock/takes (left) + action deck (right).
+          See the .roll__panes rules in styles.css. */}
+      <div className="roll__panes">
+      <div className="roll__body">
       <div className="roll__head">
         <button type="button" className="iconbtn" aria-label="Back to scenes" onClick={props.onExit}>
           &lsaquo;
@@ -466,13 +671,17 @@ export function RollingScreen(props: {
 
       <div className="roll__stage">
         <div className={`readout${rolling ? ' readout--live' : ' readout--idle'}`}>
-          {tc.msToClock(elapsedMs)}
+          {clockMMSS(elapsedMs)}
         </div>
         <div className="stage__hint">
           {rolling ? (
             <span className="stage__reclabel">
               <span className="recdot" aria-hidden="true" /> ROLLING
-              {multi ? ` · ${rollingLetters.join(', ')}` : ''}
+              {multi
+                ? ` · ${rollingLetters.join(', ')}`
+                : hasSoundUnit && soundRolling && !anyCamRolling
+                  ? ' · SOUND'
+                  : ''}
             </span>
           ) : postCut ? (
             'Shot saved'
@@ -554,6 +763,101 @@ export function RollingScreen(props: {
           </div>
         )}
 
+        {hasSoundUnit && soundUnit && (
+          <div
+            className="soundsection"
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              marginTop: 20,
+              padding: '9px 10px 11px',
+              border: `1px solid color-mix(in srgb, ${SOUND_ACCENT} 32%, transparent)`,
+              borderRadius: 14,
+              background: `color-mix(in srgb, ${SOUND_ACCENT} 8%, transparent)`,
+            }}
+          >
+            {/* Its own labelled, tinted zone so the audio roll is unmistakable
+                and never reads as a fifth camera. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 2px 8px' }}>
+              <span
+                style={{
+                  fontSize: '0.64rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: SOUND_ACCENT,
+                }}
+              >
+                🔊 Sound
+              </span>
+              <span className="section__note" style={{ marginLeft: 'auto' }}>
+                {soundRolling ? 'tap to cut' : rolling ? 'tap to join' : 'tap to roll'}
+              </span>
+            </div>
+            <div aria-label="Production sound - tap to roll, join, or cut it alone">
+            {soundRolling ? (
+              // Rolling: tap to cut just sound. If the cameras are already
+              // done, this is the LAST thing going and the shot closes.
+              <button
+                type="button"
+                className="camslot camslot--rolling"
+                style={soundRollingStyle}
+                aria-label={`Sound rolling ${renderSoundFile(soundUnit)}, tap to cut it`}
+                onClick={() => void soundSoloCut()}
+              >
+                <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+                <span className="camslot__body">
+                  <span className="camslot__clip tnum" style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                  {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
+                </span>
+                <span className="camslot__elapsed tnum">{tc.msToClock(elapsedForSound())}</span>
+              </button>
+            ) : rolling ? (
+              // A shot is running (typically sound rolled first) but sound
+              // has not joined yet - or a camera opened it and sound is late.
+              <button
+                type="button"
+                className="camslot camslot--join"
+                aria-label={`Join sound into this shot, next file ${renderSoundFile(soundUnit)}`}
+                onClick={soundSoloRoll}
+              >
+                <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+                <span className="camslot__body">
+                  <span className="camslot__clip tnum" style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                  {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
+                </span>
+                <span className="camslot__join" style={soundTextStyle}>JOIN</span>
+              </button>
+            ) : (
+              // Fully idle: tap the slot to roll sound alone (typically
+              // FIRST, before camera); the pencil fixes its next file number.
+              <div className="camslot camslot--edit">
+                <button
+                  type="button"
+                  className="camslot__main"
+                  aria-label={`Roll sound alone, next file ${renderSoundFile(soundUnit)}`}
+                  onClick={soundSoloRoll}
+                >
+                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+                  <span className="camslot__body">
+                    <span className="camslot__clip tnum" style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                    {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="camslot__penbtn"
+                  aria-label="Fix sound's next file number"
+                  onClick={() => setEditingSoundUnit(true)}
+                >
+                  <span className="camslot__pen" aria-hidden="true">✎</span>
+                </button>
+              </div>
+            )}
+            </div>
+          </div>
+        )}
+
         {rolling ? (
           buffered.length > 0 && (
             <div className="momentlog" aria-label="Moments this shot">
@@ -588,11 +892,33 @@ export function RollingScreen(props: {
                   <button
                     type="button"
                     className="minitake__open"
-                    aria-label={`Edit shot ${t.number} (${takeClipLabel(t)})`}
+                    aria-label={`Edit shot ${t.number} (${takeClipLabel(t)}${
+                      t.sound ? ` · sound ${t.sound.fileName}` : ''
+                    })`}
                     onClick={() => setEditingTake(t)}
                   >
                     <span className="tnum">S{t.number}</span>
                     <span className="clip">{takeClipLabel(t)}</span>
+                    {t.sound && (
+                      // Reuses .clip (same as the camera clip span above) so a
+                      // discarded take fades/strikes it identically via
+                      // .minitake--discarded .clip - the accent color is only
+                      // applied inline when the shot is still good. Overflow
+                      // safety is inline too, since a phone-width row now has
+                      // two names to fit instead of one.
+                      <span
+                        className="clip"
+                        style={{
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          ...(t.status === 'discarded' ? {} : soundTextStyle),
+                        }}
+                      >
+                        🔊 {t.sound.fileName}
+                      </span>
+                    )}
                     <span className="dur tnum">{tc.msToClock(t.durationMs)}</span>
                     <span className="minitake__pen" aria-hidden="true">✎</span>
                   </button>
@@ -610,23 +936,28 @@ export function RollingScreen(props: {
           </div>
         )}
       </div>
+      </div>
 
       <div className="roll__deck">
         {rolling && (
           <>
             {scriptMode ? (
               <>
-                <div className="tagbar tagbar--coverage" aria-label="Coverage">
+                {/* Coverage keypad: a FIXED 2-col grid so each key holds its
+                    position scene to scene (muscle memory), never reflowing
+                    like flex-wrap did. GOLD keeps a consistent trailing slot. */}
+                <div className="keypad keypad--wide" aria-label="Coverage">
                   {coverageChips.map((tag) => {
                     const n = flashes[tag] ?? 0;
                     return (
                       <button
                         key={`${tag}:${n}`}
                         type="button"
-                        className={`chip chip--coverage${n > 0 ? ' chip--flash' : ''}`}
+                        className={`chip keycap keycap--coverage${n > 0 ? ' chip--flash' : ''}`}
                         onClick={() => tapTag(tag)}
                       >
-                        {tag}
+                        <span className="keycap__label">{tag}</span>
+                        {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
                       </button>
                     );
                   })}
@@ -636,26 +967,28 @@ export function RollingScreen(props: {
                       <button
                         key={`GOLD:${n}`}
                         type="button"
-                        className={`chip chip--gold${n > 0 ? ' chip--flash' : ''}`}
+                        className={`chip keycap keycap--gold${n > 0 ? ' chip--flash' : ''}`}
                         onClick={() => tapTag('GOLD')}
                       >
-                        GOLD
+                        <span className="keycap__label">GOLD</span>
+                        {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
                       </button>
                     );
                   })()}
                 </div>
                 {keyChips.length > 0 && (
-                  <div className="tagbar tagbar--key" aria-label="Key moments">
+                  <div className="keypad keypad--wide" aria-label="Key moments">
                     {keyChips.map((tag) => {
                       const n = flashes[tag] ?? 0;
                       return (
                         <button
                           key={`${tag}:${n}`}
                           type="button"
-                          className={`chip chip--key${n > 0 ? ' chip--flash' : ''}`}
+                          className={`chip keycap keycap--key${n > 0 ? ' chip--flash' : ''}`}
                           onClick={() => tapTag(tag)}
                         >
-                          {tag}
+                          <span className="keycap__label">{tag}</span>
+                          {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
                         </button>
                       );
                     })}
@@ -663,17 +996,18 @@ export function RollingScreen(props: {
                 )}
               </>
             ) : (
-              <div className="tagbar">
+              <div className="keypad" aria-label="Quick tags">
                 {project.tags.map((tag) => {
                   const n = flashes[tag] ?? 0;
                   return (
                     <button
                       key={`${tag}:${n}`}
                       type="button"
-                      className={`chip${tag === 'GOLD' ? ' chip--gold' : ''}${n > 0 ? ' chip--flash' : ''}`}
+                      className={`chip keycap${tag === 'GOLD' ? ' keycap--gold' : ''}${n > 0 ? ' chip--flash' : ''}`}
                       onClick={() => tapTag(tag)}
                     >
-                      {tag}
+                      <span className="keycap__label">{tag}</span>
+                      {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
                     </button>
                   );
                 })}
@@ -722,26 +1056,31 @@ export function RollingScreen(props: {
 
         <button
           type="button"
-          className={`bigbtn${rolling ? ' bigbtn--cut' : ' bigbtn--go'}`}
+          className={`bigbtn${bigButtonCutMode ? ' bigbtn--cut' : ' bigbtn--go'}`}
           aria-label={
-            rolling
+            bigButtonCutMode
               ? multi
                 ? 'Cut every camera still rolling and save the shot'
-                : 'Cut and save shot'
+                : hasSoundUnit
+                  ? 'Cut the camera and sound and save the shot'
+                  : 'Cut and save shot'
               : multi
                 ? 'Roll every camera together'
-                : 'Roll, start rolling'
+                : hasSoundUnit
+                  ? 'Roll the camera and sound together'
+                  : 'Roll, start rolling'
           }
           onClick={
-            rolling
-              ? () => void (multi ? bigCutMulti() : doCut())
-              : multi
+            bigButtonCutMode
+              ? () => void (useEngine ? bigCutMulti() : doCut())
+              : useEngine
                 ? () => bigRollMulti()
                 : doRoll
           }
         >
-          {rolling ? 'CUT' : 'ROLL'}
+          {bigButtonCutMode ? 'CUT' : 'ROLL'}
         </button>
+      </div>
       </div>
 
       {postCut && (
@@ -783,6 +1122,21 @@ export function RollingScreen(props: {
         />
       )}
 
+      {editingSoundUnit && soundUnit && (
+        <SoundNumberSheet
+          sound={soundUnit}
+          onClose={() => setEditingSoundUnit(false)}
+          onSet={async (n) => {
+            const updated = await store.updateProject(project.id, {
+              sound: { ...soundUnit, nextFileNumber: n },
+            });
+            setProject(updated);
+            setEditingSoundUnit(false);
+            haptics.tap();
+          }}
+        />
+      )}
+
       {editingTake && (
         <TakeEditSheet
           project={project}
@@ -805,7 +1159,11 @@ export function RollingScreen(props: {
       {deletingTake && (
         <Confirm
           title={`Delete shot ${deletingTake.number}?`}
-          message={`Only if the camera never rolled. This removes ${takeClipLabel(deletingTake)} and every moment tagged in it, hands the clip number back, and slides every later shot on that camera down one. If the camera DID roll and the take was simply no good, discard it instead so it keeps its number. Cannot be undone.`}
+          message={`Only if the camera never rolled. This removes ${takeClipLabel(deletingTake)}${
+            deletingTake.sound ? ` and sound ${deletingTake.sound.fileName}` : ''
+          } and every moment tagged in it, hands the clip number back, and slides every later shot on that camera${
+            deletingTake.sound ? ' (and every later sound file)' : ''
+          } down one. If the camera DID roll and the take was simply no good, discard it instead so it keeps its number. Cannot be undone.`}
           confirmLabel="Delete shot"
           onCancel={() => setDeletingTake(null)}
           onConfirm={async () => {
@@ -903,6 +1261,65 @@ function ClipNumberSheet(props: {
         </button>
         <button type="button" className="btn btn--go" onClick={() => props.onSet(n)}>
           Set clip
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+// Same escape hatch as ClipNumberSheet, for the one Sound unit instead of a
+// camera - the recorder's card got swapped, or its count drifted.
+function SoundNumberSheet(props: {
+  sound: SoundUnit;
+  onClose: () => void;
+  onSet: (n: number) => void;
+}) {
+  const [num, setNum] = useState(String(props.sound.nextFileNumber));
+  const n = Math.max(0, parseInt(num, 10) || 0);
+  const preview = formatClip(props.sound.filePrefix, n, props.sound.filePadding, props.sound.fileSuffix) +
+    (props.sound.fileExt ?? '');
+
+  return (
+    <Sheet title="Sound file number" onClose={props.onClose}>
+      <p className="camnote" style={{ marginTop: 0 }}>
+        Recorder skipped or repeated a number? Set it right. This shot's sound file takes the new
+        number and the count carries on from here.
+      </p>
+      <div className="clipset">
+        <button
+          type="button"
+          className="clipset__step"
+          aria-label="Lower"
+          onClick={() => setNum(String(Math.max(0, n - 1)))}
+        >
+          &minus;
+        </button>
+        <input
+          className="field field--mono clipset__input"
+          inputMode="numeric"
+          value={num}
+          autoFocus
+          onChange={(e) => setNum(e.target.value.replace(/[^0-9]/g, ''))}
+        />
+        <button
+          type="button"
+          className="clipset__step"
+          aria-label="Raise"
+          onClick={() => setNum(String(n + 1))}
+        >
+          +
+        </button>
+      </div>
+      <div className="clipset__preview">
+        <span className="label">This file becomes</span>
+        <span className="tnum">{preview}</span>
+      </div>
+      <div className="sheet__actions">
+        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+          Cancel
+        </button>
+        <button type="button" className="btn btn--go" onClick={() => props.onSet(n)}>
+          Set number
         </button>
       </div>
     </Sheet>
@@ -1046,6 +1463,15 @@ function TakeEditSheet(props: {
   );
 
   const [nums, setNums] = useState(units.map((u) => String(u.nextClipNumber)));
+  // This take's sound file number, editable the same way as a camera clip
+  // number - only when BOTH the take actually recorded sound AND the project
+  // still has a Sound unit (it may have been turned off since this was shot).
+  const soundEditable = !!(take.sound && project.sound);
+  const [soundNum, setSoundNum] = useState(() =>
+    take.sound && project.sound
+      ? String(parseClipNumber(take.sound.fileName, project.sound.filePrefix, project.sound.fileSuffix ?? ''))
+      : '',
+  );
   const [status, setStatus] = useState<TakeStatus>(take.status);
   const [note, setNote] = useState(take.note ?? '');
   // Tags live as tagged moments; we surface presence as toggle chips and
@@ -1057,9 +1483,12 @@ function TakeEditSheet(props: {
   const [saving, setSaving] = useState(false);
   // Set when saving would renumber OTHER shots: holds the pending write and a
   // plain-language list of every shot that moves, pending the user's go-ahead.
+  // `soundOnly` picks the confirmation copy: "the camera" vs "the sound file".
   const [pendingShift, setPendingShift] = useState<{
     newNumbers: Partial<Record<CameraUnitLetter, number>>;
+    newSoundNumber?: number;
     moved: string[];
+    soundOnly: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -1127,17 +1556,18 @@ function TakeEditSheet(props: {
     haptics.tap();
 
     const newNumbers = typedNumbers();
+    const newSoundNumber = soundEditable ? Math.max(0, parseInt(soundNum, 10) || 0) : undefined;
     const bundle = await store.getBundle(project.id);
-    const preview = rebaseClipNumbers(project, bundle.takes, take.id, newNumbers, Date.now());
+    const preview = rebaseClipNumbers(project, bundle.takes, take.id, newNumbers, Date.now(), newSoundNumber);
     const others = preview.takes.filter((t) => t.id !== take.id);
 
     if (others.length === 0) {
-      void commit(newNumbers);
+      void commit(newNumbers, newSoundNumber);
       return;
     }
 
-    // List ONLY the clips that actually change. Echoing every camera on a
-    // 4-cam take buries the one line that matters.
+    // List ONLY the clips (and sound file) that actually change. Echoing
+    // every camera on a 4-cam take buries the one line that matters.
     const was = new Map(bundle.takes.map((t) => [t.id, t]));
     const moved = others
       .slice()
@@ -1155,21 +1585,30 @@ function TakeEditSheet(props: {
         } else if (before && before.clipName !== t.clipName) {
           pairs.push(`${before.clipName} → ${t.clipName}`);
         }
+        if (before?.sound && t.sound && before.sound.fileName !== t.sound.fileName) {
+          pairs.push(`sound ${before.sound.fileName} → ${t.sound.fileName}`);
+        }
         return `shot ${t.number}:  ${pairs.join(',  ')}`;
       });
-    setPendingShift({ newNumbers, moved });
+
+    // Whether THIS take's camera number(s) actually changed - if not, whatever
+    // triggered the shift was the sound file, so the confirmation talks about
+    // the recorder instead of the camera.
+    const cameraChanged = units.some((u, i) => Math.max(0, parseInt(nums[i], 10) || 0) !== u.nextClipNumber);
+    setPendingShift({ newNumbers, newSoundNumber, moved, soundOnly: !cameraChanged });
   }
 
-  async function commit(newNumbers: Partial<Record<CameraUnitLetter, number>>) {
+  async function commit(newNumbers: Partial<Record<CameraUnitLetter, number>>, soundNumber?: number) {
     if (saving) return;
     setSaving(true);
     setPendingShift(null);
 
-    // A camera counts its own files monotonically, so correcting THIS clip
-    // number means every later file that camera wrote is off by the same delta,
-    // and so is the live counter. rebaseClips carries the correction forward
-    // (per unit, later shots only) in one atomic write.
-    const rebased = await store.rebaseClips(project.id, take.id, newNumbers);
+    // A camera (and, if it recorded sound, the recorder) counts its own files
+    // monotonically, so correcting THIS clip/file number means every later
+    // one is off by the same delta, and so is the live counter. rebaseClips
+    // carries the correction forward (per unit, later shots only) in one
+    // atomic write.
+    const rebased = await store.rebaseClips(project.id, take.id, newNumbers, soundNumber);
 
     const trimmedNote = note.trim();
     // Status/tags/note are this row's alone; the clip names were just written
@@ -1198,12 +1637,12 @@ function TakeEditSheet(props: {
   // them back on the edit form with every field exactly as they left it.
   if (pendingShift) {
     const n = pendingShift.moved.length;
+    const title = pendingShift.soundOnly ? 'This renumbers later sound files' : 'This renumbers later shots';
+    const lede = pendingShift.soundOnly
+      ? `The recorder kept counting, so correcting this sound file number corrects every later sound file too, and the live counter with it. ${n} later shot${n === 1 ? '' : 's'} will change. If you did not mean to do this, press STOP.`
+      : `The camera kept counting, so correcting this clip number corrects every later shot on that camera too, and the live counter with it. ${n} later shot${n === 1 ? '' : 's'} will change. If you did not mean to do this, press STOP.`;
     return (
-      <Sheet
-        title="This renumbers later shots"
-        lede={`The camera kept counting, so correcting this clip number corrects every later shot on that camera too, and the live counter with it. ${n} later shot${n === 1 ? '' : 's'} will change. If you did not mean to do this, press STOP.`}
-        onClose={() => setPendingShift(null)}
-      >
+      <Sheet title={title} lede={lede} onClose={() => setPendingShift(null)}>
         <ul
           style={{
             listStyle: 'none',
@@ -1228,7 +1667,7 @@ function TakeEditSheet(props: {
             type="button"
             className="btn btn--go"
             disabled={saving}
-            onClick={() => void commit(pendingShift.newNumbers)}
+            onClick={() => void commit(pendingShift.newNumbers, pendingShift.newSoundNumber)}
           >
             Yes, renumber
           </button>
@@ -1240,12 +1679,53 @@ function TakeEditSheet(props: {
   return (
     <Sheet title={`Edit shot ${take.number}`} onClose={props.onClose}>
       <p className="camnote" style={{ marginTop: 0 }}>
-        Fix a mis-logged clip number, status, tags or note. Correcting a clip number also shifts
-        every LATER shot on that camera by the same amount, and the live counter with them - the
-        camera kept counting, so they are all off by the same gap. Earlier shots never move.
+        Fix a mis-logged clip{soundEditable ? ' or sound file' : ''} number, status, tags or note.
+        Correcting a number also shifts every LATER shot on that camera{soundEditable ? ' or recorder' : ''}{' '}
+        by the same amount, and the live counter with them - it kept counting, so they are all off
+        by the same gap. Earlier shots never move.
       </p>
 
       <ClipNumberRows units={units} nums={nums} showLetter={multi} onNum={setNum} />
+
+      {soundEditable && (
+        <div className="camunit" style={{ marginTop: 12 }}>
+          <div className="camunit__head">
+            <span className="camunit__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+            <span className="camunit__eg tnum">
+              {formatClip(
+                project.sound!.filePrefix,
+                Math.max(0, parseInt(soundNum, 10) || 0),
+                project.sound!.filePadding,
+                project.sound!.fileSuffix,
+              ) + (project.sound!.fileExt ?? '')}
+            </span>
+          </div>
+          <div className="clipset" style={{ marginBottom: 0 }}>
+            <button
+              type="button"
+              className="clipset__step"
+              aria-label="Lower sound file number"
+              onClick={() => setSoundNum(String(Math.max(0, (Math.max(0, parseInt(soundNum, 10) || 0)) - 1)))}
+            >
+              &minus;
+            </button>
+            <input
+              className="field field--mono clipset__input"
+              inputMode="numeric"
+              value={soundNum}
+              onChange={(e) => setSoundNum(e.target.value.replace(/[^0-9]/g, ''))}
+            />
+            <button
+              type="button"
+              className="clipset__step"
+              aria-label="Raise sound file number"
+              onClick={() => setSoundNum(String((Math.max(0, parseInt(soundNum, 10) || 0)) + 1))}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="formrow" style={{ marginTop: 16 }}>
         <span className="label">Status</span>
@@ -1343,6 +1823,18 @@ function PostCutSheet(props: {
               <span className="camslot__clip tnum">{c.clipName}</span>
             </div>
           ))}
+        </div>
+      )}
+      {props.take.sound && (
+        <div
+          className="camstack camstack--sheet"
+          style={{ gridTemplateColumns: '1fr' }}
+          aria-label="Sound file recorded"
+        >
+          <div className="camslot">
+            <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+            <span className="camslot__clip tnum" style={soundTextStyle}>{props.take.sound.fileName}</span>
+          </div>
         </div>
       )}
       <div className="takesummary">

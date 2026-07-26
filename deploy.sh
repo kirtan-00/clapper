@@ -33,6 +33,15 @@ if [ -d landing/templates ]; then
   cp -R landing/templates/. "$STAGE/templates/"
 fi
 
+# Legal: Privacy Policy + Terms + cookie/storage notice at /legal/,
+# with /privacy and /terms as canonical redirect entry points.
+for d in legal privacy terms; do
+  if [ -d "landing/$d" ]; then
+    mkdir -p "$STAGE/$d"
+    cp -R "landing/$d/." "$STAGE/$d/"
+  fi
+done
+
 # Self-destructing service worker at the old root scope, so pre-landing PWA installs
 # (which registered /sw.js with scope /) clear their caches instead of serving the
 # cached app shell over the new landing page.

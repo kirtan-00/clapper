@@ -1,6 +1,6 @@
 // Shared helpers for both store backends (idb + localStorage).
 
-import type { CameraUnit, CameraUnitLetter, Project, Slate, Take, TakeClip } from '../types';
+import type { CameraUnit, CameraUnitLetter, Project, Slate, SoundUnit, Take, TakeClip } from '../types';
 
 export function newId(): string {
   // crypto.randomUUID is available on http(s) AND on file:// in modern
@@ -90,6 +90,20 @@ function withClipNumber(take: Take, unit: CameraUnit, n: number): Take {
   return { ...take, clips, clipName: clips[0].clipName };
 }
 
+/** The sound-file counter baked into `take`, or 0 if it recorded no sound. */
+function takeSoundNumber(take: Take, sound: SoundUnit): number {
+  if (!take.sound) return 0;
+  return parseClipNumber(take.sound.fileName, sound.filePrefix, sound.fileSuffix ?? '');
+}
+
+/** Rewrite `take` so its sound file carries counter `n` (no-op if it has none). */
+function withSoundNumber(take: Take, sound: SoundUnit, n: number): Take {
+  if (!take.sound) return take;
+  const fileName = formatClip(sound.filePrefix, n, sound.filePadding, sound.fileSuffix);
+  if (fileName === take.sound.fileName) return take;
+  return { ...take, sound: { ...take.sound, fileName } };
+}
+
 /** Chronological (CUT order) = the order the camera actually wrote its files. */
 function inCutOrder(takes: Take[]): Take[] {
   return [...takes].sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -117,6 +131,7 @@ export function rebaseClipNumbers(
   editedTakeId: string,
   newNumbers: Partial<Record<CameraUnitLetter, number>>,
   now: number,
+  soundNumber?: number,
 ): { takes: Take[]; project: Project } {
   const ordered = inCutOrder(allTakes);
   const editedAt = ordered.findIndex((t) => t.id === editedTakeId);
@@ -131,8 +146,18 @@ export function rebaseClipNumbers(
     if (delta !== 0) deltas.set(u.letter, delta);
   }
 
-  // The edited take always takes the typed number verbatim, even where the
-  // delta is 0 (reformatting to the unit's current prefix/padding).
+  // Sound rides the SAME "shift, never resequence" doctrine as a camera: the
+  // recorder counts its own files monotonically, so a correction on this take
+  // shifts every later sound file by the same delta. Only meaningful when the
+  // project has a Sound unit and this take actually recorded sound.
+  const sound = project.sound;
+  let soundDelta = 0;
+  if (soundNumber !== undefined && sound && ordered[editedAt].sound) {
+    soundDelta = Math.max(0, Math.trunc(soundNumber)) - takeSoundNumber(ordered[editedAt], sound);
+  }
+
+  // The edited take always takes the typed number(s) verbatim, even where a
+  // delta is 0 (reformatting to the current prefix/padding).
   const changed = new Map<string, Take>();
   let edited = ordered[editedAt];
   for (const u of units) {
@@ -140,9 +165,14 @@ export function rebaseClipNumbers(
     if (target === undefined) continue;
     edited = withClipNumber(edited, u, Math.max(0, Math.trunc(target)));
   }
+  if (soundNumber !== undefined && sound && edited.sound) {
+    edited = withSoundNumber(edited, sound, Math.max(0, Math.trunc(soundNumber)));
+  }
   changed.set(edited.id, { ...edited, updatedAt: now });
 
-  if (deltas.size === 0) {
+  const hasCameraShift = deltas.size > 0;
+  const hasSoundShift = soundDelta !== 0 && !!sound;
+  if (!hasCameraShift && !hasSoundShift) {
     return { takes: [...changed.values()], project };
   }
 
@@ -153,24 +183,36 @@ export function rebaseClipNumbers(
       if (delta === undefined) continue;
       take = withClipNumber(take, u, Math.max(0, takeClipNumber(take, u) + delta));
     }
+    if (hasSoundShift && take.sound) {
+      take = withSoundNumber(take, sound!, Math.max(0, takeSoundNumber(take, sound!) + soundDelta));
+    }
     if (take !== ordered[i]) changed.set(take.id, { ...take, updatedAt: now });
   }
 
-  // The live counter is just "the next file this camera will write" — it rides
-  // the same shift, or the very next CUT reintroduces the error.
-  let nextProject: Project;
-  if (project.cameras && project.cameras.length > 0) {
+  // The live counters are just "the next file this unit will write" — each rides
+  // its own shift, or the very next CUT reintroduces the error.
+  let nextProject: Project = project;
+  if (hasCameraShift) {
+    if (project.cameras && project.cameras.length > 0) {
+      nextProject = {
+        ...nextProject,
+        cameras: project.cameras.map((u) => {
+          const delta = deltas.get(u.letter);
+          return delta === undefined ? u : { ...u, nextClipNumber: Math.max(0, u.nextClipNumber + delta) };
+        }),
+        updatedAt: now,
+      };
+    } else {
+      const delta = deltas.get('A') ?? 0;
+      nextProject = { ...nextProject, nextClipNumber: Math.max(0, project.nextClipNumber + delta), updatedAt: now };
+    }
+  }
+  if (hasSoundShift) {
     nextProject = {
-      ...project,
-      cameras: project.cameras.map((u) => {
-        const delta = deltas.get(u.letter);
-        return delta === undefined ? u : { ...u, nextClipNumber: Math.max(0, u.nextClipNumber + delta) };
-      }),
+      ...nextProject,
+      sound: { ...sound!, nextFileNumber: Math.max(0, sound!.nextFileNumber + soundDelta) },
       updatedAt: now,
     };
-  } else {
-    const delta = deltas.get('A') ?? 0;
-    nextProject = { ...project, nextClipNumber: Math.max(0, project.nextClipNumber + delta), updatedAt: now };
   }
 
   return { takes: [...changed.values()], project: nextProject };
@@ -207,7 +249,12 @@ export function reclaimClipNumbers(
       ? doomed.clips.some((c) => c.unit === u.letter)
       : u.letter === 'A',
   );
-  if (consumed.length === 0) return { takes: [], project };
+  // Sound is one more stream that may have consumed a number on this take. It
+  // slides down exactly like a camera: DELETE means the recorder never wrote
+  // that file, so later sound files reclaim the gap.
+  const sound = project.sound;
+  const doomedHadSound = !!(sound && doomed.sound);
+  if (consumed.length === 0 && !doomedHadSound) return { takes: [], project };
 
   const changed: Take[] = [];
   for (let i = at + 1; i < ordered.length; i++) {
@@ -215,20 +262,33 @@ export function reclaimClipNumbers(
     for (const u of consumed) {
       take = withClipNumber(take, u, Math.max(0, takeClipNumber(take, u) - 1));
     }
+    if (doomedHadSound && take.sound) {
+      take = withSoundNumber(take, sound!, Math.max(0, takeSoundNumber(take, sound!) - 1));
+    }
     if (take !== ordered[i]) changed.push({ ...take, updatedAt: now });
   }
 
   const letters = new Set(consumed.map((u) => u.letter));
-  const nextProject: Project =
-    project.cameras && project.cameras.length > 0
-      ? {
-          ...project,
-          cameras: project.cameras.map((u) =>
-            letters.has(u.letter) ? { ...u, nextClipNumber: Math.max(0, u.nextClipNumber - 1) } : u,
-          ),
-          updatedAt: now,
-        }
-      : { ...project, nextClipNumber: Math.max(0, project.nextClipNumber - 1), updatedAt: now };
+  let nextProject: Project = project;
+  if (consumed.length > 0) {
+    nextProject =
+      project.cameras && project.cameras.length > 0
+        ? {
+            ...nextProject,
+            cameras: project.cameras.map((u) =>
+              letters.has(u.letter) ? { ...u, nextClipNumber: Math.max(0, u.nextClipNumber - 1) } : u,
+            ),
+            updatedAt: now,
+          }
+        : { ...nextProject, nextClipNumber: Math.max(0, project.nextClipNumber - 1), updatedAt: now };
+  }
+  if (doomedHadSound) {
+    nextProject = {
+      ...nextProject,
+      sound: { ...sound!, nextFileNumber: Math.max(0, sound!.nextFileNumber - 1) },
+      updatedAt: now,
+    };
+  }
 
   return { takes: changed, project: nextProject };
 }
@@ -252,6 +312,37 @@ export interface TakeInput {
   // ABSENT/empty = every configured unit rolled together for the whole take
   // (the big-ROLL common case) - matches every take built before this existed.
   units?: TakeUnitRoll[];
+  // Sound (orthogonal to cameras): present when the recorder rolled this take,
+  // with its own timing. ABSENT = sound did not roll. Ignored if no `sound` unit.
+  sound?: { startOffsetMs: number; durationMs: number };
+}
+
+/**
+ * Layer the sound file onto a freshly built take: if the project has a Sound
+ * unit AND sound rolled this take, stamp its file name and advance the sound
+ * counter. Orthogonal to cameras, so it runs identically for single- and
+ * multi-cam takes. A no-op (returns the picture take unchanged) otherwise.
+ */
+function applySound(
+  project: Project,
+  take: Take,
+  input: TakeInput,
+  now: number,
+): { take: Take; project: Project } {
+  const s = project.sound;
+  if (!s || !input.sound) return { take, project };
+  const fileName = formatClip(s.filePrefix, s.nextFileNumber, s.filePadding, s.fileSuffix);
+  return {
+    take: {
+      ...take,
+      sound: {
+        fileName,
+        startOffsetMs: input.sound.startOffsetMs,
+        durationMs: input.sound.durationMs,
+      },
+    },
+    project: { ...project, sound: { ...s, nextFileNumber: s.nextFileNumber + 1 }, updatedAt: now },
+  };
 }
 
 /**
@@ -311,7 +402,7 @@ export function buildTakeClips(
       createdAt: now,
       updatedAt: now,
     };
-    return { take, project: { ...project, cameras: advanced, updatedAt: now } };
+    return applySound({ ...project, cameras: advanced, updatedAt: now }, take, input, now);
   }
 
   // Single-cam: untouched legacy path.
@@ -332,7 +423,7 @@ export function buildTakeClips(
     createdAt: now,
     updatedAt: now,
   };
-  return { take, project: { ...project, nextClipNumber: clipNumber + 1, updatedAt: now } };
+  return applySound({ ...project, nextClipNumber: clipNumber + 1, updatedAt: now }, take, input, now);
 }
 
 // ---------------------------------------------------------- shoot order ---

@@ -7,6 +7,7 @@ import {
   reclaimClipNumbers,
   reorderSlateList,
 } from './util';
+import type { RawStore, SyncTable } from './outbox';
 
 // A localStorage-backed Store, used when IndexedDB cannot be opened (common on
 // file:// in some browsers, and in private windows). Data volumes here are tiny
@@ -47,7 +48,7 @@ function safeStorage(): Storage | null {
   }
 }
 
-export function createLocalStore(): Store {
+export function createLocalStore(): Store & RawStore {
   const ls = safeStorage();
 
   function loadTable<T extends { id: string }>(name: TableName): Map<string, T> {
@@ -197,10 +198,10 @@ export function createLocalStore(): Store {
       return updated;
     },
 
-    async rebaseClips(projectId, takeId, newNumbers) {
+    async rebaseClips(projectId, takeId, newNumbers, soundNumber) {
       const project = tables.projects.get(projectId) ?? notFound('project', projectId);
       const all = [...tables.takes.values()].filter((t) => t.projectId === projectId);
-      const result = rebaseClipNumbers(project, all, takeId, newNumbers, Date.now());
+      const result = rebaseClipNumbers(project, all, takeId, newNumbers, Date.now(), soundNumber);
 
       for (const t of result.takes) tables.takes.set(t.id, t);
       tables.projects.set(project.id, result.project);
@@ -282,6 +283,62 @@ export function createLocalStore(): Store {
       );
       const bundle: ProjectBundle = { project, slates, takes, moments };
       return bundle;
+    },
+
+    // ---------------------------------------------------------- sync raw ---
+    // Same low-level bypass path as idb.ts's rawGet/rawPut/rawDelete — a
+    // plain Map read/write/delete with no business logic and no updatedAt
+    // stamping. See idb.ts for the full rationale; both backends must agree
+    // on this contract since the sync engine doesn't know which one it's
+    // talking to.
+
+    async rawGet(table: SyncTable, id: string) {
+      switch (table) {
+        case 'projects':
+          return tables.projects.get(id);
+        case 'slates':
+          return tables.slates.get(id);
+        case 'takes':
+          return tables.takes.get(id);
+        case 'moments':
+          return tables.moments.get(id);
+      }
+    },
+
+    async rawPut(table: SyncTable, entity: Project | Slate | Take | Moment) {
+      switch (table) {
+        case 'projects':
+          tables.projects.set(entity.id, entity as Project);
+          break;
+        case 'slates':
+          tables.slates.set(entity.id, entity as Slate);
+          break;
+        case 'takes':
+          tables.takes.set(entity.id, entity as Take);
+          break;
+        case 'moments':
+          tables.moments.set(entity.id, entity as Moment);
+          break;
+      }
+      persist(table);
+    },
+
+    async rawDelete(table: SyncTable, id: string) {
+      switch (table) {
+        case 'projects':
+          tables.projects.delete(id);
+          break;
+        case 'slates':
+          tables.slates.delete(id);
+          break;
+        case 'takes':
+          tables.takes.delete(id);
+          break;
+        case 'moments':
+          tables.moments.delete(id);
+          break;
+      }
+      persist(table);
     },
   };
 }

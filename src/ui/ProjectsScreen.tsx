@@ -8,6 +8,7 @@ import { extractPdfText } from './pdftext';
 import { breakdownScript, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
+import InstallNudge from './InstallNudge';
 import { useSession, signInWithGoogle, signOut } from '../net/auth';
 import { getUsage, FREE_LIMIT, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
@@ -18,6 +19,15 @@ const FPS_OPTIONS: Fps[] = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
 // INSERT) plus the usual take-quality flags. Script Mode overrides these per
 // scene with its own chips.
 const DEFAULT_TAGS = ['WIDE', 'MID', 'CU', 'OTS', 'INSERT', 'GOLD', 'PICKUP', 'NOISE'];
+
+// Production sound's badge accent - same cool blue RollingScreen uses for the
+// Sound roll control, applied inline on the shared .camunit__badge here too
+// (styling stays scoped to src/ui/, not the shared stylesheet).
+const soundBadgeStyle = {
+  color: 'var(--sound)',
+  background: 'color-mix(in srgb, var(--sound) 16%, var(--ink-800))',
+  borderColor: 'color-mix(in srgb, var(--sound) 45%, transparent)',
+};
 
 // Feedback goes straight to the maker's inbox — Clapper is an early beta, so a
 // prefilled mailto is enough. The body seeds the prompt; the trailing newlines
@@ -80,6 +90,8 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         </div>
       </header>
 
+      <InstallNudge />
+
       {rows === null ? (
         <div className="empty">Loading projects</div>
       ) : rows.length === 0 ? (
@@ -110,11 +122,11 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
                   {takeCount === 1 ? '1 shot' : `${takeCount} shots`}
                 </span>
                 <span
-                  className="iconbtn"
+                  className="rowdel"
                   role="button"
                   tabIndex={0}
                   aria-label={`Delete ${project.name}`}
-                  style={{ marginLeft: 'auto', minHeight: 32, minWidth: 32 }}
+                  style={{ marginLeft: 'auto' }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setDeleting(project);
@@ -127,7 +139,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
                     }
                   }}
                 >
-                  del
+                  Delete
                 </span>
               </div>
             </button>
@@ -137,7 +149,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
 
       <button
         type="button"
-        className="newproject"
+        className="newproject newproject--primary"
         onClick={() => {
           haptics.tap();
           setCreating(true);
@@ -328,11 +340,25 @@ function CreateProjectSheet(props: {
     setUnits((prev) => prev.map((u, idx) => (idx === i ? { ...u, ...patch } : u)));
   }
 
+  // Production sound. Off by default (every project keeps working with no
+  // sound at all, exactly as before); ON writes an orthogonal Sound unit -
+  // it exists independent of camera count, single- or multi-cam alike.
+  const [soundOn, setSoundOn] = useState(false);
+  const [soundOperator, setSoundOperator] = useState('');
+  const [soundRecorder, setSoundRecorder] = useState('');
+  const [soundPrefix, setSoundPrefix] = useState('SND_');
+  const [soundStart, setSoundStart] = useState('1');
+  const [soundPadding, setSoundPadding] = useState('4');
+  const [soundExt, setSoundExt] = useState('.WAV');
+
   const canCreate = name.trim().length > 0 && !busy;
   const preset = findPreset(camera);
   const exampleNumber = Math.max(0, parseInt(startNumber, 10) || 0);
   const exampleDigits = Math.min(8, Math.max(1, parseInt(padding, 10) || 4));
   const example = renderClip(prefix, exampleNumber, exampleDigits, suffix);
+  const soundExampleNumber = Math.max(0, parseInt(soundStart, 10) || 0);
+  const soundExampleDigits = Math.min(8, Math.max(1, parseInt(soundPadding, 10) || 4));
+  const soundExample = renderClip(soundPrefix, soundExampleNumber, soundExampleDigits, '');
 
   function pickCamera(id: string) {
     setCamera(id);
@@ -374,12 +400,24 @@ function CreateProjectSheet(props: {
       nextClipNumber: unitA ? unitA.nextClipNumber : Math.max(0, parseInt(startNumber, 10) || 0),
       clipPadding: unitA ? unitA.clipPadding : Math.min(8, Math.max(1, parseInt(padding, 10) || 4)),
       ...(cameras ? { cameras } : {}),
+      ...(soundOn
+        ? {
+            sound: {
+              filePrefix: soundPrefix,
+              nextFileNumber: Math.max(0, parseInt(soundStart, 10) || 0),
+              filePadding: Math.min(8, Math.max(1, parseInt(soundPadding, 10) || 4)),
+              fileExt: soundExt.trim(),
+              ...(soundRecorder.trim() ? { recorder: soundRecorder.trim() } : {}),
+              ...(soundOperator.trim() ? { operator: soundOperator.trim() } : {}),
+            },
+          }
+        : {}),
       tags,
     };
     const project = props.pack
       ? await importScriptPack(props.pack, config)
       : await store.createProject(config);
-    track('project_created', { mode: props.pack ? 'script' : 'normal', cameras: camCount });
+    track('project_created', { mode: props.pack ? 'script' : 'normal', cameras: camCount, sound: soundOn });
     props.onCreated(project);
   }
 
@@ -400,9 +438,21 @@ function CreateProjectSheet(props: {
           className="field"
           value={name}
           autoFocus
-          placeholder="Day 3 - Interior Cafe"
+          placeholder="e.g. The Last Monsoon"
           onChange={(e) => setName(e.target.value)}
         />
+      </div>
+
+      {/* Two co-equal recording departments, set up from the get-go: VIDEO
+          (cameras, always present) and AUDIO (the recorder, optional). They
+          stay separate streams with separate file counters, but always land
+          on ONE shared shot - that marriage is the whole point of the tool. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '20px 0 12px' }}>
+        <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+          Video
+        </span>
+        <span className="section__note">picture · camera clips</span>
+        <span style={{ height: 1, flex: 1, alignSelf: 'center', background: 'rgba(255, 255, 255, 0.18)' }} />
       </div>
 
       {/* Cameras: 1 keeps the simple single-cam flow; 2-4 reveals per-unit setup. */}
@@ -604,6 +654,134 @@ function CreateProjectSheet(props: {
         </>
       )}
 
+      {/* AUDIO department - co-equal with VIDEO above, but optional (a shoot
+          may cut sound in-camera). A single recorder unit, independent of the
+          camera count; when on it rolls as its own stream onto the same shot. */}
+      <div className="formrow" style={{ marginTop: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: 'var(--sound)',
+            }}
+          >
+            Audio
+          </span>
+          <span className="section__note">sound · recorder files</span>
+          <span style={{ height: 1, flex: 1, alignSelf: 'center', background: 'rgba(255, 255, 255, 0.18)' }} />
+          <div
+            className="camcount"
+            role="group"
+            aria-label="Production sound"
+            style={{ gridTemplateColumns: '1fr 1fr', width: 128 }}
+          >
+            <button
+              type="button"
+              className={`camcount__opt${!soundOn ? ' camcount__opt--on' : ''}`}
+              aria-pressed={!soundOn}
+              onClick={() => setSoundOn(false)}
+            >
+              Off
+            </button>
+            <button
+              type="button"
+              className={`camcount__opt${soundOn ? ' camcount__opt--on' : ''}`}
+              aria-pressed={soundOn}
+              onClick={() => setSoundOn(true)}
+            >
+              On
+            </button>
+          </div>
+        </div>
+        {soundOn && (
+          <div className="camunit">
+            <div className="camunit__head">
+              <span className="camunit__badge" style={soundBadgeStyle} aria-hidden="true">S</span>
+              <span className="camunit__eg tnum">{soundExample}{soundExt}</span>
+            </div>
+            <div className="formrow" style={{ margin: '12px 0 0' }}>
+              <label className="label" htmlFor="np-sound-operator">
+                Mixer <span className="section__note">optional</span>
+              </label>
+              <input
+                id="np-sound-operator"
+                className="field"
+                placeholder="e.g. Priya"
+                value={soundOperator}
+                onChange={(e) => setSoundOperator(e.target.value)}
+              />
+            </div>
+            <div className="formrow" style={{ margin: '10px 0 0' }}>
+              <label className="label" htmlFor="np-sound-recorder">
+                Recorder <span className="section__note">optional</span>
+              </label>
+              <input
+                id="np-sound-recorder"
+                className="field"
+                placeholder="e.g. MixPre-6"
+                value={soundRecorder}
+                onChange={(e) => setSoundRecorder(e.target.value)}
+              />
+            </div>
+            <div className="formgrid" style={{ marginTop: 10 }}>
+              <div className="formrow" style={{ margin: 0 }}>
+                <label className="label" htmlFor="np-sound-prefix">
+                  File prefix
+                </label>
+                <input
+                  id="np-sound-prefix"
+                  className="field field--mono"
+                  value={soundPrefix}
+                  placeholder="SND_"
+                  onChange={(e) => setSoundPrefix(e.target.value)}
+                />
+              </div>
+              <div className="formrow" style={{ margin: 0 }}>
+                <label className="label" htmlFor="np-sound-start">
+                  Starting file no.
+                </label>
+                <input
+                  id="np-sound-start"
+                  className="field field--mono"
+                  inputMode="numeric"
+                  value={soundStart}
+                  onChange={(e) => setSoundStart(e.target.value.replace(/[^0-9]/g, ''))}
+                />
+              </div>
+            </div>
+            <div className="formgrid" style={{ marginTop: 10 }}>
+              <div className="formrow" style={{ margin: 0 }}>
+                <label className="label" htmlFor="np-sound-pad">
+                  Number digits
+                </label>
+                <input
+                  id="np-sound-pad"
+                  className="field field--mono"
+                  inputMode="numeric"
+                  value={soundPadding}
+                  onChange={(e) => setSoundPadding(e.target.value.replace(/[^0-9]/g, ''))}
+                />
+              </div>
+              <div className="formrow" style={{ margin: 0 }}>
+                <label className="label" htmlFor="np-sound-ext">
+                  File extension
+                </label>
+                <input
+                  id="np-sound-ext"
+                  className="field field--mono"
+                  placeholder=".WAV"
+                  value={soundExt}
+                  onChange={(e) => setSoundExt(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="formrow">
         <span className="label">Quick tags</span>
         <div className="chips">
@@ -739,9 +917,9 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
 
   return (
     <Sheet title="Script Mode" onClose={props.onClose}>
-      <p className="camnote" style={{ marginTop: 0 }}>
-        Upload your script as a PDF. We break it into scenes shot by shot, each with tappable
-        coverage and key-moment chips, then load it as a project, so on set you just tap.
+      <p className="camnote">
+        Upload your script as a PDF. We break it into scenes shot by shot, each with tappable coverage and
+        key-moment chips, then load it as a project, so on set you just tap.
       </p>
 
       {loading ? (
@@ -787,24 +965,26 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
       )}
       {capped && <ProCta gate="script" />}
 
-      <div className="sp-or">
-        <span>or try an example</span>
-      </div>
+      <>
+        <div className="sp-or">
+          <span>or try an example</span>
+        </div>
 
-      <div className="formgrid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        {EXAMPLE_PACKS.map((ex) => (
-          <button
-            key={ex.key}
-            type="button"
-            className="btn sp-example"
-            disabled={busy}
-            onClick={() => loadExample(ex.pack, ex.key)}
-          >
-            <b>{ex.label}</b>
-            <span>{ex.blurb}</span>
-          </button>
-        ))}
-      </div>
+        <div className="formgrid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {EXAMPLE_PACKS.map((ex) => (
+            <button
+              key={ex.key}
+              type="button"
+              className="btn sp-example"
+              disabled={busy}
+              onClick={() => loadExample(ex.pack, ex.key)}
+            >
+              <b>{ex.label}</b>
+              <span>{ex.blurb}</span>
+            </button>
+          ))}
+        </div>
+      </>
 
       <div className="sheet__actions">
         <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={busy}>
@@ -820,14 +1000,14 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
 // its own scroller, a sticky header and jump chips.
 const GUIDE_NAV: { id: string; label: string }[] = [
   { id: 'g-what', label: 'What it is' },
-  { id: 'g-handoff', label: 'The handoff' },
   { id: 'g-setup', label: 'Setup' },
+  { id: 'g-cams', label: 'Multiple cameras' },
   { id: 'g-onset', label: 'On set' },
   { id: 'g-status', label: 'Discard vs delete' },
   { id: 'g-fix', label: 'Fixing a number' },
-  { id: 'g-cams', label: 'Two to four cams' },
+  { id: 'g-scenes', label: 'Scene order' },
   { id: 'g-voice', label: 'Voice' },
-  { id: 'g-out', label: 'Exports' },
+  { id: 'g-out', label: 'Handing off' },
 ];
 
 function HowToScreen(props: { onClose: () => void }) {
@@ -889,134 +1069,137 @@ function HowToScreen(props: { onClose: () => void }) {
             <p className="gsec__num tnum">01</p>
             <h3 className="gsec__h">What Clapper is</h3>
             <p className="gsec__lede">
-              Your shot list and your timecode report in the same document, built as you shoot
-              instead of typed up afterwards.
+              Your shot log, built while you shoot instead of typed up afterwards.
             </p>
             <p>
-              A TCR is only worth something if the clip numbers in it are right. One wrong number
-              and the editor stops trusting the whole page, then goes back to opening card folders
-              by hand.
+              Every file a camera writes gets a clip number in its name. Someone has always had to
+              copy that number onto a shot log by hand, off a monitor, between setups, hundreds of
+              times a day. Get one digit wrong and the log stops matching the actual files, so the
+              editor stops trusting it and starts opening card folders instead.
             </p>
             <p>
-              On paper you hand-write the camera’s clip number for every single take. Hundreds of
-              numbers a day, read off a monitor, in the dark, between setups. Clapper assigns them
-              instead. You never write one down.
+              Clapper keeps the count for you. It knows the last number it handed out, and every
+              ROLL gives out the next one. You never write a clip number down, and the log always
+              matches what is really on the card.
             </p>
 
             <div className="grule">
               <p className="grule__label">The one rule</p>
-              <p className="grule__big">
-                Hit ROLL every time the camera rolls. Every single time.
+              <p className="grule__big">Hit ROLL every time a camera rolls. No exceptions.</p>
+              <p>
+                Clapper cannot see the camera. It can only count, and its count only matches the
+                camera’s if you press ROLL exactly as many times as the camera actually rolled.
               </p>
               <p>
-                Clapper cannot see the camera. It counts. It assumes the file the camera just wrote
-                is the next number after the last one, so its count and the camera’s count only stay
-                together if you press ROLL exactly as often as the camera does.
-              </p>
-              <p>
-                Camera rolled by accident? Still ROLL, then CUT, then <b>Discard</b>. The camera
-                wrote a file either way, so the number has to get used up either way. Discarding
-                uses it up and moves the count on. Skipping the roll does not, and every clip number
-                after that is wrong.
+                Camera rolled by mistake? Still hit ROLL, then CUT, then <b>Discard</b> it. The
+                camera already wrote a file, so that number is spent either way. Discarding uses it
+                up correctly; skipping the roll does not, and every number after it is wrong for the
+                rest of the day.
               </p>
             </div>
           </section>
 
           {/* 2 ---------------------------------------------------------- */}
-          <section className="gsec" id="g-handoff">
+          <section className="gsec" id="g-setup">
             <p className="gsec__num tnum">02</p>
-            <h3 className="gsec__h">What the editor gets</h3>
+            <h3 className="gsec__h">Setting up a project</h3>
             <p className="gsec__lede">
-              Export Premiere (FCP XML), hand it over, and the day opens as one timeline with the
-              work already sorted.
-            </p>
-            <ol className="gflow">
-              <li>
-                <b>First, the assembly.</b> The good takes laid end to end in story order, scene by
-                scene, take by take.
-              </li>
-              <li>
-                <b>Then a gap.</b> Three seconds of air so the two halves never read as one cut.
-              </li>
-              <li>
-                <b>Then every clip again</b>, scene by scene, the rejected ones included. The selects
-                pool, parked behind the cut in the same sequence.
-              </li>
-            </ol>
-            <p>
-              Nothing is lost. The editor gets a first assembly to look at and every alternate take
-              sitting right behind it, without going near a card.
+              Two minutes at the top of the day. Every numbering mistake starts here, not out on the
+              floor.
             </p>
             <p>
-              Every chip you tapped on set arrives as a marker on the clip it happened in. The media
-              comes in offline and relinks by filename plus extension, which is why the extension
-              field in setup matters.
+              A project has two independent blocks: <b>Video</b>, for your camera or cameras, and{' '}
+              <b>Audio</b>, for a sound recorder if you are using one. Each keeps its own running
+              count, but every shot you log carries both together.
+            </p>
+            <p>
+              <b>Video.</b> Pick 1 to 4 cameras. For each one, set the starting clip number and its
+              clip format — prefix, number of digits, file extension. Read the last file already on
+              the card and enter the next number, not 1. Match the format to a real file: C0001 and
+              C001 are different names and will not relink in the edit.
+            </p>
+            <p>
+              <b>Audio.</b> Turn it on only if a separate recorder is rolling sound. Set its file
+              prefix (e.g. SND_), digit count and extension (e.g. .WAV) the same way, read off a
+              real file on the recorder’s card.
+            </p>
+            <p>
+              <b>Frame rate.</b> Match what the camera is shooting. It is what the exported timeline
+              gets built at.
             </p>
             <p className="gnote">
-              Single-camera and multi-camera exports both get the story cut plus the selects pool —
-              multi-camera just stacks every camera unit in sync at each position.
+              iPhone footage shares its counter with the photo roll, so numbers skip and cannot be
+              predicted. Set the start from real footage and expect to correct a number during the
+              day.
             </p>
           </section>
 
           {/* 3 ---------------------------------------------------------- */}
-          <section className="gsec" id="g-setup">
+          <section className="gsec" id="g-cams">
             <p className="gsec__num tnum">03</p>
-            <h3 className="gsec__h">Before you roll: sixty seconds</h3>
+            <h3 className="gsec__h">Running more than one camera</h3>
             <p className="gsec__lede">
-              Clip-number errors are born here, at the trolley, not out on the floor.
+              Pick 2 to 4 cameras in setup and each one becomes its own lettered unit, A to D.
             </p>
             <p>
-              <b>Starting clip no.</b> Set it to what is actually in the camera right now. Not 1.
-              Read the last file on the card and enter the next number.
+              Every unit has its own clip counter, and it only advances when that camera rolls. Two
+              identical cameras both writing <span className="tnum">C0001.MP4</span> is completely
+              normal — the letter is what tells them apart on export, not the filename. Nobody has
+              to rename anything.
             </p>
             <p>
-              <b>Camera.</b> Picking your camera fills in the prefix, the number of digits and the
-              file extension. Check all three against a real file. C0001 and C001 are different
-              names and will not relink.
-            </p>
-            <p>
-              <b>Frame rate.</b> Set it to what the camera is shooting. It is what the exported
-              timeline is built at.
+              On export, each camera’s picture and sound land synced at the same point in the
+              timeline, so the editor can start cutting between angles right away.
             </p>
             <p className="gnote">
-              iPhone: IMG_ numbers are shared with your photo roll, so they skip and cannot be
-              predicted. Set the start from real footage and expect to correct numbers during the
-              day.
+              A tag you tap during a shot belongs to the take, not to one camera. It is saved on
+              camera A’s clip.
             </p>
           </section>
 
           {/* 4 ---------------------------------------------------------- */}
           <section className="gsec" id="g-onset">
             <p className="gsec__num tnum">04</p>
-            <h3 className="gsec__h">On set</h3>
+            <h3 className="gsec__h">Rolling and cutting a shot</h3>
+            <p className="gsec__lede">Open a scene, then roll.</p>
             <p>
-              Tap the scene, then hit the big <b>ROLL</b>. The number on screen is elapsed shot
-              length: Clapper cannot read the camera’s clock, so it times the take rather than
-              pretend to know its timecode.
+              Tap the big <b>ROLL</b>. On a project with one camera and sound turned on, this rolls
+              the camera and the recorder together.
             </p>
             <p>
-              While it runs, tap what you see. Coverage chips <b>WIDE · MID · CU · OTS · INSERT</b>,{' '}
-              <b>GOLD</b> for the keeper, plus PICKUP and NOISE. <b>MARK IN</b> then{' '}
-              <b>MARK OUT</b> flags a range instead of a point. Each tap lands at the second it
-              happened, and nothing needs typing.
+              Prefer to start the recorder first? Roll it alone from the <b>SOUND</b> box — the
+              camera joins the same shot the moment it rolls.
             </p>
             <p>
-              <b>CUT.</b> Clapper stamps the clip number and asks you to keep or discard. You can
-              add the camera timecode and a one-line note on the same screen.
+              Running more than one camera? Each one gets its own slot: tap a slot to roll that
+              camera alone, tap <b>JOIN</b> to bring a camera into a shot already rolling, or tap a
+              rolling camera to cut just that one. The shot ends once every camera and the recorder
+              have all cut.
             </p>
             <p>
-              Shoot in any order. A <span className="gdot gdot--done" /> green dot marks a scene in
-              the can, a <span className="gdot" /> dim dot marks what is left, and the header keeps
-              a running “X / Y in the can”.
+              The number on screen counts up while the shot rolls — it is the shot’s length, not the
+              camera’s own on-screen clock (its timecode). Clapper cannot read that clock, so add it
+              yourself at CUT if you want it on the record.
             </p>
             <p>
-              <b>Script Mode.</b> Upload the script PDF and Clapper breaks it into scenes with their
-              own tap chips, so instead of generic coverage you are tapping “door slams” and “she
-              turns”.
+              While it rolls, tap what you see: <b>WIDE · MID · CU · OTS · INSERT</b> for coverage,{' '}
+              <b>GOLD</b> for a keeper, PICKUP and NOISE for the rest. <b>MARK IN</b> then{' '}
+              <b>MARK OUT</b> flags a stretch instead of one instant. Uploaded a script? Script Mode
+              swaps these for chips built from that scene instead, so you are tapping “door slams”
+              and “she turns” rather than generic coverage.
+            </p>
+            <p>
+              Hit <b>CUT</b> to close it. Clapper stamps the clip number(s), then asks you to Keep or
+              Discard, with room for the camera’s timecode and a one-line note if you want them.
+            </p>
+            <p>
+              Shoot scenes in any order you like. A <span className="gdot gdot--done" /> green dot
+              marks a scene already in the can, a <span className="gdot" /> dim dot marks what is
+              left, and the header keeps a running “X / Y in the can”.
             </p>
             <p className="gnote">
-              The screen holds itself awake the whole time you are on a scene, so it will not lock
-              between takes.
+              The screen stays awake the whole time a scene is open, so it will not lock between
+              takes.
             </p>
           </section>
 
@@ -1025,8 +1208,8 @@ function HowToScreen(props: { onClose: () => void }) {
             <p className="gsec__num tnum">05</p>
             <h3 className="gsec__h">Discard is not delete</h3>
             <p className="gsec__lede">
-              One question sorts it: is there a file on the card? If there is, discard it. If there
-              is nothing on the card, delete it.
+              One question sorts it: is there a file on the card? If yes, discard it. If no, delete
+              it.
             </p>
             <div className="gsplit">
               <div className="gsplit__half">
@@ -1034,28 +1217,26 @@ function HowToScreen(props: { onClose: () => void }) {
                 <p>
                   There is a file. The camera rolled and wrote it, the take was just no good. It
                   keeps its clip number, prints on the PDF struck through in the discarded list, and
-                  still reaches the editor in the selects pool of the exported XML.
+                  still reaches the editor in the export, parked behind the good takes.
                 </p>
-                <p>Flubbed take, false start, a roll nobody meant to make.</p>
+                <p>Use it for a flubbed take, a false start, a roll nobody meant to make.</p>
               </div>
               <div className="gsplit__half">
                 <p className="gsplit__k gsplit__k--kill">Delete</p>
                 <p>
-                  There is no file. You logged something that never happened: a double tap, or the
-                  same shot logged twice. Delete removes the row and every moment tagged in it.
+                  There is no file. You logged something that never happened: a double tap, the same
+                  shot twice. Delete removes the row.
                 </p>
                 <p>
-                  It does not renumber anything by itself. After deleting a phantom row, open the
-                  next shot on that camera and set its clip number to what the card actually says.
-                  Every later shot follows it down.
+                  Clapper reclaims its clip number automatically: every later shot on that camera —
+                  and the sound file, if it rolled — slides down by one to match.
                 </p>
               </div>
             </div>
             <p className="gnote">
-              The two mistakes cost different things. Discard a shot the camera never wrote and
-              every number after it is off by one. Delete a shot the camera did write and the
-              numbers survive, but that clip disappears from the report and the editor never hears
-              about it. Go by the card.
+              Go by the card, not by memory. Discard something the camera never actually wrote and
+              every number after it is off by one. Delete something it did write and that clip
+              vanishes from the report without a trace.
             </p>
           </section>
 
@@ -1064,45 +1245,46 @@ function HowToScreen(props: { onClose: () => void }) {
             <p className="gsec__num tnum">06</p>
             <h3 className="gsec__h">When a number goes wrong</h3>
             <p>
-              Open the shot and correct its clip number. Clapper shifts every <b>later</b> shot on
-              that camera by the same amount, and moves the live counter with them, because the
-              camera kept counting while you were wrong.
-            </p>
-            <p>Earlier shots never move.</p>
-            <p>
-              It shifts rather than resequences, so deliberate gaps survive: a stretch where the
-              camera rolled and Clapper did not stays a gap instead of being closed up.
+              Tap any shot to open it. It has its own stepper for the camera clip number and, if
+              sound rolled on it, a separate stepper for the sound file number — fix whichever is
+              wrong.
             </p>
             <p>
-              Per camera. Fixing B never disturbs A, C or D. You can also correct the live clip
-              number straight from the roll screen header.
+              Clapper shifts every <b>later</b> shot on that same camera or recorder by the same
+              amount, and moves its live counter with it, because the camera or recorder kept
+              counting while the log was wrong. It shows you exactly how many shots are about to
+              change and asks you to confirm first — press <b>STOP</b> if that is not what you
+              meant. Earlier shots never move.
+            </p>
+            <p>
+              It shifts the numbers rather than renumbering from scratch, so a deliberate gap — a
+              stretch where the camera rolled and you did not log it — survives instead of getting
+              closed up.
+            </p>
+            <p>
+              Fixing one camera never touches another. And you do not have to wait for a mistake:
+              tap the pencil on any camera or on the sound box before you roll, to fix its next
+              number in advance.
             </p>
           </section>
 
           {/* 7 ---------------------------------------------------------- */}
-          <section className="gsec" id="g-cams">
+          <section className="gsec" id="g-scenes">
             <p className="gsec__num tnum">07</p>
-            <h3 className="gsec__h">Two to four cameras</h3>
+            <h3 className="gsec__h">Scenes and shooting order</h3>
             <p className="gsec__lede">
-              Pick 1 to 4 cameras when you make the project. Units are lettered A to D.
+              Add every scene before you shoot, then drag them into the order you will actually
+              shoot in.
             </p>
             <p>
-              Every unit carries its own independent clip counter and advances on its own at every
-              CUT. Set each one’s starting number and camera type separately.
+              Story order — the order scenes were written in — never changes once you set it.
+              Shooting order is separate: drag a scene up or down the list to match your call sheet
+              for the day.
             </p>
             <p>
-              Two identical bodies both writing <span className="tnum">C0001.MP4</span> is fine and
-              expected. The unit letter travels in the XML as the FCP7 reel/tape name, so the
-              editor’s clips still relink to the right card. Nobody has to rename anything.
-            </p>
-            <p>
-              In the timeline each camera is a synced picture and sound pair on its own track pair,
-              V1/A1 for A, V2/A2 for B and so on, dropped at the same position, so it multicam-cuts
-              straight away.
-            </p>
-            <p className="gnote">
-              A tapped chip belongs to the take, not to one angle, so it rides on camera A’s
-              picture.
+              This matters at export. The editor’s timeline always follows story order, so
+              reordering your on-set list to shoot scene 12 before scene 3 never scrambles the final
+              cut.
             </p>
           </section>
 
@@ -1111,17 +1293,17 @@ function HowToScreen(props: { onClose: () => void }) {
             <p className="gsec__num tnum">08</p>
             <h3 className="gsec__h">Voice, when your hands are full</h3>
             <p>
-              Tap the mic on the roll screen and Clapper listens for the slate. It appears only on
+              Tap the mic on the roll screen and Clapper listens for the call. It appears only on
               browsers that support speech recognition.
             </p>
             <dl className="gsay">
-              <dt>Starts a take</dt>
+              <dt>Starts a shot</dt>
               <dd>“roll” · “rolling” · “roll camera” · “camera roll”</dd>
               <dt>Stops it</dt>
               <dd>“cut” · “cut it”</dd>
             </dl>
             <p className="gnote">
-              It matches the word anywhere in the sentence. While a take is rolling, someone saying
+              It matches the word anywhere in the sentence. While a shot is rolling, someone saying
               “cut” in conversation will stop it. Turn the mic off if the room talks over takes.
             </p>
           </section>
@@ -1129,26 +1311,40 @@ function HowToScreen(props: { onClose: () => void }) {
           {/* 9 ---------------------------------------------------------- */}
           <section className="gsec" id="g-out">
             <p className="gsec__num tnum">09</p>
-            <h3 className="gsec__h">Three exports, three readers</h3>
+            <h3 className="gsec__h">Handing off at wrap</h3>
+            <p className="gsec__lede">
+              Four export formats, all built from the same shot log.
+            </p>
             <dl className="gsay gsay--wide">
-              <dt>Premiere (FCP XML)</dt>
+              <dt>Premiere (XML)</dt>
               <dd>
-                For the editor. The assembly, the selects, and every tap as a timeline marker.
+                Opens as one timeline: the good takes cut together in story order, then a gap, then
+                every take again — rejects included — in the same order, parked behind it. Every tap
+                you made on set arrives as a marker on the clip it happened in.
               </dd>
+              <dt>DaVinci Resolve (XML)</dt>
+              <dd>The same timeline, built for Resolve instead of Premiere.</dd>
               <dt>PDF shot log</dt>
               <dd>
-                For production and the director. Scenes, shots, clip numbers, durations, camera TC
-                and wall clock, a GOLD summary at the front and the discarded shots at the back.
+                For production and the director: scenes, shots, clip numbers, durations, camera
+                timecode and wall clock, a GOLD summary up front and the discarded shots at the back.
               </dd>
               <dt>CSV</dt>
               <dd>
-                For anyone who wants the data. One row per tapped moment, plus a row per take so
-                takes with no moments still appear.
+                For anyone who wants the raw data. One row per tapped moment, plus a row per take so
+                takes with no tapped moments still appear.
               </dd>
             </dl>
             <p>
-              Everything lives on the phone. Logging shots and PDF export need no account and no
-              signal. Script Mode and the Premiere/CSV exports need a free Google sign-in.
+              Every camera’s clip lands on its own synced picture track, and the sound recorder’s
+              file lands on the audio track under it, already lined up — the editor relinks the
+              recorder’s file and it sits in sync under the picture, no manual reconciling.
+              Multi-camera projects export the same way, with every camera’s angle stacked in sync
+              at each position.
+            </p>
+            <p className="gnote">
+              PDF export works offline, no account needed. Premiere, Resolve and CSV need a quick,
+              free Google sign-in — same for uploading a script into Script Mode.
             </p>
           </section>
 

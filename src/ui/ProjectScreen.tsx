@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import type { CameraUnit, Project, Slate } from '../types';
 import { isMultiCam } from '../types';
 import { store } from '../store';
@@ -14,6 +15,8 @@ import { useSession } from '../net/auth';
 import { gateExport, FREE_LIMIT } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
+import { extractPdfText } from './pdftext';
+import { breakdownCallSheet, SignInRequiredError } from './breakdown';
 
 // Vertical gap between scene cards — must match `.stack`'s `gap` in
 // styles.css. Used to size the "make room" shift while dragging.
@@ -81,6 +84,18 @@ export function ProjectScreen(props: {
   const [deleting, setDeleting] = useState<Slate | null>(null);
   const [hintSeen, setHintSeen] = useState<boolean>(() => rollHintSeen());
   const [liveMsg, setLiveMsg] = useState('');
+
+  // ------------------------------------------------------ call sheet ------
+  // Loading today's call sheet reorders this project's scenes so today's shoot
+  // sits at the top (stamps Slate.shootOrder via the same reorderSlates atomic
+  // write drag-to-reorder uses) and flags each scene's Slate.today. Mirrors
+  // Script Mode's own upload → sign-in → error pattern (see ProjectsScreen).
+  const { session: csSession } = useSession();
+  const [csPhase, setCsPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
+  const [csError, setCsError] = useState<string | null>(null);
+  const [csNote, setCsNote] = useState<string | null>(null);
+  const [csShowSignIn, setCsShowSignIn] = useState(false);
+  const csBusy = csPhase !== 'idle';
 
   function openSlate(slate: Slate) {
     if (!hintSeen) {
@@ -404,6 +419,7 @@ export function ProjectScreen(props: {
                           aria-label={goodCount > 0 ? 'Shot' : 'Not shot yet'}
                         />
                         <span className="card__name">{slate.name}</span>
+                        {slate.today && <span className="cambadge">Today</span>}
                       </span>
                       <span className="card__count">{takeCount}</span>
                       <span className="card__chevron" aria-hidden="true">
@@ -440,11 +456,10 @@ export function ProjectScreen(props: {
                         edit
                       </span>
                       <span
-                        className="iconbtn"
+                        className="rowdel"
                         role="button"
                         tabIndex={0}
                         aria-label={`Delete scene ${slate.name}`}
-                        style={{ minHeight: 32, minWidth: 32 }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setDeleting(slate);
@@ -457,7 +472,7 @@ export function ProjectScreen(props: {
                           }
                         }}
                       >
-                        del
+                        Delete
                       </span>
                     </div>
                   </button>
@@ -466,6 +481,35 @@ export function ProjectScreen(props: {
             })}
             </div>
           </>
+        )}
+
+        {slates && slates.length >= 2 && (
+          <div style={{ marginTop: 12 }}>
+            <label className={`btn btn--full sp-upload${csBusy ? ' btn--disabled' : ''}`}>
+              {csPhase === 'reading'
+                ? 'Reading call sheet…'
+                : csPhase === 'thinking'
+                  ? 'Matching scenes…'
+                  : "Today's call sheet"}
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                hidden
+                disabled={csBusy}
+                onChange={onPickCallSheet}
+              />
+            </label>
+            {csError && (
+              <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 8 }}>
+                {csError}
+              </span>
+            )}
+            {csNote && !csError && (
+              <span className="section__note" style={{ display: 'block', marginTop: 8 }}>
+                {csNote}
+              </span>
+            )}
+          </div>
         )}
 
         <div className="addline">
@@ -484,7 +528,11 @@ export function ProjectScreen(props: {
         </div>
       </section>
 
+      {csShowSignIn && <SignInSheet onClose={() => setCsShowSignIn(false)} />}
+
       <ClipCounterSection project={project} onCommit={commitProject} />
+
+      <SoundSection project={project} onCommit={commitProject} />
 
       <TcCalculator project={project} />
 
@@ -529,6 +577,66 @@ export function ProjectScreen(props: {
     await store.createSlate(project.id, name);
     setAddName('');
     void refresh();
+  }
+
+  async function onPickCallSheet(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be picked again after an error
+    if (!file || !slates) return;
+    setCsError(null);
+    setCsNote(null);
+    if (!csSession) {
+      setCsShowSignIn(true);
+      return;
+    }
+    try {
+      setCsPhase('reading');
+      const text = await extractPdfText(file);
+      if (text.trim().length < 40) {
+        throw new Error('That PDF had no readable text. A scan or photo will not work. Use a text PDF.');
+      }
+      setCsPhase('thinking');
+      const currentSlates = slates.map((s) => s.slate);
+      const scenes = currentSlates.map((s) => ({ ref: s.scriptRef || s.id, name: s.name }));
+      const { today } = await breakdownCallSheet(text, file.name, scenes);
+
+      // Match each call-sheet entry back to a slate (scriptRef, else id), then
+      // sort the matches into the call sheet's own order.
+      const byRef = new Map(currentSlates.map((s) => [s.scriptRef, s]));
+      const byId = new Map(currentSlates.map((s) => [s.id, s]));
+      const matched: { slate: Slate; order: number }[] = [];
+      for (const entry of today) {
+        const slate = byRef.get(entry.ref) ?? byId.get(entry.ref);
+        if (slate) matched.push({ slate, order: entry.order });
+      }
+      matched.sort((a, b) => a.order - b.order);
+
+      const todaySlateIds = new Set(matched.map((m) => m.slate.id));
+      const remaining = sortForDisplay(currentSlates).filter((s) => !todaySlateIds.has(s.id));
+      const orderedIds = [...matched.map((m) => m.slate.id), ...remaining.map((s) => s.id)];
+
+      haptics.tap();
+      await store.reorderSlates(project.id, orderedIds);
+      await Promise.all(
+        currentSlates.map((s) => store.updateSlate(s.id, { today: todaySlateIds.has(s.id) })),
+      );
+      await refresh();
+      setCsPhase('idle');
+      setCsNote(`Today: ${matched.length} scene${matched.length === 1 ? '' : 's'}`);
+      setLiveMsg(`Loaded today's call sheet: ${matched.length} scenes moved to the top`);
+    } catch (err) {
+      setCsPhase('idle');
+      if (err instanceof SignInRequiredError) {
+        setCsShowSignIn(true);
+        return;
+      }
+      if (err instanceof Error && err.message === 'CAP') {
+        track('cap_hit', { which: 'callsheet' });
+        setCsError('Free limit reached. More coming soon.');
+        return;
+      }
+      setCsError(err instanceof Error ? err.message : 'Could not process that PDF.');
+    }
   }
 }
 
@@ -772,6 +880,178 @@ function ClipCounterSection(props: {
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+// Production sound: a single recorder unit, orthogonal to the camera setup
+// above - on or off, independent of camera count. Mirrors ClipCounterSection's
+// card shape (on/off toggle, then a clip-format-style widget) so the two
+// registers read as one family of controls.
+function SoundSection(props: {
+  project: Project;
+  onCommit: (patch: Partial<Project>) => Promise<void>;
+}) {
+  const { project } = props;
+  const [on, setOn] = useState(!!project.sound);
+  const [operator, setOperator] = useState(project.sound?.operator ?? '');
+  const [recorder, setRecorder] = useState(project.sound?.recorder ?? '');
+  const [prefix, setPrefix] = useState(project.sound?.filePrefix ?? 'SND_');
+  const [num, setNum] = useState(String(project.sound?.nextFileNumber ?? 1));
+  const [pad, setPad] = useState(String(project.sound?.filePadding ?? 4));
+  const [ext, setExt] = useState(project.sound?.fileExt ?? '.WAV');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setOn(!!project.sound);
+    setOperator(project.sound?.operator ?? '');
+    setRecorder(project.sound?.recorder ?? '');
+    setPrefix(project.sound?.filePrefix ?? 'SND_');
+    setNum(String(project.sound?.nextFileNumber ?? 1));
+    setPad(String(project.sound?.filePadding ?? 4));
+    setExt(project.sound?.fileExt ?? '.WAV');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, project.sound]);
+
+  const preview = prefix + String(clampNum(num)).padStart(clampPad(pad), '0') + ext.trim();
+
+  async function save() {
+    if (on) {
+      await props.onCommit({
+        sound: {
+          filePrefix: prefix,
+          nextFileNumber: clampNum(num),
+          filePadding: clampPad(pad),
+          fileExt: ext.trim(),
+          ...(recorder.trim() ? { recorder: recorder.trim() } : {}),
+          ...(operator.trim() ? { operator: operator.trim() } : {}),
+        },
+      });
+    } else {
+      // Drop back to no sound at all - the same "undefined clears it" pattern
+      // ClipCounterSection uses to fall back out of multi-cam.
+      await props.onCommit({ sound: undefined });
+    }
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1400);
+  }
+
+  return (
+    <section className="section">
+      <div className="section__head">
+        <span className="label">Production sound</span>
+        {on && project.sound?.operator && <span className="section__note">{project.sound.operator}</span>}
+      </div>
+
+      <div className="formrow" style={{ marginBottom: on ? 14 : 0 }}>
+        <span className="label">Recording sound</span>
+        <div className="camcount" role="group" aria-label="Production sound" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <button
+            type="button"
+            className={`camcount__opt${!on ? ' camcount__opt--on' : ''}`}
+            aria-pressed={!on}
+            onClick={() => setOn(false)}
+          >
+            Off
+          </button>
+          <button
+            type="button"
+            className={`camcount__opt${on ? ' camcount__opt--on' : ''}`}
+            aria-pressed={on}
+            onClick={() => setOn(true)}
+          >
+            On
+          </button>
+        </div>
+      </div>
+
+      {on && (
+        <div className="clipwidget">
+          <div className="clipwidget__preview">
+            <span className="label">Next file</span>
+            <span className="tnum">{preview}</span>
+          </div>
+          <div className="formrow" style={{ marginBottom: 12 }}>
+            <label className="label" htmlFor="snd-operator">
+              Mixer <span className="section__note">optional</span>
+            </label>
+            <input
+              id="snd-operator"
+              className="field"
+              placeholder="e.g. Priya"
+              value={operator}
+              onChange={(e) => setOperator(e.target.value)}
+            />
+          </div>
+          <div className="formrow" style={{ marginBottom: 12 }}>
+            <label className="label" htmlFor="snd-recorder">
+              Recorder <span className="section__note">optional</span>
+            </label>
+            <input
+              id="snd-recorder"
+              className="field"
+              placeholder="e.g. MixPre-6"
+              value={recorder}
+              onChange={(e) => setRecorder(e.target.value)}
+            />
+          </div>
+          <div className="clipgrid">
+            <div className="formrow" style={{ margin: 0 }}>
+              <label className="label" htmlFor="snd-prefix">
+                Prefix
+              </label>
+              <input
+                id="snd-prefix"
+                className="field field--mono"
+                value={prefix}
+                onChange={(e) => setPrefix(e.target.value)}
+              />
+            </div>
+            <div className="formrow" style={{ margin: 0 }}>
+              <label className="label" htmlFor="snd-num">
+                Number
+              </label>
+              <input
+                id="snd-num"
+                className="field field--mono"
+                inputMode="numeric"
+                value={num}
+                onChange={(e) => setNum(e.target.value.replace(/[^0-9]/g, ''))}
+              />
+            </div>
+            <div className="formrow" style={{ margin: 0 }}>
+              <label className="label" htmlFor="snd-pad">
+                Digits
+              </label>
+              <input
+                id="snd-pad"
+                className="field field--mono"
+                inputMode="numeric"
+                value={pad}
+                onChange={(e) => setPad(e.target.value.replace(/[^0-9]/g, ''))}
+              />
+            </div>
+          </div>
+          <div className="formrow" style={{ marginTop: 12, marginBottom: 0 }}>
+            <label className="label" htmlFor="snd-ext">
+              File extension
+            </label>
+            <input
+              id="snd-ext"
+              className="field field--mono"
+              value={ext}
+              placeholder=".WAV"
+              autoCapitalize="characters"
+              spellCheck={false}
+              onChange={(e) => setExt(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      <button type="button" className="btn btn--full" style={{ marginTop: 12 }} onClick={() => void save()}>
+        {saved ? 'Saved' : 'Set sound'}
+      </button>
     </section>
   );
 }

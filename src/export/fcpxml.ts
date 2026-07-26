@@ -130,6 +130,58 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
   const fileIdByName = new Map<string, string>();
   let fileSeq = 0;
 
+  // Production sound (orthogonal to the picture track above): one clipitem per
+  // take that actually recorded sound, placed on its own audio track at the
+  // SAME timeline position as that take's picture. Absent entirely when the
+  // project carries no Sound unit, so a legacy project's <audio/> stays the
+  // untouched self-closing tag it always was.
+  let soundClipSeq = 0;
+  const soundClipItems: string[] = [];
+  const soundFileIdByName = new Map<string, string>();
+  let soundFileSeq = 0;
+
+  function placeSoundClip(take: Take, start: number): void {
+    const sound = project.sound;
+    if (!sound || !take.sound) return;
+    const offsetMs = take.sound.startOffsetMs ?? 0;
+    const durationFrames = Math.max(1, msToFrames(take.sound.durationMs ?? take.durationMs, fps));
+    const clipStart = start + msToFrames(offsetMs, fps);
+    const clipEnd = clipStart + durationFrames;
+    const ext = sound.fileExt ?? '';
+    const name = escapeXml(take.sound.fileName);
+    const fileName = escapeXml(take.sound.fileName + ext);
+
+    let fileId = soundFileIdByName.get(fileName);
+    let fileXml: string;
+    if (fileId) {
+      fileXml = `<file id="${fileId}"/>`;
+    } else {
+      fileId = `soundfile-${(soundFileSeq += 1)}`;
+      soundFileIdByName.set(fileName, fileId);
+      fileXml =
+        `<file id="${fileId}">` +
+        `<name>${fileName}</name>` +
+        `<pathurl>file://localhost/${fileName}</pathurl>` +
+        rateXml +
+        `<duration>${durationFrames}</duration>` +
+        `<media><audio><channelcount>2</channelcount></audio></media>` +
+        `</file>`;
+    }
+
+    soundClipItems.push(
+      `        <clipitem id="soundclip-${(soundClipSeq += 1)}">
+          <name>${name}</name>
+          <duration>${durationFrames}</duration>
+          ${rateXml}
+          <start>${clipStart}</start>
+          <end>${clipEnd}</end>
+          <in>0</in>
+          <out>${durationFrames}</out>
+          ${fileXml}
+        </clipitem>`,
+    );
+  }
+
   // Lay one take at `start`; returns its duration in frames so the caller can
   // advance the timeline cursor. Each call gets its own clipitem/marker set,
   // so a take that appears in both bands is marked up correctly in both.
@@ -177,14 +229,27 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
 
   // Pass 1: GOOD takes, story order, back-to-back from 0.
   let pos = 0;
-  for (const take of goodTakesInStoryOrder(bundle)) pos += placeTake(take, pos);
+  for (const take of goodTakesInStoryOrder(bundle)) {
+    placeSoundClip(take, pos);
+    pos += placeTake(take, pos);
+  }
   const storyEnd = pos;
 
   // Gap, then Pass 2: EVERY take (good and bad) as a selects pool.
   const gapFrames = Math.max(1, Math.round(timebase * GAP_SECONDS));
   let sel = storyEnd + gapFrames;
-  for (const take of allTakesInStoryOrder(bundle)) sel += placeTake(take, sel);
+  for (const take of allTakesInStoryOrder(bundle)) {
+    placeSoundClip(take, sel);
+    sel += placeTake(take, sel);
+  }
   const seqDuration = Math.max(1, sel);
+
+  // No Sound unit: keep the legacy empty <audio/> tag byte-identical. Otherwise
+  // a real audio track carries every take's sound clipitem (may be empty if the
+  // project has a Sound unit but no take ever rolled it).
+  const audioXml = project.sound
+    ? `<audio>\n        <track>\n${soundClipItems.join('\n')}\n        </track>\n      </audio>`
+    : '<audio/>';
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
@@ -206,7 +271,7 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
 ${clipItems.join('\n')}
         </track>
       </video>
-      <audio/>
+      ${audioXml}
     </media>
   </sequence>
 </xmeml>
@@ -244,6 +309,57 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
   const fileIdByKey = new Map<string, string>();
   let clipitemSeq = 0;
   let fileSeq = 0;
+
+  // Production sound: one more audio track, independent of the per-camera A/V
+  // pairs above, carrying one clipitem per take that actually recorded sound.
+  // Absent entirely when the project has no Sound unit.
+  const soundTrack: string[] = [];
+  const soundFileIdByName = new Map<string, string>();
+  let soundFileSeq = 0;
+  let soundClipSeq = 0;
+
+  function placeSoundClip(take: Take, start: number): void {
+    const sound = project.sound;
+    if (!sound || !take.sound) return;
+    const offsetMs = take.sound.startOffsetMs ?? 0;
+    const durationFrames = Math.max(1, msToFrames(take.sound.durationMs ?? take.durationMs, fps));
+    const clipStart = start + msToFrames(offsetMs, fps);
+    const clipEnd = clipStart + durationFrames;
+    const ext = sound.fileExt ?? '';
+    const name = escapeXml(take.sound.fileName);
+    const fileName = escapeXml(take.sound.fileName + ext);
+
+    let fileId = soundFileIdByName.get(fileName);
+    let fileXml: string;
+    if (fileId) {
+      fileXml = `<file id="${fileId}"/>`;
+    } else {
+      fileId = `soundfile-${(soundFileSeq += 1)}`;
+      soundFileIdByName.set(fileName, fileId);
+      fileXml =
+        `<file id="${fileId}">` +
+        `<name>${fileName}</name>` +
+        `<pathurl>file://localhost/${fileName}</pathurl>` +
+        rateXml +
+        `<duration>${durationFrames}</duration>` +
+        // Reel = "SND", mirroring how a camera unit's own letter disambiguates
+        // its file - there is only ever one recorder, so this just labels the
+        // track's source clearly rather than resolving any real collision.
+        `<timecode>${rateXml}<string>00:00:00:00</string><frame>0</frame>` +
+        `<displayformat>NDF</displayformat><reel><name>SND</name></reel></timecode>` +
+        `<media><audio><channelcount>2</channelcount></audio></media>` +
+        `</file>`;
+    }
+
+    soundTrack.push(
+      `        <clipitem id="soundclip-${(soundClipSeq += 1)}">` +
+        `<name>${name}</name><duration>${durationFrames}</duration>${rateXml}` +
+        `<start>${clipStart}</start><end>${clipEnd}</end><in>0</in><out>${durationFrames}</out>` +
+        fileXml +
+        `<sourcetrack><mediatype>audio</mediatype><trackindex>1</trackindex></sourcetrack>` +
+        `</clipitem>`,
+    );
+  }
 
   // `anchorOffsetMs` shifts every moment's atMs into the anchor CLIP's own
   // local timeline (its <in>/<out> are frame offsets from ITS OWN start, not
@@ -373,21 +489,31 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
 
   // Pass 1: GOOD takes, story order, back-to-back from 0.
   let pos = 0;
-  for (const take of goodTakesInStoryOrder(bundle)) pos += placeTake(take, pos);
+  for (const take of goodTakesInStoryOrder(bundle)) {
+    placeSoundClip(take, pos);
+    pos += placeTake(take, pos);
+  }
   const storyEnd = pos;
 
   // Gap, then Pass 2: EVERY take (good and bad) as a selects pool.
   const gapFrames = Math.max(1, Math.round(timebase * GAP_SECONDS));
   let sel = storyEnd + gapFrames;
-  for (const take of allTakesInStoryOrder(bundle)) sel += placeTake(take, sel);
+  for (const take of allTakesInStoryOrder(bundle)) {
+    placeSoundClip(take, sel);
+    sel += placeTake(take, sel);
+  }
   const seqDuration = Math.max(1, sel);
 
   const videoTracks = vTracks
     .map((items) => `        <track>\n${items.join('\n')}\n        </track>`)
     .join('\n');
-  const audioTracks = aTracks
-    .map((items) => `        <track>\n${items.join('\n')}\n        </track>`)
-    .join('\n');
+  // Per-camera A/V pairs first, exactly as before; the Sound unit's own track
+  // (when the project has one) rides last, so a legacy multi-cam project's
+  // audio block is byte-identical to before.
+  const audioTracks = [
+    ...aTracks.map((items) => `        <track>\n${items.join('\n')}\n        </track>`),
+    ...(project.sound ? [`        <track>\n${soundTrack.join('\n')}\n        </track>`] : []),
+  ].join('\n');
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>

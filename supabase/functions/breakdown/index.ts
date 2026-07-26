@@ -27,6 +27,19 @@ const SYSTEM = [
   "coverageTags: pick the sensible subset of WIDE/MID/CU/OTS/INSERT for that scene (drop OTS from solo scenes, add INSERT only when there is an insert).",
 ].join("\n");
 
+const SYSTEM_CALLSHEET = [
+  "You read a film CALL SHEET and pick which of the project's known scenes are shooting TODAY, in shooting order.",
+  "You will be given a JSON list of known scenes, each with a ref and a name, like:",
+  '[{"ref":"S14","name":"SC 14 - INT. CHAI STALL - DAY"}, ...]',
+  "Return ONLY valid JSON, no prose, shape:",
+  '{"today":[{"ref":"S14","order":1},{"ref":"S22","order":2}]}',
+  "RULES:",
+  "- Every returned ref MUST be one of the provided refs — match by scene number / slugline between the call sheet and the known scene names.",
+  "- Put them in the call sheet's shooting order (order starts at 1).",
+  "- If a scene on the call sheet isn't in the known list, skip it.",
+  "- If nothing matches, return {\"today\":[]}.",
+].join("\n");
+
 const FREE_LIMIT = 5;
 const PRO_LIMIT = 1000000;
 
@@ -98,7 +111,13 @@ Deno.serve(async (req: Request) => {
   const userId = user.id;
 
   // 2. Parse + validate body (email removed).
-  let payload: { text?: string; docName?: string; turnstileToken?: string };
+  let payload: {
+    text?: string;
+    docName?: string;
+    turnstileToken?: string;
+    mode?: string;
+    scenes?: { ref?: string; name?: string }[];
+  };
   try {
     payload = await req.json();
   } catch {
@@ -107,6 +126,7 @@ Deno.serve(async (req: Request) => {
   const text = (payload.text ?? "").trim();
   const docName = (payload.docName ?? "").slice(0, 200);
   const turnstileToken = (payload.turnstileToken ?? "").trim();
+  const mode: "script" | "callsheet" = payload.mode === "callsheet" ? "callsheet" : "script";
   if (text.length < 40) {
     return new Response(
       JSON.stringify({ error: "Script text is too short or the PDF had no readable text" }),
@@ -196,8 +216,21 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // 7. Groq breakdown (unchanged prompt / logic).
+  // Callsheet mode: sanitize the known-scenes list the client sent (project's
+  // already-known scenes), used both in the Groq prompt and for validation.
+  const knownScenes = (Array.isArray(payload.scenes) ? payload.scenes : [])
+    .filter((s): s is { ref?: string; name?: string } => !!s && typeof s.ref === "string" && s.ref.trim().length > 0)
+    .slice(0, 200)
+    .map((s) => ({ ref: s.ref!.trim(), name: typeof s.name === "string" ? s.name.trim() : "" }));
+  const knownRefs = new Set(knownScenes.map((s) => s.ref));
+
+  const userContent = mode === "callsheet"
+    ? "KNOWN SCENES:\n" + JSON.stringify(knownScenes) + "\n\nCALL SHEET:\n" + text.slice(0, 12000)
+    : text.slice(0, 12000);
+
+  // 7. Groq breakdown (unchanged prompt / logic for script mode).
   let scenes: any[] = [];
+  let today: any[] = [];
   try {
     const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -208,8 +241,8 @@ Deno.serve(async (req: Request) => {
         max_tokens: 3000,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: text.slice(0, 12000) },
+          { role: "system", content: mode === "callsheet" ? SYSTEM_CALLSHEET : SYSTEM },
+          { role: "user", content: userContent },
         ],
       }),
     });
@@ -224,13 +257,44 @@ Deno.serve(async (req: Request) => {
     }
     const gjson = await gr.json();
     const content = gjson.choices?.[0]?.message?.content ?? "{}";
-    scenes = JSON.parse(content).scenes ?? [];
+    const parsed = JSON.parse(content);
+    if (mode === "callsheet") {
+      today = Array.isArray(parsed.today) ? parsed.today : [];
+    } else {
+      scenes = Array.isArray(parsed.scenes) ? parsed.scenes : [];
+    }
   } catch (e) {
     // Groq/parse failure must not burn the user's lifetime slot — refund it.
     await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
     return new Response(
       JSON.stringify({ error: "Could not parse the breakdown", detail: String(e).slice(0, 200) }),
       { status: 502, headers },
+    );
+  }
+
+  if (mode === "callsheet") {
+    // Validate: every ref must be one of the provided known refs, coerce order
+    // to a number, then re-sort/re-number 1..n and clamp to 60 entries.
+    const validToday = today
+      .filter((t: any) => t && typeof t.ref === "string" && t.ref.trim() && knownRefs.has(t.ref.trim()))
+      .map((t: any) => ({ ref: t.ref.trim(), order: Number(t.order) || 0 }))
+      .sort((a, b) => a.order - b.order)
+      .slice(0, 60)
+      .map((t, i) => ({ ref: t.ref, order: i + 1 }));
+
+    // 8. Analytics event (service role). Best-effort, never blocks the response.
+    try {
+      await admin.from("events").insert({
+        user_id: userId,
+        name: "script_use",
+        props: { mode, today: validToday.length, doc: docName || null },
+        ip_hash: ipHash,
+      });
+    } catch (_) { /* analytics is non-fatal */ }
+
+    return new Response(
+      JSON.stringify({ callSheet: 1, today: validToday, used: newCount, limit }),
+      { headers },
     );
   }
 
@@ -260,7 +324,7 @@ Deno.serve(async (req: Request) => {
     await admin.from("events").insert({
       user_id: userId,
       name: "script_use",
-      props: { scenes: packScenes.length, doc: docName || null },
+      props: { scenes: packScenes.length, doc: docName || null, mode },
       ip_hash: ipHash,
     });
   } catch (_) { /* analytics is non-fatal */ }

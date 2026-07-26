@@ -24,6 +24,27 @@ export interface CameraUnit {
   operator?: string;       // who is running this camera; shown on its slot while shooting
 }
 
+/**
+ * The production sound recorder — ONE per project, independent of camera count.
+ * A single-cam doc shoot still has its own mixer, so sound is ORTHOGONAL to the
+ * `cameras` array and to isMultiCam(). ABSENT = the project logs no sound (every
+ * legacy project). PRESENT = a Sound unit rolls alongside the cameras with its
+ * OWN monotonic file counter — advancing on every CUT and DISCARD it rolled,
+ * exactly like a camera clip counter — and exports as the sync AUDIO track, not
+ * as a picture angle. It is never a member of `cameras` and never a
+ * CameraUnitLetter, so no picture-side code (isMultiCam, video export tracks,
+ * the camera columns) ever mistakes it for an angle.
+ */
+export interface SoundUnit {
+  filePrefix: string;      // e.g. "SND_"
+  nextFileNumber: number;  // advances on every CUT/DISCARD the recorder rolled
+  filePadding: number;     // SND_0042 -> padding 4
+  fileSuffix?: string;     // static tail after the counter, if the recorder adds one
+  fileExt?: string;        // media extension incl. dot, e.g. ".WAV" — lets the NLE relink
+  recorder?: string;       // recorder model, optional (e.g. "MixPre-6")
+  operator?: string;       // the sound mixer's name; shown on the sound slot + PDF header
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -38,6 +59,9 @@ export interface Project {
   // projects, which keep behaving EXACTLY through the top-level clip fields
   // above. Present (length >= 2) switches the app into multi-cam mode.
   cameras?: CameraUnit[];
+  // Production sound: a single independent recorder unit, orthogonal to camera
+  // count. ABSENT = project logs no sound (every legacy project, untouched).
+  sound?: SoundUnit;
   tags: string[];          // quick-tag chips, default ["FLUB","GOLD","PICKUP","NOISE"]
   createdAt: number;
   updatedAt: number;
@@ -52,6 +76,11 @@ export const MAX_CAMERAS = 4;
  */
 export function isMultiCam(p: Pick<Project, 'cameras'>): boolean {
   return !!(p.cameras && p.cameras.length >= 2);
+}
+
+/** A project logs production sound only when it carries a Sound unit. */
+export function hasSound(p: Pick<Project, 'sound'>): boolean {
+  return !!p.sound;
 }
 
 /**
@@ -87,6 +116,10 @@ export interface Slate {
   summary?: string;        // Script Mode: one-line recognizer for the operator
   scriptRef?: string;      // Script Mode: source scene id, e.g. "SC 12"
   tags?: SlateTag[];       // Script Mode: per-scene tap chips (both tiers)
+  // Call sheet: true when this scene was on the most recently loaded call
+  // sheet (today's shoot). Absent/false for every other scene. Recomputed in
+  // full each time a call sheet is loaded, so it always reflects the latest.
+  today?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -105,6 +138,19 @@ export interface TakeClip {
   durationMs?: number;     // how long THIS unit rolled, in ms
 }
 
+/**
+ * The sound recorder's file for a take. Sound typically rolls FIRST ("sound
+ * speed" before "roll camera"), so its startOffsetMs is usually 0 and the
+ * cameras carry the positive offsets — but the same per-unit timing model as
+ * TakeClip applies, stored the same way. Missing timing fields mean "rolled
+ * with the take, full duration", the same convention as TakeClip.
+ */
+export interface TakeSound {
+  fileName: string;        // the recorder's file captured at roll, e.g. "SND_0042"
+  startOffsetMs?: number;  // ms after Take.startedAt that the recorder began rolling
+  durationMs?: number;     // how long the recorder rolled, in ms
+}
+
 export interface Take {
   id: string;
   slateId: string;
@@ -114,6 +160,9 @@ export interface Take {
   // Multi-cam: one clip per camera unit (incl. A), captured together at CUT.
   // ABSENT for single-cam takes, which carry their single clip in clipName only.
   clips?: TakeClip[];
+  // Production sound: the recorder's file for this take. ABSENT if sound did not
+  // roll (or the project has no Sound unit). Orthogonal to `clips`.
+  sound?: TakeSound;
   status: TakeStatus;
   startedAt: number;       // epoch ms
   durationMs: number;
@@ -187,17 +236,26 @@ export interface Store {
     // full take duration, no offset" - the big-ROLL common case, and also what a
     // single-cam project always gets (units is meaningless there and ignored).
     units?: { unit: CameraUnitLetter; startOffsetMs: number; durationMs: number }[];
+    // Sound (orthogonal to cameras): present when the Sound unit rolled this
+    // take, carrying its own timing. ABSENT = sound did not roll. Ignored if the
+    // project has no `sound` unit.
+    sound?: { startOffsetMs: number; durationMs: number };
   }): Promise<Take>;
   updateTake(id: string, patch: Partial<Take>): Promise<Take>;
   /**
    * Correct a mis-logged clip number on one take and carry the correction
    * forward: every LATER take on that camera unit shifts by the same delta, and
    * so does the unit's live counter. Atomic. Returns the updated project.
+   *
+   * `soundNumber` corrects the take's SOUND file number the same way — later
+   * takes that recorded sound shift by the same delta, and the sound counter
+   * with them. Ignored if the project has no Sound unit or the take has no sound.
    */
   rebaseClips(
     projectId: string,
     takeId: string,
     newNumbers: Partial<Record<CameraUnitLetter, number>>,
+    soundNumber?: number,
   ): Promise<{ project: Project; shifted: number }>;
   deleteTake(id: string): Promise<void>; // cascades the take's moments
 

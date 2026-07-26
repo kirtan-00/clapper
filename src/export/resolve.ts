@@ -195,6 +195,34 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     return take.clips?.find((c) => c.unit === unit.letter);
   }
 
+  // Production sound: one <asset> per distinct recorder file, registered up
+  // front exactly like the camera assets above - both bands of a good take
+  // reference the same asset id. Absent entirely when the project has no
+  // Sound unit, so a legacy project's spine never gains a sound lane.
+  interface SoundAssetEntry {
+    id: string;
+    fileName: string;
+    ext: string;
+    durationFrames: number;
+  }
+  const soundAssets = new Map<string, SoundAssetEntry>(); // key: take.sound.fileName
+  let soundAssetSeq = 0;
+
+  if (project.sound) {
+    for (const take of allTakesInStoryOrder(bundle)) {
+      if (!take.sound) continue;
+      const key = take.sound.fileName;
+      if (soundAssets.has(key)) continue;
+      const durationFrames = Math.max(1, msToFrames(take.sound.durationMs ?? take.durationMs, fps));
+      soundAssets.set(key, {
+        id: `s${(soundAssetSeq += 1)}`,
+        fileName: key,
+        ext: project.sound.fileExt ?? '',
+        durationFrames,
+      });
+    }
+  }
+
   // ---------------------------------------------------------------- spine --
   // `anchorOffsetMs`/`anchorDurationFrames` are the anchor clip's OWN local
   // timeline - a moment's atMs (relative to the TAKE start) has to be
@@ -300,6 +328,21 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
       );
     }
 
+    // Sound rides as one more lane, offset the same way a picture unit that
+    // started off-anchor would be - relative to the anchor's own start, not
+    // the sequence start.
+    if (project.sound && take.sound) {
+      const soundAsset = soundAssets.get(take.sound.fileName);
+      if (soundAsset) {
+        lane += 1;
+        const soundOffsetMs = (take.sound.startOffsetMs ?? 0) - anchorOffsetMs;
+        const soundDurationFrames = Math.max(1, msToFrames(take.sound.durationMs ?? take.durationMs, fps));
+        laneChildren.push(
+          `          <asset-clip ref="${soundAsset.id}" lane="${lane}" offset="${framesToRational(Math.max(0, msToFrames(soundOffsetMs, fps)), fd)}" name="${escapeXml(soundAsset.fileName)}" duration="${framesToRational(soundDurationFrames, fd)}" start="0s"/>`,
+        );
+      }
+    }
+
     const inner = [markers, laneChildren.join('\n')].filter(Boolean).join('\n');
     spineItems.push(
       inner
@@ -341,6 +384,18 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     const srcPath = multi ? `${escapeXml(entry.unitLetter)}/${fileName}` : fileName;
     resourceLines.push(
       `    <asset id="${entry.id}" name="${escapeXml(entry.clipName)}" start="0s" duration="${framesToRational(entry.durationFrames, fd)}" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" format="r1">
+      <media-rep kind="original-media" src="file:///${srcPath}"/>
+    </asset>`,
+    );
+  }
+  for (const entry of soundAssets.values()) {
+    const fileName = escapeXml(entry.fileName + entry.ext);
+    // Sound files live under their own "SND/" path segment, same disambiguation
+    // trick as the per-unit-letter nesting above - it also keeps a recorder
+    // file that happens to share a name with a picture clip from colliding.
+    const srcPath = `SND/${fileName}`;
+    resourceLines.push(
+      `    <asset id="${entry.id}" name="${escapeXml(entry.fileName)}" start="0s" duration="${framesToRational(entry.durationFrames, fd)}" hasVideo="0" hasAudio="1" audioSources="1" audioChannels="2" format="r1">
       <media-rep kind="original-media" src="file:///${srcPath}"/>
     </asset>`,
     );

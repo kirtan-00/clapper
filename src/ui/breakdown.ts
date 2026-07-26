@@ -67,5 +67,72 @@ export async function breakdownScript(text: string, docName: string): Promise<Sc
   }
 
   if (!data) throw new Error(OFFLINE_MSG);
+
+  // A real screenplay always breaks into at least one scene. Zero scenes back
+  // means the upload was not a script (an invoice, a deck, a letter) — say so
+  // plainly instead of importing an empty project or blaming the bot check.
+  if (!Array.isArray(data.scenes) || data.scenes.length === 0) {
+    throw new Error(
+      "That doesn't look like a script. Upload a screenplay PDF — one with scene headings (INT./EXT. sluglines).",
+    );
+  }
+
   return data;
+}
+
+/**
+ * Load today's call sheet against an already-imported project: sends the
+ * extracted call-sheet text plus the project's current scene refs, gets back
+ * which of those scenes are shooting today and in what order. Mirrors
+ * `breakdownScript`'s auth/error handling exactly — same server, same rules.
+ */
+export async function breakdownCallSheet(
+  text: string,
+  docName: string,
+  scenes: { ref: string; name: string }[],
+): Promise<{ today: { ref: string; order: number }[] }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) throw new SignInRequiredError();
+
+  let turnstileToken: string;
+  try {
+    turnstileToken = await getTurnstileToken();
+  } catch {
+    throw new Error('Could not verify you are human. Please try again.');
+  }
+
+  const { data, error } = await supabase.functions.invoke<{ callSheet: 1; today: { ref: string; order: number }[] }>(
+    'breakdown',
+    { body: { text, docName, turnstileToken, mode: 'callsheet', scenes } },
+  );
+
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      let status = 0;
+      let reason = '';
+      try {
+        status = error.context.status;
+        const body = (await error.context.json()) as { error?: string; reason?: string };
+        reason = body.reason || body.error || '';
+      } catch {
+        /* no/invalid body — fall back to the status code below */
+      }
+      if (status === 401) throw new SignInRequiredError();
+      if (status === 402 || reason === 'quota_exceeded') throw new Error('CAP');
+      if (status === 429) throw new Error('Too fast. Give it a moment and try again.');
+      if (status === 503) throw new Error('Script Mode is taking a breather. Try again later.');
+      if (status === 403) throw new Error('Bot check failed. Please try again.');
+      throw new Error(reason || `Breakdown failed (${status}).`);
+    }
+    throw new Error(OFFLINE_MSG);
+  }
+
+  if (!data) throw new Error(OFFLINE_MSG);
+
+  const today = Array.isArray(data.today) ? data.today : [];
+  if (today.length === 0) {
+    throw new Error("No scenes from today's call sheet matched this script. Check they're the same production.");
+  }
+
+  return { today };
 }

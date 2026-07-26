@@ -4,7 +4,7 @@
 // bottom right. No em dashes anywhere; plain '-' only.
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
-import type { Fps, Moment, ProjectBundle, Take } from '../types';
+import type { Fps, Moment, Project, ProjectBundle, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
 
 const A4: [number, number] = [595.28, 841.89];
@@ -114,12 +114,17 @@ function momentTime(m: Moment): string {
 /**
  * A take's clip(s) for a table cell. Single-cam is just the clip name; multi-cam
  * lists every camera with its unit letter, e.g. "A C0012 · B C0007 · C C0003".
+ * The sound file (when the project has a Sound unit and this take recorded one)
+ * rides alongside as one more entry, e.g. "... · SND SND_0042" - never its own
+ * column, so a project with no sound renders byte-identical to before.
  */
-function clipLabel(take: Take): string {
-  if (take.clips && take.clips.length) {
-    return take.clips.map((c) => `${c.unit} ${c.clipName}`).join('  ·  ');
-  }
-  return take.clipName;
+function clipLabel(take: Take, project: Project): string {
+  const parts: string[] =
+    take.clips && take.clips.length
+      ? take.clips.map((c) => `${c.unit} ${c.clipName}`)
+      : [take.clipName];
+  if (project.sound && take.sound) parts.push(`SND ${take.sound.fileName}`);
+  return parts.join('  ·  ');
 }
 
 export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
@@ -240,11 +245,15 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   });
 
   // Operators: "Camera A - Rohan's cam", one per configured unit that has a
-  // name. Multi-cam only; skipped entirely if nobody bothered to name anyone.
-  const operatorLine = (project.cameras ?? [])
-    .filter((u) => u.operator && u.operator.trim())
-    .map((u) => `Camera ${u.letter} - ${u.operator}`)
-    .join('   ·   ');
+  // name, plus "Sound - <mixer>" when the project carries a Sound unit with a
+  // named operator. Skipped entirely if nobody bothered to name anyone.
+  const operatorParts = [
+    ...(project.cameras ?? [])
+      .filter((u) => u.operator && u.operator.trim())
+      .map((u) => `Camera ${u.letter} - ${u.operator}`),
+    ...(project.sound?.operator && project.sound.operator.trim() ? [`Sound - ${project.sound.operator}`] : []),
+  ];
+  const operatorLine = operatorParts.join('   ·   ');
   if (operatorLine) {
     y -= 12;
     page.drawText(sanitize(operatorLine), { x: MARGIN, y, size: 8, font: helv, color: GRAY });
@@ -275,7 +284,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
       const base = baselineOf(bottom, h, 8);
       cell(G_SCENE, slateName.get(take.slateId) ?? '', base, { trunc: true });
       cell(G_SHOT, `Shot ${take.number}`, base, { trunc: true });
-      cell(G_CLIP, clipLabel(take), base, { trunc: true });
+      cell(G_CLIP, clipLabel(take, project), base, { trunc: true });
       cell(G_TIME, momentTime(m), base, { size: 7.5 });
       cell(G_LABEL, m.label || '-', base, { trunc: true });
       y -= h;
@@ -307,7 +316,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
       // clock ONLY under WALL CLOCK. The identity (shot + clip) runs free
       // across the left, truncated before it can reach the TIME column.
       const bandBase = baselineOf(bandBottom, bandH, 8.5);
-      const bandLabel = [`Shot ${take.number}`, clipLabel(take)].filter(Boolean).join('  -  ');
+      const bandLabel = [`Shot ${take.number}`, clipLabel(take, project)].filter(Boolean).join('  -  ');
       const labelWidth = C_TIME.x - (MARGIN + 4) - 6;
       page.drawText(truncate(sanitize(bandLabel), bold, 8.5, labelWidth), {
         x: MARGIN + 4,
@@ -380,7 +389,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
         'DISCARDED',
         slateName.get(take.slateId) ?? '',
         `Shot ${take.number}`,
-        clipLabel(take),
+        clipLabel(take, project),
         tc.msToClock(take.durationMs),
       ].filter(Boolean);
       const line = truncate(sanitize(parts.join('  -  ')), helv, 8, CONTENT_WIDTH);
