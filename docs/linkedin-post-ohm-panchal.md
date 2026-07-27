@@ -112,3 +112,49 @@ This is going to change how sets run.
 Free. Opens on any phone. Try it on your next shoot.
 
 #FilmProduction #AdAgency #SetLife #PostProduction #VideoProduction
+
+---
+
+## Friend-story angle
+
+🎬 **One day, a friend of mine showed me a problem I'd stopped even noticing.**
+
+He asked me: "On every shoot, how much time does your team spend just *writing down* what happened? Shot logs, take notes, which take the director liked, matching clips to the camera card…"
+
+I did the math. Between the assistant director and the script supervisor, it's hours on set — and then hours more in the edit bay, hunting through footage to find it all again.
+
+Then he showed me what he built.
+
+It's called **Clapper** → https://clapboard.duckdns.org/
+
+An app that lives on your phone and does that entire job while you shoot:
+
+▶️ Tap ROLL when the camera rolls, CUT when it cuts — the shot logs itself
+⭐ One tap marks the GOLD take, the flub, the pickup — the moment it happens
+🎥 Clip numbers automatically match what's on the camera card — Sony, RED, ARRI, Blackmagic, even iPhone
+📴 Fully offline, no accounts, works on any phone
+📤 At wrap, the editor gets a Premiere timeline with every marked moment, plus a CSV and a PDF report
+
+The work of an AD's shot log and a script supervisor's notebook — done in real time, by whoever is holding the phone.
+
+I've been in production for years, and I honestly didn't believe it until I saw the export open in Premiere with the markers already sitting on the good takes.
+
+So here's what we're doing: **we're putting it to the test on our next shoot.** Real set, real cameras, real deadlines.
+
+And I want you in on it 👇
+
+If you're an AD, script supervisor, editor, or you run productions — try it on your next shoot and tell me: how much time did it actually save you? It's free, it opens right in the browser, nothing to install:
+
+👉 **https://clapboard.duckdns.org/**
+
+Let's find out together if this is the tool our industry didn't know it was waiting for.
+
+**Clapper — shoot it once, log it forever.** 🎬
+
+#FilmProduction #AdAgency #AssistantDirector #ScriptSupervisor #PostProduction #SetLife #VideoProduction
+
+### Alternate taglines
+
+- **Clapper — the crew member that never misses a take.**
+- **Clapper — roll, tap, wrap. The log writes itself.**
+- **Clapper — every take remembered, zero effort.**
