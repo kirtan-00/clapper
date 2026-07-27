@@ -88,3 +88,27 @@ This is the kind of tool that quietly revolutionizes a workflow. My team isn't g
 👉 https://clapboard.duckdns.org/
 
 #FilmProduction #AdAgency #PostProduction #Productivity #SetLife #VideoProduction #CommercialProduction
+
+---
+
+## Punchy + URL forward
+
+🎬 **clapboard.duckdns.org** — bookmark it. Your editor will thank you.
+
+One phone. One button. Every shot logged while you roll.
+
+▶️ Tap ROLL. Tap CUT. Done — shot logged, clip number matches the camera card.
+⭐ One tap marks the GOLD take *while it's happening*.
+📤 At wrap: a Premiere timeline with markers, a CSV, and a PDF report. Instantly.
+
+No accounts. No internet. No typing. No more "which take was it?"
+
+Hours of logging and footage-hunting — gone. The log writes itself while you shoot.
+
+This is going to change how sets run.
+
+👉 **https://clapboard.duckdns.org/**
+
+Free. Opens on any phone. Try it on your next shoot.
+
+#FilmProduction #AdAgency #SetLife #PostProduction #VideoProduction
