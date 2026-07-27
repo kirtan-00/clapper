@@ -58,3 +58,33 @@ This is going to change how sets run. My team isn't going back.
 👉 https://clapboard.duckdns.org/
 
 #FilmProduction #AdAgency #PostProduction #SetLife #ProductionTools
+
+---
+
+## Time-saver angle
+
+⏱️ **We just deleted an entire day of work from every shoot. Here's the math.**
+
+On a typical ad shoot, here's what nobody bills for:
+
+❌ 2–3 hours of someone writing shot logs by hand on set
+❌ 3–4 hours of the editor scrubbing footage looking for the good takes
+❌ Endless back-and-forth calls: "Which take did the director like?"
+
+That's a full working day of effort — per shoot — spent on *finding* footage instead of *crafting* with it.
+
+We replaced all of it with a free phone app called **Clapper** → https://clapboard.duckdns.org/
+
+While the camera rolls, whoever's holding the phone taps one button to mark the moment: GOLD take, flub, pickup. Tap CUT and the shot is logged — clip number matching the camera card exactly.
+
+At wrap, the editor gets a Premiere timeline with every good take already marked, plus a CSV and a printable PDF report. Import, relink, start cutting.
+
+The logging effort didn't get faster. It got **eliminated** — because it happens automatically while you shoot.
+
+No account. No internet needed. Works on any phone. Data never leaves the device.
+
+This is the kind of tool that quietly revolutionizes a workflow. My team isn't going back.
+
+👉 https://clapboard.duckdns.org/
+
+#FilmProduction #AdAgency #PostProduction #Productivity #SetLife #VideoProduction #CommercialProduction
