@@ -3,10 +3,16 @@
 
 import type { Moment, ProjectBundle, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
+import { buildShotIndex, compareTakesInStoryOrder, shotCodeOf } from './order';
 
+// `shot` is the SHOT CODE off the shotlist ("5.31"), empty for a take logged
+// straight against a scene. `take` is the take number - it is the column that
+// used to be called `shot`, which was simply the wrong word: Scene > Shot >
+// Take. Deliberate breaking header change; the two exports disagreed before.
 const HEADER = [
   'scene',
   'shot',
+  'take',
   'clip',
   'camera',
   'operator',
@@ -54,13 +60,21 @@ export function toCsv(bundle: ProjectBundle): Blob {
   }
 
   const orderedSlateIds = [...slates].sort((a, b) => a.order - b.order).map((s) => s.id);
+  // Buckets stay keyed by SLATE id, never by shot id: the orphan fallback below
+  // depends on that, and a take whose shotId resolves to nothing must still be
+  // written (it just gets an empty `shot` cell) rather than disappear.
   const takesBySlate = new Map<string, Take[]>();
   for (const t of takes) {
     const list = takesBySlate.get(t.slateId) ?? [];
     list.push(t);
     takesBySlate.set(t.slateId, list);
   }
-  for (const list of takesBySlate.values()) list.sort((a, b) => a.number - b.number);
+  // Take numbers repeat inside a scene now (5.31 take 1, then 5.32 take 1), so
+  // sorting on number alone would interleave setups. Shared comparator: scene
+  // order -> shot order -> take number.
+  const byStoryOrder = compareTakesInStoryOrder(bundle);
+  for (const list of takesBySlate.values()) list.sort(byStoryOrder);
+  const shotIndex = buildShotIndex(bundle);
   // Takes whose slate is missing from the bundle still get exported, at the end.
   const slateOrder = [...orderedSlateIds, ...[...takesBySlate.keys()].filter((id) => !slateName.has(id))];
 
@@ -70,9 +84,12 @@ export function toCsv(bundle: ProjectBundle): Blob {
     const slateTakes = takesBySlate.get(slateId) ?? [];
     for (const take of slateTakes) {
       const sName = slateName.get(slateId) ?? '';
+      // '' whenever the take has no shot, or carries a shotId its own scene no
+      // longer knows about - the row is still written either way.
+      const shotCode = shotCodeOf(take, shotIndex);
       // Accept the camera TC only if it parses AND is legal at this fps, so a
       // stray out-of-range frame number can't throw mid-export. addMsToTimecode
-      // validates both (format via regex, FF via timebase) in one shot.
+      // validates both (format via regex, FF via timebase) in one call.
       let cameraTC: string | undefined;
       if (take.cameraTC) {
         try {
@@ -93,13 +110,14 @@ export function toCsv(bundle: ProjectBundle): Blob {
         lines.push(
           row([
             sName,
+            shotCode,
             String(take.number),
             c.clipName,
             c.camera,
             operatorByUnit.get(c.camera) ?? '',
             take.sound?.fileName ?? '',
             take.status,
-            'shot',
+            'take',
             '',
             '',
             tc.msToClock(0),
@@ -122,6 +140,7 @@ export function toCsv(bundle: ProjectBundle): Blob {
         lines.push(
           row([
             sName,
+            shotCode,
             String(take.number),
             take.clipName,
             '',

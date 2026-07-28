@@ -3,7 +3,7 @@ import { Sheet } from './common';
 import { signInWithGoogle } from '../net/auth';
 
 /**
- * Sign-in sheet shown when an anonymous user reaches a gated action (Script Mode
+ * Sign-in sheet shown when an anonymous user reaches a gated action (shotlist import
  * or Premiere/CSV export). Google is the only provider. On success the OAuth flow
  * navigates away and returns to the app; the caller re-checks the session on return.
  */
@@ -26,7 +26,7 @@ export function SignInSheet(props: { onClose: () => void }) {
   return (
     <Sheet title="Sign in" onClose={props.onClose}>
       <p className="camnote" style={{ marginTop: 0 }}>
-        Script Mode and Premiere/CSV exports need a free account. Logging takes and
+        Shotlist import and Premiere/CSV exports need a free account. Logging takes and
         PDF export are always free.
       </p>
 

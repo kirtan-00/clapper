@@ -2,20 +2,41 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Moment, Project, ProjectBundle, Slate, Store, Take } from '../types';
 import {
   buildTakeClips,
+  bundleTakeComparator,
   newId,
+  nextTakeNumber,
   notFound,
+  reassignTakeTo,
   rebaseClipNumbers,
   reclaimClipNumbers,
   reorderSlateList,
+  shotOrderIndex,
 } from './util';
 import type { RawStore, SyncTable } from './outbox';
 
 interface ClapperDB extends DBSchema {
   projects: { key: string; value: Project };
   slates: { key: string; value: Slate; indexes: { byProject: string } };
-  takes: { key: string; value: Take; indexes: { bySlate: string; byProject: string } };
+  // `byShot` holds ONLY shot-scoped takes: IndexedDB skips any record whose key
+  // path is undefined, so a legacy take with no `shotId` is simply not in it.
+  // That is exactly what per-shot take numbering wants — but it also means this
+  // index can never be used to find a scene-level take. Those go through
+  // `bySlate` (which every take is in, shot-scoped or not) with an explicit
+  // "no shotId" filter.
+  takes: { key: string; value: Take; indexes: { bySlate: string; byShot: string; byProject: string } };
   moments: { key: string; value: Moment; indexes: { byTake: string } };
 }
+
+/**
+ * Schema version. Bumped 1 -> 2 to add the `byShot` index on `takes`.
+ *
+ * Every block in `upgrade` below is guarded on `oldVersion` because this
+ * callback runs on EXISTING installs too: a fresh browser arrives with
+ * oldVersion 0 and needs the stores created, while a device that already has
+ * data arrives with oldVersion 1, already owns all four stores, and would throw
+ * ConstraintError the moment we called createObjectStore again.
+ */
+const DB_VERSION = 2;
 
 /**
  * Open the IndexedDB database and return a Store bound to it. Rejects if
@@ -28,16 +49,32 @@ export async function openIdbStore(): Promise<Store & RawStore> {
     throw new Error('IndexedDB unavailable');
   }
 
-  const db: IDBPDatabase<ClapperDB> = await openDB<ClapperDB>('clapper', 1, {
-    upgrade(database) {
-      database.createObjectStore('projects', { keyPath: 'id' });
-      const slates = database.createObjectStore('slates', { keyPath: 'id' });
-      slates.createIndex('byProject', 'projectId');
-      const takes = database.createObjectStore('takes', { keyPath: 'id' });
-      takes.createIndex('bySlate', 'slateId');
-      takes.createIndex('byProject', 'projectId');
-      const moments = database.createObjectStore('moments', { keyPath: 'id' });
-      moments.createIndex('byTake', 'takeId');
+  const db: IDBPDatabase<ClapperDB> = await openDB<ClapperDB>('clapper', DB_VERSION, {
+    upgrade(database, oldVersion, _newVersion, transaction) {
+      // v1: the original four stores. Runs only on a database that doesn't
+      // have them yet (oldVersion 0 — a browser that has never opened Clapper).
+      if (oldVersion < 1) {
+        database.createObjectStore('projects', { keyPath: 'id' });
+        const slates = database.createObjectStore('slates', { keyPath: 'id' });
+        slates.createIndex('byProject', 'projectId');
+        const takes = database.createObjectStore('takes', { keyPath: 'id' });
+        takes.createIndex('bySlate', 'slateId');
+        takes.createIndex('byProject', 'projectId');
+        const moments = database.createObjectStore('moments', { keyPath: 'id' });
+        moments.createIndex('byTake', 'takeId');
+      }
+
+      // v2: per-shot take numbering needs to find a shot's takes without
+      // scanning the scene. The `takes` store already exists here — either the
+      // block above just made it, or the device has been carrying it since v1 —
+      // so we reach it through the version-change transaction and add the index
+      // in place. `createObjectStore` would throw ConstraintError. Existing rows
+      // are back-filled by the browser automatically; the legacy ones have no
+      // `shotId`, so they are skipped and the index holds only shot-scoped
+      // takes, which is precisely the intent.
+      if (oldVersion < 2) {
+        transaction.objectStore('takes').createIndex('byShot', 'shotId');
+      }
     },
   });
 
@@ -167,8 +204,19 @@ export async function openIdbStore(): Promise<Store & RawStore> {
       const takes = tx.objectStore('takes');
 
       const project = (await projects.get(input.projectId)) ?? notFound('project', input.projectId);
-      const siblings = await takes.index('bySlate').getAll(input.slateId);
-      const number = siblings.reduce((max, t) => Math.max(max, t.number), 0) + 1;
+      // Take numbers run per SHOT when the take names one and per SCENE when it
+      // doesn't, so 5.31 gets takes 1,2,3 and 5.32 starts at 1 again. The two
+      // sequences are independent on purpose: takes already logged against a
+      // bare scene must not be shifted or joined by shots added later, so the
+      // legacy branch counts only takes with no shotId. `byShot` contains
+      // nothing else (see the schema note), so the first branch needs no filter.
+      const siblings =
+        input.shotId !== undefined
+          ? await takes.index('byShot').getAll(input.shotId)
+          : (await takes.index('bySlate').getAll(input.slateId)).filter(
+              (t) => t.shotId === undefined,
+            );
+      const number = nextTakeNumber(siblings);
       const now = Date.now();
 
       const built = buildTakeClips(project, number, input, now);
@@ -185,6 +233,33 @@ export async function openIdbStore(): Promise<Store & RawStore> {
       await tx.store.put(updated);
       await tx.done;
       return updated;
+    },
+
+    async reassignTake(takeId, destination) {
+      // ONE readwrite transaction over `takes`, so the destination's sibling
+      // scan and the write of the renumbered take cannot be interleaved by a
+      // concurrent CUT — exactly the reason createTake computes its number
+      // inside its own transaction rather than reading first and writing after.
+      // Nothing else is touched: no clip counters (the clip name doesn't move),
+      // no cascades (moments hang off takeId, which is unchanged).
+      const tx = db.transaction('takes', 'readwrite');
+      const takes = tx.store;
+
+      const existing = (await takes.get(takeId)) ?? notFound('take', takeId);
+      // Same sibling rule as createTake, applied to the DESTINATION: `byShot`
+      // holds only shot-scoped takes, so a scene-level destination has to go
+      // through `bySlate` with an explicit "no shotId" filter.
+      const siblings =
+        destination.shotId !== undefined
+          ? await takes.index('byShot').getAll(destination.shotId)
+          : (await takes.index('bySlate').getAll(destination.slateId)).filter(
+              (t) => t.shotId === undefined,
+            );
+
+      const moved = reassignTakeTo(existing, siblings, destination, Date.now());
+      if (moved !== existing) await takes.put(moved); // unchanged reference = already there
+      await tx.done;
+      return moved;
     },
 
     async rebaseClips(projectId, takeId, newNumbers, soundNumber) {
@@ -233,9 +308,9 @@ export async function openIdbStore(): Promise<Store & RawStore> {
         (a, b) => a.order - b.order,
       );
       const slateOrder = new Map(slates.map((s) => [s.id, s.order]));
+      const shotOrder = shotOrderIndex(slates);
       const takes = (await db.getAllFromIndex('takes', 'byProject', projectId)).sort(
-        (a, b) =>
-          (slateOrder.get(a.slateId) ?? 0) - (slateOrder.get(b.slateId) ?? 0) || a.number - b.number,
+        bundleTakeComparator(slateOrder, shotOrder),
       );
       const momentsPerTake = await Promise.all(
         takes.map((t) => db.getAllFromIndex('moments', 'byTake', t.id)),

@@ -117,6 +117,10 @@ export const store: Store = {
   },
 
   updateSlate: async (id, patch) => {
+    // A scene's `shots` ride INSIDE this row (see types.ts), so writing or
+    // rewriting a breakdown syncs through exactly this one dirty mark — there
+    // is no shots table, no fifth SyncTable, and nothing to tombstone
+    // separately when a shot goes away.
     const result = await (await backend()).updateSlate(id, patch);
     dirty(result.projectId);
     return result;
@@ -167,6 +171,19 @@ export const store: Store = {
 
   updateTake: async (id, patch) => {
     const result = await (await backend()).updateTake(id, patch);
+    dirty(result.projectId);
+    return result;
+  },
+
+  reassignTake: async (takeId, destination) => {
+    // One dirty mark on the take's project is the whole sync story. The take
+    // row itself already syncs (it is one of the four SyncTables) and it is the
+    // only row that changed: shots ride INSIDE their slate (see updateSlate
+    // above), so re-pointing a take at a different shot adds no table and
+    // touches no slate. Moments are untouched too — they hang off `takeId`.
+    // `result.projectId` is unchanged by the move, but read it back off the
+    // stored row rather than trusting a caller-supplied id, same as updateTake.
+    const result = await (await backend()).reassignTake(takeId, destination);
     dirty(result.projectId);
     return result;
   },

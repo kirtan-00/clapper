@@ -1,6 +1,8 @@
 // Client-side PDF -> plain text. pdf.js is heavy, so it is dynamically imported
 // here — it never touches the app shell and only downloads the first time a user
-// actually uploads a script PDF in Script Mode.
+// actually uploads a shotlist PDF.
+
+import { repairLigatures } from './shotlist';
 
 export async function extractPdfText(file: File): Promise<string> {
   const [pdfjs, workerMod] = await Promise.all([
@@ -22,5 +24,9 @@ export async function extractPdfText(file: File): Promise<string> {
     page.cleanup();
   }
   await doc.destroy();
-  return pages.join('\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  const joined = pages.join('\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  // pdf.js emits each ligature as its own text item, so the join above splits
+  // words: "traffic" -> "tra ffi c", "flat" -> "fl at". Repair before anything
+  // downstream reads the text — a garbled word becomes a garbled chip on set.
+  return repairLigatures(joined);
 }

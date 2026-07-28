@@ -303,6 +303,10 @@ export interface TakeUnitRoll {
 /** The CUT-time inputs a take is built from (mirrors Store.createTake's arg). */
 export interface TakeInput {
   slateId: string;
+  // The shot being rolled, when the scene carries a breakdown. ABSENT = the
+  // take belongs to the bare scene and numbers per scene, exactly as every
+  // take built before shots existed. `slateId` above is populated either way.
+  shotId?: string;
   projectId: string;
   startedAt: number;
   durationMs: number;
@@ -390,6 +394,10 @@ export function buildTakeClips(
     const take: Take = {
       id: newId(),
       slateId: input.slateId,
+      // Written only when the take actually names a shot — a stored
+      // `shotId: undefined` would read as "has the field, empty", which is a
+      // different thing from a legacy scene-level take that never had it.
+      ...(input.shotId !== undefined ? { shotId: input.shotId } : {}),
       projectId: input.projectId,
       number,
       clipName: clips[0]?.clipName ?? '',
@@ -412,6 +420,7 @@ export function buildTakeClips(
   const take: Take = {
     id: newId(),
     slateId: input.slateId,
+    ...(input.shotId !== undefined ? { shotId: input.shotId } : {}),
     projectId: input.projectId,
     number,
     clipName,
@@ -424,6 +433,57 @@ export function buildTakeClips(
     updatedAt: now,
   };
   return applySound({ ...project, nextClipNumber: clipNumber + 1, updatedAt: now }, take, input, now);
+}
+
+// --------------------------------------------------------- bundle order ---
+// Every exporter reads `bundle.takes` in the order getBundle hands them over,
+// so that order is the timeline. Both backends build it through the helpers
+// below rather than each writing their own comparator, the same way they share
+// buildTakeClips — the two must stay byte-identical.
+
+/**
+ * Flatten every scene's breakdown into one `shotId -> order` lookup, so a take
+ * can be ranked by the shot it rolled without walking `slate.shots` on every
+ * comparison. Empty for every project with no shots — every take then takes the
+ * scene-level rank below and the sort collapses to exactly what it was before.
+ */
+export function shotOrderIndex(slates: Slate[]): Map<string, number> {
+  const index = new Map<string, number>();
+  for (const s of slates) {
+    if (!s.shots) continue;
+    for (const shot of s.shots) index.set(shot.id, shot.order);
+  }
+  return index;
+}
+
+/**
+ * Where a take sits among its scene's setups. Scene-level takes (no `shotId` —
+ * every legacy take) rank ahead of every shot-scoped one, so a scene that grew
+ * a breakdown mid-shoot still lists what was already logged against it first.
+ * A `shotId` we can't resolve (the shot was dropped from the breakdown) ranks
+ * last rather than colliding with order 0. Both sentinels are finite on
+ * purpose: the comparator subtracts, and Infinity - Infinity is NaN.
+ */
+function takeShotRank(take: Take, shotOrder: Map<string, number>): number {
+  if (take.shotId === undefined) return -1;
+  return shotOrder.get(take.shotId) ?? Number.MAX_SAFE_INTEGER;
+}
+
+/**
+ * Bundle take order: scene story order, then shot order, then take number.
+ * The middle key is not optional decoration — `Take.number` is per SHOT now, so
+ * take 1 exists once per setup and sorting on it alone interleaves 5.31 and
+ * 5.32 into a nonsense timeline. With no shots in play every rank is the same
+ * sentinel and this reduces to the original `slate order || take number`.
+ */
+export function bundleTakeComparator(
+  slateOrder: Map<string, number>,
+  shotOrder: Map<string, number>,
+): (a: Take, b: Take) => number {
+  return (a, b) =>
+    (slateOrder.get(a.slateId) ?? 0) - (slateOrder.get(b.slateId) ?? 0) ||
+    takeShotRank(a, shotOrder) - takeShotRank(b, shotOrder) ||
+    a.number - b.number;
 }
 
 // ---------------------------------------------------------- shoot order ---
@@ -482,4 +542,84 @@ export function reorderSlateList(
     }
   });
   return changed;
+}
+
+// ----------------------------------------------------------- take numbers ---
+// `Take.number` is per-PARENT: per shot when the take names one, per scene when
+// it does not (see types.ts). Both backends compute it through the two helpers
+// below rather than each writing the reduce themselves, so CUT-time numbering
+// and reassignment numbering can never drift apart.
+
+/**
+ * The next free take number in one parent. `siblings` must already be the
+ * parent's takes and nothing else — one shot's takes, or one scene's
+ * shot-less takes — because the two sequences are independent.
+ *
+ * Deliberately max+1, not count+1: a hole in the sequence (a deleted take, or
+ * a take moved out to another setup) is left alone. Numbers that have been
+ * spoken on set and written on a camera report are never reissued.
+ */
+export function nextTakeNumber(siblings: Take[]): number {
+  return siblings.reduce((max, t) => Math.max(max, t.number), 0) + 1;
+}
+
+/** Where a take is being moved to. `shotId` absent = the bare scene itself. */
+export interface TakeDestination {
+  slateId: string;
+  // The shot to file the take under. ABSENT means the destination scene has no
+  // breakdown (or the user chose the scene itself), and the take goes back to
+  // numbering per scene — the same "absent means legacy" rule as everywhere
+  // else. Never stored as an explicit `undefined` key; see below.
+  shotId?: string;
+}
+
+/**
+ * Re-file one take under a different scene/shot, with the take number the
+ * destination would have handed it at CUT time.
+ *
+ * WHAT MOVES: `slateId`, `shotId` and `number`. That is the whole correction.
+ *
+ * WHAT NEVER MOVES: the clip name(s) and the sound file name. A clip name is a
+ * physical fact about what the camera wrote to the card — renaming it here
+ * would make Clapper disagree with the media, which is the one thing an editor
+ * cannot recover from. Reassignment fixes the ASSOCIATION only. (`rebaseClips`
+ * is the tool for a wrong clip NUMBER; the two never overlap.)
+ *
+ * THE GAP LEFT BEHIND IS DELIBERATE. Moving take 2 of 5.30 away leaves 5.30
+ * with takes 1 and 3, and we do NOT close that up. Renumbering the source's
+ * survivors would silently rewrite numbers that were called on set, written on
+ * the camera report and typed into the editor's bin — a gap is a question
+ * someone can answer ("2 went to 5.31"), a shifted number is a wrong answer
+ * nobody notices. Same doctrine as `rebaseClipNumbers`: shift/leave, never
+ * resequence.
+ *
+ * `destSiblings` is every take already living in the destination parent; the
+ * moved take is filtered out of it, so re-filing a take to where it already is
+ * cannot renumber it against itself. Returns the take UNCHANGED (same
+ * reference) when the destination is where it already lives, so callers can
+ * skip the write entirely — the same "only touch what moved" discipline as
+ * `reorderSlateList`.
+ */
+export function reassignTakeTo(
+  take: Take,
+  destSiblings: Take[],
+  destination: TakeDestination,
+  now: number,
+): Take {
+  if (take.slateId === destination.slateId && take.shotId === destination.shotId) return take;
+
+  const siblings = destSiblings.filter((t) => t.id !== take.id);
+  // Strip `shotId` off first: spreading `take` and then writing
+  // `shotId: undefined` would leave the KEY present with an empty value, which
+  // reads as "has a shot, unknown" to every `!== undefined` check in the app
+  // (and lands in IndexedDB's byShot index differently from a legacy row). An
+  // absent field is the only way to say "this take belongs to the scene".
+  const { shotId: _wasShot, ...rest } = take;
+  return {
+    ...rest,
+    slateId: destination.slateId,
+    ...(destination.shotId !== undefined ? { shotId: destination.shotId } : {}),
+    number: nextTakeNumber(siblings),
+    updatedAt: now,
+  };
 }

@@ -1,7 +1,12 @@
-// Script Mode backend client. Sends the extracted script text + a fresh Turnstile
-// token to the Clapper `breakdown` edge function (which holds the Groq key
-// server-side, and derives the user from the auth JWT — never a client-sent
-// email). Returns a validated script pack the app imports. `functions.invoke`
+// Backend client for the two things Clapper still asks a server to do.
+//
+// It does NOT send scripts. The scene and shot structure is parsed on-device by
+// `shotlist.ts`, exactly and for free. What goes over the wire is small and
+// structured: the already-parsed shot division (for key-moment chips), or a
+// call sheet plus the project's known scene refs (for today's shooting order).
+//
+// The `breakdown` edge function holds the Groq key server-side and derives the
+// user from the auth JWT — never a client-sent email. `functions.invoke`
 // auto-attaches the caller's `Authorization: Bearer <jwt>` from the persisted
 // session, so identity + quota are enforced entirely server-side.
 
@@ -14,21 +19,48 @@ import type { ScriptPack } from './scriptpack';
 const OFFLINE_MSG = 'Could not reach the breakdown service. Check your connection.';
 
 /**
- * Sentinel thrown when Script Mode needs a signed-in user (no local session, or
- * the server answered 401). The caller detects it (`instanceof`) and opens the
- * sign-in sheet rather than showing a raw error.
+ * Sentinel thrown when a server call needs a signed-in user (no local session,
+ * or the server answered 401). The caller detects it (`instanceof`) and opens
+ * the sign-in sheet rather than showing a raw error.
  */
 export class SignInRequiredError extends Error {
   constructor() {
-    super('Sign in to use Script Mode.');
+    super('Sign in to read a shotlist.');
     this.name = 'SignInRequiredError';
   }
 }
 
-/** Turn a script into a Clapper pack via the server. Throws with a human why. */
-export async function breakdownScript(text: string, docName: string): Promise<ScriptPack> {
-  // Identity comes from the JWT. No session → don't spend a Turnstile token,
-  // just tell the caller to sign in.
+/** What we send per shot — the parsed row, not the script it came from. */
+interface ShotBrief {
+  code: string;
+  size?: string;
+  move?: string;
+  action?: string;
+  dialogue?: string;
+}
+
+/**
+ * Add key-moment chips to an already-parsed shotlist.
+ *
+ * The structure is ours: `shotlist.ts` read the scenes and shots off the table
+ * on-device, exactly. This asks the model for the ONE thing that isn't
+ * transcription — which beats inside each shot an operator would want to tap
+ * mid-take. It sends the parsed shot division, never the script, so the payload
+ * is small and structured and there is nothing long to truncate.
+ *
+ * Enrichment is a bonus, not a gate: if the server refuses for any reason other
+ * than "sign in" or "out of uses", the caller still gets its shotlist back with
+ * no chips rather than losing a correct parse to a flaky network.
+ */
+export async function enrichShotMoments(pack: ScriptPack, docName: string): Promise<ScriptPack> {
+  const briefs: ShotBrief[] = [];
+  for (const scene of pack.scenes) {
+    for (const s of scene.shots ?? []) {
+      briefs.push({ code: s.code, size: s.size, move: s.move, action: s.action, dialogue: s.dialogue });
+    }
+  }
+  if (!briefs.length) return pack;
+
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session) throw new SignInRequiredError();
 
@@ -39,12 +71,13 @@ export async function breakdownScript(text: string, docName: string): Promise<Sc
     throw new Error('Could not verify you are human. Please try again.');
   }
 
-  const { data, error } = await supabase.functions.invoke<ScriptPack>('breakdown', {
-    body: { text, docName, turnstileToken },
+  const { data, error } = await supabase.functions.invoke<{
+    shots: { code: string; keyMoments: string[] }[];
+  }>('breakdown', {
+    body: { mode: 'shots', shots: briefs, docName, turnstileToken },
   });
 
   if (error) {
-    // Non-2xx from the function: read the JSON body + status off the Response.
     if (error instanceof FunctionsHttpError) {
       let status = 0;
       let reason = '';
@@ -55,36 +88,35 @@ export async function breakdownScript(text: string, docName: string): Promise<Sc
       } catch {
         /* no/invalid body — fall back to the status code below */
       }
+      // These two the user must act on, so they surface. Everything else is a
+      // transient server problem the shotlist itself shouldn't die for.
       if (status === 401) throw new SignInRequiredError();
       if (status === 402 || reason === 'quota_exceeded') throw new Error('CAP');
-      if (status === 429) throw new Error('Too fast. Give it a moment and try again.');
-      if (status === 503) throw new Error('Script Mode is taking a breather. Try again later.');
-      if (status === 403) throw new Error('Bot check failed. Please try again.');
-      throw new Error(reason || `Breakdown failed (${status}).`);
     }
-    // Relay / fetch error → we never reached the function (offline, DNS, etc.).
-    throw new Error(OFFLINE_MSG);
+    return pack;
   }
+  if (!data || !Array.isArray(data.shots)) return pack;
 
-  if (!data) throw new Error(OFFLINE_MSG);
-
-  // A real screenplay always breaks into at least one scene. Zero scenes back
-  // means the upload was not a script (an invoice, a deck, a letter) — say so
-  // plainly instead of importing an empty project or blaming the bot check.
-  if (!Array.isArray(data.scenes) || data.scenes.length === 0) {
-    throw new Error(
-      "That doesn't look like a script. Upload a screenplay PDF — one with scene headings (INT./EXT. sluglines).",
-    );
-  }
-
-  return data;
+  const byCode = new Map(data.shots.map((s) => [String(s.code), s.keyMoments]));
+  return {
+    ...pack,
+    scenes: pack.scenes.map((scene) => ({
+      ...scene,
+      shots: scene.shots?.map((s) => {
+        const moments = byCode.get(s.code);
+        return Array.isArray(moments) && moments.length
+          ? { ...s, keyMoments: moments.filter((m) => typeof m === 'string' && m.trim()).slice(0, 4) }
+          : s;
+      }),
+    })),
+  };
 }
 
 /**
  * Load today's call sheet against an already-imported project: sends the
  * extracted call-sheet text plus the project's current scene refs, gets back
  * which of those scenes are shooting today and in what order. Mirrors
- * `breakdownScript`'s auth/error handling exactly — same server, same rules.
+ * the same auth/error handling as above — same server, same rules.
  */
 export async function breakdownCallSheet(
   text: string,

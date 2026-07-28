@@ -4,27 +4,40 @@ import { cors } from "../_shared/cors.ts";
 
 // Clapper Script Mode backend. Identity comes from the caller's Supabase JWT
 // (never a client-sent email). Flow: getUser -> Turnstile -> rate limits ->
-// global Groq gate -> atomic quota consume -> Groq (Llama 3.3 70B) breakdown ->
-// analytics event -> return a Clapper script pack the PWA imports directly.
-// The service-role key is used only server-side and never leaves this function.
-
-const DEFAULT_COVERAGE = ["WIDE", "MID", "CU", "OTS", "INSERT"];
+// global Groq gate -> atomic quota consume -> Groq (Llama 3.3 70B) -> analytics
+// event -> answer. The service-role key is used only server-side and never
+// leaves this function.
+//
+// Two modes, both judgement-only. The app no longer asks a model to READ a
+// document: `src/ui/shotlist.ts` parses the shotlist deterministically
+// on-device, so the model never sees the script and never transcribes a table.
+//   'shots'     — given the already-parsed shot division, write the tappable
+//                 key-moment chips for each shot.
+//   'callsheet' — given the project's known scenes, say which shoot today.
+// The old 'script' mode (whole screenplay -> scenes) is retired: the device
+// parser replaced it, and nothing calls it.
 
 // Cloudflare testing keys so local dev works without a real secret configured.
 const DEV_TURNSTILE_SECRET = "1x0000000000000000000000000000000AA";
 const TURNSTILE_HOSTS = new Set(["clapboard.duckdns.org", "kirtan-00.github.io"]);
 
-const SYSTEM = [
-  "You break a film/ad script into filmable SCENES for an on-set shot logger.",
-  "A SCENE is one location+time setup (a slugline). Split the script into those.",
+const SYSTEM_SHOTS = [
+  "You are given a JSON list of camera SHOTS already broken down from a shotlist. Each has a code, and some of: size, move, action, dialogue.",
+  "For each shot, write its KEY MOMENTS: the beats an operator would tap on a phone the instant they happen while that shot is rolling.",
   "Return ONLY valid JSON, no prose, shape:",
-  '{"scenes":[{"name":"SC n - INT/EXT. PLACE - TIME","summary":"one plain sentence","coverageTags":["WIDE","MID","CU","OTS","INSERT"],"keyMomentTags":["beat"]}]}',
-  "RULES for keyMomentTags (the most important part):",
-  "- Each must be a PHYSICAL, VISIBLE action or a spoken line that happens at ONE moment you could TAP on set.",
-  "- Good: 'door slams', 'she raises voice', 'phone buzzes', 'walks into sunset', quote a distinctive line in quotes.",
+  '{"shots":[{"code":"5.31","keyMoments":["hurls mug","mug shatters"]}]}',
+  "RULES — the count rule is the one people get wrong, so read it twice:",
+  "- 0 to 3 moments per shot. ZERO IS A CORRECT ANSWER, and it is the common one.",
+  "- Most shots are one simple action and need one chip, or none at all. Do NOT pad.",
+  "- A shot whose action is 'Ansh, flat.' has no tappable beat inside it. Return [] for it.",
+  "- 137 shots each padded with three invented chips is unusable on a phone. Restraint is the job.",
+  "- Each moment must be a PHYSICAL, VISIBLE beat, or a spoken line, that happens INSIDE THAT ONE SHOT.",
+  "- Good: 'door slams', 'she raises voice', 'phone buzzes', 'mug shatters', 'walks into sunset'. Quote a distinctive spoken line in quotes.",
   "- BANNED: abstract themes / emotions / summaries like 'belonging','emotional','friendship','nostalgia','introduction','conversation','narration'. Never output those.",
-  "- Max 6 per scene. Keep each chip short (aim under 22 chars). Order them as they happen.",
-  "coverageTags: pick the sensible subset of WIDE/MID/CU/OTS/INSERT for that scene (drop OTS from solo scenes, add INSERT only when there is an insert).",
+  "- Never restate the shot's size or move ('MCU', 'push in', 'handheld') — those are already on the slate.",
+  "- Keep each chip short (under 22 chars), and order them as they happen within the shot.",
+  "- Use only what that shot's own action and dialogue say. Never borrow action from a neighbouring shot.",
+  "- Return every code you were given, in the order given, with \"keyMoments\":[] where there is nothing to tap. Never invent a code.",
 ].join("\n");
 
 const SYSTEM_CALLSHEET = [
@@ -42,6 +55,38 @@ const SYSTEM_CALLSHEET = [
 
 const FREE_LIMIT = 5;
 const PRO_LIMIT = 1000000;
+
+// A call sheet is one page of text; 12k has always been ample.
+const CALLSHEET_INPUT_CAP = 12000;
+// Shots mode sends structured JSON, not extracted text, so it is capped by
+// entry count and by serialised size — and an oversized payload is REFUSED, not
+// truncated: cutting a JSON array mid-element is worse than saying no.
+const MAX_BRIEFS = 400;
+const MAX_BRIEF_PAYLOAD = 60000;
+// Field clamps, mirroring ScriptPackShot in src/ui/scriptpack.ts.
+const MAX_CODE = 12;
+const MAX_SIZE = 24;
+const MAX_MOVE = 40;
+const MAX_ACTION = 160;
+const MAX_DIALOGUE = 200;
+// The on-phone contract: at most 3 short chips a shot.
+const MAX_MOMENTS_PER_SHOT = 3;
+const MAX_MOMENT = 22;
+// 400 shots x ~25 tokens of reply is ~10k, so 12k covers the worst payload we
+// accept. A reply cut off mid-JSON fails to parse and costs the user a retry.
+const MAX_OUTPUT_TOKENS_SHOTS = 12000;
+const MAX_OUTPUT_TOKENS_CALLSHEET = 3000;
+
+/**
+ * A model- or client-supplied string, or undefined. Anything that isn't a
+ * string (number, null, object, array) is dropped rather than stringified — a
+ * `{}` in the size cell must not reach the operator as "[object Object]".
+ */
+function cleanStr(v: any, max: number): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim().replace(/\s+/g, " ");
+  return t ? t.slice(0, max) : undefined;
+}
 
 async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -117,6 +162,7 @@ Deno.serve(async (req: Request) => {
     turnstileToken?: string;
     mode?: string;
     scenes?: { ref?: string; name?: string }[];
+    shots?: { code?: string; size?: string; move?: string; action?: string; dialogue?: string }[];
   };
   try {
     payload = await req.json();
@@ -126,8 +172,63 @@ Deno.serve(async (req: Request) => {
   const text = (payload.text ?? "").trim();
   const docName = (payload.docName ?? "").slice(0, 200);
   const turnstileToken = (payload.turnstileToken ?? "").trim();
-  const mode: "script" | "callsheet" = payload.mode === "callsheet" ? "callsheet" : "script";
-  if (text.length < 40) {
+  // Explicit mode only. A missing or unknown mode is the retired 'script' path
+  // (or a typo) — say so plainly instead of silently falling through.
+  const mode: "shots" | "callsheet" | null = payload.mode === "shots"
+    ? "shots"
+    : payload.mode === "callsheet"
+    ? "callsheet"
+    : null;
+  if (!mode) {
+    return new Response(
+      JSON.stringify({ error: "Unknown mode — expected 'shots' or 'callsheet'." }),
+      { status: 400, headers },
+    );
+  }
+
+  // Shots mode: sanitize the parsed shot list the client sent. Same posture as
+  // the callsheet scene list below — require a real code, clamp every field,
+  // drop duplicates, and keep the surviving codes as the set the model's reply
+  // is checked against. All of this runs BEFORE the quota is consumed, so a
+  // malformed payload never costs the user a slot.
+  const briefSeen = new Set<string>();
+  const briefs: { code: string; size?: string; move?: string; action?: string; dialogue?: string }[] = [];
+  if (mode === "shots") {
+    const raw = Array.isArray(payload.shots) ? payload.shots : [];
+    for (const s of raw) {
+      if (briefs.length >= MAX_BRIEFS) break;
+      if (!s || typeof s !== "object" || Array.isArray(s)) continue;
+      const code = cleanStr(s.code, MAX_CODE);
+      if (!code || briefSeen.has(code)) continue;
+      briefSeen.add(code);
+      const brief: { code: string; size?: string; move?: string; action?: string; dialogue?: string } = { code };
+      const size = cleanStr(s.size, MAX_SIZE);
+      const move = cleanStr(s.move, MAX_MOVE);
+      const action = cleanStr(s.action, MAX_ACTION);
+      const dialogue = cleanStr(s.dialogue, MAX_DIALOGUE);
+      if (size) brief.size = size;
+      if (move) brief.move = move;
+      if (action) brief.action = action;
+      if (dialogue) brief.dialogue = dialogue;
+      briefs.push(brief);
+    }
+    if (!briefs.length) {
+      return new Response(
+        JSON.stringify({ error: "No shots to enrich — send a parsed shotlist." }),
+        { status: 400, headers },
+      );
+    }
+  }
+  const briefJson = mode === "shots" ? JSON.stringify(briefs) : "";
+  if (briefJson.length > MAX_BRIEF_PAYLOAD) {
+    return new Response(
+      JSON.stringify({
+        error: "That shotlist is too big to enrich in one call. Split it and upload again.",
+      }),
+      { status: 400, headers },
+    );
+  }
+  if (mode === "callsheet" && text.length < 40) {
     return new Response(
       JSON.stringify({ error: "Script text is too short or the PDF had no readable text" }),
       { status: 400, headers },
@@ -225,11 +326,13 @@ Deno.serve(async (req: Request) => {
   const knownRefs = new Set(knownScenes.map((s) => s.ref));
 
   const userContent = mode === "callsheet"
-    ? "KNOWN SCENES:\n" + JSON.stringify(knownScenes) + "\n\nCALL SHEET:\n" + text.slice(0, 12000)
-    : text.slice(0, 12000);
+    ? "KNOWN SCENES:\n" + JSON.stringify(knownScenes) + "\n\nCALL SHEET:\n" +
+      text.slice(0, CALLSHEET_INPUT_CAP)
+    : "SHOTS:\n" + briefJson;
 
-  // 7. Groq breakdown (unchanged prompt / logic for script mode).
-  let scenes: any[] = [];
+  // 7. Groq. Both modes are judgement calls over structured input, never a
+  // transcription of the document itself.
+  let shotMoments: any[] = [];
   let today: any[] = [];
   try {
     const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -238,10 +341,10 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         temperature: 0.2,
-        max_tokens: 3000,
+        max_tokens: mode === "callsheet" ? MAX_OUTPUT_TOKENS_CALLSHEET : MAX_OUTPUT_TOKENS_SHOTS,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: mode === "callsheet" ? SYSTEM_CALLSHEET : SYSTEM },
+          { role: "system", content: mode === "callsheet" ? SYSTEM_CALLSHEET : SYSTEM_SHOTS },
           { role: "user", content: userContent },
         ],
       }),
@@ -261,7 +364,7 @@ Deno.serve(async (req: Request) => {
     if (mode === "callsheet") {
       today = Array.isArray(parsed.today) ? parsed.today : [];
     } else {
-      scenes = Array.isArray(parsed.scenes) ? parsed.scenes : [];
+      shotMoments = Array.isArray(parsed.shots) ? parsed.shots : [];
     }
   } catch (e) {
     // Groq/parse failure must not burn the user's lifetime slot — refund it.
@@ -298,36 +401,56 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Normalize into a Clapper script pack (unchanged shape).
-  const packScenes = scenes.slice(0, 40).map((s: any, i: number) => ({
-    scriptRef: `S${i + 1}`,
-    name: typeof s.name === "string" && s.name.trim() ? s.name.trim() : `SC ${i + 1}`,
-    summary: typeof s.summary === "string" ? s.summary.trim() : "",
-    order: i + 1,
-    coverageTags: Array.isArray(s.coverageTags) && s.coverageTags.length
-      ? s.coverageTags.slice(0, 5)
-      : DEFAULT_COVERAGE,
-    keyMomentTags: Array.isArray(s.keyMomentTags)
-      ? s.keyMomentTags.slice(0, 6).map((t: any) => String(t).slice(0, 40))
-      : [],
-  }));
+  // Shots mode. Validate the model's reply against the codes we actually sent:
+  // build a map of the moments it returned, then walk the ORIGINAL briefs to
+  // emit the answer. Driving off the briefs rather than the reply means an
+  // invented code cannot get in, a duplicated code collapses, and the order is
+  // the order the client asked in — for free.
+  const momentsByCode = new Map<string, string[]>();
+  for (const s of shotMoments) {
+    if (!s || typeof s !== "object" || Array.isArray(s)) continue;
+    // A model handed codes like "5.31" sometimes emits them as JSON numbers.
+    const rawCode = typeof s.code === "number" && Number.isFinite(s.code) ? String(s.code) : s.code;
+    const code = cleanStr(rawCode, MAX_CODE);
+    if (!code || !briefSeen.has(code) || momentsByCode.has(code)) continue;
+    const moments = (Array.isArray(s.keyMoments) ? s.keyMoments : [])
+      .map((m: any) => cleanStr(m, MAX_MOMENT))
+      .filter((m: string | undefined): m is string => !!m)
+      .slice(0, MAX_MOMENTS_PER_SHOT);
+    momentsByCode.set(code, moments);
+  }
+  // Empty entries are dropped: the client applies chips by code and treats a
+  // missing code as "no chips", so shipping hundreds of empty arrays back to a
+  // phone would be pure weight. Zero moments is a correct answer, not a gap.
+  const validShots = briefs
+    .map((b) => ({ code: b.code, keyMoments: momentsByCode.get(b.code) ?? [] }))
+    .filter((s) => s.keyMoments.length > 0);
+  const momentCount = validShots.reduce((n, s) => n + s.keyMoments.length, 0);
 
-  const projectName = docName ? docName.replace(/\.pdf$/i, "") : "Imported script";
-  const pack = {
-    clapperScriptPack: 1,
-    project: { name: projectName, coverageTags: DEFAULT_COVERAGE },
-    scenes: packScenes,
-  };
+  // Nothing usable came back for ANY shot — the model ignored the schema rather
+  // than exercised restraint. The call bought the user nothing, so refund the
+  // slot. Still a 200: the client keeps its correctly-parsed shotlist, chipless.
+  let used = newCount;
+  if (!validShots.length) {
+    await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
+    used = Math.max(0, Number(newCount) - 1);
+  }
 
   // 8. Analytics event (service role). Best-effort, never blocks the response.
   try {
     await admin.from("events").insert({
       user_id: userId,
       name: "script_use",
-      props: { scenes: packScenes.length, doc: docName || null, mode },
+      props: {
+        mode,
+        shots: briefs.length,
+        enriched: validShots.length,
+        moments: momentCount,
+        doc: docName || null,
+      },
       ip_hash: ipHash,
     });
   } catch (_) { /* analytics is non-fatal */ }
 
-  return new Response(JSON.stringify({ ...pack, used: newCount, limit }), { headers });
+  return new Response(JSON.stringify({ shots: validShots, used, limit }), { headers });
 });

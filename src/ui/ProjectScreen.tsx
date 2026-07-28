@@ -41,8 +41,9 @@ function ordinal(n: number): string {
 interface SlateStat {
   slate: Slate;
   takeCount: number;
-  goodCount: number; // kept shots — a scene with >=1 is "in the can"
+  goodCount: number; // kept takes — a scene with >=1 is "in the can"
   totalMs: number;
+  covered: number;   // setups with at least one keeper; 0 for a scene with no shots
 }
 
 function clipName(prefix: string, n: number, pad: number, suffix = ''): string {
@@ -72,6 +73,7 @@ export function ProjectScreen(props: {
   onBack: () => void;
   onOpenSlate: (project: Project, slate: Slate) => void;
   onProjectChanged: (project: Project) => void;
+  onOpenClipLog: () => void;
 }) {
   const [project, setProject] = useState<Project>(props.project);
   const [slates, setSlates] = useState<SlateStat[] | null>(null);
@@ -118,7 +120,11 @@ export function ProjectScreen(props: {
         const takes = await store.listTakes(slate.id);
         const good = takes.filter((t) => t.status === 'good');
         const totalMs = good.reduce((sum, t) => sum + t.durationMs, 0);
-        return { slate, takeCount: takes.length, goodCount: good.length, totalMs };
+        // How many of the scene's setups have a keeper. This is the number an
+        // AD tracks - coverage - as distinct from how often the camera rolled.
+        const shotIds = new Set(good.map((t) => t.shotId).filter(Boolean));
+        const covered = (slate.shots ?? []).filter((sh) => shotIds.has(sh.id)).length;
+        return { slate, takeCount: takes.length, goodCount: good.length, totalMs, covered };
       }),
     );
     setSlates(stats);
@@ -355,7 +361,7 @@ export function ProjectScreen(props: {
               </div>
             )}
             <div className="stack">
-            {slates.map(({ slate, takeCount, goodCount, totalMs }, i) => {
+            {slates.map(({ slate, takeCount, goodCount, totalMs, covered }, i) => {
               const isDragging = drag?.id === slate.id;
               const shift = isDragging ? drag!.deltaY : shiftFor(i);
               const displayPos = i + 1;
@@ -431,7 +437,16 @@ export function ProjectScreen(props: {
                       {showStoryHint && (
                         <span className="card__storyhint">{ordinal(scriptPos)} in script</span>
                       )}
-                      <span>{takeCount === 1 ? '1 shot' : `${takeCount} shots`}</span>
+                      {/* Coverage is the number an AD actually tracks: how many
+                          of the scene's setups are in the can, not how many
+                          times the camera rolled. */}
+                      {slate.shots?.length ? (
+                        <span>
+                          <b className="tnum">{covered}</b>/
+                          <span className="tnum">{slate.shots.length}</span> shots
+                        </span>
+                      ) : null}
+                      <span>{takeCount === 1 ? '1 take' : `${takeCount} takes`}</span>
                       <span>
                         roll <b className="tnum">{tc.msToClock(totalMs)}</b>
                       </span>
@@ -536,6 +551,18 @@ export function ProjectScreen(props: {
 
       <TcCalculator project={project} />
 
+      {/* Sits directly above the handoff, because that is when it gets used:
+          the last thing you do before sending the day to the editor is check
+          that every clip is filed under the setup it was actually shot on. */}
+      <section className="section">
+        <div className="section__head">
+          <span className="label">Clip log</span>
+        </div>
+        <button type="button" className="btn btn--full" onClick={props.onOpenClipLog}>
+          Every clip rolled
+        </button>
+      </section>
+
       <ExportBar project={project} />
 
       <div style={{ marginTop: 22 }}>
@@ -557,7 +584,7 @@ export function ProjectScreen(props: {
       {deleting && (
         <Confirm
           title={`Delete scene ${deleting.name}?`}
-          message="This removes the scene and all of its shots and moments. This cannot be undone."
+          message="This removes the scene and all of its shots, takes and moments. This cannot be undone."
           confirmLabel="Delete scene"
           onCancel={() => setDeleting(null)}
           onConfirm={async () => {

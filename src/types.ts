@@ -99,11 +99,42 @@ export interface SlateTag {
   order: number;           // display order within its tier
 }
 
+/**
+ * One camera setup inside a scene — the middle level of Scene > Shot > Take.
+ * A scene is a location+time; a SHOT is one setup within it ("5.31, MCU, push
+ * in"); a TAKE is one roll of that setup. Shots come from a shotlist document
+ * and carry the code exactly as printed there, so what the operator taps
+ * matches what the AD is reading off paper.
+ *
+ * Shots live INSIDE their Slate (see `Slate.shots`) rather than in their own
+ * table, the same way `Slate.tags` already does — so no sync table, no IndexedDB
+ * version bump, and a scene with no shots keeps behaving exactly as it always
+ * has.
+ */
+export interface Shot {
+  id: string;
+  code: string;            // "5.31" — as printed on the shotlist
+  order: number;           // position within the scene
+  size?: string;           // "MCU", "XWS", "OTS (over Ansh)"
+  move?: string;           // "STATIC, low", "HANDHELD, drifting", "Slow PUSH IN"
+  action?: string;         // one-line recognizer shown on the roll screen
+  dialogue?: string;       // the line, when the shotlist carries one
+  note?: string;           // the shotlist's NOTES column
+  tags?: SlateTag[];       // per-shot chips; falls back to the scene's when absent
+}
+
 export interface Slate {
   id: string;
   projectId: string;
   name: string;
   order: number;
+  /**
+   * The scene's shot breakdown, in shooting-list order. ABSENT for every scene
+   * made by hand and every project saved before shots existed — those log takes
+   * straight against the scene, exactly as before. PRESENT means the rolling
+   * screen scopes takes to the selected shot and numbers them per shot.
+   */
+  shots?: Shot[];
   /**
    * On-set shooting order, set only once someone drags a scene in the scene
    * list. Absent for every slate until then — including every slate saved
@@ -154,8 +185,22 @@ export interface TakeSound {
 export interface Take {
   id: string;
   slateId: string;
+  /**
+   * The shot this take rolled, when the scene has a shot breakdown. ABSENT for
+   * takes logged against a bare scene (every legacy take, and every hand-made
+   * scene) — those keep numbering per scene. `slateId` above stays populated
+   * either way, so every exporter's scene lookup and every delete cascade works
+   * unchanged whether or not shots are in play.
+   */
+  shotId?: string;
   projectId: string;
-  number: number;          // per-slate, auto-increment
+  /**
+   * Auto-increment within the take's parent: per SHOT when `shotId` is set,
+   * per SCENE when it is not. So 5.31 gets takes 1,2,3 and 5.32 starts at 1
+   * again — correct slate practice, and why exporters must sort by shot order
+   * before take number.
+   */
+  number: number;
   clipName: string;        // e.g. "C0042", assigned at CUT. Multi-cam: unit A's clip
   // Multi-cam: one clip per camera unit (incl. A), captured together at CUT.
   // ABSENT for single-cam takes, which carry their single clip in clipName only.
@@ -226,6 +271,11 @@ export interface Store {
    */
   createTake(input: {
     slateId: string;
+    /**
+     * The shot being rolled, when the scene has a breakdown. Omitted = the take
+     * belongs to the scene itself and numbers per scene, as it always has.
+     */
+    shotId?: string;
     projectId: string;
     startedAt: number;      // when the FIRST camera rolled
     durationMs: number;     // first roll to last cut, across every participating unit
@@ -257,6 +307,26 @@ export interface Store {
     newNumbers: Partial<Record<CameraUnitLetter, number>>,
     soundNumber?: number,
   ): Promise<{ project: Project; shifted: number }>;
+  /**
+   * Re-file a take under a different scene and/or shot — the fix for the take
+   * that got rolled while the operator was still on the previous setup.
+   *
+   * Moves `slateId`, `shotId` and `number` and NOTHING else: the clip name(s)
+   * and the sound file name are what the camera and the recorder actually
+   * wrote, so they stay exactly as logged (use `rebaseClips` for a wrong clip
+   * NUMBER). Moments follow for free — a Moment points at its `takeId`, never
+   * at a scene or a shot.
+   *
+   * The take gets the next free number in its DESTINATION, computed inside the
+   * same transaction that writes it, the way `createTake` does. The number it
+   * vacates in the source is left as a gap on purpose (see `reassignTakeTo` in
+   * store/util.ts): the source's other takes are never resequenced.
+   *
+   * Omit `shotId` to file the take against the scene itself — the destination
+   * has no breakdown, or the take genuinely belongs to no setup. Atomic.
+   * Returns the take as it now stands.
+   */
+  reassignTake(takeId: string, destination: { slateId: string; shotId?: string }): Promise<Take>;
   deleteTake(id: string): Promise<void>; // cascades the take's moments
 
   listMoments(takeId: string): Promise<Moment[]>; // ordered by atMs

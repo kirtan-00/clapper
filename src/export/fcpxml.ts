@@ -18,6 +18,9 @@
 
 import type { CameraUnit, CameraUnitLetter, Fps, Moment, ProjectBundle, Take } from '../types';
 import { isMultiCam } from '../types';
+// Ordering lives in order.ts, not here: it used to be copy-pasted between this
+// file and resolve.ts, and the shot-order sort key has to land in both.
+import { allTakesInStoryOrder, buildShotIndex, goodTakesInStoryOrder, shotCodeOf } from './order';
 
 function escapeXml(s: string): string {
   return s
@@ -48,32 +51,6 @@ function msToFrames(ms: number, fps: Fps): number {
   return Math.round((ms * exactRate(fps)) / 1000);
 }
 
-/** Good takes in slate order, then take number. */
-function goodTakesInStoryOrder(bundle: ProjectBundle): Take[] {
-  const slateOrder = new Map(
-    [...bundle.slates].sort((a, b) => a.order - b.order).map((s, i) => [s.id, i]),
-  );
-  return bundle.takes
-    .filter((t) => t.status === 'good')
-    .sort((a, b) => {
-      const sa = slateOrder.get(a.slateId) ?? Number.MAX_SAFE_INTEGER;
-      const sb = slateOrder.get(b.slateId) ?? Number.MAX_SAFE_INTEGER;
-      return sa !== sb ? sa - sb : a.number - b.number;
-    });
-}
-
-/** All takes (good AND bad) in slate order, then take number. */
-function allTakesInStoryOrder(bundle: ProjectBundle): Take[] {
-  const slateOrder = new Map(
-    [...bundle.slates].sort((a, b) => a.order - b.order).map((s, i) => [s.id, i]),
-  );
-  return [...bundle.takes].sort((a, b) => {
-    const sa = slateOrder.get(a.slateId) ?? Number.MAX_SAFE_INTEGER;
-    const sb = slateOrder.get(b.slateId) ?? Number.MAX_SAFE_INTEGER;
-    return sa !== sb ? sa - sb : a.number - b.number;
-  });
-}
-
 export function toFcpXml(bundle: ProjectBundle): Blob {
   if (isMultiCam(bundle.project)) return multiCamFcpXml(bundle);
   return singleCamFcpXml(bundle);
@@ -97,13 +74,22 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
     momentsByTake.set(m.takeId, list);
   }
 
+  const shotIndex = buildShotIndex(bundle);
+
   function markersFor(take: Take, durationFrames: number): string {
+    // The clip <name> deliberately stays the raw camera file name (editors
+    // relink on it) and <reel> is load-bearing for multi-cam - so the MARKER is
+    // the only place an editor ever sees which setup a beat came from. Prefix
+    // the shot code, e.g. "5.31 GOLD the look". Empty for a take with no shot,
+    // which makes these joins collapse to exactly what they emitted before.
+    const code = shotCodeOf(take, shotIndex);
     return (momentsByTake.get(take.id) ?? [])
       .slice()
       .sort((a, b) => a.atMs - b.atMs)
       .map((m) => {
         const label = m.label;
-        const markerName = [m.tag, label].filter(Boolean).join(' ') || 'Marker';
+        const markerName = [code, m.tag, label].filter(Boolean).join(' ') || 'Marker';
+        const markerComment = [code, label].filter(Boolean).join(' ');
         const inFrame = Math.min(msToFrames(m.atMs, fps), Math.max(0, durationFrames - 1));
         const outFrame =
           m.kind === 'range' && m.endMs !== undefined
@@ -112,7 +98,7 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
         return [
           '<marker>',
           `<name>${escapeXml(markerName)}</name>`,
-          `<comment>${escapeXml(label)}</comment>`,
+          `<comment>${escapeXml(markerComment)}</comment>`,
           `<in>${inFrame}</in>`,
           `<out>${outFrame}</out>`,
           '</marker>',
@@ -296,6 +282,8 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
     momentsByTake.set(m.takeId, list);
   }
 
+  const shotIndex = buildShotIndex(bundle);
+
   // Per-unit clipitem accumulators. video[i]/audio[i] belong to unit i, whose
   // 1-based track index (V(i+1)/A(i+1)) is shared by its video and audio track.
   const vTracks: string[][] = units.map(() => []);
@@ -367,11 +355,16 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
   // own span - a unit that joined late or cut early only owns the beats that
   // actually fall inside the time it was rolling.
   function markersFor(take: Take, anchorOffsetMs: number, anchorDurationFrames: number): string {
+    // Shot code rides on the marker only - see the single-cam note above for
+    // why <name>/<reel> are off limits. '' for a take with no shot, so a legacy
+    // project's markers come out exactly as they always did.
+    const code = shotCodeOf(take, shotIndex);
     return (momentsByTake.get(take.id) ?? [])
       .slice()
       .sort((a, b) => a.atMs - b.atMs)
       .map((m) => {
-        const markerName = [m.tag, m.label].filter(Boolean).join(' ') || 'Marker';
+        const markerName = [code, m.tag, m.label].filter(Boolean).join(' ') || 'Marker';
+        const markerComment = [code, m.label].filter(Boolean).join(' ');
         const inFrame = Math.min(
           Math.max(0, msToFrames(m.atMs - anchorOffsetMs, fps)),
           Math.max(0, anchorDurationFrames - 1),
@@ -382,7 +375,7 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
             : -1;
         return (
           `<marker><name>${escapeXml(markerName)}</name>` +
-          `<comment>${escapeXml(m.label)}</comment>` +
+          `<comment>${escapeXml(markerComment)}</comment>` +
           `<in>${inFrame}</in><out>${outFrame}</out></marker>`
         );
       })

@@ -48,6 +48,9 @@
 import type { CameraUnitLetter, Fps, Moment, ProjectBundle, Take, TakeClip } from '../types';
 import { isMultiCam } from '../types';
 import { tc } from './timecode';
+// Shared with fcpxml.ts - these two used to carry byte-identical private copies
+// of the ordering helpers, so a fix to one silently missed the other.
+import { allTakesInStoryOrder, buildShotIndex, goodTakesInStoryOrder, shotCodeOf } from './order';
 
 const GAP_SECONDS = 3; // same breathing room as the Premiere (xmeml) export
 
@@ -87,32 +90,6 @@ function framesToRational(frames: number, fd: { num: number; den: number }): str
   return `${frames * fd.num}/${fd.den}s`;
 }
 
-/** Good takes in slate order, then take number. Same ordering rule as fcpxml.ts. */
-function goodTakesInStoryOrder(bundle: ProjectBundle): Take[] {
-  const slateOrder = new Map(
-    [...bundle.slates].sort((a, b) => a.order - b.order).map((s, i) => [s.id, i]),
-  );
-  return bundle.takes
-    .filter((t) => t.status === 'good')
-    .sort((a, b) => {
-      const sa = slateOrder.get(a.slateId) ?? Number.MAX_SAFE_INTEGER;
-      const sb = slateOrder.get(b.slateId) ?? Number.MAX_SAFE_INTEGER;
-      return sa !== sb ? sa - sb : a.number - b.number;
-    });
-}
-
-/** All takes (good AND bad) in slate order, then take number. */
-function allTakesInStoryOrder(bundle: ProjectBundle): Take[] {
-  const slateOrder = new Map(
-    [...bundle.slates].sort((a, b) => a.order - b.order).map((s, i) => [s.id, i]),
-  );
-  return [...bundle.takes].sort((a, b) => {
-    const sa = slateOrder.get(a.slateId) ?? Number.MAX_SAFE_INTEGER;
-    const sb = slateOrder.get(b.slateId) ?? Number.MAX_SAFE_INTEGER;
-    return sa !== sb ? sa - sb : a.number - b.number;
-  });
-}
-
 /** One camera "unit" as far as this exporter cares: a letter plus its ext.
  *  Single-cam projects get one synthetic unit ("A") built from the project's
  *  own clip fields, so the rest of the generator never has to branch on
@@ -150,6 +127,8 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     list.push(m);
     momentsByTake.set(m.takeId, list);
   }
+
+  const shotIndex = buildShotIndex(bundle);
 
   // ------------------------------------------------------------ resources --
   // One <asset> per distinct (clipName, unit) card, registered once up front.
@@ -229,11 +208,18 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
   // re-based onto the anchor's own start before it means anything as a
   // marker inside that asset-clip.
   function markersXml(take: Take, anchorOffsetMs: number, anchorDurationFrames: number): string {
+    // The asset-clip `name` stays the raw camera clip name (that is what an
+    // editor relinks on) and `src` is a physical path - so the MARKER is the
+    // only field that can tell the editor which setup a beat belongs to.
+    // Prefix the shot code, e.g. value="5.31 GOLD the look". '' for a take with
+    // no shot, so these joins emit exactly what they did before shots existed.
+    const code = shotCodeOf(take, shotIndex);
     return (momentsByTake.get(take.id) ?? [])
       .slice()
       .sort((a, b) => a.atMs - b.atMs)
       .map((m) => {
-        const value = [m.tag, m.label].filter(Boolean).join(' ') || 'Marker';
+        const value = [code, m.tag, m.label].filter(Boolean).join(' ') || 'Marker';
+        const noteText = [code, m.label].filter(Boolean).join(' ');
         const startFrame = Math.min(
           Math.max(0, msToFrames(m.atMs - anchorOffsetMs, fps)),
           Math.max(0, anchorDurationFrames - 1),
@@ -246,7 +232,7 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
           m.kind === 'range' && m.endMs !== undefined
             ? Math.max(1, msToFrames(m.endMs - anchorOffsetMs, fps) - startFrame)
             : 1;
-        const note = m.label ? ` note="${escapeXml(m.label)}"` : '';
+        const note = noteText ? ` note="${escapeXml(noteText)}"` : '';
         return (
           `          <marker start="${framesToRational(startFrame, fd)}" ` +
           `duration="${framesToRational(durFrames, fd)}" value="${escapeXml(value)}"${note}/>`

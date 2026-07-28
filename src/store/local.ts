@@ -1,11 +1,15 @@
 import type { Moment, Project, ProjectBundle, Slate, Store, Take } from '../types';
 import {
   buildTakeClips,
+  bundleTakeComparator,
   newId,
+  nextTakeNumber,
   notFound,
+  reassignTakeTo,
   rebaseClipNumbers,
   reclaimClipNumbers,
   reorderSlateList,
+  shotOrderIndex,
 } from './util';
 import type { RawStore, SyncTable } from './outbox';
 
@@ -178,8 +182,15 @@ export function createLocalStore(): Store & RawStore {
 
     async createTake(input) {
       const project = tables.projects.get(input.projectId) ?? notFound('project', input.projectId);
-      const siblings = [...tables.takes.values()].filter((t) => t.slateId === input.slateId);
-      const number = siblings.reduce((max, t) => Math.max(max, t.number), 0) + 1;
+      // Same rule as the idb backend: numbers run per SHOT when the take names
+      // one, per SCENE when it doesn't, and the two sequences never mix — so a
+      // scene-level take is only ever a sibling of another scene-level take.
+      const siblings = [...tables.takes.values()].filter((t) =>
+        input.shotId !== undefined
+          ? t.shotId === input.shotId
+          : t.slateId === input.slateId && t.shotId === undefined,
+      );
+      const number = nextTakeNumber(siblings);
       const now = Date.now();
 
       const built = buildTakeClips(project, number, input, now);
@@ -196,6 +207,26 @@ export function createLocalStore(): Store & RawStore {
       tables.takes.set(id, updated);
       persist('takes');
       return updated;
+    },
+
+    async reassignTake(takeId, destination) {
+      // Atomic for free here, for the same reason createTake is: this body runs
+      // to completion with no yield between reading the destination's siblings
+      // and writing the renumbered take, so nothing can claim the number in
+      // between. Same sibling rule as createTake, applied to the DESTINATION.
+      const existing = tables.takes.get(takeId) ?? notFound('take', takeId);
+      const siblings = [...tables.takes.values()].filter((t) =>
+        destination.shotId !== undefined
+          ? t.shotId === destination.shotId
+          : t.slateId === destination.slateId && t.shotId === undefined,
+      );
+
+      const moved = reassignTakeTo(existing, siblings, destination, Date.now());
+      if (moved !== existing) {
+        tables.takes.set(moved.id, moved);
+        persist('takes');
+      }
+      return moved;
     },
 
     async rebaseClips(projectId, takeId, newNumbers, soundNumber) {
@@ -263,13 +294,10 @@ export function createLocalStore(): Store & RawStore {
         .filter((s) => s.projectId === projectId)
         .sort((a, b) => a.order - b.order);
       const slateOrder = new Map(slates.map((s) => [s.id, s.order]));
+      const shotOrder = shotOrderIndex(slates);
       const takes = [...tables.takes.values()]
         .filter((t) => t.projectId === projectId)
-        .sort(
-          (a, b) =>
-            (slateOrder.get(a.slateId) ?? 0) - (slateOrder.get(b.slateId) ?? 0) ||
-            a.number - b.number,
-        );
+        .sort(bundleTakeComparator(slateOrder, shotOrder));
       // Group moments by take in take order, each take's moments sorted by
       // atMs — matching the idb backend's ordering exactly.
       const momentsByTake = new Map<string, Moment[]>();

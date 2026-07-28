@@ -5,7 +5,8 @@ import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } 
 import { Sheet, Confirm, Rail } from './common';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
 import { extractPdfText } from './pdftext';
-import { breakdownScript, SignInRequiredError } from './breakdown';
+import { parseShotlist, shotlistToPack } from './shotlist';
+import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
@@ -119,7 +120,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
                   <b>{project.fps}</b> fps
                 </span>
                 <span>
-                  {takeCount === 1 ? '1 shot' : `${takeCount} shots`}
+                  {takeCount === 1 ? '1 take' : `${takeCount} takes`}
                 </span>
                 <span
                   className="rowdel"
@@ -166,7 +167,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           setLoadingScript(true);
         }}
       >
-        <span aria-hidden="true">≡</span> Script Mode · from a PDF
+        <span aria-hidden="true">≡</span> Shotlist · from a PDF
       </button>
 
       <div className="newproject-row">
@@ -236,7 +237,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
       {deleting && (
         <Confirm
           title={`Delete ${deleting.name}?`}
-          message="This removes the project and every scene, shot, and moment in it. This cannot be undone."
+          message="This removes the project and every scene, shot, take and moment in it. This cannot be undone."
           confirmLabel="Delete project"
           onCancel={() => setDeleting(null)}
           onConfirm={async () => {
@@ -304,7 +305,7 @@ function AccountRow() {
         <span aria-hidden="true">→</span> {busy ? 'Opening Google…' : 'Sign in with Google'}
       </button>
       <p className="camnote" style={{ textAlign: 'center', marginTop: 8, marginBottom: 0 }}>
-        Sign in to unlock Script Mode and Premiere/CSV export. Logging takes and PDF export are
+        Sign in to unlock shotlist import and Premiere/CSV export. Logging takes and PDF export are
         always free. No account needed.
       </p>
     </>
@@ -830,11 +831,19 @@ function CreateProjectSheet(props: {
   );
 }
 
-// Script Mode. The live path: a signed-in user uploads their script PDF; we
-// extract the text on-device, send it to the breakdown edge function (Groq +
-// quota, all server-side, identity from the JWT) and import the returned scene
-// pack. Upload needs a free Google account; the two example breakdowns never
-// hit the server, so anyone can feel the on-set flow signed out.
+// Shotlist import, in two halves that play to different strengths.
+//
+// STRUCTURE is read on the device. A shotlist is a TABLE — numbered setups with
+// size, move, action and dialogue columns — so the scene and shot breakdown is
+// parsed here, exactly, offline, instantly, with nothing that could truncate a
+// long list or invent a row that was never printed.
+//
+// JUDGEMENT comes from the model, and only judgement. It never sees the script;
+// it sees the parsed shot division and writes the tappable key-moment chips for
+// each shot — the beats an operator marks mid-take. That is a small structured
+// payload rather than 17k characters of raw text, and it is the one part of
+// this that isn't transcription. It's also the server call, so it needs an
+// account.
 function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack) => void }) {
   const { session, loading } = useSession();
   const [phase, setPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
@@ -842,7 +851,7 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
   const [showSignIn, setShowSignIn] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
-  // True once Script Mode is refused for being out of free uses — shows "go Pro".
+  // True once the breakdown is refused for being out of free uses — shows "go Pro".
   const [capped, setCapped] = useState(false);
 
   const busy = phase !== 'idle';
@@ -874,9 +883,23 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
       if (text.trim().length < 40) {
         throw new Error('That PDF had no readable text. A scan or photo will not work. Use a text PDF.');
       }
+
+      const shotlist = parseShotlist(text);
+      if (!shotlist) {
+        throw new Error(
+          "That doesn't look like a shotlist. Upload one with numbered shots — rows like 1.1, 1.2 with a size column (WS, MCU, CU).",
+        );
+      }
+      const parsed = shotlistToPack(shotlist, file.name);
+      const shotCount = parsed.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0);
+      track('shotlist_parsed', { scenes: parsed.scenes.length, shots: shotCount });
+
+      // The structure is already correct and already ours. Enriching it with
+      // key moments is the only thing that can fail from here, so if the server
+      // says no we still import the shotlist rather than throwing the whole
+      // parse away — the operator gets their shots, just without the chips.
       setPhase('thinking');
-      const pack = await breakdownScript(text, file.name);
-      if (!pack.scenes?.length) throw new Error('No scenes came back. Try a clearer script PDF.');
+      const pack = await enrichShotMoments(parsed, file.name);
       haptics.tap();
       props.onPack(pack); // hand to the camera-setup step
     } catch (err) {
@@ -891,7 +914,7 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
         setCapped(true);
         return;
       }
-      setError(err instanceof Error ? err.message : 'Could not process that PDF.');
+      setError(err instanceof Error ? err.message : 'Could not read that PDF.');
     }
   }
 
@@ -916,10 +939,11 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
   if (showSignIn) return <SignInSheet onClose={props.onClose} />;
 
   return (
-    <Sheet title="Script Mode" onClose={props.onClose}>
+    <Sheet title="Shotlist" onClose={props.onClose}>
       <p className="camnote">
-        Upload your script as a PDF. We break it into scenes shot by shot, each with tappable coverage and
-        key-moment chips, then load it as a project, so on set you just tap.
+        Upload your shotlist as a PDF. We read every scene and every numbered shot
+        off it — 1.1, 1.2, 1.3 — with the size and move each one is marked with, then
+        work out the key moments inside each shot. On set you pick the shot and roll.
       </p>
 
       {loading ? (
@@ -927,18 +951,16 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
       ) : signedIn ? (
         <>
           <label className={`btn btn--go btn--full sp-upload${busy ? ' btn--disabled' : ''}`}>
-            {phase === 'reading' ? 'Reading PDF…' : phase === 'thinking' ? 'Breaking down…' : 'Upload script PDF'}
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              hidden
-              disabled={busy}
-              onChange={onPickPdf}
-            />
+            {phase === 'reading'
+              ? 'Reading shotlist…'
+              : phase === 'thinking'
+                ? 'Finding key moments…'
+                : 'Upload shotlist PDF'}
+            <input type="file" accept="application/pdf,.pdf" hidden disabled={busy} onChange={onPickPdf} />
           </label>
           {usage && (
             <p className="camnote" style={{ textAlign: 'center', marginBottom: 0 }}>
-              {usage.script.left} of {FREE_LIMIT} Script Mode uses left
+              {usage.script.left} of {FREE_LIMIT} breakdowns left
             </p>
           )}
         </>
@@ -953,7 +975,7 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
             {signingIn ? 'Opening Google…' : 'Sign in with Google to upload'}
           </button>
           <p className="camnote" style={{ marginBottom: 0 }}>
-            Script Mode needs a free account. The examples below work without one.
+            Reading your shotlist needs a free account. The examples below work without one.
           </p>
         </>
       )}
@@ -1184,7 +1206,7 @@ function HowToScreen(props: { onClose: () => void }) {
             <p>
               While it rolls, tap what you see: <b>WIDE · MID · CU · OTS · INSERT</b> for coverage,{' '}
               <b>GOLD</b> for a keeper, PICKUP and NOISE for the rest. <b>MARK IN</b> then{' '}
-              <b>MARK OUT</b> flags a stretch instead of one instant. Uploaded a script? Script Mode
+              <b>MARK OUT</b> flags a stretch instead of one instant. Uploaded a shotlist? Shotlist mode
               swaps these for chips built from that scene instead, so you are tapping “door slams”
               and “she turns” rather than generic coverage.
             </p>
@@ -1344,7 +1366,7 @@ function HowToScreen(props: { onClose: () => void }) {
             </p>
             <p className="gnote">
               PDF export works offline, no account needed. Premiere, Resolve and CSV need a quick,
-              free Google sign-in — same for uploading a script into Script Mode.
+              free Google sign-in — same for uploading a shotlist.
             </p>
           </section>
 

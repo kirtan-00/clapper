@@ -4,6 +4,7 @@ import type {
   CameraUnitLetter,
   MomentKind,
   Project,
+  Shot,
   Slate,
   SoundUnit,
   Take,
@@ -26,6 +27,54 @@ import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
 import { Sheet, Rail, Toast, Confirm } from './common';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
+
+/**
+ * Jump anywhere in the scene's shot list without leaving the rolling screen.
+ * A 47-shot scene is a lot of thumb, so the current setup is marked and the
+ * list opens scrolled to it rather than at the top.
+ */
+function ShotJumpSheet(props: {
+  shots: Shot[];
+  current: Shot;
+  onPick: (shot: Shot) => void;
+  onClose: () => void;
+}) {
+  const currentRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    currentRef.current?.scrollIntoView({ block: 'center' });
+  }, []);
+
+  return (
+    <Sheet title="Jump to shot" onClose={props.onClose}>
+      <div className="shotjump">
+        {props.shots.map((s) => {
+          const isCurrent = s.id === props.current.id;
+          return (
+            <button
+              key={s.id}
+              ref={isCurrent ? currentRef : undefined}
+              type="button"
+              className={`shotjump__row${isCurrent ? ' shotjump__row--now' : ''}`}
+              aria-current={isCurrent || undefined}
+              onClick={() => props.onPick(s)}
+            >
+              <span className="shotjump__code tnum">{s.code}</span>
+              <span className="shotjump__spec">
+                {[s.size, s.move].filter(Boolean).join(' · ') || '—'}
+              </span>
+              {s.action && <span className="shotjump__action">{s.action}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="sheet__actions">
+        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+          Close
+        </button>
+      </div>
+    </Sheet>
+  );
+}
 
 interface Buffered {
   kind: MomentKind;
@@ -93,10 +142,17 @@ const soundRollingStyle = {
 export function RollingScreen(props: {
   project: Project;
   slate: Slate;
+  /**
+   * The setup being rolled. Absent for a scene with no breakdown, which logs
+   * takes against the scene itself and numbers them per scene, exactly as
+   * before shots existed.
+   */
+  shot?: Shot;
   onExit: () => void;
   onNavigate?: (slate: Slate) => void;
+  onNavigateShot?: (shot: Shot) => void;
 }) {
-  const { slate } = props;
+  const { slate, shot } = props;
   const timer = useRollTimer();
   useWakeLock(true);
 
@@ -115,14 +171,18 @@ export function RollingScreen(props: {
   const soundUnit = project.sound;
   const hasSoundUnit = hasSound(project);
 
-  // Script Mode: two-tier tap chips baked onto the scene. A hand-made scene has
-  // no tags and falls back to the project's quick tags (FLUB/GOLD/…).
+  // Two-tier tap chips. Coverage stays on the scene (the sizes it needs); key
+  // moments come from the SHOT when we're rolling one, because a beat worth
+  // tapping belongs to a single setup, not to the whole scene. A shot with no
+  // beats of its own falls back to the scene's, and a hand-made scene with
+  // neither falls back to the project's quick tags (FLUB/GOLD/…).
   const coverageChips = (slate.tags ?? [])
     .filter((t) => t.tier === 'coverage')
     .sort((a, b) => a.order - b.order)
     .map((t) => t.label);
-  const keyChips = (slate.tags ?? [])
-    .filter((t) => t.tier === 'keyMoment')
+  const shotKeyTags = shot?.tags?.filter((t) => t.tier === 'keyMoment') ?? [];
+  const keyChips = (shotKeyTags.length ? shotKeyTags : (slate.tags ?? []).filter((t) => t.tier === 'keyMoment'))
+    .slice()
     .sort((a, b) => a.order - b.order)
     .map((t) => t.label);
   const scriptMode = coverageChips.length > 0 || keyChips.length > 0;
@@ -132,6 +192,15 @@ export function RollingScreen(props: {
   const prevScene = sceneIndex > 0 ? siblings[sceneIndex - 1] : null;
   const nextScene =
     sceneIndex >= 0 && sceneIndex < siblings.length - 1 ? siblings[sceneIndex + 1] : null;
+
+  // Shot strip: step through the scene's setups without leaving this screen.
+  // Same rule as the scene pager — disabled while anything is rolling.
+  const shotList = [...(slate.shots ?? [])].sort((a, b) => a.order - b.order);
+  const shotIndex = shot ? shotList.findIndex((s) => s.id === shot.id) : -1;
+  const prevShot = shotIndex > 0 ? shotList[shotIndex - 1] : null;
+  const nextShot =
+    shotIndex >= 0 && shotIndex < shotList.length - 1 ? shotList[shotIndex + 1] : null;
+  const [showShotJump, setShowShotJump] = useState(false);
 
   const [buffered, setBuffered] = useState<Buffered[]>([]);
   const [markInMs, setMarkInMs] = useState<number | null>(null);
@@ -282,6 +351,9 @@ export function RollingScreen(props: {
 
     const take = await store.createTake({
       slateId: slate.id,
+      // Absent for a scene with no breakdown: the take then belongs to the
+      // scene and numbers per scene, exactly as it always has.
+      ...(shot ? { shotId: shot.id } : {}),
       projectId: project.id,
       startedAt: start,
       durationMs,
@@ -409,11 +481,17 @@ export function RollingScreen(props: {
   }
 
   async function refreshMeta() {
-    const [p, takes] = await Promise.all([
+    const [p, all] = await Promise.all([
       store.getProject(project.id),
       store.listTakes(slate.id),
     ]);
     if (p) setProject(p);
+    // Scope to the setup being rolled. Takes number per SHOT when there is one
+    // — 5.31 gets takes 1,2,3 and 5.32 starts at 1 again, which is what the
+    // slate in front of the lens says — and per scene when there isn't. The
+    // store applies the same rule when it assigns the number at CUT; this is
+    // only what we show beforehand, and the two must agree.
+    const takes = shot ? all.filter((t) => t.shotId === shot.id) : all.filter((t) => !t.shotId);
     setNextTakeNumber(takes.reduce((m, t) => Math.max(m, t.number), 0) + 1);
     setRecentTakes(takes.slice(-4).reverse());
   }
@@ -421,7 +499,7 @@ export function RollingScreen(props: {
   useEffect(() => {
     void refreshMeta();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slate.id]);
+  }, [slate.id, shot?.id]);
 
   useEffect(() => {
     // The Rolling screen's scene pager flips through scenes in the same
@@ -475,6 +553,9 @@ export function RollingScreen(props: {
 
     const take = await store.createTake({
       slateId: slate.id,
+      // Absent for a scene with no breakdown: the take then belongs to the
+      // scene and numbers per scene, exactly as it always has.
+      ...(shot ? { shotId: shot.id } : {}),
       projectId: project.id,
       startedAt,
       durationMs,
@@ -597,7 +678,7 @@ export function RollingScreen(props: {
           <div className="name">{slate.name}</div>
           <div className="roll__nextline">
             <span>
-              shot <span className="tnum">{nextTakeNumber}</span>
+              take <span className="tnum">{nextTakeNumber}</span>
             </span>
             <span aria-hidden="true">&middot;</span>
             {multi ? (
@@ -637,7 +718,52 @@ export function RollingScreen(props: {
         )}
       </div>
 
-      {slate.summary && <div className="roll__summary">{slate.summary}</div>}
+      {/* The shot strip. This is where the operator lives between setups: step
+          with the arrows, or tap the middle to jump anywhere in the scene.
+          Locked while rolling and while the post-cut sheet is open, the same
+          rule as the scene pager — skidding onto the wrong setup mid-take
+          would mis-number a take and mislabel the clip. */}
+      {shot && (
+        <div className="shotstrip">
+          <button
+            type="button"
+            className="shotstrip__btn"
+            aria-label="Previous shot"
+            disabled={!prevShot || rolling || postCut !== null}
+            onClick={() => prevShot && props.onNavigateShot?.(prevShot)}
+          >
+            &lsaquo;
+          </button>
+          <button
+            type="button"
+            className="shotstrip__now"
+            aria-label={`Shot ${shot.code} of ${shotList.length}. Tap to jump to another shot.`}
+            disabled={rolling || postCut !== null}
+            onClick={() => setShowShotJump(true)}
+          >
+            <span className="shotstrip__code tnum">{shot.code}</span>
+            <span className="shotstrip__spec">
+              {[shot.size, shot.move].filter(Boolean).join(' · ') || '—'}
+            </span>
+            <span className="shotstrip__pos tnum">
+              {shotIndex >= 0 ? shotIndex + 1 : '-'}/{shotList.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="shotstrip__btn"
+            aria-label="Next shot"
+            disabled={!nextShot || rolling || postCut !== null}
+            onClick={() => nextShot && props.onNavigateShot?.(nextShot)}
+          >
+            &rsaquo;
+          </button>
+        </div>
+      )}
+
+      {shot?.action && <div className="roll__summary">{shot.action}</div>}
+      {shot?.dialogue && <div className="roll__line">&ldquo;{shot.dialogue}&rdquo;</div>}
+      {!shot && slate.summary && <div className="roll__summary">{slate.summary}</div>}
 
       {props.onNavigate && siblings.length > 1 && (
         <div className="scenepager">
@@ -684,7 +810,7 @@ export function RollingScreen(props: {
                   : ''}
             </span>
           ) : postCut ? (
-            'Shot saved'
+            'Take saved'
           ) : (
             'Tap ROLL' + (listener.supported ? ' or say "roll camera"' : '')
           )}
@@ -860,7 +986,7 @@ export function RollingScreen(props: {
 
         {rolling ? (
           buffered.length > 0 && (
-            <div className="momentlog" aria-label="Moments this shot">
+            <div className="momentlog" aria-label="Moments this take">
               {[...buffered].reverse().map((m, i) => (
                 <div
                   key={buffered.length - 1 - i}
@@ -880,9 +1006,9 @@ export function RollingScreen(props: {
             </div>
           )
         ) : (
-          <div className="minitakes" aria-label="Recent shots">
+          <div className="minitakes" aria-label="Recent takes">
             {recentTakes.length === 0 ? (
-              <div className="minitake minitakes__empty">First shot of this scene</div>
+              <div className="minitake minitakes__empty">No takes yet</div>
             ) : (
               recentTakes.map((t) => (
                 <div
@@ -892,7 +1018,7 @@ export function RollingScreen(props: {
                   <button
                     type="button"
                     className="minitake__open"
-                    aria-label={`Edit shot ${t.number} (${takeClipLabel(t)}${
+                    aria-label={`Edit take ${t.number} (${takeClipLabel(t)}${
                       t.sound ? ` · sound ${t.sound.fileName}` : ''
                     })`}
                     onClick={() => setEditingTake(t)}
@@ -925,7 +1051,7 @@ export function RollingScreen(props: {
                   <button
                     type="button"
                     className="minitake__del"
-                    aria-label={`Delete shot ${t.number} (${t.clipName})`}
+                    aria-label={`Delete take ${t.number} (${t.clipName})`}
                     onClick={() => setDeletingTake(t)}
                   >
                     &times;
@@ -1060,10 +1186,10 @@ export function RollingScreen(props: {
           aria-label={
             bigButtonCutMode
               ? multi
-                ? 'Cut every camera still rolling and save the shot'
+                ? 'Cut every camera still rolling and save the take'
                 : hasSoundUnit
-                  ? 'Cut the camera and sound and save the shot'
-                  : 'Cut and save shot'
+                  ? 'Cut the camera and sound and save the take'
+                  : 'Cut and save take'
               : multi
                 ? 'Roll every camera together'
                 : hasSoundUnit
@@ -1082,6 +1208,18 @@ export function RollingScreen(props: {
         </button>
       </div>
       </div>
+
+      {showShotJump && shot && (
+        <ShotJumpSheet
+          shots={shotList}
+          current={shot}
+          onPick={(picked) => {
+            setShowShotJump(false);
+            if (picked.id !== shot.id) props.onNavigateShot?.(picked);
+          }}
+          onClose={() => setShowShotJump(false)}
+        />
+      )}
 
       {postCut && (
         <PostCutSheet
@@ -1149,7 +1287,7 @@ export function RollingScreen(props: {
             // project back from the store rather than keeping the stale copy.
             setProject(updatedProject);
             if (shifted > 0) {
-              setToast(`Clip fixed - ${shifted} later shot${shifted === 1 ? '' : 's'} moved too`);
+              setToast(`Clip fixed - ${shifted} later take${shifted === 1 ? '' : 's'} moved too`);
             }
             await refreshMeta();
           }}
@@ -1158,7 +1296,7 @@ export function RollingScreen(props: {
 
       {deletingTake && (
         <Confirm
-          title={`Delete shot ${deletingTake.number}?`}
+          title={`Delete take ${deletingTake.number}?`}
           message={`Only if the camera never rolled. This removes ${takeClipLabel(deletingTake)}${
             deletingTake.sound ? ` and sound ${deletingTake.sound.fileName}` : ''
           } and every moment tagged in it, hands the clip number back, and slides every later shot on that camera${

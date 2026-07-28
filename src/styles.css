@@ -2058,3 +2058,304 @@ select.field {
      tall it dominates the short pane. */
   .readout { font-size: clamp(3rem, 9vw, 6rem); }
 }
+
+/* ---------------------------------------------------------------- shots ---
+   Scene > Shot > Take. The shot layer is where an operator lives between
+   setups, so it gets the same tap targets and the same locked-while-rolling
+   behaviour as the scene pager it sits above. */
+
+/* Shot list screen: the scene's one-liner above the setups. */
+.shots__summary {
+  margin: 10px 0 0;
+  color: var(--chalk-dim);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+/* The shot code, monospaced so 5.9 and 5.31 line up down the list. */
+.shotcode {
+  flex: none;
+  min-width: 44px;
+  font-weight: 800;
+  color: var(--brass);
+  font-size: 0.95rem;
+}
+/* Size + move read as spec, not as the name — the action line below is what
+   the operator actually recognises the setup by. */
+.shotspec {
+  color: var(--chalk-dim);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+.shotline {
+  margin-top: 4px;
+  color: var(--chalk-faint);
+  font-size: 0.85rem;
+  font-style: italic;
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ---- the strip on the rolling screen ---- */
+.shotstrip {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+}
+.shotstrip__btn {
+  flex: none;
+  width: var(--tap);
+  min-height: var(--tap);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--ink-850);
+  color: var(--chalk);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.shotstrip__btn:active { transform: scale(0.96); }
+.shotstrip__btn:disabled { opacity: 0.3; }
+
+/* The current setup. Brass-keyed so it reads as "this is what the slate says"
+   rather than as another neutral control. */
+.shotstrip__now {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--brass) 40%, transparent);
+  background: color-mix(in srgb, var(--brass) 12%, var(--ink-850));
+  color: var(--chalk);
+  text-align: left;
+}
+.shotstrip__now:active { transform: scale(0.99); }
+.shotstrip__now:disabled { opacity: 0.55; }
+.shotstrip__code {
+  flex: none;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--brass);
+}
+.shotstrip__spec {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--chalk-dim);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.shotstrip__pos {
+  flex: none;
+  color: var(--chalk-faint);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* The spoken line under the strip, when the setup carries one. */
+.roll__line {
+  margin-top: 6px;
+  color: var(--chalk-faint);
+  font-size: 0.88rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* ---- jump sheet ---- */
+.shotjump {
+  max-height: 56vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.shotjump__row {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 2px 10px;
+  align-items: baseline;
+  padding: 10px 12px;
+  min-height: var(--tap);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-soft);
+  background: var(--ink-850);
+  color: var(--chalk);
+  text-align: left;
+}
+.shotjump__row--now {
+  border-color: color-mix(in srgb, var(--brass) 55%, transparent);
+  background: color-mix(in srgb, var(--brass) 14%, var(--ink-850));
+}
+.shotjump__code {
+  grid-column: 1;
+  font-weight: 800;
+  color: var(--brass);
+  font-size: 0.95rem;
+}
+.shotjump__spec {
+  grid-column: 2;
+  color: var(--chalk-dim);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.shotjump__action {
+  grid-column: 2;
+  color: var(--chalk-faint);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* -------------------------------------------------------------- clip log ---
+   Every clip the project has rolled, flat and newest-first. This is a reading
+   screen, not a rolling one: the clip NAME is the loudest thing on the row
+   (that is what is written on the card and typed into the bin), the scene/shot
+   it is filed under sits under it, and the clock/duration hold the right edge.
+   Discarded takes follow the same faint + struck treatment as .minitake, since
+   a discarded clip is still a real file on the card and must stay findable. */
+
+.cliplog {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cliprow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 10px 12px;
+  min-height: var(--tap);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-soft);
+  background: var(--ink-850);
+  color: var(--chalk);
+  text-align: left;
+}
+.cliprow:active { transform: scale(0.99); }
+
+/* Row 1, left: the clip name(s), plus the sound file when the take carries one. */
+.cliprow__names {
+  grid-column: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+}
+.cliprow__clip {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--go);
+  overflow-wrap: anywhere;
+}
+.cliprow__snd {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--sound);
+  overflow-wrap: anywhere;
+}
+
+/* Row 2, left: where the clip is filed. Scene name, shot code, take number. */
+.cliprow__where {
+  grid-column: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: var(--chalk-dim);
+}
+.cliprow__scene { font-weight: 700; color: var(--chalk); }
+/* Brass, matching .shotcode and the rolling strip: the shot code always reads
+   as "what the slate says", wherever it appears. */
+.cliprow__shot { font-weight: 800; color: var(--brass); }
+.cliprow__take { color: var(--chalk-dim); }
+.cliprow__flag {
+  color: var(--rec);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Right edge, both rows: wall clock the take started at, then how long it ran. */
+.cliprow__times {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-size: 0.78rem;
+  color: var(--chalk-dim);
+  white-space: nowrap;
+}
+
+.cliprow--discarded { color: var(--chalk-faint); }
+.cliprow--discarded .cliprow__clip,
+.cliprow--discarded .cliprow__snd { color: var(--chalk-faint); text-decoration: line-through; }
+.cliprow--discarded .cliprow__scene,
+.cliprow--discarded .cliprow__shot { color: var(--chalk-faint); }
+
+/* ---- move sheet ---- */
+
+/* The clip being re-filed, restated at the top of the sheet so the name you
+   tapped is still in front of you while you pick a destination. */
+.movepreview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--ink-850);
+}
+.movepreview__clip {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--go);
+  overflow-wrap: anywhere;
+}
+.movepreview__snd { font-family: var(--font-mono); font-size: 0.82rem; color: var(--sound); }
+
+/* The consequence, spelled out before you commit to it. */
+.movesay {
+  margin: 4px 0 0;
+  color: var(--chalk-dim);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.movesay b { color: var(--chalk); font-family: var(--font-mono); }
+.movesay--note { margin-top: 8px; color: var(--chalk-faint); font-size: 0.8rem; }

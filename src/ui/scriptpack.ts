@@ -7,9 +7,32 @@
 // on set the operator does nothing but tap. The app only ever READS packs; it
 // never calls a model.
 
-import type { Project, SlateTag } from '../types';
+import type { Project, Shot, SlateTag } from '../types';
 import { store } from '../store';
 import { newId } from '../store/util';
+
+/**
+ * One setup inside a pack scene. Present when the source document was a
+ * SHOTLIST (a numbered table of setups) rather than a prose screenplay —
+ * either read straight off the table by `shotlist.ts` or, for a screenplay,
+ * proposed by the model. Absent means the scene logs takes directly, exactly
+ * as Script Mode has always worked.
+ */
+export interface ScriptPackShot {
+  code: string;             // "5.31" — as printed on the shotlist
+  order: number;            // position within the scene
+  size?: string;            // "MCU", "XWS", "OTS (over Ansh)"
+  move?: string;            // "STATIC, low", "Slow PUSH IN"
+  action?: string;          // one-line recognizer for the operator
+  dialogue?: string;        // the line, when the shotlist carries one
+  note?: string;            // the shotlist's NOTES column
+  /**
+   * Tappable beats INSIDE this one shot, added by the model from the parsed
+   * shot division. Often empty — most setups are a single action with nothing
+   * to mark mid-take — and empty is the right answer there, not a failure.
+   */
+  keyMoments?: string[];
+}
 
 export interface ScriptPackScene {
   scriptRef: string;        // "SC 1", "GF-2"… stable id for grouping/sorting
@@ -18,6 +41,7 @@ export interface ScriptPackScene {
   order: number;            // scene order within the film
   coverageTags?: string[];  // defaults to pack.project.coverageTags if omitted
   keyMomentTags: string[];  // script-derived beats (clamped to 6 on import)
+  shots?: ScriptPackShot[]; // the scene's setups, when the source had them
 }
 
 export interface ScriptPack {
@@ -30,6 +54,12 @@ export interface ScriptPack {
 }
 
 const MAX_KEY_MOMENTS = 6;
+// A feature-length scene tops out well under this; the cap exists so a
+// misparsed table can't spray thousands of rows into one scene record.
+const MAX_SHOTS = 200;
+// A single setup is a few seconds long. More than three things to tap inside it
+// is noise on a phone held at arm's length.
+const MAX_SHOT_MOMENTS = 3;
 
 function isPack(x: unknown): x is ScriptPack {
   if (!x || typeof x !== 'object') return false;
@@ -97,9 +127,43 @@ export async function importScriptPack(
       summary: scene.summary,
       scriptRef: scene.scriptRef,
       tags: tagsForScene(scene, pack.project.coverageTags),
+      shots: shotsForScene(scene),
     });
   }
   return project;
+}
+
+/**
+ * Materialise a scene's setups. Returns undefined when the pack carries none,
+ * so the scene stays a plain take-logging scene and every legacy code path
+ * runs untouched.
+ */
+function shotsForScene(scene: ScriptPackScene): Shot[] | undefined {
+  if (!scene.shots || !scene.shots.length) return undefined;
+  return [...scene.shots]
+    .sort((a, b) => a.order - b.order)
+    .slice(0, MAX_SHOTS)
+    .map((s, i) => ({
+      id: newId(),
+      code: String(s.code || `${scene.order}.${i + 1}`).slice(0, 12),
+      order: i + 1,
+      size: s.size?.slice(0, 24) || undefined,
+      move: s.move?.slice(0, 40) || undefined,
+      action: s.action?.slice(0, 160) || undefined,
+      dialogue: s.dialogue?.slice(0, 200) || undefined,
+      note: s.note?.slice(0, 120) || undefined,
+      tags: keyMomentTags(s.keyMoments),
+    }));
+}
+
+/** The shot's own chips. Undefined when the model found nothing worth tapping. */
+function keyMomentTags(labels: string[] | undefined): SlateTag[] | undefined {
+  if (!labels || !labels.length) return undefined;
+  const tags = labels
+    .filter((l) => typeof l === 'string' && l.trim())
+    .slice(0, MAX_SHOT_MOMENTS)
+    .map((label, i) => ({ id: newId(), label: label.trim().slice(0, 40), tier: 'keyMoment' as const, order: i }));
+  return tags.length ? tags : undefined;
 }
 
 // ---------------------------------------------------------------------------
