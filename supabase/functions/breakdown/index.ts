@@ -133,9 +133,15 @@ function cleanStr(v: any, max: number): string | undefined {
  * mark the elision, and close the quote if we opened one.
  */
 function tidyMoment(v: any): string | undefined {
-  const t = cleanStr(v, 400);
+  // Models asked for JSON sometimes escape a quote twice and the surviving
+  // backslash rides all the way to the chip: \"Character mat todo.\ . No chip
+  // legitimately contains a backslash, so they all go.
+  const t = cleanStr(typeof v === "string" ? v.replace(/\\/g, "") : v, 400);
   if (!t) return undefined;
-  if (t.length <= MAX_MOMENT) return t;
+  if (t.length <= MAX_MOMENT) {
+    // Stripping a backslash can leave an opening quote without its partner.
+    return /^"/.test(t) && (t.match(/"/g) ?? []).length % 2 === 1 ? `${t}"` : t;
+  }
   const quoted = /^["“']/.test(t);
   // Two characters of the budget are spent on the ellipsis and closing quote.
   let cut = t.slice(0, MAX_MOMENT - 2);
