@@ -89,10 +89,27 @@ const MAX_DIALOGUE = 200;
 // view through glass" (27) would otherwise be sliced mid-word.
 const MAX_MOMENTS_PER_SHOT = 3;
 const MAX_MOMENT = 28;
-// 400 shots x ~25 tokens of reply is ~10k, so 12k covers the worst payload we
-// accept. A reply cut off mid-JSON fails to parse and costs the user a retry.
-const MAX_OUTPUT_TOKENS_SHOTS = 12000;
 const MAX_OUTPUT_TOKENS_CALLSHEET = 3000;
+
+// Shots-mode batching. Groq's free tier counts RESERVED output tokens against
+// tokens-per-minute, so the old single call reserved 12,000 for a reply that
+// would never exceed a few hundred and got itself refused at the door.
+//
+// 40 shots a batch amortises the system prompt (~1k tokens, paid once per call)
+// over enough rows to be worth sending, while keeping any one request near 5k
+// tokens — comfortably inside even the free tier's 12k ceiling.
+const SHOT_BATCH = 40;
+// Three chips of under 28 characters, plus the JSON around them, is ~20 tokens.
+// 30 is headroom, not a target, and it is what we RESERVE per shot.
+const OUTPUT_TOKENS_PER_SHOT = 30;
+// No artificial gap between batches: we let the rate limiter tell us when to
+// wait rather than guessing. That way a paid tier runs at full speed and the
+// free tier self-throttles, from the same code.
+const SHOT_RETRY_MS = 8000;
+const SHOT_MAX_RETRIES = 3;
+// Leave room under the platform's wall clock. On a long film the free tier's
+// TPM ceiling means we may not finish; we return the chips we did earn.
+const SHOT_TIME_BUDGET_MS = 100000;
 
 /**
  * A model- or client-supplied string, or undefined. Anything that isn't a
@@ -103,6 +120,31 @@ function cleanStr(v: any, max: number): string | undefined {
   if (typeof v !== "string") return undefined;
   const t = v.trim().replace(/\s+/g, " ");
   return t ? t.slice(0, max) : undefined;
+}
+
+/**
+ * A chip, trimmed to fit. The prompt asks for under 22 characters, but a model
+ * handed a long line of dialogue will hand it straight back, and a hard slice
+ * turns `"Thodi der mein woh aayegi, tension mat lo."` into
+ * `"Thodi der mein woh aayegi..` — cut mid-word, quote left hanging open. On a
+ * chip at arm's length that reads as a rendering fault.
+ *
+ * So: cut at a word boundary, drop the trailing punctuation the cut exposed,
+ * mark the elision, and close the quote if we opened one.
+ */
+function tidyMoment(v: any): string | undefined {
+  const t = cleanStr(v, 400);
+  if (!t) return undefined;
+  if (t.length <= MAX_MOMENT) return t;
+  const quoted = /^["“']/.test(t);
+  // Two characters of the budget are spent on the ellipsis and closing quote.
+  let cut = t.slice(0, MAX_MOMENT - 2);
+  const lastSpace = cut.lastIndexOf(" ");
+  // Only honour a word boundary that leaves something readable behind.
+  if (lastSpace > 8) cut = cut.slice(0, lastSpace);
+  cut = cut.replace(/[\s.,;:!?"“”']+$/, "");
+  if (!cut) return undefined;
+  return quoted ? `${cut}…"` : `${cut}…`;
 }
 
 async function sha256Hex(s: string): Promise<string> {
@@ -342,54 +384,107 @@ Deno.serve(async (req: Request) => {
     .map((s) => ({ ref: s.ref!.trim(), name: typeof s.name === "string" ? s.name.trim() : "" }));
   const knownRefs = new Set(knownScenes.map((s) => s.ref));
 
-  const userContent = mode === "callsheet"
-    ? "KNOWN SCENES:\n" + JSON.stringify(knownScenes) + "\n\nCALL SHEET:\n" +
-      text.slice(0, CALLSHEET_INPUT_CAP)
-    : "SHOTS:\n" + briefJson;
-
   // 7. Groq. Both modes are judgement calls over structured input, never a
   // transcription of the document itself.
-  let shotMoments: any[] = [];
-  let today: any[] = [];
-  try {
+  //
+  // Shots mode goes in BATCHES, and the reason is a rate limit rather than a
+  // context limit. Groq's free tier counts `max_tokens` — what you RESERVE for
+  // the reply, not what you use — against tokens-per-minute. So one call over a
+  // 137-shot film asked for 18,505 against a 12,000 TPM ceiling and was refused
+  // outright, mostly on reserved output nobody was going to spend. Small
+  // batches, each reserving only what its own shots could possibly need, stay
+  // under the ceiling on any tier.
+  //
+  // Batches are sequential and spaced, because TPM is a per-MINUTE budget:
+  // firing them all at once would rebuild the same wall out of smaller bricks.
+  // Failure is per-batch, so one bad batch costs its own shots' chips and
+  // nothing else, and a whole run that overruns the time budget returns the
+  // chips it did earn rather than nothing.
+  async function groqJson(
+    system: string,
+    user: string,
+    maxTokens: number,
+  ): Promise<{ ok: true; parsed: any } | { ok: false; status: number; detail: string }> {
     const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         temperature: 0.2,
-        max_tokens: mode === "callsheet" ? MAX_OUTPUT_TOKENS_CALLSHEET : MAX_OUTPUT_TOKENS_SHOTS,
+        max_tokens: maxTokens,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: mode === "callsheet" ? SYSTEM_CALLSHEET : SYSTEM_SHOTS },
-          { role: "user", content: userContent },
+          { role: "system", content: system },
+          { role: "user", content: user },
         ],
       }),
     });
-    if (!gr.ok) {
-      const errTxt = await gr.text();
+    if (!gr.ok) return { ok: false, status: gr.status, detail: (await gr.text()).slice(0, 300) };
+    const gjson = await gr.json();
+    try {
+      return { ok: true, parsed: JSON.parse(gjson.choices?.[0]?.message?.content ?? "{}") };
+    } catch (e) {
+      return { ok: false, status: 502, detail: String(e).slice(0, 200) };
+    }
+  }
+
+  let shotMoments: any[] = [];
+  let today: any[] = [];
+
+  if (mode === "callsheet") {
+    const userContent = "KNOWN SCENES:\n" + JSON.stringify(knownScenes) +
+      "\n\nCALL SHEET:\n" + text.slice(0, CALLSHEET_INPUT_CAP);
+    const r = await groqJson(SYSTEM_CALLSHEET, userContent, MAX_OUTPUT_TOKENS_CALLSHEET);
+    if (!r.ok) {
       // Groq outage must not burn the user's lifetime slot — refund it.
       await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
       return new Response(
-        JSON.stringify({ error: "Breakdown service error", detail: errTxt.slice(0, 300) }),
+        JSON.stringify({ error: "Breakdown service error", detail: r.detail }),
         { status: 502, headers },
       );
     }
-    const gjson = await gr.json();
-    const content = gjson.choices?.[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(content);
-    if (mode === "callsheet") {
-      today = Array.isArray(parsed.today) ? parsed.today : [];
-    } else {
-      shotMoments = Array.isArray(parsed.shots) ? parsed.shots : [];
+    today = Array.isArray(r.parsed.today) ? r.parsed.today : [];
+  } else {
+    const startedAt = Date.now();
+    let lastDetail = "";
+    let lastStatus = 0;
+    let attempted = 0;
+
+    for (let i = 0; i < briefs.length; i += SHOT_BATCH) {
+      // Out of time: keep what we have. A partial set of chips beats none, and
+      // the shotlist itself is already parsed and safe on the client either way.
+      if (Date.now() - startedAt > SHOT_TIME_BUDGET_MS) break;
+      const batch = briefs.slice(i, i + SHOT_BATCH);
+      const userContent = "SHOTS:\n" + JSON.stringify(batch);
+      const reserve = batch.length * OUTPUT_TOKENS_PER_SHOT;
+      attempted++;
+
+      // 429 is the rate limiter asking us to wait, not a failure — on the free
+      // tier it is the EXPECTED reply once a minute's budget is spent. Waiting
+      // it out is the whole throttling strategy, so retry rather than give up.
+      let r = await groqJson(SYSTEM_SHOTS, userContent, reserve);
+      for (let attempt = 0; attempt < SHOT_MAX_RETRIES && !r.ok && r.status === 429; attempt++) {
+        if (Date.now() - startedAt > SHOT_TIME_BUDGET_MS) break;
+        await new Promise((res) => setTimeout(res, SHOT_RETRY_MS));
+        r = await groqJson(SYSTEM_SHOTS, userContent, reserve);
+      }
+      if (!r.ok) {
+        lastStatus = r.status;
+        lastDetail = r.detail;
+        continue;
+      }
+      if (Array.isArray(r.parsed.shots)) shotMoments = shotMoments.concat(r.parsed.shots);
     }
-  } catch (e) {
-    // Groq/parse failure must not burn the user's lifetime slot — refund it.
-    await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
-    return new Response(
-      JSON.stringify({ error: "Could not parse the breakdown", detail: String(e).slice(0, 200) }),
-      { status: 502, headers },
-    );
+
+    // Every batch we tried failed — that is a real outage, not model restraint,
+    // so say so and refund rather than passing off silence as "no key moments".
+    if (!shotMoments.length && attempted > 0 && lastStatus) {
+      await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
+      return new Response(
+        JSON.stringify({ error: "Breakdown service error", detail: lastDetail }),
+        { status: 502, headers },
+      );
+    }
   }
 
   if (mode === "callsheet") {
@@ -431,7 +526,7 @@ Deno.serve(async (req: Request) => {
     const code = cleanStr(rawCode, MAX_CODE);
     if (!code || !briefSeen.has(code) || momentsByCode.has(code)) continue;
     const moments = (Array.isArray(s.keyMoments) ? s.keyMoments : [])
-      .map((m: any) => cleanStr(m, MAX_MOMENT))
+      .map((m: any) => tidyMoment(m))
       .filter((m: string | undefined): m is string => !!m)
       .slice(0, MAX_MOMENTS_PER_SHOT);
     momentsByCode.set(code, moments);
