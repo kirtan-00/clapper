@@ -23,6 +23,7 @@ import {
 } from '../store/util';
 import { tc } from '../export/timecode';
 import { renderUnitClip } from './cameras';
+import { sizeInWords } from './shotlist';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
 import { Sheet, Rail, Toast, Confirm } from './common';
 import { track } from '../net/analytics';
@@ -60,7 +61,7 @@ function ShotJumpSheet(props: {
             >
               <span className="shotjump__code tnum">{s.code}</span>
               <span className="shotjump__spec">
-                {[s.size, s.move].filter(Boolean).join(' · ') || '—'}
+                {[sizeInWords(s.size), s.move].filter(Boolean).join(' · ') || '—'}
               </span>
               {s.action && <span className="shotjump__action">{s.action}</span>}
             </button>
@@ -743,7 +744,7 @@ export function RollingScreen(props: {
           >
             <span className="shotstrip__code tnum">{shot.code}</span>
             <span className="shotstrip__spec">
-              {[shot.size, shot.move].filter(Boolean).join(' · ') || '—'}
+              {[sizeInWords(shot.size), shot.move].filter(Boolean).join(' · ') || '—'}
             </span>
             <span className="shotstrip__pos tnum">
               {shotIndex >= 0 ? shotIndex + 1 : '-'}/{shotList.length}

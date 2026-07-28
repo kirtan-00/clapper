@@ -280,16 +280,46 @@ export function parseShotlist(raw: string): ParsedShotlist | null {
   return { title, scenes: ordered };
 }
 
-/** Coverage chips for a scene, derived from the sizes its shots actually use. */
+/**
+ * Shot sizes spelled out. The shotlist prints "MCU" because paper is narrow,
+ * but a chip you tap at 5am under a work light should say what it means —
+ * "medium closeup" reads at a glance where "MCU" has to be decoded, and the
+ * two are one keystroke apart from each other on a bad night. Longest prefixes
+ * first so MWS/MCU never match as MS/CU.
+ */
+const SIZE_WORDS: [string, string][] = [
+  ['XWS', 'extreme wide'],
+  ['MWS', 'medium wide'],
+  ['MCU', 'medium closeup'],
+  ['ECU', 'extreme closeup'],
+  ['OTS', 'over shoulder'],
+  ['POV', 'point of view'],
+  ['WS', 'wide'],
+  ['MS', 'medium'],
+  ['CU', 'closeup'],
+];
+
+/** Spell a printed size out, or return it unchanged if we don't know it. */
+export function sizeInWords(size: string | undefined): string | undefined {
+  if (!size) return undefined;
+  const hit = SIZE_WORDS.find(([abbr]) => size.toUpperCase().startsWith(abbr));
+  return hit ? hit[1] : size;
+}
+
+/**
+ * Coverage chips for a scene, derived from the sizes its shots actually use —
+ * so a scene with no over-shoulders is never offered one. Ordered widest to
+ * tightest, which is the order a crew shoots them in.
+ */
 function coverageFor(scene: ParsedScene): string[] {
-  const order = ['WS', 'XWS', 'MWS', 'MS', 'MCU', 'CU', 'ECU', 'OTS', 'POV'];
+  const order = ['XWS', 'WS', 'MWS', 'MS', 'MCU', 'CU', 'ECU', 'OTS', 'POV'];
   const used = new Set<string>();
   for (const s of scene.shots) {
     if (!s.size) continue;
-    const base = order.find((o) => s.size!.startsWith(o));
+    const base = order.find((o) => s.size!.toUpperCase().startsWith(o));
     if (base) used.add(base);
   }
-  return order.filter((o) => used.has(o));
+  return order.filter((o) => used.has(o)).map((o) => sizeInWords(o)!);
 }
 
 /** Turn a parsed shotlist into the pack shape the importer consumes. */

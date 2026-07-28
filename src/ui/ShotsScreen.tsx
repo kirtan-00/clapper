@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
 import { Rail } from './common';
+import { sizeInWords } from './shotlist';
 import { tc } from '../export/timecode';
 
 interface ShotStat {
@@ -123,7 +124,7 @@ export function ShotsScreen(props: {
                     />
                     <span className="shotcode tnum">{shot.code}</span>
                     <span className="card__name shotspec">
-                      {[shot.size, shot.move].filter(Boolean).join(' · ') || '—'}
+                      {[sizeInWords(shot.size), shot.move].filter(Boolean).join(' · ') || '—'}
                     </span>
                     {takeCount > 0 && <span className="card__count">{takeCount}</span>}
                     <span className="card__chevron" aria-hidden="true">

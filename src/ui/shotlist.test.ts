@@ -134,9 +134,23 @@ describe('shotlistToPack', () => {
 
   it('derives coverage chips from the sizes the scene actually uses', () => {
     const pack = shotlistToPack(parseShotlist(DOC)!, 'x.pdf');
-    expect(pack.scenes[0].coverageTags).toEqual(['XWS', 'MWS', 'CU', 'OTS']);
-    // No OTS anywhere in scene 2, so it must not be offered there.
-    expect(pack.scenes[1].coverageTags).not.toContain('OTS');
+    // Widest to tightest — the order a crew shoots them in.
+    expect(pack.scenes[0].coverageTags).toEqual([
+      'extreme wide', 'medium wide', 'closeup', 'over shoulder',
+    ]);
+    // No over-shoulder anywhere in scene 2, so it must not be offered there.
+    expect(pack.scenes[1].coverageTags).not.toContain('over shoulder');
+  });
+
+  it('never puts trade shorthand on a chip', () => {
+    // "ECU" and "MCU" are one character apart at 5am under a work light.
+    const pack = shotlistToPack(parseShotlist(DOC)!, 'x.pdf');
+    for (const scene of pack.scenes) {
+      for (const tag of scene.coverageTags ?? []) {
+        expect(tag).not.toMatch(/^(X?W S?|MWS|MS|MCU|CU|ECU|OTS|POV)$/i);
+        expect(tag).toMatch(/[a-z]{3,}/);
+      }
+    }
   });
 
   it('names the project from the filename when the title is unusable', () => {
