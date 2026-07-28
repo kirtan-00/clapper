@@ -26,18 +26,31 @@ const SYSTEM_SHOTS = [
   "For each shot, write its KEY MOMENTS: the beats an operator would tap on a phone the instant they happen while that shot is rolling.",
   "Return ONLY valid JSON, no prose, shape:",
   '{"shots":[{"code":"5.31","keyMoments":["hurls mug","mug shatters"]}]}',
-  "RULES — the count rule is the one people get wrong, so read it twice:",
-  "- 0 to 3 moments per shot. ZERO IS A CORRECT ANSWER, and it is the common one.",
-  "- Most shots are one simple action and need one chip, or none at all. Do NOT pad.",
-  "- A shot whose action is 'Ansh, flat.' has no tappable beat inside it. Return [] for it.",
-  "- 137 shots each padded with three invented chips is unusable on a phone. Restraint is the job.",
+  "HOW MANY — the count rule is the one people get wrong, so read it twice:",
+  "- Aim for 1 to 3 moments per shot. ONE GOOD CHIP IS THE NORMAL ANSWER.",
+  "- Every shot is doing something — a camera move, a person's action, a specific beat. Pulling one tag out of it should not be hard.",
+  "- If the row has an action line, it HAS a beat. Name the beat; do not skip the shot.",
+  "- Reach for [] ONLY when the row genuinely has no filmable beat inside it: a title card, a superimposition, a fade, a slug with no action.",
+  "- Still never pad to three. One precise chip beats three vague ones, and 137 shots x three invented chips is unusable on a phone.",
+  "WHAT COUNTS:",
   "- Each moment must be a PHYSICAL, VISIBLE beat, or a spoken line, that happens INSIDE THAT ONE SHOT.",
   "- Good: 'door slams', 'she raises voice', 'phone buzzes', 'mug shatters', 'walks into sunset'. Quote a distinctive spoken line in quotes.",
-  "- BANNED: abstract themes / emotions / summaries like 'belonging','emotional','friendship','nostalgia','introduction','conversation','narration'. Never output those.",
-  "- Never restate the shot's size or move ('MCU', 'push in', 'handheld') — those are already on the slate.",
-  "- Keep each chip short (under 22 chars), and order them as they happen within the shot.",
+  "- BANNED: abstract themes / emotions / summaries like 'belonging','emotional','friendship','nostalgia','introduction','conversation','narration'. Never output those. This is the most important constraint: a chip is a physical visible thing or a spoken line, never a theme or a mood.",
   "- Use only what that shot's own action and dialogue say. Never borrow action from a neighbouring shot.",
+  "HOW TO WRITE IT:",
+  "- NO ABBREVIATIONS IN CHIP TEXT. Chips get tapped at 5am under a work light, where 'ECU' and 'MCU' are one character apart.",
+  "- Never emit CU, MCU, ECU, WS, XWS, MWS, MS, OTS, POV — or any other trade shorthand — as chip text.",
+  "- When a size or framing really does belong in a chip, SPELL IT: closeup, medium closeup, extreme closeup, wide, extreme wide, medium wide, medium, over shoulder, point of view.",
+  "- The same goes for every other abbreviation: write 'push in', not 'PI'; 'handheld', not 'HH'.",
+  "- Do not restate the shot's own size or move as a chip — the slate already carries them, so a shot marked MCU / PUSH IN needs no chip saying so. The spelling rule above is the backstop for when a framing legitimately belongs inside a chip anyway.",
+  "- Keep each chip short (under 22 chars), and order them as they happen within the shot.",
   "- Return every code you were given, in the order given, with \"keyMoments\":[] where there is nothing to tap. Never invent a code.",
+  "WORKED EXAMPLES, from a real shotlist — match this target:",
+  '4.14 MS High / from balcony — "She hurls the coffee mug straight down at him. Mug shatters" -> ["hurls mug","mug shatters"]',
+  '1.1 XWS STATIC, low — "Empty late-night street, lone parked car" -> ["car in frame"]   (an establisher still has one thing to mark)',
+  "1.21 — Superimpose — \"Title Card: LET'S MEET DOBAARA\" -> []   (genuinely nothing to tap)",
+  '3.6 CU STATIC — Ruhi, not having it. "Ansh." -> ["\\"Ansh.\\""]',
+  "Note those inputs carry XWS / MS / CU, and not one chip repeats them.",
 ].join("\n");
 
 const SYSTEM_CALLSHEET = [
@@ -69,9 +82,13 @@ const MAX_SIZE = 24;
 const MAX_MOVE = 40;
 const MAX_ACTION = 160;
 const MAX_DIALOGUE = 200;
-// The on-phone contract: at most 3 short chips a shot.
+// The on-phone contract: at most 3 short chips a shot. The prompt asks for
+// under 22 chars, and the clamp sits at 28 so it stays a backstop rather than a
+// routine editor — chips must spell sizes out ("extreme closeup", 15, not
+// "ECU"), and composed ones like "extreme closeup on eyes" (23) or "point of
+// view through glass" (27) would otherwise be sliced mid-word.
 const MAX_MOMENTS_PER_SHOT = 3;
-const MAX_MOMENT = 22;
+const MAX_MOMENT = 28;
 // 400 shots x ~25 tokens of reply is ~10k, so 12k covers the worst payload we
 // accept. A reply cut off mid-JSON fails to parse and costs the user a retry.
 const MAX_OUTPUT_TOKENS_SHOTS = 12000;

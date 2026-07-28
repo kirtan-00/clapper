@@ -105,7 +105,9 @@ export async function enrichShotMoments(pack: ScriptPack, docName: string): Prom
       shots: scene.shots?.map((s) => {
         const moments = byCode.get(s.code);
         return Array.isArray(moments) && moments.length
-          ? { ...s, keyMoments: moments.filter((m) => typeof m === 'string' && m.trim()).slice(0, 4) }
+          // 3 to match the server's own clamp and MAX_SHOT_MOMENTS on import —
+          // three things to tap is already the ceiling on a phone at arm's length.
+          ? { ...s, keyMoments: moments.filter((m) => typeof m === 'string' && m.trim()).slice(0, 3) }
           : s;
       }),
     })),
