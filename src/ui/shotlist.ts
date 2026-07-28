@@ -311,16 +311,22 @@ export function sizeInWords(size: string | undefined): string | undefined {
  * so a scene with no over-shoulders is never offered one. Ordered widest to
  * tightest, which is the order a crew shoots them in.
  */
-function coverageFor(scene: ParsedScene): string[] {
-  const order = ['XWS', 'WS', 'MWS', 'MS', 'MCU', 'CU', 'ECU', 'OTS', 'POV'];
-  const used = new Set<string>();
-  for (const s of scene.shots) {
-    if (!s.size) continue;
-    const base = order.find((o) => s.size!.toUpperCase().startsWith(o));
-    if (base) used.add(base);
-  }
-  return order.filter((o) => used.has(o)).map((o) => sizeInWords(o)!);
-}
+/* The coverage keypad is deliberately THREE keys, the same three on every scene
+   of every project.
+
+   Deriving them from the shotlist's own sizes looked clever and shot itself in
+   the foot: a scene using nine sizes produced a nine-key pad that pushed the
+   rest of the deck down, and the keys moved scene to scene so there was no
+   muscle memory to build. Worse, the distinctions are ones nobody makes at
+   speed — mid-take, at arm's length, "extreme closeup" versus "medium closeup"
+   is a decision, and a decision is the one thing an operator does not have time
+   for. Wide, mid, closeup is the split people actually call out loud.
+
+   The precise framing is not lost: it is printed on the shot itself, spelled
+   out, on the shot strip and the shot list. This pad is for tapping, not for
+   describing. Everything specific to the scene arrives as key-moment chips
+   underneath, which is where per-shot detail belongs. */
+const COVERAGE_KEYS: string[] = ['WIDE', 'MID', 'CLOSEUP'];
 
 /** Turn a parsed shotlist into the pack shape the importer consumes. */
 export function shotlistToPack(doc: ParsedShotlist, docName: string): ScriptPack {
@@ -340,7 +346,7 @@ export function shotlistToPack(doc: ParsedShotlist, docName: string): ScriptPack
       // The shot count is already on the card, so don't repeat it here.
       summary: (scene.look ?? '').slice(0, 140),
       order: i + 1,
-      coverageTags: coverageFor(scene),
+      coverageTags: COVERAGE_KEYS,
       keyMomentTags: [],
       shots,
     };
@@ -350,7 +356,7 @@ export function shotlistToPack(doc: ParsedShotlist, docName: string): ScriptPack
   const name = doc.title || fromFile || 'Imported shotlist';
   return {
     clapperScriptPack: 1,
-    project: { name, coverageTags: ['WS', 'MS', 'CU', 'OTS', 'INSERT'] },
+    project: { name, coverageTags: COVERAGE_KEYS },
     scenes,
   };
 }

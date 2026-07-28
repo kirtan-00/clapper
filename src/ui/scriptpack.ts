@@ -168,13 +168,17 @@ function keyMomentTags(labels: string[] | undefined): SlateTag[] | undefined {
 
 // ---------------------------------------------------------------------------
 // Treeland campaign — the demo. Five ad films, broken down scene by scene by
-// Claude from the real shooting scripts. Coverage is pruned per scene; every
-// key-moment chip is a beat the editor will want flagged in the take.
+// Claude from the real shooting scripts. Every key-moment chip is a beat the
+// editor will want flagged in the take.
+//
+// Coverage is the same three keys everywhere — see COVERAGE_KEYS in shotlist.ts
+// for why. These aliases stay so each scene still reads as the kind of scene it
+// is, and so a future per-scene pad is a one-line change.
 // ---------------------------------------------------------------------------
 
-const DIALOG: string[] = ['WIDE', 'MID', 'CU', 'OTS'];
-const ACTION: string[] = ['WIDE', 'MID', 'CU', 'INSERT'];
-const BEAUTY: string[] = ['WIDE', 'MID', 'INSERT'];
+const DIALOG: string[] = ['WIDE', 'MID', 'CLOSEUP'];
+const ACTION: string[] = DIALOG;
+const BEAUTY: string[] = DIALOG;
 
 export const TREELAND_DEMO: ScriptPack[] = [
   {
