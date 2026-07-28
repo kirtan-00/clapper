@@ -1068,6 +1068,10 @@ export function RollingScreen(props: {
       <div className="roll__deck">
         {rolling && (
           <>
+            {/* The pads are the ONLY part of the deck allowed to scroll. MARK IN
+                and the big CUT sit outside this box, so a scene with a tall
+                keypad can never push CUT off the bottom of a phone. */}
+            <div className="roll__pads">
             {scriptMode ? (
               <>
                 {/* Coverage keypad: a FIXED 2-col grid so each key holds its
@@ -1140,6 +1144,7 @@ export function RollingScreen(props: {
                 })}
               </div>
             )}
+            </div>
 
             <button
               type="button"

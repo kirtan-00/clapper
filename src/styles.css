@@ -1351,13 +1351,35 @@ select.field {
 .momentrow .tag { font-weight: 700; letter-spacing: 0.06em; font-size: 0.74rem; color: var(--chalk-dim); }
 .momentrow .lbl { color: var(--chalk-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* bottom control zone - one thumb */
+/* bottom control zone - one thumb.
+
+   CUT IS NEVER ALLOWED OFF THE SCREEN. The rolling screen is position:fixed, so
+   there is no page scroll to fall back on — if the deck grows past the viewport
+   the operator physically cannot stop the take. So the deck is shrinkable
+   (flex-shrink 1, min-height 0) and only .roll__pads inside it scrolls; MARK IN
+   and the big ROLL/CUT are flex:0 0 auto and always render.
+   .roll__stage above has flex-basis 0, so it contributes nothing to shrinking:
+   when space runs out the stage collapses first and the deck keeps its buttons.
+   The running clock survives that collapse — the tally band mirrors it up top. */
 .roll__deck {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding-top: 10px;
+  flex: 0 1 auto;
+  min-height: 0;
 }
+.roll__pads {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.roll__deck > .markbtn,
+.roll__deck > .bigbtn { flex: 0 0 auto; }
 
 /* rolling tools row: tags + mark */
 .tagbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -1586,6 +1608,14 @@ select.field {
   font-size: 0.92rem;
   line-height: 1.35;
   color: var(--chalk-dim);
+  /* Three lines is a recognizer, not a read — and it keeps a wordy action line
+     from eating the height the keypad and CUT need. The full text is on the
+     shot list and in the shot-jump sheet. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 
 /* Flip-don't-scroll scene pager. */
@@ -2053,6 +2083,12 @@ select.field {
     padding-top: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+  /* In landscape the whole deck pane is the scroller, so the pads must not be a
+     second nested one — a scroller inside a scroller strands the buttons. */
+  .roll__pads {
+    overflow: visible;
+    min-height: auto;
   }
   /* Landscape is width-rich but height-poor: keep the readout bold but not so
      tall it dominates the short pane. */
