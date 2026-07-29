@@ -5,8 +5,9 @@
 // local.ts, which are just transaction wrappers around this logic.
 
 import { describe, expect, it } from 'vitest';
-import { nextTakeNumber, reassignTakeTo } from './util';
-import type { Take } from '../types';
+import { buildTakeClips, nextTakeNumber, reassignTakeTo } from './util';
+import type { TakeInput } from './util';
+import type { CameraUnit, Project, Take } from '../types';
 
 /** A logged take. `shotId` is only written when given, matching a real row. */
 function take(
@@ -30,6 +31,68 @@ function take(
     updatedAt: 0,
   };
 }
+
+/** A three-camera project, every unit sitting on its own next clip number. */
+function threeCam(): Project {
+  const unit = (letter: 'A' | 'B' | 'C', next: number): CameraUnit => ({
+    letter,
+    clipPrefix: 'C',
+    nextClipNumber: next,
+    clipPadding: 4,
+  });
+  return {
+    id: 'p1',
+    name: 'Bhoot',
+    fps: 24,
+    clipPrefix: 'C',
+    nextClipNumber: 1,
+    clipPadding: 4,
+    cameras: [unit('A', 7), unit('B', 12), unit('C', 3)],
+    tags: [],
+    createdAt: 0,
+    updatedAt: 0,
+  };
+}
+
+const baseInput: TakeInput = {
+  slateId: 's1',
+  projectId: 'p1',
+  startedAt: 0,
+  durationMs: 5000,
+};
+
+describe('buildTakeClips — what "no camera rolled" means', () => {
+  const counters = (p: Project) => (p.cameras ?? []).map((u) => u.nextClipNumber);
+
+  it('burns nothing when the units list is explicitly empty', () => {
+    // A sound-only wild line. No camera turned over, so no card advanced, so no
+    // counter may advance. This is the on-set bug: every wild line used to push
+    // all three cameras one clip ahead of reality, permanently.
+    const project = threeCam();
+    const { take, project: after } = buildTakeClips(project, 1, { ...baseInput, units: [] }, 0);
+    expect(take.clips).toEqual([]);
+    expect(counters(after)).toEqual([7, 12, 3]);
+  });
+
+  it('still assumes everybody rolled when it was told nothing', () => {
+    // Absent `units` is the legacy big-ROLL path and must behave as it always has.
+    const { take, project: after } = buildTakeClips(threeCam(), 1, baseInput, 0);
+    expect(take.clips?.map((c) => c.clipName)).toEqual(['C0007', 'C0012', 'C0003']);
+    expect(counters(after)).toEqual([8, 13, 4]);
+  });
+
+  it('advances only the cameras that actually rolled', () => {
+    const { take, project: after } = buildTakeClips(
+      threeCam(),
+      1,
+      { ...baseInput, units: [{ unit: 'B', startOffsetMs: 0, durationMs: 5000 }] },
+      0,
+    );
+    expect(take.clips?.map((c) => c.clipName)).toEqual(['C0012']);
+    expect(take.clipName).toBe('C0012');
+    expect(counters(after)).toEqual([7, 13, 3]);
+  });
+});
 
 describe('nextTakeNumber', () => {
   it('starts a fresh parent at 1', () => {

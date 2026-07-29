@@ -313,8 +313,15 @@ export interface TakeInput {
   cameraTC?: string;
   note?: string;
   // Multi-cam only: which units actually rolled, and each one's own timing.
-  // ABSENT/empty = every configured unit rolled together for the whole take
-  // (the big-ROLL common case) - matches every take built before this existed.
+  //
+  // ABSENT = we were not told, so assume every configured unit rolled together
+  // for the whole take (the big-ROLL common case) - matches every take built
+  // before this field existed.
+  //
+  // EMPTY ARRAY = we WERE told, and the answer is that no camera rolled: a
+  // sound-only wild line. These two are NOT the same, and conflating them
+  // burned a clip number on every camera for every wild line, drifting each
+  // body's counter permanently out of step with its card.
   units?: TakeUnitRoll[];
   // Sound (orthogonal to cameras): present when the recorder rolled this take,
   // with its own timing. ABSENT = sound did not roll. Ignored if no `sound` unit.
@@ -372,8 +379,17 @@ export function buildTakeClips(
   const units = project.cameras;
 
   if (units && units.length > 0) {
+    // `units: []` is a STATEMENT — "no camera rolled this take" — and must be
+    // honoured. Only an ABSENT `units` means "we were not told, assume they all
+    // rolled", which is the legacy single-path behaviour.
+    //
+    // Treating the empty array as "not told" is what burned clip numbers on set:
+    // a sound-only wild line (`closeMultiTake([], ...)`) fabricated a clip name
+    // on every camera and advanced every counter, so each body's next clip
+    // silently drifted one ahead of what the card actually wrote — and stayed
+    // wrong for the rest of the day.
     const rolls = new Map<CameraUnitLetter, TakeUnitRoll>(
-      input.units && input.units.length > 0
+      input.units !== undefined
         ? input.units.map((r) => [r.unit, r])
         : units.map((u) => [u.letter, { unit: u.letter, startOffsetMs: 0, durationMs: input.durationMs }]),
     );
