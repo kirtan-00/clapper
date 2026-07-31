@@ -1,6 +1,16 @@
 // Shared helpers for both store backends (idb + localStorage).
 
-import type { CameraUnit, CameraUnitLetter, Project, Slate, SoundUnit, Take, TakeClip } from '../types';
+import type {
+  CameraUnit,
+  CameraUnitLetter,
+  Project,
+  ShootDay,
+  Slate,
+  SoundUnit,
+  Take,
+  TakeClip,
+  WrapUndoSnapshot,
+} from '../types';
 
 export function newId(): string {
   // crypto.randomUUID is available on http(s) AND on file:// in modern
@@ -376,7 +386,15 @@ export function buildTakeClips(
   input: TakeInput,
   now: number,
 ): { take: Take; project: Project } {
-  const units = project.cameras;
+  // Fold in the take's day-tracking side effects BEFORE anything else: lazily
+  // open day 1 if none is open yet, stamp firstTakeAt on the day's own first
+  // touch and lastTakeAt on every touch (what shouldPromptForgottenWrap reads),
+  // and carry the day's own label AND index onto the take itself — the index
+  // is what actually disambiguates two different days sharing one date string
+  // (see Take.shootDayIndex in types.ts). See the "shoot day / wrap" section
+  // below for why this is never a bulk migration onto old rows.
+  const { project: dayProject, shootDay, shootDayIndex } = noteTakeLogged(project, now);
+  const units = dayProject.cameras;
 
   if (units && units.length > 0) {
     // `units: []` is a STATEMENT — "no camera rolled this take" — and must be
@@ -418,6 +436,8 @@ export function buildTakeClips(
       number,
       clipName: clips[0]?.clipName ?? '',
       clips,
+      shootDay,
+      shootDayIndex,
       status: 'good',
       startedAt: input.startedAt,
       durationMs: input.durationMs,
@@ -426,13 +446,13 @@ export function buildTakeClips(
       createdAt: now,
       updatedAt: now,
     };
-    return applySound({ ...project, cameras: advanced, updatedAt: now }, take, input, now);
+    return applySound({ ...dayProject, cameras: advanced, updatedAt: now }, take, input, now);
   }
 
-  // Single-cam: untouched legacy path.
-  const clipNumber = project.nextClipNumber;
+  // Single-cam: untouched legacy path (aside from the day-tracking folded in above).
+  const clipNumber = dayProject.nextClipNumber;
   const clipName =
-    project.clipPrefix + String(clipNumber).padStart(project.clipPadding, '0') + (project.clipSuffix ?? '');
+    dayProject.clipPrefix + String(clipNumber).padStart(dayProject.clipPadding, '0') + (dayProject.clipSuffix ?? '');
   const take: Take = {
     id: newId(),
     slateId: input.slateId,
@@ -440,6 +460,8 @@ export function buildTakeClips(
     projectId: input.projectId,
     number,
     clipName,
+    shootDay,
+    shootDayIndex,
     status: 'good',
     startedAt: input.startedAt,
     durationMs: input.durationMs,
@@ -448,7 +470,7 @@ export function buildTakeClips(
     createdAt: now,
     updatedAt: now,
   };
-  return applySound({ ...project, nextClipNumber: clipNumber + 1, updatedAt: now }, take, input, now);
+  return applySound({ ...dayProject, nextClipNumber: clipNumber + 1, updatedAt: now }, take, input, now);
 }
 
 // --------------------------------------------------------- bundle order ---
@@ -638,4 +660,190 @@ export function reassignTakeTo(
     number: nextTakeNumber(siblings),
     updatedAt: now,
   };
+}
+
+// ------------------------------------------------------- shoot day / wrap ---
+// A shoot day is a HUMAN signal, never a clock guess: the operator presses
+// WRAP DAY once the day's cards are formatted, and THAT stamps the boundary
+// (see the Shoot day section on the project screen). Nothing below ever
+// resets a counter off the clock alone: shouldPromptForgottenWrap only
+// ANSWERS whether the gap looks like a forgotten wrap; RollingScreen decides
+// what to do with that answer, and only ever off the operator's own tap.
+
+/** Local "YYYY-MM-DD" for a moment in time — a day's own label, never a guess about when it ends. */
+export function shootDayLabel(epochMs: number): string {
+  const d = new Date(epochMs);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * The project's open shoot day, opening day 1 on first touch if none exists
+ * yet. Every project gets one lazily this way — a legacy project simply never
+ * had one before now, and its PAST takes carry no `shootDay` either way
+ * (nothing here ever rewrites them; see buildTakeClips above and the
+ * migration note in export/order.ts).
+ */
+export function openShootDayIfNeeded(project: Project, now: number): Project {
+  if (project.openShootDay) return project;
+  return { ...project, openShootDay: { index: 1, date: shootDayLabel(now) } };
+}
+
+/**
+ * Fold in a take's day-tracking side effects: lazily open day 1 if none is
+ * open yet, stamp `firstTakeAt` on the day's own first touch and
+ * `lastTakeAt` on every touch (what shouldPromptForgottenWrap reads below),
+ * and hand back the day's own label AND its own index so the take can carry
+ * both. The label alone is not a stable day identity (see Take.shootDayIndex
+ * in types.ts — a night shoot can wrap into a next day dated today, then that
+ * day wraps again before midnight, landing two different days on one date);
+ * the index is what actually tells them apart, and it must be stamped every
+ * time the date is.
+ */
+function noteTakeLogged(
+  project: Project,
+  now: number,
+): { project: Project; shootDay: string; shootDayIndex: number } {
+  const opened = openShootDayIfNeeded(project, now);
+  const day = opened.openShootDay!;
+  const touched: ShootDay = {
+    ...day,
+    ...(day.firstTakeAt === undefined ? { firstTakeAt: now } : {}),
+    lastTakeAt: now,
+  };
+  return {
+    project: { ...opened, openShootDay: touched },
+    shootDay: touched.date,
+    shootDayIndex: touched.index,
+  };
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+/**
+ * Gap since the open day's last take past which logging a NEW take should
+ * prompt "forgotten wrap?" rather than silently reusing today's numbers.
+ * Named so the prompt copy and this threshold can never drift apart.
+ */
+export const FORGOTTEN_WRAP_GAP_MS = 6 * HOUR_MS;
+
+/**
+ * Does it look like the operator forgot to press WRAP DAY? Pure yes/no — the
+ * caller (RollingScreen) decides what to do with the answer and NEVER resets
+ * anything off this alone. A day with no take logged yet has nothing to be
+ * "late" against, so a project's very first take never fires this.
+ */
+export function shouldPromptForgottenWrap(
+  project: Project,
+  now: number,
+  gapMs: number = FORGOTTEN_WRAP_GAP_MS,
+): boolean {
+  const last = project.openShootDay?.lastTakeAt;
+  return last !== undefined && now - last > gapMs;
+}
+
+/**
+ * What a fresh day's counter starts from: the last explicitly configured
+ * start, or 1 — "every day restarts at C0001" is the on-set convention this
+ * whole feature automates, and a project can override it via the counter
+ * screen (see ClipCounterSection/SoundSection in ProjectScreen.tsx).
+ */
+function resetNumber(configuredStart: number | undefined): number {
+  return configuredStart ?? 1;
+}
+
+/**
+ * WRAP DAY: stamp the wrap time on the day that just closed, reset every
+ * counter (camera units, sound, single-cam) back to its configured start, and
+ * open the next day. Returns the WHOLE next project — the caller persists it
+ * with one `updateProject`, same as every other atomic project mutation here.
+ * The reset happens immediately in the object this returns, so the very next
+ * read sees C0001 waiting.
+ *
+ * Only ever called from the operator's own tap: WRAP DAY itself, or their
+ * "New day" choice on the forgotten-wrap prompt. Never on a timer.
+ */
+export function wrapShootDay(project: Project, now: number): { project: Project } {
+  const opened = openShootDayIfNeeded(project, now);
+  const wrappedDay: ShootDay = { ...opened.openShootDay!, wrappedAt: now };
+
+  const undo: WrapUndoSnapshot = {
+    previousDay: wrappedDay,
+    ...(opened.cameras && opened.cameras.length > 0
+      ? {
+          cameras: Object.fromEntries(
+            opened.cameras.map((u) => [u.letter, u.nextClipNumber]),
+          ) as Partial<Record<CameraUnitLetter, number>>,
+        }
+      : { nextClipNumber: opened.nextClipNumber }),
+    ...(opened.sound ? { soundNextFileNumber: opened.sound.nextFileNumber } : {}),
+  };
+
+  const next: Project = {
+    ...opened,
+    ...(opened.cameras && opened.cameras.length > 0
+      ? { cameras: opened.cameras.map((u) => ({ ...u, nextClipNumber: resetNumber(u.clipStart) })) }
+      : { nextClipNumber: resetNumber(opened.clipStart) }),
+    ...(opened.sound ? { sound: { ...opened.sound, nextFileNumber: resetNumber(opened.sound.fileStart) } } : {}),
+    openShootDay: { index: wrappedDay.index + 1, date: shootDayLabel(now) },
+    pendingWrapUndo: undo,
+    updatedAt: now,
+  };
+  return { project: next };
+}
+
+export type WrapUndoResult = { ok: true; project: Project } | { ok: false; reason: string };
+
+/**
+ * Undo the most recent WRAP DAY. Refuses — with a reason to show — once a
+ * take has been logged against the new day's counters: by then the numbers
+ * mean something, and un-writing them would make Clapper disagree with a clip
+ * a camera already wrote. Otherwise restores the exact previous counters and
+ * reopens the day that was closed, byte-for-byte.
+ */
+export function undoWrapShootDay(project: Project, now: number): WrapUndoResult {
+  const pending = project.pendingWrapUndo;
+  if (!pending) return { ok: false, reason: 'Nothing to undo.' };
+  if (project.openShootDay?.firstTakeAt !== undefined) {
+    return {
+      ok: false,
+      reason: 'A take has already been logged on the new day, so its counters are already real.',
+    };
+  }
+
+  // Reopen the closed day exactly as it was BEFORE the wrap — dropping
+  // `wrappedAt` via destructure, not by writing it as an explicit undefined
+  // (that would leave the key present-but-empty on a freshly built object,
+  // the same trap reassignTakeTo's `shotId` strip avoids above).
+  const { wrappedAt: _wrappedAt, ...reopenedDay } = pending.previousDay;
+
+  const restored: Project = {
+    ...project,
+    // Both halves matter: no snapshot means nothing to restore, and an ABSENT
+    // `project.cameras` means the operator dropped back to single-cam between
+    // the wrap and the undo. Restoring into `[]` there would state "multi-cam
+    // with no units" on a project that no longer has any — a statement nobody
+    // made (see the `units: []` note in buildTakeClips).
+    ...(pending.cameras && project.cameras
+      ? {
+          cameras: project.cameras.map((u) =>
+            pending.cameras![u.letter] !== undefined ? { ...u, nextClipNumber: pending.cameras![u.letter]! } : u,
+          ),
+        }
+      : {}),
+    ...(pending.nextClipNumber !== undefined ? { nextClipNumber: pending.nextClipNumber } : {}),
+    ...(project.sound && pending.soundNextFileNumber !== undefined
+      ? { sound: { ...project.sound, nextFileNumber: pending.soundNextFileNumber } }
+      : {}),
+    openShootDay: reopenedDay,
+    // Clearing a field through the update-patch merge (`{...existing,
+    // ...patch}` in idb.ts/local.ts) needs an EXPLICIT undefined here — the
+    // same convention ClipCounterSection/SoundSection already rely on to drop
+    // `cameras`/`sound` back out on the very same Project type. Omitting the
+    // key would leave the stale snapshot sitting in storage forever.
+    pendingWrapUndo: undefined,
+    updatedAt: now,
+  };
+  return { ok: true, project: restored };
 }

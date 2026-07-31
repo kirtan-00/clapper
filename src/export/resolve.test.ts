@@ -1,0 +1,172 @@
+// Same shoot-day asset-collision fix as fcpxml.test.ts, for the FCPXML
+// (Resolve) exporter: every shoot day restarts numbering at C0001, so the
+// (clipName, unit) key an <asset> used to be registered under alone is not
+// stable across days, and its `src` path is what Resolve actually relinks on.
+
+import { describe, expect, it } from 'vitest';
+import { toResolveXml } from './resolve';
+import type { CameraUnit, Project, ProjectBundle, Slate, Take } from '../types';
+
+function baseProject(overrides: Partial<Project> = {}): Project {
+  return {
+    id: 'p1',
+    name: 'Bhoot',
+    fps: 24,
+    clipPrefix: 'C',
+    nextClipNumber: 1,
+    clipPadding: 4,
+    clipExt: '.MP4',
+    tags: [],
+    createdAt: 0,
+    updatedAt: 0,
+    ...overrides,
+  };
+}
+
+function slate(id: string, order: number): Slate {
+  return { id, projectId: 'p1', name: `Scene ${id}`, order, createdAt: 0, updatedAt: 0 };
+}
+
+function take(id: string, slateId: string, number: number, clipName: string, shootDay?: string): Take {
+  return {
+    id,
+    slateId,
+    projectId: 'p1',
+    number,
+    clipName,
+    status: 'good',
+    startedAt: 0,
+    durationMs: 1000,
+    ...(shootDay !== undefined ? { shootDay } : {}),
+    createdAt: 0,
+    updatedAt: 0,
+  };
+}
+
+async function xmlOf(bundle: ProjectBundle): Promise<string> {
+  return toResolveXml(bundle).text();
+}
+
+function assetSrcs(xml: string): string[] {
+  return [...xml.matchAll(/src="file:\/\/\/([^"]+)"/g)].map((m) => m[1]);
+}
+
+describe('resolve.ts single-cam — shoot-day keeps same-numbered clips from different days apart', () => {
+  it('two takes on different days with the same clip name get DISTINCT asset src paths', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject(),
+      slates: [slate('s1', 0), slate('s2', 1)],
+      takes: [
+        take('t1', 's1', 1, 'C0001', '2026-01-01'),
+        take('t2', 's2', 1, 'C0001', '2026-01-05'),
+      ],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    const srcs = assetSrcs(xml);
+    expect(new Set(srcs).size).toBe(2); // this is the bug: it used to be 1
+    expect(srcs).toContain('A_20260101/C0001.MP4');
+    expect(srcs).toContain('A_20260105/C0001.MP4');
+    expect((xml.match(/<asset id=/g) ?? []).length).toBe(2);
+  });
+
+  it('a legacy take with no shootDay gets the plain filename, no folder at all — byte-identical to before', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject(),
+      slates: [slate('s1', 0)],
+      takes: [take('t1', 's1', 1, 'C0001')],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    expect(assetSrcs(xml)).toEqual(['C0001.MP4']);
+  });
+
+  it('two legacy takes (no shootDay) with the same clip name still collapse into ONE asset — the old behaviour, unchanged', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject(),
+      slates: [slate('s1', 0), slate('s2', 1)],
+      takes: [take('t1', 's1', 1, 'C0001'), take('t2', 's2', 1, 'C0001')],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    expect((xml.match(/<asset id=/g) ?? []).length).toBe(1);
+  });
+});
+
+describe('resolve.ts multi-cam — the day folds into the per-unit path segment', () => {
+  function multiProject(): Project {
+    const unit = (letter: 'A' | 'B'): CameraUnit => ({
+      letter,
+      clipPrefix: 'C',
+      nextClipNumber: 1,
+      clipPadding: 4,
+      clipExt: '.MP4',
+    });
+    return baseProject({ cameras: [unit('A'), unit('B')] });
+  }
+
+  it('the SAME unit on two different days with the same clip name gets DISTINCT src paths', async () => {
+    const bundle: ProjectBundle = {
+      project: multiProject(),
+      slates: [slate('s1', 0), slate('s2', 1)],
+      takes: [
+        { ...take('t1', 's1', 1, 'C0001', '2026-01-01'), clips: [{ unit: 'A', clipName: 'C0001' }] },
+        { ...take('t2', 's2', 1, 'C0001', '2026-01-05'), clips: [{ unit: 'A', clipName: 'C0001' }] },
+      ],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    const srcs = assetSrcs(xml);
+    expect(new Set(srcs).size).toBe(2);
+    expect(srcs).toContain('A_20260101/C0001.MP4');
+    expect(srcs).toContain('A_20260105/C0001.MP4');
+  });
+
+  it('a legacy multi-cam take keeps the plain per-unit-letter folder, exactly as before', async () => {
+    const bundle: ProjectBundle = {
+      project: multiProject(),
+      slates: [slate('s1', 0)],
+      takes: [{ ...take('t1', 's1', 1, 'C0001'), clips: [{ unit: 'A', clipName: 'C0001' }] }],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    expect(assetSrcs(xml)).toEqual(['A/C0001.MP4']);
+  });
+});
+
+describe('resolve.ts sound — the recorder file collides across days the same way picture cards do', () => {
+  function projectWithSound(): Project {
+    return baseProject({
+      sound: { filePrefix: 'SND_', nextFileNumber: 1, filePadding: 4, fileExt: '.WAV' },
+    });
+  }
+
+  it('two takes on different days recording the same sound file name get DISTINCT src paths', async () => {
+    const bundle: ProjectBundle = {
+      project: projectWithSound(),
+      slates: [slate('s1', 0), slate('s2', 1)],
+      takes: [
+        { ...take('t1', 's1', 1, 'C0001', '2026-01-01'), sound: { fileName: 'SND_0001' } },
+        { ...take('t2', 's2', 1, 'C0002', '2026-01-05'), sound: { fileName: 'SND_0001' } },
+      ],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    const srcs = assetSrcs(xml).filter((s) => s.includes('SND'));
+    expect(new Set(srcs).size).toBe(2);
+    expect(srcs).toContain('SND_20260101/SND_0001.WAV');
+    expect(srcs).toContain('SND_20260105/SND_0001.WAV');
+  });
+
+  it('a legacy take recording sound keeps the plain "SND/" folder, exactly as before', async () => {
+    const bundle: ProjectBundle = {
+      project: projectWithSound(),
+      slates: [slate('s1', 0)],
+      takes: [{ ...take('t1', 's1', 1, 'C0001'), sound: { fileName: 'SND_0001' } }],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    const srcs = assetSrcs(xml).filter((s) => s.includes('SND'));
+    expect(srcs).toEqual(['SND/SND_0001.WAV']);
+  });
+});

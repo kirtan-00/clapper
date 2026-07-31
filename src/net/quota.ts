@@ -9,6 +9,19 @@ import { supabase } from './supabase';
  *  client value is display-only and never sent to the edge. */
 export const FREE_LIMIT = 5;
 
+/**
+ * What someone with NO account gets of the XML editor handoff: 3 exports,
+ * total, across Premiere AND Resolve together (they share one server counter).
+ * Signed-in accounts are currently uncapped, so this number is only ever shown
+ * to a signed-out user.
+ *
+ * MUST match ANON_LIMITS.premiere in supabase/functions/export-gate/index.ts,
+ * which is the only thing that actually enforces it. This copy exists purely
+ * so the UI counts down truthfully — if the two ever drift, the server wins
+ * and the user was shown a number that lied to them.
+ */
+export const ANON_LIMIT_XML = 3;
+
 export interface QuotaCounter {
   used: number;
   left: number;
@@ -26,8 +39,8 @@ interface UsageRow {
   csv_uses: number;
 }
 
-function counter(used: number): QuotaCounter {
-  return { used, left: Math.max(0, FREE_LIMIT - used) };
+function counter(used: number, limit: number = FREE_LIMIT): QuotaCounter {
+  return { used, left: Math.max(0, limit - used) };
 }
 
 /**

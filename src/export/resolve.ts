@@ -50,7 +50,14 @@ import { isMultiCam } from '../types';
 import { tc } from './timecode';
 // Shared with fcpxml.ts - these two used to carry byte-identical private copies
 // of the ordering helpers, so a fix to one silently missed the other.
-import { allTakesInStoryOrder, buildShotIndex, goodTakesInStoryOrder, shotCodeOf } from './order';
+import {
+  allTakesInStoryOrder,
+  buildShotIndex,
+  goodTakesInStoryOrder,
+  shootDayKey,
+  shootDaySuffix,
+  shotCodeOf,
+} from './order';
 
 const GAP_SECONDS = 3; // same breathing room as the Premiere (xmeml) export
 
@@ -141,15 +148,31 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     ext: string;
     unitLetter: CameraUnitLetter;
     durationFrames: number;
+    // The shoot day this card belongs to, when the take that first registered
+    // it had one - carried through so the resource block below can fold it
+    // into the asset's src path. Absent for a legacy take, same as the field
+    // it comes from.
+    shootDay?: string;
+    // The day INDEX alongside the date: two different shoot days can carry the
+    // SAME date string (a night shoot wrapped after midnight, then wrapped
+    // again that evening), so the date alone is not a day identity - see
+    // Take.shootDayIndex in types.ts.
+    shootDayIndex?: number;
   }
-  const assets = new Map<string, AssetEntry>(); // key: `${clipName}|${unit.letter}`
+  // key: `${clipName}|${unit.letter}|${shootDayKey(take)}`. Every shoot day
+  // restarts at C0001, so clipName+unit ALONE is not a stable identity across
+  // days - day 1's A/C0001 and day 5's A/C0001 would collapse into one
+  // <asset> (one `src`) without the day in the key, silently relinking the
+  // editor to the wrong physical file. A legacy take (no shootDay) keys
+  // exactly as this used to: one shared bucket, nothing changes.
+  const assets = new Map<string, AssetEntry>();
   let assetSeq = 0;
 
   for (const take of allTakesInStoryOrder(bundle)) {
     for (const unit of units) {
       const clipName = clipNameFor(take, unit, multi);
       if (!clipName) continue;
-      const key = `${clipName}|${unit.letter}`;
+      const key = `${clipName}|${unit.letter}|${shootDayKey(take)}`;
       if (!assets.has(key)) {
         // The asset's own registered duration is THAT unit's own recorded
         // roll length where we have it (a unit that joined late or cut early
@@ -163,6 +186,8 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
           ext: unit.clipExt ?? '',
           unitLetter: unit.letter,
           durationFrames,
+          ...(take.shootDay !== undefined ? { shootDay: take.shootDay } : {}),
+          ...(take.shootDayIndex !== undefined ? { shootDayIndex: take.shootDayIndex } : {}),
         });
       }
     }
@@ -183,21 +208,29 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     fileName: string;
     ext: string;
     durationFrames: number;
+    shootDay?: string;      // same day-carrying rationale as AssetEntry above
+    shootDayIndex?: number; // ditto - the date alone is not a day identity
   }
-  const soundAssets = new Map<string, SoundAssetEntry>(); // key: take.sound.fileName
+  // key: `${fileName}|${shootDayKey(take)}` - same collision as the picture
+  // assets above: SND_0001 resets every shoot day, so the bare file name
+  // alone is not a stable identity across days.
+  const soundAssets = new Map<string, SoundAssetEntry>();
   let soundAssetSeq = 0;
 
   if (project.sound) {
     for (const take of allTakesInStoryOrder(bundle)) {
       if (!take.sound) continue;
-      const key = take.sound.fileName;
+      const fileName = take.sound.fileName;
+      const key = `${fileName}|${shootDayKey(take)}`;
       if (soundAssets.has(key)) continue;
       const durationFrames = Math.max(1, msToFrames(take.sound.durationMs ?? take.durationMs, fps));
       soundAssets.set(key, {
         id: `s${(soundAssetSeq += 1)}`,
-        fileName: key,
+        fileName,
         ext: project.sound.fileExt ?? '',
         durationFrames,
+        ...(take.shootDay !== undefined ? { shootDay: take.shootDay } : {}),
+          ...(take.shootDayIndex !== undefined ? { shootDayIndex: take.shootDayIndex } : {}),
       });
     }
   }
@@ -284,7 +317,7 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     }
 
     const anchorClip = clipNameFor(take, anchor, multi)!;
-    const anchorId = assets.get(`${anchorClip}|${anchor.letter}`)!.id;
+    const anchorId = assets.get(`${anchorClip}|${anchor.letter}|${shootDayKey(take)}`)!.id;
     const anchorClipInfo = clipOf(take, anchor);
     const anchorDurationFrames = Math.max(
       1,
@@ -306,7 +339,7 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
       const cn = multi ? clip?.clipName : clipNameFor(take, u, multi);
       if (!cn) continue;
       lane += 1;
-      const id = assets.get(`${cn}|${u.letter}`)!.id;
+      const id = assets.get(`${cn}|${u.letter}|${shootDayKey(take)}`)!.id;
       const offsetMs = (multi ? clip?.startOffsetMs ?? 0 : 0) - anchorOffsetMs;
       const durationFrames = Math.max(1, msToFrames((multi ? clip?.durationMs : undefined) ?? take.durationMs, fps));
       laneChildren.push(
@@ -318,7 +351,7 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     // started off-anchor would be - relative to the anchor's own start, not
     // the sequence start.
     if (project.sound && take.sound) {
-      const soundAsset = soundAssets.get(take.sound.fileName);
+      const soundAsset = soundAssets.get(`${take.sound.fileName}|${shootDayKey(take)}`);
       if (soundAsset) {
         lane += 1;
         const soundOffsetMs = (take.sound.startOffsetMs ?? 0) - anchorOffsetMs;
@@ -365,9 +398,20 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     // would give two DIFFERENT physical clips the exact same src URL, which
     // risks Resolve (or the editor's own manual relink) treating them as one
     // asset. Nest multi-cam assets under a per-unit-letter path segment so
-    // every asset's src is unique; single-cam keeps the plain filename since
-    // there is only ever one card and nothing to disambiguate.
-    const srcPath = multi ? `${escapeXml(entry.unitLetter)}/${fileName}` : fileName;
+    // every asset's src is unique.
+    //
+    // The SAME clash happens across shoot days now that every day restarts at
+    // C0001 - day 1's A/C0001 and day 5's A/C0001 would otherwise share this
+    // exact path. Fold the day into the segment too, e.g. "A_20260731/", but
+    // ONLY when the take that registered this asset actually has one: a
+    // legacy take (no shootDay) gets exactly the path it always did - plain
+    // filename for single-cam, plain unit-letter folder for multi-cam.
+    const dateSuffix = shootDaySuffix(entry);
+    const srcPath = multi
+      ? `${escapeXml(entry.unitLetter)}${dateSuffix}/${fileName}`
+      : entry.shootDay
+        ? `A${dateSuffix}/${fileName}`
+        : fileName;
     resourceLines.push(
       `    <asset id="${entry.id}" name="${escapeXml(entry.clipName)}" start="0s" duration="${framesToRational(entry.durationFrames, fd)}" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" format="r1">
       <media-rep kind="original-media" src="file:///${srcPath}"/>
@@ -379,7 +423,10 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     // Sound files live under their own "SND/" path segment, same disambiguation
     // trick as the per-unit-letter nesting above - it also keeps a recorder
     // file that happens to share a name with a picture clip from colliding.
-    const srcPath = `SND/${fileName}`;
+    // Same day-fold as the picture assets: absent for a legacy take (no
+    // shootDay), so its path stays exactly "SND/...".
+    const dateSuffix = shootDaySuffix(entry);
+    const srcPath = `SND${dateSuffix}/${fileName}`;
     resourceLines.push(
       `    <asset id="${entry.id}" name="${escapeXml(entry.fileName)}" start="0s" duration="${framesToRational(entry.durationFrames, fd)}" hasVideo="0" hasAudio="1" audioSources="1" audioChannels="2" format="r1">
       <media-rep kind="original-media" src="file:///${srcPath}"/>

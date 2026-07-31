@@ -9,7 +9,7 @@
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import type { Fps, Moment, Project, ProjectBundle, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
-import { buildShotIndex, compareTakesInStoryOrder, shotCodeOf } from './order';
+import { buildShotIndex, compareTakesInStoryOrder, displayShootDay, shortDateLabel, shotCodeOf } from './order';
 
 const A4: [number, number] = [595.28, 841.89];
 const MARGIN = 54;
@@ -45,40 +45,54 @@ function layout(specs: [string, number, Align][]): Col[] {
   });
 }
 
-// TAKE | CLIP | MOMENT | TIME | CAMERA TC | WALL CLOCK  (sum = CONTENT_WIDTH)
+// TAKE | CLIP | MOMENT | TIME | CAMERA TC | DATE | WALL CLOCK  (sum = CONTENT_WIDTH)
 // The take band writes the roll length into TIME and the clock into WALL CLOCK,
 // so every value sits under its own heading. There is deliberately no separate
 // LENGTH column: it was never populated, and a take's length IS its time.
 // The SHOT is not a column here - it is the sub-heading above each group of
 // bands, because a shot owns many takes and repeating its code on every row
-// would be noise.  Widths unchanged: 40+52+189.28+56+96+54 = 487.28.
+// would be noise. DATE (40) is new, its width taken straight out of MOMENT
+// (189.28 -> 149.28) so the row still sums to CONTENT_WIDTH exactly:
+//   40 + 52 + 149.28 + 56 + 96 + 40 + 54 = 487.28.
+//
+// DATE SITS TO THE RIGHT OF TIME ON PURPOSE, not next to CLIP where it reads
+// more naturally. The take band's identity ("Take 1 - A C0001 - B B0001") is
+// drawn free-hand across the left and is truncated only at C_TIME.x, so it
+// RUNS THROUGH every column between CLIP and TIME. A DATE cell parked in that
+// stretch gets overprinted by it - two strings on the same baseline, glyphs
+// interleaved into "B3C000101". Anything added here must land at or after
+// TIME, or the band label's truncation width must shrink to meet it.
+// It also reads well: "31 Jul  14:08:49" next to WALL CLOCK is one datetime.
 const TAKE_COLS = layout([
   ['TAKE', 40, 'left'],
   ['CLIP', 52, 'left'],
-  ['MOMENT', 189.28, 'left'],
+  ['MOMENT', 149.28, 'left'],
   ['TIME', 56, 'right'],
   ['CAMERA TC', 96, 'right'],
+  ['DATE', 40, 'right'],
   ['WALL CLOCK', 54, 'right'],
 ]);
 // POSITIONAL destructure - the holes are TAKE and CLIP, which the band draws by
 // hand across the left rather than through cells. Reorder the list above and
 // this MUST be updated in lockstep or every value lands one column off.
-const [, , C_MOMENT, C_TIME, C_CAMTC, C_WALL] = TAKE_COLS;
+const [, , C_MOMENT, C_TIME, C_CAMTC, C_DATE, C_WALL] = TAKE_COLS;
 
-// SCENE | SHOT | TAKE | CLIP | TIME | LABEL  (GOLD summary)
+// SCENE | SHOT | TAKE | CLIP | DATE | TIME | LABEL  (GOLD summary)
 // SHOT (46) is new; its width comes straight out of LABEL (235.28 -> 189.28) so
-// the row still sums to CONTENT_WIDTH exactly:
-//   96 + 46 + 40 + 56 + 60 + 189.28 = 487.28.
+// the row still sums to CONTENT_WIDTH exactly. DATE (40) is new too, its width
+// taken straight out of LABEL again (189.28 -> 149.28):
+//   96 + 46 + 40 + 56 + 40 + 60 + 149.28 = 487.28.
 const GOLD_COLS = layout([
   ['SCENE', 96, 'left'],
   ['SHOT', 46, 'left'],
   ['TAKE', 40, 'left'],
   ['CLIP', 56, 'left'],
+  ['DATE', 40, 'left'],
   ['TIME', 60, 'right'],
-  ['LABEL', 189.28, 'left'],
+  ['LABEL', 149.28, 'left'],
 ]);
-// POSITIONAL destructure, six entries to match the six specs above.
-const [G_SCENE, G_SHOT, G_TAKE, G_CLIP, G_TIME, G_LABEL] = GOLD_COLS;
+// POSITIONAL destructure, seven entries to match the seven specs above.
+const [G_SCENE, G_SHOT, G_TAKE, G_CLIP, G_DATE, G_TIME, G_LABEL] = GOLD_COLS;
 
 /** Make text safe for WinAnsi encoding; swap em/en dashes for '-'. */
 function sanitize(text: string): string {
@@ -114,10 +128,16 @@ function safeCameraTc(base: string | undefined, ms: number, fps: Fps): string | 
   }
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 function formatDate(epochMs: number): string {
   const d = new Date(epochMs);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** "1 scene" / "2 scenes" - this sheet goes to a client, so it reads like English. */
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
 function momentTime(m: Moment): string {
@@ -278,7 +298,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   y -= 16;
   page.drawText(
     sanitize(
-      `${slates.length} scenes  -  ${goodTakes.length} good takes  -  ${discardedTakes.length} discarded  -  total roll ${tc.msToClock(totalRollMs)}`,
+      `${plural(slates.length, 'scene')}  -  ${plural(goodTakes.length, 'good take')}  -  ${discardedTakes.length} discarded  -  total roll ${tc.msToClock(totalRollMs)}`,
     ),
     { x: MARGIN, y, size: 9.5, font: helv, color: GRAY },
   );
@@ -335,6 +355,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
       cell(G_SHOT, shotCodeOf(take, shotIndex), base, { trunc: true });
       cell(G_TAKE, `Take ${take.number}`, base, { trunc: true });
       cell(G_CLIP, clipLabel(take, project), base, { trunc: true });
+      cell(G_DATE, shortDateLabel(displayShootDay(take)), base, { trunc: true });
       cell(G_TIME, momentTime(m), base, { size: 7.5 });
       cell(G_LABEL, m.label || '-', base, { trunc: true });
       y -= h;
@@ -422,6 +443,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
         font: bold,
         color: INK,
       });
+      cell(C_DATE, shortDateLabel(displayShootDay(take)), bandBase, { font: bold, size: 8.5 });
       cell(C_TIME, tc.msToClock(take.durationMs), bandBase, { font: bold, size: 8.5 });
       if (take.cameraTC) cell(C_CAMTC, take.cameraTC, bandBase, { font: bold, size: 8.5 });
       cell(C_WALL, wallClockTC(take.startedAt, fps), bandBase, { font: bold, size: 8.5 });
@@ -491,6 +513,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
         slateName.get(take.slateId) ?? '',
         shotCodeOf(take, shotIndex),
         `Take ${take.number}`,
+        shortDateLabel(displayShootDay(take)),
         clipLabel(take, project),
         tc.msToClock(take.durationMs),
       ].filter(Boolean);

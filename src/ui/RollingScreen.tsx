@@ -11,7 +11,14 @@ import type {
 } from '../types';
 import { hasSound, isMultiCam } from '../types';
 import { store } from '../store';
-import { clipUnits, formatClip, sortForDisplay, type TakeUnitRoll } from '../store/util';
+import {
+  clipUnits,
+  formatClip,
+  shouldPromptForgottenWrap,
+  sortForDisplay,
+  wrapShootDay,
+  type TakeUnitRoll,
+} from '../store/util';
 import { tc } from '../export/timecode';
 import { renderUnitClip, soundBadgeStyle, soundTextStyle, soundRollingStyle, SOUND_ACCENT } from './cameras';
 import { ClipNumberRows, TakeEditSheet } from './TakeEditSheet';
@@ -111,6 +118,28 @@ function renderSoundFile(s: SoundUnit): string {
   return formatClip(s.filePrefix, s.nextFileNumber, s.filePadding, s.fileSuffix);
 }
 
+/**
+ * The `.camslot__clip` classes for one clip/file name, stepping the type down
+ * as the name gets longer.
+ *
+ * WHY: at 3-4 cameras the strip is two-up, and a name like "A001_C0191" was
+ * being ellipsised to "A001_C0…" in its slot. That is the exact string the
+ * operator reads back to the loader, so its tail is the last thing that may be
+ * dropped - a smaller number is always better than a cut one. CSS cannot
+ * measure text, so the step is chosen here from the name's own length; the
+ * sizes it names live next to this comment's twin in styles.css, measured
+ * against the narrowest slot the layout produces (two-up on a 360px phone).
+ *
+ * The steps are inert at 1-2 cameras, where the row is full width and the big
+ * number always fits - see the `:not(:has(...))` override in styles.css.
+ */
+function clipFitClass(name: string): string {
+  if (name.length > 14) return ' camslot__clip--fit4';
+  if (name.length > 11) return ' camslot__clip--fit3';
+  if (name.length > 8) return ' camslot__clip--fit2';
+  return '';
+}
+
 // Sound accent + reusable .camslot/.camunit style overrides now live in
 // cameras.ts (imported above) - shared with TakeEditSheet, which needs the
 // same badge styling for the sound row in its own sheet.
@@ -193,6 +222,23 @@ export function RollingScreen(props: {
   const [flashes, setFlashes] = useState<Record<string, number>>({});
   const [clapKey, setClapKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  // Forgotten-wrap fallback: a take is ABOUT to be logged and the gap since
+  // the open day's last one looks like the operator forgot to press WRAP DAY.
+  // Holds the take that's waiting on the operator's New day / Same day
+  // answer - createTakeChecked() below never resets anything off the clock
+  // alone, it only ever asks.
+  //
+  // While this is set, a take that was already CUT has not been written yet,
+  // so ROLL and CUT are both gated on it (see doRoll/doCut/bigRollMulti/
+  // bigCutMulti). The sheet's scrim stops taps, but VOICE does not go through
+  // the scrim - a spoken "roll camera" would open a second take on top of the
+  // held one, and a spoken "cut" would replace this prompt outright, dropping
+  // the held take and every moment tapped during it on the floor.
+  const [wrapPrompt, setWrapPrompt] = useState<{
+    input: Parameters<typeof store.createTake>[0];
+    gapHours: number; // for the prompt copy only ("Last take was 9 hours ago...")
+    resolve: (take: Take) => void;
+  } | null>(null);
 
   // voice
   const [listener] = useState(() => createSpeechListener());
@@ -276,7 +322,7 @@ export function RollingScreen(props: {
   /** The big ROLL: starts (or joins) every configured unit not already rolling,
    * AND the Sound unit if it has not rolled yet this take. */
   function bigRollMulti() {
-    if (postCut) return;
+    if (postCut || wrapPrompt) return;
     haptics.thump();
     track('roll');
     const now = Date.now();
@@ -310,6 +356,43 @@ export function RollingScreen(props: {
     };
   }
 
+  /**
+   * The forgotten-wrap fallback. A take is about to be logged: if the gap
+   * since the open day's last one looks like the operator forgot to press
+   * WRAP DAY, this NEVER resets anything off the clock alone - it holds the
+   * take and waits for the operator's own New day / Same day answer (the
+   * <WrapPromptSheet/> below), then either wraps first or just logs it,
+   * exactly as they chose. When the gap is unremarkable this is a no-op
+   * pass-through, same cost as the plain store.createTake call it replaces.
+   */
+  async function createTakeChecked(input: Parameters<typeof store.createTake>[0]): Promise<Take> {
+    const now = Date.now();
+    if (shouldPromptForgottenWrap(project, now)) {
+      const last = project.openShootDay?.lastTakeAt ?? now;
+      const gapHours = Math.max(1, Math.round((now - last) / (60 * 60 * 1000)));
+      return new Promise<Take>((resolve) => setWrapPrompt({ input, gapHours, resolve }));
+    }
+    return store.createTake(input);
+  }
+
+  /** The operator's answer to the forgotten-wrap prompt. "New day" wraps
+   * (resetting every counter, exactly like the project screen's WRAP DAY
+   * button) BEFORE logging the held take, so it's the first thing filed
+   * under the fresh day; "Same day" just logs it as-is. Either way the take
+   * that was waiting gets created and handed back to whichever call site
+   * asked for it. */
+  async function resolveWrapPrompt(newDay: boolean) {
+    if (!wrapPrompt) return;
+    const { input, resolve } = wrapPrompt;
+    setWrapPrompt(null);
+    if (newDay) {
+      const { project: wrapped } = wrapShootDay(project, Date.now());
+      const updated = await store.updateProject(project.id, wrapped);
+      setProject(updated);
+    }
+    resolve(await store.createTake(input));
+  }
+
   /** Every rolling unit accounted for: write the take and reset for the next one. */
   async function closeMultiTake(
     units: TakeUnitRoll[],
@@ -325,7 +408,7 @@ export function RollingScreen(props: {
     setMarkInMs(null);
     setRangeLabelTarget(null);
 
-    const take = await store.createTake({
+    const take = await createTakeChecked({
       slateId: slate.id,
       // Absent for a scene with no breakdown: the take then belongs to the
       // scene and numbers per scene, exactly as it always has.
@@ -426,7 +509,7 @@ export function RollingScreen(props: {
   /** The big CUT: stops every unit still rolling (cameras and sound), always
    * closing the take - unless, single-cam, no camera ever rolled at all. */
   async function bigCutMulti() {
-    if (!anyRolling) return;
+    if (!anyRolling || wrapPrompt) return;
     haptics.doubleThump();
     track('cut');
     bumpClap();
@@ -503,7 +586,7 @@ export function RollingScreen(props: {
   }
 
   function doRoll() {
-    if (useEngine || timer.rolling || postCut) return; // multi-cam/sound uses bigRollMulti/soloRoll instead
+    if (useEngine || timer.rolling || postCut || wrapPrompt) return; // multi-cam/sound uses bigRollMulti/soloRoll instead
     haptics.thump();
     track('roll'); // fire-and-forget; never blocks or throws
     setBuffered([]);
@@ -515,7 +598,7 @@ export function RollingScreen(props: {
   }
 
   async function doCut() {
-    if (useEngine || !timer.rolling) return; // multi-cam/sound uses bigCutMulti/soloCut instead
+    if (useEngine || !timer.rolling || wrapPrompt) return; // multi-cam/sound uses bigCutMulti/soloCut instead
     haptics.doubleThump();
     track('cut'); // fire-and-forget; never blocks or throws
     bumpClap();
@@ -527,7 +610,7 @@ export function RollingScreen(props: {
     setMarkInMs(null);
     setRangeLabelTarget(null);
 
-    const take = await store.createTake({
+    const take = await createTakeChecked({
       slateId: slate.id,
       // Absent for a scene with no breakdown: the take then belongs to the
       // scene and numbers per scene, exactly as it always has.
@@ -898,7 +981,7 @@ export function RollingScreen(props: {
                   >
                     <span className="camslot__badge">{u.letter}</span>
                     <span className="camslot__body">
-                      <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+                      <span className={`camslot__clip tnum${clipFitClass(renderUnitClip(u))}`}>{renderUnitClip(u)}</span>
                       {u.operator && <span className="camslot__operator">{u.operator}</span>}
                     </span>
                     <span className="camslot__elapsed tnum">
@@ -919,7 +1002,7 @@ export function RollingScreen(props: {
                   >
                     <span className="camslot__badge">{u.letter}</span>
                     <span className="camslot__body">
-                      <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+                      <span className={`camslot__clip tnum${clipFitClass(renderUnitClip(u))}`}>{renderUnitClip(u)}</span>
                       {u.operator && <span className="camslot__operator">{u.operator}</span>}
                     </span>
                     <span className="camslot__join">JOIN</span>
@@ -938,7 +1021,7 @@ export function RollingScreen(props: {
                   >
                     <span className="camslot__badge">{u.letter}</span>
                     <span className="camslot__body">
-                      <span className="camslot__clip tnum">{renderUnitClip(u)}</span>
+                      <span className={`camslot__clip tnum${clipFitClass(renderUnitClip(u))}`}>{renderUnitClip(u)}</span>
                       {u.operator && <span className="camslot__operator">{u.operator}</span>}
                     </span>
                   </button>
@@ -999,7 +1082,7 @@ export function RollingScreen(props: {
               >
                 <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
                 <span className="camslot__body">
-                  <span className="camslot__clip tnum" style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                  <span className={`camslot__clip tnum${clipFitClass(renderSoundFile(soundUnit))}`} style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                 </span>
                 <span className="camslot__elapsed tnum">
@@ -1017,7 +1100,7 @@ export function RollingScreen(props: {
               >
                 <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
                 <span className="camslot__body">
-                  <span className="camslot__clip tnum" style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                  <span className={`camslot__clip tnum${clipFitClass(renderSoundFile(soundUnit))}`} style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                 </span>
                 <span className="camslot__join" style={soundTextStyle}>JOIN</span>
@@ -1034,7 +1117,7 @@ export function RollingScreen(props: {
                 >
                   <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
                   <span className="camslot__body">
-                    <span className="camslot__clip tnum" style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                    <span className={`camslot__clip tnum${clipFitClass(renderSoundFile(soundUnit))}`} style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
                     {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                   </span>
                 </button>
@@ -1328,6 +1411,31 @@ export function RollingScreen(props: {
             }}
           />
         ))}
+
+      {wrapPrompt && (
+        <Sheet
+          title="New shoot day?"
+          lede={`Last take was ${wrapPrompt.gapHours} hour${wrapPrompt.gapHours === 1 ? '' : 's'} ago. Counters go back to ${
+            project.cameras && project.cameras.length > 0
+              ? formatClip(
+                  project.cameras[0].clipPrefix,
+                  project.cameras[0].clipStart ?? 1,
+                  project.cameras[0].clipPadding,
+                  project.cameras[0].clipSuffix,
+                )
+              : formatClip(project.clipPrefix, project.clipStart ?? 1, project.clipPadding, project.clipSuffix)
+          } if this is a new day.`}
+        >
+          <div className="sheet__actions">
+            <button type="button" className="btn btn--ghost" onClick={() => void resolveWrapPrompt(false)}>
+              Same day
+            </button>
+            <button type="button" className="btn btn--go" onClick={() => void resolveWrapPrompt(true)}>
+              New day
+            </button>
+          </div>
+        </Sheet>
+      )}
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>

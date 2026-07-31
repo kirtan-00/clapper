@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { Fps, Project } from '../types';
 import { store } from '../store';
+import { restoreBackup } from '../store/restore';
+import { parseBackupText } from '../export';
 import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
 import { Sheet, Confirm, Rail } from './common';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
@@ -11,7 +13,7 @@ import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
 import { useSession, signInWithGoogle, signOut } from '../net/auth';
-import { getUsage, FREE_LIMIT, type Usage } from '../net/quota';
+import { getUsage, FREE_LIMIT, ANON_LIMIT_XML, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
@@ -61,6 +63,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   const [pendingPack, setPendingPack] = useState<ScriptPack | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [deleting, setDeleting] = useState<Project | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   async function refresh() {
     const projects = await store.listProjects();
@@ -170,6 +173,17 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         <span aria-hidden="true">≡</span> Shotlist · from a PDF
       </button>
 
+      <button
+        type="button"
+        className="newproject newproject--ghost"
+        onClick={() => {
+          haptics.tap();
+          setRestoring(true);
+        }}
+      >
+        <span aria-hidden="true">↺</span> Restore from backup
+      </button>
+
       <div className="newproject-row">
         <button
           type="button"
@@ -233,6 +247,16 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
       )}
 
       {showHelp && <HowToScreen onClose={() => setShowHelp(false)} />}
+
+      {restoring && (
+        <RestoreSheet
+          onClose={() => setRestoring(false)}
+          onRestored={(project) => {
+            setRestoring(false);
+            props.onOpen(project);
+          }}
+        />
+      )}
 
       {deleting && (
         <Confirm
@@ -305,8 +329,9 @@ function AccountRow() {
         <span aria-hidden="true">→</span> {busy ? 'Opening Google…' : 'Sign in with Google'}
       </button>
       <p className="camnote" style={{ textAlign: 'center', marginTop: 8, marginBottom: 0 }}>
-        Sign in to unlock shotlist import and Premiere/CSV export. Logging takes and PDF export are
-        always free. No account needed.
+        Logging takes, PDF export and backup are always free, no account needed. Premiere and
+        Resolve XML run {ANON_LIMIT_XML} times without one — sign in for unlimited, plus shotlist
+        import and CSV.
       </p>
     </>
   );
@@ -825,6 +850,61 @@ function CreateProjectSheet(props: {
         </button>
         <button type="button" className="btn btn--go" disabled={!canCreate} onClick={create}>
           {props.pack ? 'Start shoot' : 'Create project'}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+// Restore: pick a Backup file (see export/backup.ts) and stand it back up as
+// a brand new project. This is the ONLY place a project can enter the app
+// without a store.createProject() call directly in view — it goes through
+// store/restore.ts instead, because it has to remap ids across four tables,
+// not just fill in the create form. Deliberately reachable with no account
+// and no network — restoring is exactly what you need when everything else
+// has already gone wrong.
+function RestoreSheet(props: { onClose: () => void; onRestored: (project: Project) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onPickFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be picked again after an error
+    if (!file) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const text = await file.text();
+      const result = parseBackupText(text);
+      if (!result.ok) {
+        setError(result.reason);
+        return;
+      }
+      const project = await restoreBackup(result.envelope.bundle);
+      track('project_restored', { takes: result.envelope.bundle.takes.length });
+      haptics.tap();
+      props.onRestored(project);
+    } catch {
+      setError('Could not restore that backup. Nothing on this phone was changed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Sheet title="Restore from backup" onClose={props.onClose}>
+      <p className="camnote" style={{ marginTop: 0 }}>
+        Pick a Backup file (.json) made by this app's Backup button. It comes back as a brand new
+        project — nothing already on this phone is touched.
+      </p>
+      <label className={`btn btn--go btn--full sp-upload${busy ? ' btn--disabled' : ''}`}>
+        {busy ? 'Restoring…' : 'Choose backup file'}
+        <input type="file" accept="application/json,.json" hidden disabled={busy} onChange={onPickFile} />
+      </label>
+      {error && <span className="tnum tnum--bad sp-error">{error}</span>}
+      <div className="sheet__actions">
+        <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={busy}>
+          Close
         </button>
       </div>
     </Sheet>

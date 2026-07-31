@@ -1261,6 +1261,23 @@ select.field {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* All-or-nothing, never a sliver. Flexbox will happily leave this region 10px
+     tall, which clipped the top 10px off a 48px clock: half a glyph under the
+     clapper stripe, unreadable and looking broken. Size containment lets the
+     region ask its own height and blank itself when it can't show a whole
+     readout (see @container below). Safe because `flex: 1` gives this a 0
+     basis - its height comes from the flex algorithm, never its content - so
+     containing the size changes nothing about how tall it gets. A browser
+     without container queries simply keeps today's behaviour. */
+  container-type: size;
+  container-name: stage;
+}
+/* Below one readout line + its gap + the hint, there is nothing worth showing:
+   blank the region rather than clip it. Nothing is lost - the REC banner up top
+   carries the take clock, and the per-camera strip below carries which cameras
+   are rolling, which is exactly what the hidden hint said. */
+@container stage (max-height: 88px) {
+  .roll__stage > * { display: none; }
 }
 .readout {
   font-family: var(--font-mono);
@@ -1942,6 +1959,34 @@ select.field {
    set-lighting and a red/green-blind operator. */
 .camstack:has(.camslot:nth-child(3)) .camslot--rolling .camslot__elapsed { font-size: 0; gap: 0; }
 .camstack:has(.camslot:nth-child(3)) .camslot--rolling .camslot__operator { display: none; }
+
+/* Three or four cameras sit two-up, so every pixel of slot chrome is a pixel
+   stolen from the clip number. Tighten the padding, the gaps and the pencil at
+   this count only - 1-2 cams have a full-width row and need none of this. */
+.camstack:has(.camslot:nth-child(3)) .camslot { gap: 7px; padding: 8px; }
+.camstack:has(.camslot:nth-child(3)) .camslot--edit { padding: 6px 4px 6px 8px; }
+.camstack:has(.camslot:nth-child(3)) .camslot__main { gap: 7px; }
+.camstack:has(.camslot:nth-child(3)) .camslot__penbtn { width: 30px; height: 30px; }
+
+/* A long clip name gets a SMALLER number, never an ellipsis. "A001_C0191" cut
+   to "A001_C0…" is the one string an operator reads back to the loader, and
+   losing its tail is worse than losing a point of type size. Stepped, not a
+   smooth scale, so slots in the same strip stay visually even. The steps are
+   sized against the narrowest slot this layout produces (two-up on a 360px
+   phone), so a name that hits a step FITS that step rather than merely getting
+   closer. Set from the name's own length in RollingScreen - see clipFitClass
+   there - because CSS cannot measure text. */
+.camslot__clip--fit2 { font-size: 0.82rem; letter-spacing: -0.01em; }
+.camslot__clip--fit3 { font-size: 0.68rem; letter-spacing: -0.02em; }
+.camslot__clip--fit4 { font-size: 0.58rem; letter-spacing: -0.02em; }
+/* 1-2 cams have room for the big number at any realistic length, so the steps
+   only ever apply to the cramped two-up strip. */
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip--fit2,
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip--fit3,
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip--fit4 {
+  font-size: 1.28rem;
+  letter-spacing: normal;
+}
 
 /* A shot is running but this unit has not joined yet - dim and dashed, tap
    to roll it in. */

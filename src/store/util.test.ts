@@ -5,7 +5,18 @@
 // local.ts, which are just transaction wrappers around this logic.
 
 import { describe, expect, it } from 'vitest';
-import { buildTakeClips, nextTakeNumber, reassignTakeTo, rebaseClipNumbers, reclaimClipNumbers } from './util';
+import {
+  buildTakeClips,
+  FORGOTTEN_WRAP_GAP_MS,
+  nextTakeNumber,
+  reassignTakeTo,
+  rebaseClipNumbers,
+  reclaimClipNumbers,
+  shootDayLabel,
+  shouldPromptForgottenWrap,
+  undoWrapShootDay,
+  wrapShootDay,
+} from './util';
 import type { TakeInput } from './util';
 import type { CameraUnit, CameraUnitLetter, Project, Take, TakeClip } from '../types';
 
@@ -326,5 +337,255 @@ describe('reclaimClipNumbers — DELETE only reclaims the cameras that actually 
     const doomed = multiTake('t1', 2, 's1', [['A', 7], ['B', 12], ['C', 3]], 100);
     const result = reclaimClipNumbers(project, [earlier, doomed], doomed.id, 999);
     expect(result.takes.find((t) => t.id === earlier.id)).toBeUndefined();
+  });
+});
+
+describe('wrapShootDay / undoWrapShootDay / shouldPromptForgottenWrap — the human WRAP signal', () => {
+  // A single-cam project mid-shoot: counters have moved well past their
+  // configured starts, and both are DIFFERENT from 1 — a test that only ever
+  // checked "resets to 1" could pass by accident even if it silently ignored
+  // clipStart/fileStart.
+  function singleCamProject(): Project {
+    return {
+      id: 'p1',
+      name: 'Bhoot',
+      fps: 24,
+      clipPrefix: 'C',
+      nextClipNumber: 42,
+      clipPadding: 4,
+      clipStart: 101,
+      sound: { filePrefix: 'SND_', nextFileNumber: 18, filePadding: 4, fileStart: 6 },
+      tags: [],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+  }
+
+  it('resets the single-cam counter AND the sound counter to their configured starts, immediately', () => {
+    const project = singleCamProject();
+    const { project: wrapped } = wrapShootDay(project, 1000);
+    expect(wrapped.nextClipNumber).toBe(101);
+    expect(wrapped.sound?.nextFileNumber).toBe(6);
+    // The reset is IMMEDIATE in the object handed back — nothing async, no
+    // second write needed before the crew would see C0001 (or here, C0101).
+    expect(wrapped).not.toBe(project);
+  });
+
+  it('opens the next day right away and stamps the wrap time on the one that just closed', () => {
+    const project = { ...singleCamProject(), openShootDay: { index: 3, date: '2026-07-30' } };
+    const { project: wrapped } = wrapShootDay(project, 5000);
+    expect(wrapped.openShootDay?.index).toBe(4);
+    expect(wrapped.openShootDay?.wrappedAt).toBeUndefined(); // the NEW day is still open
+    expect(wrapped.pendingWrapUndo?.previousDay).toEqual({ index: 3, date: '2026-07-30', wrappedAt: 5000 });
+  });
+
+  it('resets a multi-cam project to each unit\'s OWN configured start, not a shared default', () => {
+    const project = threeCam(); // A next=7 start(absent->1), B next=12, C next=3
+    project.cameras = project.cameras!.map((u, i) => ({ ...u, clipStart: [101, 201, 301][i] }));
+    const { project: wrapped } = wrapShootDay(project, 1000);
+    expect(wrapped.cameras!.map((u) => u.nextClipNumber)).toEqual([101, 201, 301]);
+  });
+
+  it('a unit with no configured clipStart resets to 1 — the on-set convention this feature automates', () => {
+    const project = threeCam(); // no clipStart on any unit
+    const { project: wrapped } = wrapShootDay(project, 1000);
+    expect(wrapped.cameras!.map((u) => u.nextClipNumber)).toEqual([1, 1, 1]);
+  });
+
+  it('undo restores the exact previous counters and reopens the day that was closed', () => {
+    const project = { ...singleCamProject(), openShootDay: { index: 3, date: '2026-07-30' } };
+    const { project: wrapped } = wrapShootDay(project, 5000);
+    const result = undoWrapShootDay(wrapped, 5500);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.project.nextClipNumber).toBe(42);
+    expect(result.project.sound?.nextFileNumber).toBe(18);
+    expect(result.project.openShootDay).toEqual({ index: 3, date: '2026-07-30' }); // wrappedAt gone, not undefined-but-present
+    expect('wrappedAt' in result.project.openShootDay!).toBe(false);
+    expect(result.project.pendingWrapUndo).toBeUndefined();
+  });
+
+  it('wraps a project that has never had a shoot day at all: opens day 1 lazily, then immediately wraps IT to day 2', () => {
+    // Every project this feature has never touched has no `openShootDay` yet —
+    // WRAP DAY is still the very first thing the operator taps. The lazy-open
+    // must happen INSIDE this same call, not require a separate "open day 1"
+    // step first.
+    const project = singleCamProject();
+    expect(project.openShootDay).toBeUndefined();
+    const { project: wrapped } = wrapShootDay(project, 1000);
+    expect(wrapped.openShootDay).toEqual({ index: 2, date: shootDayLabel(1000) });
+    // The day that "closed" was the freshly-opened day 1, wrappedAt stamped
+    // the same instant it opened — both are real, on-set-visible facts, not
+    // an internal implementation detail.
+    expect(wrapped.pendingWrapUndo?.previousDay).toEqual({
+      index: 1,
+      date: shootDayLabel(1000),
+      wrappedAt: 1000,
+    });
+  });
+
+  it('undo restores every camera unit\'s counter AND the sound counter on a multi-cam project, byte-for-byte', () => {
+    const project: Project = {
+      ...threeCam(), // A next=7, B next=12, C next=3, no clipStart on any unit
+      sound: { filePrefix: 'SND_', nextFileNumber: 40, filePadding: 4, fileStart: 5 },
+      openShootDay: { index: 2, date: '2026-07-29' },
+    };
+    const { project: wrapped } = wrapShootDay(project, 1000);
+    // Sanity: the wrap really did reset everything before we ask undo to put it back.
+    expect(wrapped.cameras!.map((u) => u.nextClipNumber)).toEqual([1, 1, 1]);
+    expect(wrapped.sound?.nextFileNumber).toBe(5);
+
+    const result = undoWrapShootDay(wrapped, 2000);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.project.cameras!.map((u) => u.nextClipNumber)).toEqual([7, 12, 3]);
+    expect(result.project.sound?.nextFileNumber).toBe(40);
+    expect(result.project.openShootDay).toEqual({ index: 2, date: '2026-07-29' });
+    expect('wrappedAt' in result.project.openShootDay!).toBe(false);
+  });
+
+  it('clears pendingWrapUndo via an EXPLICIT undefined, not by omitting the key', () => {
+    // The store's patch-merge is `{...existing, ...patch}` — a patch that
+    // simply lacks the key changes nothing, leaving the stale snapshot sitting
+    // in storage forever. The key must be PRESENT with value undefined.
+    const project = singleCamProject();
+    const { project: wrapped } = wrapShootDay(project, 1000);
+    const result = undoWrapShootDay(wrapped, 2000);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect('pendingWrapUndo' in result.project).toBe(true);
+    expect(result.project.pendingWrapUndo).toBeUndefined();
+  });
+
+  it('undo refuses, with a reason, once a take has been logged on the new day', () => {
+    const project = singleCamProject();
+    const { project: wrapped } = wrapShootDay(project, 1000);
+    // A take rolls on the fresh day — noteTakeLogged stamps firstTakeAt, which
+    // is the ONLY thing undo checks before refusing.
+    const { project: afterTake } = buildTakeClips(wrapped, 1, baseInput, 2000);
+    const result = undoWrapShootDay(afterTake, 3000);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected refusal');
+    expect(result.reason).toMatch(/already/i);
+    // And it must not have touched anything on the way to refusing.
+    expect(afterTake.nextClipNumber).toBe(102); // 101 (the reset) + 1 (the take just logged)
+  });
+
+  it('undoing with nothing pending refuses too, rather than silently no-opping into a "success"', () => {
+    const project = singleCamProject();
+    const result = undoWrapShootDay(project, 1000);
+    expect(result.ok).toBe(false);
+  });
+
+  it('the long-gap prompt only fires past the threshold, and never mutates anything itself', () => {
+    const project = singleCamProject();
+    const { project: withDay } = buildTakeClips(project, 1, baseInput, 1000); // opens day 1, lastTakeAt=1000
+    expect(shouldPromptForgottenWrap(withDay, 1000 + FORGOTTEN_WRAP_GAP_MS - 1)).toBe(false);
+    expect(shouldPromptForgottenWrap(withDay, 1000 + FORGOTTEN_WRAP_GAP_MS + 1)).toBe(true);
+    // Merely asking never resets a counter — it's a pure yes/no, the caller
+    // (RollingScreen) decides what to do with the answer.
+    expect(withDay.nextClipNumber).toBe(43);
+    expect(withDay.openShootDay?.index).toBe(1);
+  });
+
+  it('a project with no takes logged yet never fires the prompt — there is nothing to be "late" against', () => {
+    const project = singleCamProject();
+    expect(shouldPromptForgottenWrap(project, 1_000_000_000)).toBe(false);
+  });
+
+  it('a custom threshold is honoured (the constant is a default, not hardcoded everywhere)', () => {
+    const project = singleCamProject();
+    const { project: withDay } = buildTakeClips(project, 1, baseInput, 0);
+    const oneHour = 60 * 60 * 1000;
+    expect(shouldPromptForgottenWrap(withDay, oneHour - 1, oneHour)).toBe(false);
+    expect(shouldPromptForgottenWrap(withDay, oneHour + 1, oneHour)).toBe(true);
+  });
+
+  it('round trip: WRAP resets the counters, the very next take uses them, and undo now refuses', () => {
+    const project = threeCam(); // A next=7, B next=12, C next=3, no clipStart -> resets to 1
+    const { project: wrapped } = wrapShootDay(project, 1000);
+
+    const { take: t, project: afterTake } = buildTakeClips(wrapped, 1, baseInput, 2000);
+    // Same reset counter on every unit — expected: two bodies of the same
+    // model natively write identical filenames, the unit letter (not the
+    // filename) is what disambiguates them (see CameraUnit in types.ts).
+    expect(t.clips?.map((c) => c.clipName)).toEqual(['C0001', 'C0001', 'C0001']);
+
+    const result = undoWrapShootDay(afterTake, 3000);
+    expect(result.ok).toBe(false);
+  });
+
+  it('undo does not hand a single-cam project an empty `cameras` array', () => {
+    // Dropping back to single-cam between the wrap and the undo is legal (the
+    // clip counter section does exactly that with `cameras: undefined`). Undo
+    // has a multi-cam snapshot in hand but nothing to restore it into, and
+    // must leave the project single-cam rather than state "multi-cam, no
+    // units" — which buildTakeClips reads as a real statement.
+    const { project: wrapped } = wrapShootDay(threeCam(), 1000);
+    const droppedToSingleCam: Project = { ...wrapped, cameras: undefined };
+
+    const result = undoWrapShootDay(droppedToSingleCam, 2000);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.project.cameras).toBeUndefined();
+  });
+});
+
+describe('buildTakeClips — shoot day side effects', () => {
+  function singleCamProject(): Project {
+    return {
+      id: 'p1',
+      name: 'Bhoot',
+      fps: 24,
+      clipPrefix: 'C',
+      nextClipNumber: 42,
+      clipPadding: 4,
+      clipStart: 101,
+      tags: [],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+  }
+
+  it('lazily opens day 1 and stamps the take with that day\'s own label', () => {
+    const project = singleCamProject();
+    expect(project.openShootDay).toBeUndefined();
+    const { take: t, project: after } = buildTakeClips(project, 1, baseInput, 1000);
+    expect(after.openShootDay?.index).toBe(1);
+    expect(after.openShootDay?.date).toBe(shootDayLabel(1000));
+    expect(t.shootDay).toBe(shootDayLabel(1000));
+  });
+
+  it('stamps firstTakeAt only on the day\'s own first take; lastTakeAt advances on every take', () => {
+    const project = singleCamProject();
+    const { project: afterFirst } = buildTakeClips(project, 1, baseInput, 1000);
+    expect(afterFirst.openShootDay?.firstTakeAt).toBe(1000);
+    expect(afterFirst.openShootDay?.lastTakeAt).toBe(1000);
+
+    const { project: afterSecond } = buildTakeClips(afterFirst, 2, baseInput, 2000);
+    // The day's OWN first-touch stamp never moves once set…
+    expect(afterSecond.openShootDay?.firstTakeAt).toBe(1000);
+    // …but the "most recent take" stamp — what the forgotten-wrap gap check
+    // reads — advances on every single take logged.
+    expect(afterSecond.openShootDay?.lastTakeAt).toBe(2000);
+  });
+
+  it('still stamps shootDay on a take built for a project with NO camera units at all (single-cam legacy path)', () => {
+    const project: Project = {
+      id: 'p2',
+      name: 'Legacy',
+      fps: 24,
+      clipPrefix: 'C',
+      nextClipNumber: 1,
+      clipPadding: 4,
+      tags: [],
+      createdAt: 0,
+      updatedAt: 0,
+      // no `cameras` field whatsoever — the original, untouched single-cam shape
+    };
+    const { take: t, project: after } = buildTakeClips(project, 1, baseInput, 5000);
+    expect(project.cameras).toBeUndefined();
+    expect(t.shootDay).toBe(shootDayLabel(5000));
+    expect(after.openShootDay?.index).toBe(1);
   });
 });

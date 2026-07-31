@@ -3,16 +3,17 @@ import type { ChangeEvent } from 'react';
 import type { CameraUnit, Project, Slate } from '../types';
 import { isMultiCam } from '../types';
 import { store } from '../store';
-import { moveItem, sortForDisplay } from '../store/util';
+import { formatClip, moveItem, sortForDisplay, undoWrapShootDay, wrapShootDay } from '../store/util';
 import { tc } from '../export/timecode';
-import { exporter, shareBlob } from '../export';
+import { exporter, shareBlob, buildBackupBlob } from '../export';
+import { exportDateStamp, shortDateLabel } from '../export/order';
 import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
 import { Sheet, Confirm, Rail } from './common';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
-import { gateExport, FREE_LIMIT } from '../net/quota';
+import { gateExport, ANON_LIMIT_XML } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 import { extractPdfText } from './pdftext';
@@ -86,13 +87,19 @@ export function ProjectScreen(props: {
   const [deleting, setDeleting] = useState<Slate | null>(null);
   const [hintSeen, setHintSeen] = useState<boolean>(() => rollHintSeen());
   const [liveMsg, setLiveMsg] = useState('');
+  // Takes logged against the currently OPEN shoot day — what the "DAY 3 · 31
+  // Jul · 47 takes" line on ShootDaySection shows. Recomputed whenever the
+  // freshest project loads (see the mount effect below) and after WRAP DAY /
+  // undo, never derived from `slates` (those stats are ALL-TIME per scene,
+  // not scoped to one day).
+  const [dayTakeCount, setDayTakeCount] = useState(0);
 
   // ------------------------------------------------------ call sheet ------
   // Loading today's call sheet reorders this project's scenes so today's shoot
   // sits at the top (stamps Slate.shootOrder via the same reorderSlates atomic
   // write drag-to-reorder uses) and flags each scene's Slate.today. Mirrors
   // Script Mode's own upload → sign-in → error pattern (see ProjectsScreen).
-  const { session: csSession } = useSession();
+  const { session: csSession, loading: csSessionLoading } = useSession();
   const [csPhase, setCsPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
   const [csError, setCsError] = useState<string | null>(null);
   const [csNote, setCsNote] = useState<string | null>(null);
@@ -283,6 +290,19 @@ export function ProjectScreen(props: {
     return 0;
   }
 
+  /** How many takes have landed against the given open day so far — pure
+   * lookup, no writes. `undefined` (no open day yet, e.g. a brand new
+   * project) reads as zero. */
+  async function refreshDayCount(openDay: Project['openShootDay']) {
+    if (!openDay) {
+      setDayTakeCount(0);
+      return;
+    }
+    const list = await store.listSlates(project.id);
+    const perSlate = await Promise.all(list.map((s) => store.listTakes(s.id)));
+    setDayTakeCount(perSlate.flat().filter((t) => t.shootDay === openDay.date).length);
+  }
+
   useEffect(() => {
     void refresh();
     // reload the freshest project (clip counter may have moved while rolling)
@@ -290,6 +310,7 @@ export function ProjectScreen(props: {
       if (p) {
         setProject(p);
         props.onProjectChanged(p);
+        void refreshDayCount(p.openShootDay);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -328,6 +349,17 @@ export function ProjectScreen(props: {
       </div>
 
       <Rail thin />
+
+      {/* Sync only runs signed in (see net/sync.ts's flush()), so a signed-out
+          shoot has no copy anywhere but this phone. Persistent, not a toast —
+          this is true for the entire time it's true, not for 1400ms after a
+          tap. The action is the Backup button down by the export bar. */}
+      {!csSessionLoading && !csSession && (
+        <p className="camnote" style={{ textAlign: 'center', margin: '14px 0 0' }}>
+          Signed out — this project exists only on this phone. If you lose the phone, you lose the
+          shoot. Back it up below.
+        </p>
+      )}
 
       <section className="section">
         <div className="section__head">
@@ -545,6 +577,14 @@ export function ProjectScreen(props: {
 
       {csShowSignIn && <SignInSheet onClose={() => setCsShowSignIn(false)} />}
 
+      <ShootDaySection
+        project={project}
+        dayTakeCount={dayTakeCount}
+        onCommit={commitProject}
+        onWrapped={() => setDayTakeCount(0)}
+        onUndone={(openDay) => void refreshDayCount(openDay)}
+      />
+
       <ClipCounterSection project={project} onCommit={commitProject} />
 
       <SoundSection project={project} onCommit={commitProject} />
@@ -707,6 +747,121 @@ function draftsFromProject(project: Project): UnitDraft[] {
     }
     return { camera: 'sony', prefix: 'C', num: '1', pad: '4', ext: '.MP4', suffix: '', operator: '' };
   });
+}
+
+/**
+ * Every counter WRAP DAY is about to reset, in the same "PrefixNNNN" shape
+ * the rest of the project screen already shows — named units for multi-cam,
+ * the single top-level counter otherwise, plus the sound file counter when
+ * the project carries one. This is what "naming what will happen" in the
+ * confirmation means: the operator sees the exact numbers before agreeing to
+ * a destructive reset, not just the word "reset".
+ */
+function wrapPreview(project: Project): string {
+  const parts: string[] =
+    project.cameras && project.cameras.length > 0
+      ? project.cameras.map(
+          (u) => `${u.letter} ${clipName(u.clipPrefix, u.clipStart ?? 1, u.clipPadding, u.clipSuffix)}`,
+        )
+      : [clipName(project.clipPrefix, project.clipStart ?? 1, project.clipPadding, project.clipSuffix ?? '')];
+  if (project.sound) {
+    parts.push(
+      `SND ${formatClip(project.sound.filePrefix, project.sound.fileStart ?? 1, project.sound.filePadding, project.sound.fileSuffix)}`,
+    );
+  }
+  return parts.join('  ·  ');
+}
+
+// Shoot day: WRAP DAY is a human signal, never a clock guess - the operator
+// presses it once a day's cards are formatted and the counters reset
+// IMMEDIATELY, so the crew sees C0001 waiting the next morning. Lives on the
+// project screen, right above the clip counters it resets - never on the
+// rolling screen, which is already at its size budget (see
+// scripts/measure-roll.mjs).
+function ShootDaySection(props: {
+  project: Project;
+  dayTakeCount: number;
+  onCommit: (patch: Partial<Project>) => Promise<void>;
+  onWrapped: () => void;
+  onUndone: (openDay: Project['openShootDay']) => void;
+}) {
+  const { project } = props;
+  const day = project.openShootDay;
+  const [confirming, setConfirming] = useState(false);
+  const [wrapped, setWrapped] = useState(false);
+  const [undoError, setUndoError] = useState<string | null>(null);
+
+  async function doWrap() {
+    const { project: next } = wrapShootDay(project, Date.now());
+    await props.onCommit(next);
+    setConfirming(false);
+    setWrapped(true);
+    props.onWrapped();
+    window.setTimeout(() => setWrapped(false), 1400);
+  }
+
+  async function doUndo() {
+    setUndoError(null);
+    const result = undoWrapShootDay(project, Date.now());
+    if (!result.ok) {
+      setUndoError(result.reason);
+      return;
+    }
+    await props.onCommit(result.project);
+    props.onUndone(result.project.openShootDay);
+  }
+
+  const dayLabel = day ? `Day ${day.index}` : 'Day 1';
+  const dateLabel = day ? shortDateLabel(day.date) : '';
+  const takeWord = props.dayTakeCount === 1 ? 'take' : 'takes';
+  // Hide the button once a take has landed on the new day rather than show a
+  // dead one — undoWrapShootDay's own refusal (surfaced via undoError) is
+  // still the backstop if this device's state is a beat behind another's.
+  const canUndo = !!project.pendingWrapUndo && day?.firstTakeAt === undefined;
+
+  return (
+    <section className="section">
+      <div className="section__head">
+        <span className="label">Shoot day</span>
+      </div>
+      <div className="clipwidget__preview" style={{ marginBottom: 14 }}>
+        <span className="label">
+          {dayLabel}
+          {dateLabel && <> &middot; {dateLabel}</>}
+        </span>
+        <span className="tnum">
+          {props.dayTakeCount} {takeWord}
+        </span>
+      </div>
+      <button type="button" className="btn btn--full" onClick={() => setConfirming(true)}>
+        {wrapped ? 'Wrapped' : 'Wrap day'}
+      </button>
+      {canUndo && (
+        <button
+          type="button"
+          className="btn btn--full btn--ghost"
+          style={{ marginTop: 8 }}
+          onClick={() => void doUndo()}
+        >
+          Undo wrap
+        </button>
+      )}
+      {undoError && (
+        <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 8 }}>
+          {undoError}
+        </span>
+      )}
+      {confirming && (
+        <Confirm
+          title={`Wrap ${dayLabel}?`}
+          message={`Every counter resets back to ${wrapPreview(project)}. Day ${(day?.index ?? 1) + 1} opens right away, so the crew sees it waiting next time they roll. You can undo this until the first take is logged on the new day.`}
+          confirmLabel="Wrap day"
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => void doWrap()}
+        />
+      )}
+    </section>
+  );
 }
 
 const clampNum = (s: string) => Math.max(0, parseInt(s, 10) || 0);
@@ -1147,13 +1302,17 @@ function TcCalculator(props: { project: Project }) {
   );
 }
 
-// PDF is free, offline, and never gated. Premiere (FCP7 XML), Resolve (FCPXML)
-// and CSV are the pro editor-handoff: each needs a signed-in account. Resolve
-// shares Premiere's server-side quota counter (same "editor timeline handoff"
-// allowance, no separate counter to add) — CSV has its own. The client only
-// builds the blob after `export-gate` says allow.
+// PDF and Backup are free, offline, and never gated. Premiere (FCP7 XML),
+// Resolve (FCPXML) and CSV are the editor handoff and go through `export-gate`,
+// which is the ONLY thing that enforces any limit - the client just builds the
+// blob after it says allow. Resolve shares Premiere's server-side counter (same
+// "editor timeline handoff" allowance, no separate counter to add); CSV has its
+// own. Signed IN is currently uncapped. Signed OUT still gets the XML handoff,
+// on a small allowance the server counts against the caller's IP - so a
+// signed-out tap must reach the gate rather than being short-circuited into the
+// sign-in sheet here. CSV alone still requires an account.
 const EXPORT_OFFLINE_MSG =
-  "You're offline. Premiere, Resolve and CSV export need a connection. Logging takes and PDF export work offline.";
+  "You're offline. Premiere, Resolve and CSV export need a connection. Logging takes, PDF and Backup work offline.";
 
 function ExportBar(props: { project: Project }) {
   const { session } = useSession();
@@ -1170,7 +1329,26 @@ function ExportBar(props: { project: Project }) {
       const bundle = await store.getBundle(props.project.id);
       const base = slug(props.project.name);
       const blob = await exporter.toPdf(bundle);
-      await shareBlob(blob, `${base}-log.pdf`, 'application/pdf');
+      await shareBlob(blob, `${base}-log-${exportDateStamp(bundle.project)}.pdf`, 'application/pdf');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // The one export that MUST work signed out, offline, free — never gateExport,
+  // never getUsage, never Supabase. It is the whole point of this button: the
+  // escape hatch for the shoot that has no cloud copy at all (see backup.ts).
+  async function backupProject() {
+    setBusy('backup');
+    setError(null);
+    setNote(null);
+    try {
+      const bundle = await store.getBundle(props.project.id);
+      const base = slug(props.project.name);
+      const blob = buildBackupBlob(bundle);
+      await shareBlob(blob, `${base}-backup-${exportDateStamp(bundle.project)}.json`, 'application/json');
+    } catch {
+      setError('Could not build the backup file.');
     } finally {
       setBusy(null);
     }
@@ -1180,23 +1358,36 @@ function ExportBar(props: { project: Project }) {
     setError(null);
     setNote(null);
     setCapped(null);
-    if (!session) {
-      setShowSignIn(true);
-      return;
-    }
     // Resolve rides the SAME gate call as Premiere ('premiere' format) — one
     // shared "editor timeline" quota bucket, not a new rule. `label` is only
     // for what we show/log, so a Resolve export doesn't get logged as one.
     const format = kind === 'csv' ? 'csv' : 'premiere';
+    // Signed out, the XML handoff is offered anyway on a small allowance the
+    // server counts against the caller's IP — so DON'T shortcut to the sign-in
+    // sheet here; let the gate answer, exactly as it does for an account. CSV
+    // still needs one, and asking for it signed-out is refused server-side, so
+    // there is no reason to spend a round trip discovering that.
+    if (!session && format === 'csv') {
+      setShowSignIn(true);
+      return;
+    }
     const label = kind === 'xml' ? 'premiere' : kind === 'resolve' ? 'resolve' : 'csv';
     setBusy(kind);
     try {
       const gate = await gateExport(format);
       if (!gate.allow) {
         if (gate.reason === 'quota_exceeded') {
-          track('cap_hit', { which: label });
-          setError('Free limit reached. More coming soon.');
-          setCapped(format);
+          track('cap_hit', { which: label, anon: !session });
+          if (!session) {
+            // The wall a signed-out user hits has a door in it, so say where it
+            // is. Offering the pro CTA here instead would be selling something
+            // to someone who has not yet done the free thing.
+            setError(`That's ${ANON_LIMIT_XML} XML exports on this connection. Sign in and they're unlimited.`);
+            setShowSignIn(true);
+          } else {
+            setError('Free limit reached. More coming soon.');
+            setCapped(format);
+          }
         } else if (gate.reason === 'auth') {
           // Session missing/expired — same handling as signed-out.
           setShowSignIn(true);
@@ -1207,19 +1398,27 @@ function ExportBar(props: { project: Project }) {
       }
       const bundle = await store.getBundle(props.project.id);
       const base = slug(props.project.name);
+      const dateStamp = exportDateStamp(bundle.project);
       if (kind === 'xml') {
         const blob = exporter.toFcpXml(bundle);
-        await shareBlob(blob, `${base}-log.xml`, 'text/xml');
+        await shareBlob(blob, `${base}-log-${dateStamp}.xml`, 'text/xml');
       } else if (kind === 'resolve') {
         const blob = exporter.toResolveXml(bundle);
-        await shareBlob(blob, `${base}-log.fcpxml`, 'text/xml');
+        await shareBlob(blob, `${base}-log-${dateStamp}.fcpxml`, 'text/xml');
       } else {
         const blob = exporter.toCsv(bundle);
-        await shareBlob(blob, `${base}-log.csv`, 'text/csv');
+        await shareBlob(blob, `${base}-log-${dateStamp}.csv`, 'text/csv');
       }
       track('export', { format: label });
-      if (typeof gate.remaining === 'number') {
-        setNote(`${gate.remaining} of ${FREE_LIMIT} ${label} exports left`);
+      // Only a signed-OUT caller has a ceiling to count down to; an account is
+      // uncapped, and telling it "999997 left" would be noise pretending to be
+      // information.
+      if (!session && typeof gate.remaining === 'number') {
+        // Premiere and Resolve share ONE counter with its own smaller allowance,
+        // so the ceiling shown has to follow the counter that was actually
+        // consumed, not a single global number - quoting "of 5" against a
+        // budget of 3 would count down to a wall the user was never shown.
+        setNote(`${gate.remaining} of ${ANON_LIMIT_XML} XML exports left. Sign in for unlimited.`);
       }
     } catch {
       setError(EXPORT_OFFLINE_MSG);
@@ -1233,7 +1432,14 @@ function ExportBar(props: { project: Project }) {
       <div className="section__head">
         <span className="label">Hand off to editor</span>
       </div>
-      <div className="formgrid" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
+      {/* TWO columns, and `minmax(0, 1fr)` not `1fr`. Four across overflowed the
+          phone: a bare `1fr` track floors at the button's MIN-CONTENT width, so
+          "Premiere" and "Resolve" refused to shrink and pushed CSV clean off the
+          right edge (measured: 396px of content in a 390px viewport, and the
+          whole page scrolled sideways to reach a button that should have been
+          under your thumb). Two columns also buys every target real width,
+          which is what this row wants on a set anyway. */}
+      <div className="formgrid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
         <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportPdf()}>
           {busy === 'pdf' ? '...' : 'PDF'}
         </button>
@@ -1247,6 +1453,15 @@ function ExportBar(props: { project: Project }) {
           {busy === 'csv' ? '...' : 'CSV'}
         </button>
       </div>
+      <button
+        type="button"
+        className="btn btn--full"
+        style={{ marginTop: 10 }}
+        disabled={busy !== null}
+        onClick={() => void backupProject()}
+      >
+        {busy === 'backup' ? '...' : 'Backup'}
+      </button>
       {error && (
         <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 10 }}>
           {error}

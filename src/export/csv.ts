@@ -3,16 +3,23 @@
 
 import type { Moment, ProjectBundle, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
-import { buildShotIndex, compareTakesInStoryOrder, shotCodeOf } from './order';
+import { buildShotIndex, compareTakesInStoryOrder, displayShootDay, shotCodeOf } from './order';
 
 // `shot` is the SHOT CODE off the shotlist ("5.31"), empty for a take logged
 // straight against a scene. `take` is the take number - it is the column that
 // used to be called `shot`, which was simply the wrong word: Scene > Shot >
 // Take. Deliberate breaking header change; the two exports disagreed before.
+//
+// `date` is the shoot day so an editor can tell two identically-numbered clips
+// from different days apart (see the reel/tape name change in fcpxml.ts and
+// resolve.ts) - the real stamped day when the take has one, else a
+// display-only label derived from when it was logged (see
+// order.ts's displayShootDay).
 const HEADER = [
   'scene',
   'shot',
   'take',
+  'date',
   'clip',
   'camera',
   'operator',
@@ -100,6 +107,8 @@ export function toCsv(bundle: ProjectBundle): Blob {
         }
       }
 
+      const dateLabel = displayShootDay(take);
+
       // One take row per camera unit (multi-cam) or a single row (single-cam),
       // so every camera's clip is present with its unit letter.
       const takeClips =
@@ -112,6 +121,7 @@ export function toCsv(bundle: ProjectBundle): Blob {
             sName,
             shotCode,
             String(take.number),
+            dateLabel,
             c.clipName,
             c.camera,
             operatorByUnit.get(c.camera) ?? '',
@@ -142,6 +152,7 @@ export function toCsv(bundle: ProjectBundle): Blob {
             sName,
             shotCode,
             String(take.number),
+            dateLabel,
             take.clipName,
             '',
             '',

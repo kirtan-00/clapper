@@ -22,6 +22,12 @@ export interface CameraUnit {
   clipSuffix?: string;
   clipExt?: string;
   operator?: string;       // who is running this camera; shown on its slot while shooting
+  // The number WRAP DAY resets this unit's `nextClipNumber` back to. Set
+  // whenever the counter is explicitly (re)configured on the project screen —
+  // that is the human confirming "this is where this camera starts counting".
+  // ABSENT defaults to 1: "every day restarts at C0001", the on-set
+  // convention this whole feature automates.
+  clipStart?: number;
 }
 
 /**
@@ -43,6 +49,38 @@ export interface SoundUnit {
   fileExt?: string;        // media extension incl. dot, e.g. ".WAV" — lets the NLE relink
   recorder?: string;       // recorder model, optional (e.g. "MixPre-6")
   operator?: string;       // the sound mixer's name; shown on the sound slot + PDF header
+  // Mirrors CameraUnit.clipStart for the recorder's own counter: what WRAP DAY
+  // resets `nextFileNumber` back to. ABSENT defaults to 1.
+  fileStart?: number;
+}
+
+/**
+ * One shoot day's own bookkeeping. WHO decides a day ended is a human — the
+ * operator presses WRAP DAY once the day's cards are formatted — never a
+ * clock guess (see the design note on the project screen's Shoot day
+ * section). Every field but `index`/`date` is optional: a day nothing has
+ * been logged against yet has neither timestamp, and one still open has no
+ * `wrappedAt`.
+ */
+export interface ShootDay {
+  index: number;          // 1-based: day 1, day 2, day 3…
+  date: string;            // "YYYY-MM-DD" — this day's own label, set when it opened
+  firstTakeAt?: number;     // epoch ms of this day's first logged take
+  lastTakeAt?: number;      // epoch ms of this day's most recent logged take — what the "forgotten wrap" gap check measures against
+  wrappedAt?: number;       // epoch ms WRAP DAY was pressed; ABSENT while the day is still open
+}
+
+/**
+ * Exactly what WRAP DAY reset, kept so the very next action can put it back.
+ * Undo trusts this only until `openShootDay.firstTakeAt` gets set on the new
+ * day — once a take has been logged against the fresh numbers, they mean
+ * something, and undo must refuse rather than un-write something real.
+ */
+export interface WrapUndoSnapshot {
+  previousDay: ShootDay;                                // the day that just closed, exactly as it was at that moment (wrappedAt included)
+  nextClipNumber?: number;                               // single-cam project's own counter, pre-reset
+  cameras?: Partial<Record<CameraUnitLetter, number>>;    // multi-cam: each unit's counter, pre-reset
+  soundNextFileNumber?: number;                           // present only if the project carries a Sound unit
 }
 
 export interface Project {
@@ -63,6 +101,20 @@ export interface Project {
   // count. ABSENT = project logs no sound (every legacy project, untouched).
   sound?: SoundUnit;
   tags: string[];          // quick-tag chips, default ["FLUB","GOLD","PICKUP","NOISE"]
+  // Shoot-day tracking (see WRAP DAY on the project screen): the currently
+  // open day. ABSENT on every project this feature has never touched — the
+  // very first take logged after it ships opens day 1 automatically (see
+  // store/util.ts's buildTakeClips). Never bulk-migrated onto old projects;
+  // their past takes simply carry no `Take.shootDay` (see the migration note
+  // there and in export/order.ts).
+  openShootDay?: ShootDay;
+  // What the most recent WRAP DAY reset, kept only until it can no longer be
+  // safely undone. ABSENT once nothing is pending (nobody has wrapped yet, or
+  // the pending wrap was already undone).
+  pendingWrapUndo?: WrapUndoSnapshot;
+  // Mirrors CameraUnit.clipStart for a single-cam project's own top-level
+  // counter. ABSENT defaults to 1.
+  clipStart?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -213,6 +265,27 @@ export interface Take {
   durationMs: number;
   cameraTC?: string;       // "HH:MM:SS:FF" at take start, optional
   note?: string;           // one-liner added at cut
+  // The shoot day this take belongs to ("YYYY-MM-DD"), stamped from the
+  // project's open day at CUT time — a human WRAP, never a clock guess (see
+  // types.ts's ShootDay). ABSENT = a take logged before this feature existed;
+  // exporters derive a DISPLAY-only date from `startedAt` for those instead
+  // of bulk-rewriting this field in (see export/order.ts and the migration
+  // note in store/util.ts).
+  shootDay?: string;
+  /**
+   * The shoot day's own IDENTITY number (ShootDay.index), snapshotted at the
+   * same CUT that stamps `shootDay` above. `shootDay` alone is NOT a stable
+   * day identity: a night shoot that wraps at 00:30 opens the next day dated
+   * the new calendar date, and if THAT day is also shot and wrapped before
+   * midnight, it opens ANOTHER new day carrying the exact same date string —
+   * two different physical days, one date. Exporters that keyed on `shootDay`
+   * alone silently collapsed both days' C0001 into one file, relinking the
+   * editor to the wrong physical card (see the dedupe keys in fcpxml.ts /
+   * resolve.ts). ABSENT = a take logged before this field existed — every
+   * take before this fix, same as every take before `shootDay` itself — and
+   * those must keep colliding on `shootDay` alone exactly as they always have.
+   */
+  shootDayIndex?: number;
   createdAt: number;
   updatedAt: number;
 }

@@ -20,7 +20,14 @@ import type { CameraUnit, CameraUnitLetter, Fps, Moment, ProjectBundle, Take } f
 import { isMultiCam } from '../types';
 // Ordering lives in order.ts, not here: it used to be copy-pasted between this
 // file and resolve.ts, and the shot-order sort key has to land in both.
-import { allTakesInStoryOrder, buildShotIndex, goodTakesInStoryOrder, shotCodeOf } from './order';
+import {
+  allTakesInStoryOrder,
+  buildShotIndex,
+  goodTakesInStoryOrder,
+  shootDayKey,
+  shootDaySuffix,
+  shotCodeOf,
+} from './order';
 
 function escapeXml(s: string): string {
   return s
@@ -136,20 +143,38 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
     const ext = sound.fileExt ?? '';
     const name = escapeXml(take.sound.fileName);
     const fileName = escapeXml(take.sound.fileName + ext);
+    // Same file name recurs every shoot day (SND_0001 resets with the rest of
+    // the counters), so the dedupe key must include the day or two different
+    // days' SND_0001 collapse into one <file> — same collision class as the
+    // picture card below. The day's own INDEX, not just its date, breaks the
+    // tie when two days share a date string (see shootDayKey in order.ts — a
+    // night shoot that wraps twice before midnight lands two days on one
+    // date). A legacy take (no shootDay) keys exactly as before.
+    const fileKey = `${fileName}|${shootDayKey(take)}`;
 
-    let fileId = soundFileIdByName.get(fileName);
+    let fileId = soundFileIdByName.get(fileKey);
     let fileXml: string;
     if (fileId) {
       fileXml = `<file id="${fileId}"/>`;
     } else {
       fileId = `soundfile-${(soundFileSeq += 1)}`;
-      soundFileIdByName.set(fileName, fileId);
+      soundFileIdByName.set(fileKey, fileId);
+      // Reel = "SND" plus the shoot day (and its index, when two days share a
+      // date) when there is one, mirroring the picture card's reel below —
+      // absent for a legacy take, so its <file> stays byte-identical to
+      // before this feature (there was never a <reel>/<timecode> here at all
+      // for single-cam sound).
+      const reel = take.shootDay
+        ? `<timecode>${rateXml}<string>00:00:00:00</string><frame>0</frame>` +
+          `<displayformat>NDF</displayformat><reel><name>SND${shootDaySuffix(take)}</name></reel></timecode>`
+        : '';
       fileXml =
         `<file id="${fileId}">` +
         `<name>${fileName}</name>` +
         `<pathurl>file://localhost/${fileName}</pathurl>` +
         rateXml +
         `<duration>${durationFrames}</duration>` +
+        reel +
         `<media><audio><channelcount>2</channelcount></audio></media>` +
         `</file>`;
     }
@@ -177,20 +202,35 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
     const name = escapeXml(take.clipName);
     // The real media file the editor relinks to, e.g. "C0001.MP4".
     const fileName = escapeXml(take.clipName + ext);
+    // Every shoot day restarts at C0001, so the SAME fileName recurs day after
+    // day — the dedupe key must include the day or day 1's C0001 and day 5's
+    // C0001 collapse into ONE <file>, silently relinking the editor to the
+    // wrong physical clip. A take with no shootDay (every legacy take) keys
+    // exactly as it always has: one shared bucket, nothing changes.
+    const fileKey = `${fileName}|${shootDayKey(take)}`;
 
-    let fileId = fileIdByName.get(fileName);
+    let fileId = fileIdByName.get(fileKey);
     let fileXml: string; // full <file> on first sight of this card, else a ref
     if (fileId) {
       fileXml = `<file id="${fileId}"/>`;
     } else {
       fileId = `file-${(fileSeq += 1)}`;
-      fileIdByName.set(fileName, fileId);
+      fileIdByName.set(fileKey, fileId);
+      // Reel/tape name = camera letter (single-cam is always "A") plus the
+      // shoot day, e.g. "A_20260731" — the visible disambiguator in the NLE on
+      // top of the fileKey split above. Absent when the take has no shootDay,
+      // so a legacy take's <file> is byte-identical to before this feature.
+      const reel = take.shootDay
+        ? `<timecode>${rateXml}<string>00:00:00:00</string><frame>0</frame>` +
+          `<displayformat>NDF</displayformat><reel><name>A${shootDaySuffix(take)}</name></reel></timecode>`
+        : '';
       fileXml =
         `<file id="${fileId}">` +
         `<name>${fileName}</name>` +
         `<pathurl>file://localhost/${fileName}</pathurl>` +
         rateXml +
         `<duration>${durationFrames}</duration>` +
+        reel +
         `<media><video/></media>` +
         `</file>`;
     }
@@ -316,25 +356,32 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
     const ext = sound.fileExt ?? '';
     const name = escapeXml(take.sound.fileName);
     const fileName = escapeXml(take.sound.fileName + ext);
+    // Same file name recurs every shoot day (SND_0001 resets with the rest of
+    // the counters), so the dedupe key must include the day or two different
+    // days' SND_0001 collapse into one <file> and relink to the wrong take's
+    // audio. A legacy take (no shootDay) keys exactly as it always has.
+    const fileKey = `${fileName}|${shootDayKey(take)}`;
 
-    let fileId = soundFileIdByName.get(fileName);
+    let fileId = soundFileIdByName.get(fileKey);
     let fileXml: string;
     if (fileId) {
       fileXml = `<file id="${fileId}"/>`;
     } else {
       fileId = `soundfile-${(soundFileSeq += 1)}`;
-      soundFileIdByName.set(fileName, fileId);
+      soundFileIdByName.set(fileKey, fileId);
+      // Reel = "SND", plus the shoot day when there is one - this is what
+      // actually disambiguates two different days' recorder files sharing a
+      // name, on top of the fileKey split above. A legacy take (no shootDay)
+      // gets exactly "SND", byte-identical to before this feature.
+      const reelName = take.shootDay ? `SND${shootDaySuffix(take)}` : 'SND';
       fileXml =
         `<file id="${fileId}">` +
         `<name>${fileName}</name>` +
         `<pathurl>file://localhost/${fileName}</pathurl>` +
         rateXml +
         `<duration>${durationFrames}</duration>` +
-        // Reel = "SND", mirroring how a camera unit's own letter disambiguates
-        // its file - there is only ever one recorder, so this just labels the
-        // track's source clearly rather than resolving any real collision.
         `<timecode>${rateXml}<string>00:00:00:00</string><frame>0</frame>` +
-        `<displayformat>NDF</displayformat><reel><name>SND</name></reel></timecode>` +
+        `<displayformat>NDF</displayformat><reel><name>${reelName}</name></reel></timecode>` +
         `<media><audio><channelcount>2</channelcount></audio></media>` +
         `</file>`;
     }
@@ -423,7 +470,12 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       const aId = `clipitem-${(clipitemSeq += 1)}`;
       const name = escapeXml(clip.clipName);
       const fileName = escapeXml(clip.clipName + ext);
-      const fileKey = `${fileName}|${unit.letter}`;
+      // Every shoot day restarts at C0001, so two units of the SAME letter on
+      // DIFFERENT days can still natively write the identical filename - the
+      // unit letter alone (the old key) no longer disambiguates them. Fold
+      // the day in too, or day 1's A/C0001 and day 5's A/C0001 collapse into
+      // one <file>. A legacy take (no shootDay) keys exactly as it always has.
+      const fileKey = `${fileName}|${unit.letter}|${shootDayKey(take)}`;
 
       let fileId = fileIdByKey.get(fileKey);
       let fileVideoXml: string; // full <file> on first sight of this card, else a ref
@@ -432,16 +484,21 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       } else {
         fileId = `file-${(fileSeq += 1)}`;
         fileIdByKey.set(fileKey, fileId);
+        // Reel/tape name = the camera unit letter plus the shoot day, e.g.
+        // "A_20260731" - disambiguates both two same-type cards on the SAME
+        // day (the unit letter) and the same unit across DIFFERENT days (the
+        // day suffix). Absent when the take has no shootDay, so a legacy
+        // take's <file> is byte-identical to before this feature: plain
+        // unit letter, nothing appended.
+        const reelName = take.shootDay ? `${unit.letter}${shootDaySuffix(take)}` : unit.letter;
         fileVideoXml =
           `<file id="${fileId}">` +
           `<name>${fileName}</name>` +
           `<pathurl>file://localhost/${fileName}</pathurl>` +
           rateXml +
           `<duration>${clipDurationFrames}</duration>` +
-          // Reel/tape name = the camera unit letter. This is what disambiguates
-          // two same-type cards that natively wrote identical filenames.
           `<timecode>${rateXml}<string>00:00:00:00</string><frame>0</frame>` +
-          `<displayformat>NDF</displayformat><reel><name>${escapeXml(unit.letter)}</name></reel></timecode>` +
+          `<displayformat>NDF</displayformat><reel><name>${escapeXml(reelName)}</name></reel></timecode>` +
           `<media><video/><audio><channelcount>2</channelcount></audio></media>` +
           `</file>`;
       }

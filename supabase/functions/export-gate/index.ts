@@ -2,14 +2,37 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
 
-// Clapper export gate. Server-authoritative counter for the pro editor-handoff
-// exports (Premiere FCP7 XML, CSV) — separate 5-each free counters. No Groq, so
-// no Turnstile, but still rate-limited + quota'd. Identity comes from the JWT.
-// Returns an allow flag; the client generates the blob only when allow=true.
-// The service-role key is used only server-side and never leaves this function.
+// Clapper export gate. Server-authoritative counter for the editor-handoff
+// exports (Premiere FCP7 XML, Resolve FCPXML, CSV). No Groq, so no Turnstile,
+// but still rate-limited + quota'd. Returns an allow flag; the client generates
+// the blob only when allow=true. The service-role key is used only server-side
+// and never leaves this function.
+//
+// TWO IDENTITIES, two counters. A JWT means an account, counted in
+// public.usage and currently uncapped. NO JWT is no longer refused: the XML
+// handoff is offered signed-out, counted in public.anon_usage against the hash
+// of the caller's IP (see the 20260801 migration for what that key is and is
+// not worth). Every other format still needs an account.
 
-const FREE_LIMIT = 5;
+// Effectively uncapped. Signed-in accounts currently get this for EVERY
+// format regardless of is_pro — a deliberate "for now", not a bug: the only
+// wall right now is the signed-out one below, and signing in is the thing it
+// is pushing people toward. Reintroducing a free-tier ceiling means giving
+// non-pro accounts their own limits map again, nothing more.
 const PRO_LIMIT = 1000000;
+
+// What a caller with NO account gets: 3 XML exports (Premiere FCP7 XML and
+// Resolve FCPXML share the "premiere" counter, so 3 across both, not 3 each),
+// counted against the hash of their IP.
+//
+// An IP is not a person. A crew sharing one set wifi shares ONE allowance, and
+// the same phone on mobile data gets a fresh one. That is understood and
+// accepted — this is a nudge toward signing in, not an entitlement boundary.
+const ANON_LIMITS: Record<string, number> = { premiere: 3 };
+
+// Every format the gate knows. CSV is deliberately absent from ANON_LIMITS
+// above: it needs an account, and asking for it signed-out is refused rather
+// than counted.
 const VALID_FORMATS = new Set(["premiere", "csv"]);
 
 async function sha256Hex(s: string): Promise<string> {
@@ -50,11 +73,11 @@ Deno.serve(async (req: Request) => {
   const userClient = createClient(SUPABASE_URL, ANON, {
     global: { headers: { Authorization: authHeader ?? "" } },
   });
+  // A missing/expired session is NOT refused here any more: a signed-out
+  // caller falls through to the anonymous path below, which counts against
+  // their IP hash instead of a user id. `userId` being null IS the signal.
   const { data: { user } } = await userClient.auth.getUser();
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Sign in required" }), { status: 401, headers });
-  }
-  const userId = user.id;
+  const userId: string | null = user?.id ?? null;
 
   // 2. Validate format.
   let payload: { format?: string };
@@ -87,25 +110,51 @@ Deno.serve(async (req: Request) => {
     p_max: 30,
   });
   if (ipErr || ipOk === false) return rateLimited;
-  const { data: userOk, error: userErr } = await admin.rpc("rate_limit_check", {
-    p_key: "u:" + userId,
-    p_window_secs: 60,
-    p_max: 20,
-  });
-  if (userErr || userOk === false) return rateLimited;
+  if (userId) {
+    const { data: userOk, error: userErr } = await admin.rpc("rate_limit_check", {
+      p_key: "u:" + userId,
+      p_window_secs: 60,
+      p_max: 20,
+    });
+    if (userErr || userOk === false) return rateLimited;
+  }
 
-  // 4. Server-authoritative quota. Limit derived from is_pro, never the request.
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("is_pro")
-    .eq("user_id", userId)
-    .single();
-  const limit = profile?.is_pro ? PRO_LIMIT : FREE_LIMIT;
-  const { data: newCount, error: quotaErr } = await admin.rpc("consume_quota", {
-    p_user: userId,
-    p_kind: format,
-    p_limit: limit,
-  });
+  // 4. Server-authoritative quota. The limit is derived here, from identity —
+  // never from the request body.
+  let limit: number;
+  let newCount: number | null;
+  let quotaErr: unknown;
+
+  if (userId) {
+    limit = PRO_LIMIT;
+    const res = await admin.rpc("consume_quota", {
+      p_user: userId,
+      p_kind: format,
+      p_limit: limit,
+    });
+    newCount = res.data;
+    quotaErr = res.error;
+  } else {
+    // Signed out. Only the XML handoff is on offer; anything else needs an
+    // account and is refused rather than counted.
+    if (!(format in ANON_LIMITS)) {
+      return new Response(JSON.stringify({ error: "Sign in required" }), { status: 401, headers });
+    }
+    // No usable IP means no key to count against, and a blank key would put
+    // every un-identifiable caller in one shared bucket. Fail CLOSED: refuse
+    // the export rather than hand out an uncounted one.
+    if (!ip) {
+      return new Response(JSON.stringify({ error: "Sign in required" }), { status: 401, headers });
+    }
+    limit = ANON_LIMITS[format];
+    const res = await admin.rpc("consume_anon_quota", {
+      p_ip_hash: ipHash,
+      p_kind: format,
+      p_limit: limit,
+    });
+    newCount = res.data;
+    quotaErr = res.error;
+  }
 
   if (quotaErr || newCount == null) {
     // Fail CLOSED: an rpc error must never resolve to allow:true.
@@ -126,7 +175,9 @@ Deno.serve(async (req: Request) => {
     await admin.from("events").insert({
       user_id: userId,
       name: "export",
-      props: { format },
+      // `anon` is the whole point of measuring this: it is the only way to see
+      // how many people hit the signed-out wall versus sail past it.
+      props: { format, anon: !userId },
       ip_hash: ipHash,
     });
   } catch (_) { /* analytics is non-fatal */ }
