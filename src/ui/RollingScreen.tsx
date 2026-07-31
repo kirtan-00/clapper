@@ -20,11 +20,20 @@ import {
   type TakeUnitRoll,
 } from '../store/util';
 import { tc } from '../export/timecode';
-import { renderUnitClip, soundBadgeStyle, soundTextStyle, soundRollingStyle, SOUND_ACCENT } from './cameras';
+import {
+  clipParts,
+  renderUnitClip,
+  soundBadgeStyle,
+  soundTextStyle,
+  soundRollingStyle,
+  unitClipParts,
+  SOUND_ACCENT,
+  type ClipParts,
+} from './cameras';
 import { ClipNumberRows, TakeEditSheet } from './TakeEditSheet';
 import { sizeInWords } from './shotlist';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
-import { Sheet, Rail, Toast, Confirm } from './common';
+import { ClipNum, Sheet, Rail, Toast, Confirm } from './common';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
@@ -118,27 +127,11 @@ function renderSoundFile(s: SoundUnit): string {
   return formatClip(s.filePrefix, s.nextFileNumber, s.filePadding, s.fileSuffix);
 }
 
-/**
- * The `.camslot__clip` classes for one clip/file name, stepping the type down
- * as the name gets longer.
- *
- * WHY: at 3-4 cameras the strip is two-up, and a name like "A001_C0191" was
- * being ellipsised to "A001_C0…" in its slot. That is the exact string the
- * operator reads back to the loader, so its tail is the last thing that may be
- * dropped - a smaller number is always better than a cut one. CSS cannot
- * measure text, so the step is chosen here from the name's own length; the
- * sizes it names live next to this comment's twin in styles.css, measured
- * against the narrowest slot the layout produces (two-up on a 360px phone).
- *
- * The steps are inert at 1-2 cameras, where the row is full width and the big
- * number always fits - see the `:not(:has(...))` override in styles.css.
- */
-function clipFitClass(name: string): string {
-  if (name.length > 14) return ' camslot__clip--fit4';
-  if (name.length > 11) return ' camslot__clip--fit3';
-  if (name.length > 8) return ' camslot__clip--fit2';
-  return '';
+/** The same name split for display, so the recorder's running number reads like a camera's. */
+function soundFileParts(s: SoundUnit): ClipParts {
+  return clipParts(s.filePrefix, s.nextFileNumber, s.filePadding, s.fileSuffix ?? '');
 }
+
 
 // Sound accent + reusable .camslot/.camunit style overrides now live in
 // cameras.ts (imported above) - shared with TakeEditSheet, which needs the
@@ -156,6 +149,15 @@ export function RollingScreen(props: {
   onExit: () => void;
   onNavigate?: (slate: Slate) => void;
   onNavigateShot?: (shot: Shot) => void;
+  /**
+   * Open the project-wide clip log. This is the RECOVERY path - the screen you
+   * need the moment someone says "camera B's counter was off two takes ago" -
+   * so it belongs one tap from where the operator already is, not three taps
+   * back through the project screen. It is deliberately absent while rolling:
+   * you cannot fix a past take mid-shot, and the rolling screen has no space
+   * to spare (see scripts/measure-roll.mjs).
+   */
+  onOpenClipLog?: () => void;
 }) {
   const { slate, shot } = props;
   const timer = useRollTimer();
@@ -761,6 +763,21 @@ export function RollingScreen(props: {
                 <span className="clipedit__pen" aria-hidden="true">✎</span>
               </button>
             )}
+            {/* Recovery, one tap away - and only while stopped. */}
+            {props.onOpenClipLog && !rolling && (
+              <>
+                <span aria-hidden="true">&middot;</span>
+                <button
+                  type="button"
+                  className="clipedit"
+                  aria-label="Open the clip log for every take of this shoot"
+                  onClick={props.onOpenClipLog}
+                >
+                  log
+                  <span className="clipedit__pen" aria-hidden="true">&rsaquo;</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
         {listener.supported && (
@@ -979,14 +996,14 @@ export function RollingScreen(props: {
                     aria-label={`Camera ${u.letter} rolling ${renderUnitClip(u)}, tap to cut it`}
                     onClick={() => void soloCut(u.letter)}
                   >
-                    <span className="camslot__badge">{u.letter}</span>
-                    <span className="camslot__body">
-                      <span className={`camslot__clip tnum${clipFitClass(renderUnitClip(u))}`}>{renderUnitClip(u)}</span>
+                    <span className="camslot__top">
+                      <span className="camslot__badge">{u.letter}</span>
                       {u.operator && <span className="camslot__operator">{u.operator}</span>}
+                      <span className="camslot__elapsed tnum">
+                        <span className="recdot" aria-hidden="true" /> REC {tc.msToClock(elapsedForCam(u.letter))}
+                      </span>
                     </span>
-                    <span className="camslot__elapsed tnum">
-                      <span className="recdot" aria-hidden="true" /> REC {tc.msToClock(elapsedForCam(u.letter))}
-                    </span>
+                    <ClipNum parts={unitClipParts(u)} className="camslot__clip tnum" />
                   </button>
                 );
               }
@@ -1000,12 +1017,12 @@ export function RollingScreen(props: {
                     aria-label={`Join camera ${u.letter} into this shot, next clip ${renderUnitClip(u)}`}
                     onClick={() => soloRoll(u.letter)}
                   >
-                    <span className="camslot__badge">{u.letter}</span>
-                    <span className="camslot__body">
-                      <span className={`camslot__clip tnum${clipFitClass(renderUnitClip(u))}`}>{renderUnitClip(u)}</span>
+                    <span className="camslot__top">
+                      <span className="camslot__badge">{u.letter}</span>
                       {u.operator && <span className="camslot__operator">{u.operator}</span>}
+                      <span className="camslot__join">JOIN</span>
                     </span>
-                    <span className="camslot__join">JOIN</span>
+                    <ClipNum parts={unitClipParts(u)} className="camslot__clip tnum" />
                   </button>
                 );
               }
@@ -1019,11 +1036,11 @@ export function RollingScreen(props: {
                     aria-label={`Roll camera ${u.letter} alone, next clip ${renderUnitClip(u)}`}
                     onClick={() => soloRoll(u.letter)}
                   >
-                    <span className="camslot__badge">{u.letter}</span>
-                    <span className="camslot__body">
-                      <span className={`camslot__clip tnum${clipFitClass(renderUnitClip(u))}`}>{renderUnitClip(u)}</span>
+                    <span className="camslot__top">
+                      <span className="camslot__badge">{u.letter}</span>
                       {u.operator && <span className="camslot__operator">{u.operator}</span>}
                     </span>
+                    <ClipNum parts={unitClipParts(u)} className="camslot__clip tnum" />
                   </button>
                   <button
                     type="button"
@@ -1080,14 +1097,14 @@ export function RollingScreen(props: {
                 aria-label={`Sound rolling ${renderSoundFile(soundUnit)}, tap to cut it`}
                 onClick={() => void soundSoloCut()}
               >
-                <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
-                <span className="camslot__body">
-                  <span className={`camslot__clip tnum${clipFitClass(renderSoundFile(soundUnit))}`} style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                <span className="camslot__top">
+                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
+                  <span className="camslot__elapsed tnum">
+                    <span className="recdot" aria-hidden="true" /> REC {tc.msToClock(elapsedForSound())}
+                  </span>
                 </span>
-                <span className="camslot__elapsed tnum">
-                  <span className="recdot" aria-hidden="true" /> REC {tc.msToClock(elapsedForSound())}
-                </span>
+                <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
               </button>
             ) : rolling ? (
               // A shot is running (typically sound rolled first) but sound
@@ -1098,12 +1115,12 @@ export function RollingScreen(props: {
                 aria-label={`Join sound into this shot, next file ${renderSoundFile(soundUnit)}`}
                 onClick={soundSoloRoll}
               >
-                <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
-                <span className="camslot__body">
-                  <span className={`camslot__clip tnum${clipFitClass(renderSoundFile(soundUnit))}`} style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                <span className="camslot__top">
+                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
+                  <span className="camslot__join" style={soundTextStyle}>JOIN</span>
                 </span>
-                <span className="camslot__join" style={soundTextStyle}>JOIN</span>
+                <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
               </button>
             ) : (
               // Fully idle: tap the slot to roll sound alone (typically
@@ -1115,11 +1132,11 @@ export function RollingScreen(props: {
                   aria-label={`Roll sound alone, next file ${renderSoundFile(soundUnit)}`}
                   onClick={soundSoloRoll}
                 >
-                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
-                  <span className="camslot__body">
-                    <span className={`camslot__clip tnum${clipFitClass(renderSoundFile(soundUnit))}`} style={soundTextStyle}>{renderSoundFile(soundUnit)}</span>
+                  <span className="camslot__top">
+                    <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
                     {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                   </span>
+                  <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
                 </button>
                 <button
                   type="button"

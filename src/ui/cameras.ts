@@ -152,6 +152,38 @@ export function renderUnitClip(u: CameraUnit): string {
   return renderClip(u.clipPrefix, u.nextClipNumber, u.clipPadding, u.clipSuffix ?? '');
 }
 
+/**
+ * A clip name split into its three parts, so the running number can be styled
+ * apart from the boilerplate around it.
+ *
+ * WHY: "A001_C0191" is eleven characters of which only the last four change
+ * between takes, and it is read ALOUD to the loader under time pressure.
+ * Rendered as one flat string the eye has to parse the whole thing every time.
+ * Dimming the prefix/suffix and driving the running digits bright turns a
+ * read into a glance. This is the app's single most important element, so the
+ * split lives here next to renderClip rather than being re-derived by slicing
+ * the formatted string somewhere else — a parser that guessed where the number
+ * started would go wrong the moment a prefix ended in a digit ("A001_C").
+ */
+export interface ClipParts {
+  prefix: string;
+  digits: string;
+  suffix: string;
+  /** The whole name, identical to renderClip — for aria-labels and anything that needs plain text. */
+  full: string;
+}
+
+export function clipParts(prefix: string, n: number, digits: number, suffix: string): ClipParts {
+  const pad = Math.min(8, Math.max(1, digits || 1));
+  const mid = String(Math.max(0, n)).padStart(pad, '0');
+  return { prefix, digits: mid, suffix, full: prefix + mid + suffix };
+}
+
+/** This unit's next clip name, split for display. */
+export function unitClipParts(u: CameraUnit): ClipParts {
+  return clipParts(u.clipPrefix, u.nextClipNumber, u.clipPadding, u.clipSuffix ?? '');
+}
+
 // ------------------------------------------------------------ sound styling ---
 // Production sound accent - a cool blue, deliberately distinct from every
 // camera-side color (green ROLL, red CUT/rolling, brass GOLD) so the Sound

@@ -1832,23 +1832,42 @@ select.field {
   grid-template-columns: 1fr;
 }
 .camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip {
-  font-size: 1.28rem;
+  font-size: 1.62rem;
 }
 .camstack--sheet { max-width: none; margin-top: 0; margin-bottom: 16px; }
+/* TWO ROWS, not one. The clip number used to share a row with the badge, the
+   operator name and the running clock, and at 3-4 cameras it lost - ellipsised
+   to "A001_C0..." at the exact moment that camera was recording. It now owns a
+   full-width line of its own and everything else is demoted to a thin line
+   above it. Nothing competes with the number for horizontal space any more,
+   which is why the shrink-to-fit steps this used to need are gone. */
 .camslot {
   display: flex;
-  align-items: center;
-  gap: 9px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 7px 10px 8px;
   background: var(--ink-900);
   border: 1px solid var(--line-soft);
   border-radius: 10px;
 }
+/* The thin line above the number: who, and what state. All of it is secondary
+   to the number below, and all of it is allowed to truncate - unlike the
+   number, none of it is read aloud to a loader. */
+.camslot__top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
 .camslot__badge {
-  width: 26px;
-  height: 26px;
-  font-size: 0.82rem;
+  /* Shrunk from 26px: the letter is already carried by the slot's position and
+     by the clip prefix itself, so it is the most redundant thing on the row and
+     the right place to take width from. */
+  width: 19px;
+  height: 19px;
+  font-size: 0.66rem;
   color: var(--chalk-dim);
   background: var(--ink-800);
   border-color: var(--line);
@@ -1861,13 +1880,26 @@ select.field {
   gap: 1px;
 }
 .camslot__clip {
+  display: block;
+  width: 100%;
   color: var(--go);
-  font-weight: 700;
-  font-size: 1.02rem;
+  font-weight: 800;
+  font-size: 1.34rem;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The running number is the only part that changes between takes, so it is the
+   only part that gets full weight and full colour. The prefix/suffix stay
+   legible but recede - the eye should land on the four digits it has to say
+   out loud, not re-read "A001_C" on every take. */
+.clipnum__fix {
+  color: var(--chalk-dim);
+  font-weight: 600;
+}
+.clipnum__n { color: inherit; }
 .camslot__operator {
   /* Who is on the camera - promoted off --chalk-faint for daylight legibility. */
   color: var(--chalk-dim);
@@ -1880,16 +1912,26 @@ select.field {
 }
 
 /* Idle: tap the slot to roll that camera alone; the pencil (a separate,
-   smaller target) fixes its next clip number without rolling anything. */
+   smaller target) fixes its next clip number without rolling anything.
+   The pencil is POSITIONED, not laid out beside the number. As a flex sibling
+   it took its width out of the roll button's column, and the clip number -
+   which lives inside that button - was the thing that paid: 118px of room for
+   a 127px name, ellipsised again in the one state where the operator is
+   checking the number BEFORE they roll. Floating it into the top-right corner
+   gives the number the slot's full width; the thin top line just reserves
+   room so the operator name never runs under it. */
 .camslot--edit {
-  padding: 6px 6px 6px 10px;
+  position: relative;
+  padding: 6px 10px 8px;
   cursor: pointer;
 }
+.camslot--edit .camslot__top { padding-right: 38px; }
 .camslot__main {
   display: flex;
-  align-items: center;
-  gap: 9px;
-  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
   min-width: 0;
   min-height: var(--tap);
   background: none;
@@ -1901,6 +1943,9 @@ select.field {
 }
 .camslot__main:active { opacity: 0.7; }
 .camslot__penbtn {
+  position: absolute;
+  top: 5px;
+  right: 6px;
   flex: none;
   width: 34px;
   height: 34px;
@@ -1936,7 +1981,6 @@ select.field {
    exact moment that camera is recording. So the clock yields first, and at 3+
    cameras it drops to the dot alone: the take clock is already the largest
    thing on the screen, and per-camera elapsed is readable in the log after. */
-.camslot__clip { flex: none; }
 .camslot__elapsed {
   margin-left: auto;
   flex: 0 1 auto;
@@ -1957,8 +2001,10 @@ select.field {
 /* Three or four cameras share the width two had, so the clock text goes and the
    dot stays. Shape still carries the state, which is what has to survive red
    set-lighting and a red/green-blind operator. */
-.camstack:has(.camslot:nth-child(3)) .camslot--rolling .camslot__elapsed { font-size: 0; gap: 0; }
-.camstack:has(.camslot:nth-child(3)) .camslot--rolling .camslot__operator { display: none; }
+/* The clock and the operator name USED to be hidden at 3+ cameras, because they
+   were stealing width from the clip number on a shared row. They no longer
+   share a row with it, so they can both stay: per-camera elapsed is genuinely
+   useful when one camera joined late. */
 
 /* Three or four cameras sit two-up, so every pixel of slot chrome is a pixel
    stolen from the clip number. Tighten the padding, the gaps and the pencil at
@@ -1968,25 +2014,6 @@ select.field {
 .camstack:has(.camslot:nth-child(3)) .camslot__main { gap: 7px; }
 .camstack:has(.camslot:nth-child(3)) .camslot__penbtn { width: 30px; height: 30px; }
 
-/* A long clip name gets a SMALLER number, never an ellipsis. "A001_C0191" cut
-   to "A001_C0…" is the one string an operator reads back to the loader, and
-   losing its tail is worse than losing a point of type size. Stepped, not a
-   smooth scale, so slots in the same strip stay visually even. The steps are
-   sized against the narrowest slot this layout produces (two-up on a 360px
-   phone), so a name that hits a step FITS that step rather than merely getting
-   closer. Set from the name's own length in RollingScreen - see clipFitClass
-   there - because CSS cannot measure text. */
-.camslot__clip--fit2 { font-size: 0.82rem; letter-spacing: -0.01em; }
-.camslot__clip--fit3 { font-size: 0.68rem; letter-spacing: -0.02em; }
-.camslot__clip--fit4 { font-size: 0.58rem; letter-spacing: -0.02em; }
-/* 1-2 cams have room for the big number at any realistic length, so the steps
-   only ever apply to the cramped two-up strip. */
-.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip--fit2,
-.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip--fit3,
-.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip--fit4 {
-  font-size: 1.28rem;
-  letter-spacing: normal;
-}
 
 /* A shot is running but this unit has not joined yet - dim and dashed, tap
    to roll it in. */

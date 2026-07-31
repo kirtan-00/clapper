@@ -1,4 +1,27 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import type { ClipParts } from './cameras';
+
+/**
+ * A clip name with its running number driven bright and the boilerplate around
+ * it dimmed: "A001_C" quiet, "0191" loud.
+ *
+ * WHY: this is the string an operator reads ALOUD to the loader, mid-take,
+ * glancing. Only the tail changes between takes, so making the eye re-parse
+ * eleven flat characters every time is wasted work at the one moment there is
+ * none to spare. Screen readers and copy-paste still get the whole name — the
+ * split is purely visual, and `parts.full` is the same string renderClip
+ * produces.
+ */
+export function ClipNum(props: { parts: ClipParts; className?: string }) {
+  const { parts } = props;
+  return (
+    <span className={props.className ? `clipnum ${props.className}` : 'clipnum'} title={parts.full}>
+      {parts.prefix && <span className="clipnum__fix">{parts.prefix}</span>}
+      <span className="clipnum__n">{parts.digits}</span>
+      {parts.suffix && <span className="clipnum__fix">{parts.suffix}</span>}
+    </span>
+  );
+}
 
 /** Full-bleed bottom sheet on a scrim. Tapping the scrim dismisses. */
 export function Sheet(props: {

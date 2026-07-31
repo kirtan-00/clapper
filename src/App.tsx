@@ -17,7 +17,11 @@ type Screen =
   // Every clip the project has rolled, flat and newest-first. Project-wide by
   // nature (you look a clip up by name, not by remembering its scene), so it
   // carries the project only and backs out to the project screen.
-  | { name: 'cliplog'; project: Project }
+  // `from` is where BACK returns to. The clip log is reachable from the
+  // project screen AND from the rolling screen (it is the fix-a-mistake path,
+  // so it has to be close to where the mistake is noticed) - and backing out
+  // of it must land where you came from, not always on the project screen.
+  | { name: 'cliplog'; project: Project; from?: Screen }
   // `shot` is absent when the scene has no breakdown: takes then log against
   // the scene itself, exactly as before shots existed.
   | { name: 'rolling'; project: Project; slate: Slate; shot?: Shot };
@@ -53,7 +57,7 @@ export default function App() {
       return (
         <ClipLogScreen
           project={screen.project}
-          onBack={() => setScreen({ name: 'project', project: screen.project })}
+          onBack={() => setScreen(screen.from ?? { name: 'project', project: screen.project })}
         />
       );
 
@@ -87,6 +91,9 @@ export default function App() {
           onNavigate={(slate) => setScreen(enterSlate(screen.project, slate))}
           onNavigateShot={(shot) =>
             setScreen({ name: 'rolling', project: screen.project, slate: screen.slate, shot })
+          }
+          onOpenClipLog={() =>
+            setScreen({ name: 'cliplog', project: screen.project, from: screen })
           }
         />
       );
