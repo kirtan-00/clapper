@@ -1378,6 +1378,8 @@ select.field {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+.roll__deck > .camstack,
+.roll__deck > .soundsection,
 .roll__deck > .markbtn,
 .roll__deck > .bigbtn { flex: 0 0 auto; }
 
@@ -1771,17 +1773,49 @@ select.field {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Who is on this camera, shown in TakeEditSheet's per-row stepper (opt-in via
+   ClipNumberRows' showOperator, so MultiClipSheet's project-settings look is
+   unchanged). Same typography as .camslot__operator; indented past the 30px
+   badge + 10px gap in .camunit__head so it sits under the clip preview. */
+.camunit__operator {
+  margin: 2px 0 0 40px;
+  color: var(--chalk-dim);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Rolling-screen stacked readout: every camera's current clip, glanceable, and
    (multi-cam) each one's own tap target - roll it alone, join a running shot,
-   or cut just that camera. */
+   or cut just that camera. Lives in .roll__deck now (flex: 0 0 auto there),
+   never in .roll__stage, so it can't be squeezed off screen once the keypad
+   grows - see the .roll__deck comment above.
+   1-2 cams: one full-width row each, clip number at real size - there's
+   room, so use it. 3-4 cams: two columns, two rows max, dense pills - C and D
+   are exactly the units that get missed on a busy set, so no horizontal
+   scroller is ever an option here. */
 .camstack {
   width: 100%;
   max-width: 420px;
-  margin-top: 8px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+}
+/* Live rolling view only (not the edit sheet below): 1-2 cams get one
+   full-width row each; 3-4 stay on the two-column base above.
+   Written as a :not(:has()) narrowing of that base, never as "1 column, widen
+   to 2 when :has() finds a third slot" - a browser without :has() drops the
+   rule either way, and this direction leaves it on 2 columns. The other
+   direction would leave it stacking 4 full-width rows in the deck, which is
+   the exact bug this screen was rebuilt to kill. */
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) {
+  grid-template-columns: 1fr;
+}
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip {
+  font-size: 1.28rem;
 }
 .camstack--sheet { max-width: none; margin-top: 0; margin-bottom: 16px; }
 .camslot {
@@ -1879,12 +1913,35 @@ select.field {
   background: color-mix(in srgb, var(--rec) 20%, var(--ink-800));
   border-color: color-mix(in srgb, var(--rec) 55%, transparent);
 }
+/* The clip number outranks the running clock. It is what the operator reads
+   back to the loader, and it was being ellipsised to "C…" on the rolling slot
+   while "REC 0:03" kept its full width - the one number you need, gone at the
+   exact moment that camera is recording. So the clock yields first, and at 3+
+   cameras it drops to the dot alone: the take clock is already the largest
+   thing on the screen, and per-camera elapsed is readable in the log after. */
+.camslot__clip { flex: none; }
 .camslot__elapsed {
   margin-left: auto;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.86rem;
-  color: var(--chalk-dim);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  /* Text ("REC") + shape (the dot) carry the rolling state; the red tint is
+     only a bonus on top - never the sole signal (daylight, red set-lighting,
+     and red/green colour-blindness all defeat colour-only cues). */
+  color: var(--rec);
 }
+.camslot__elapsed .recdot { width: 7px; height: 7px; flex: none; }
+/* Three or four cameras share the width two had, so the clock text goes and the
+   dot stays. Shape still carries the state, which is what has to survive red
+   set-lighting and a red/green-blind operator. */
+.camstack:has(.camslot:nth-child(3)) .camslot--rolling .camslot__elapsed { font-size: 0; gap: 0; }
+.camstack:has(.camslot:nth-child(3)) .camslot--rolling .camslot__operator { display: none; }
 
 /* A shot is running but this unit has not joined yet - dim and dashed, tap
    to roll it in. */
@@ -2278,21 +2335,35 @@ select.field {
   gap: 6px;
 }
 
+/* Wrapper card: the correction sheet's tap target (.cliprow__main) plus a
+   secondary toolbar (move / delete) underneath, same two-tier split as
+   .minitake + .minitake__open/__del on the rolling screen. */
 .cliprow {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 10px 12px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-soft);
+  background: var(--ink-850);
+  color: var(--chalk);
+}
+
+.cliprow__main {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 4px 12px;
   align-items: baseline;
   width: 100%;
-  padding: 10px 12px;
   min-height: var(--tap);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line-soft);
-  background: var(--ink-850);
-  color: var(--chalk);
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
   text-align: left;
 }
-.cliprow:active { transform: scale(0.99); }
+.cliprow__main:active { opacity: 0.8; }
 
 /* Row 1, left: the clip name(s), plus the sound file when the take carries one. */
 .cliprow__names {
@@ -2354,6 +2425,31 @@ select.field {
   color: var(--chalk-dim);
   white-space: nowrap;
 }
+
+/* Secondary actions: re-file to another scene/shot, or remove a take that was
+   logged when nobody actually rolled. Kept OUT of .cliprow__main so tapping
+   the row body always opens the correction sheet, the primary reason anyone
+   opens this screen, without a second control in the way. */
+.cliprow__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-soft);
+}
+.cliprow__tool {
+  min-height: 28px;
+  padding: 4px 2px;
+  background: none;
+  border: none;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--chalk-dim);
+}
+.cliprow__tool:active { opacity: 0.6; }
+.cliprow__tool--danger { color: var(--rec); }
 
 .cliprow--discarded { color: var(--chalk-faint); }
 .cliprow--discarded .cliprow__clip,

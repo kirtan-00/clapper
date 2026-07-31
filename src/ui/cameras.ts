@@ -151,3 +151,24 @@ export function makeCameraUnit(
 export function renderUnitClip(u: CameraUnit): string {
   return renderClip(u.clipPrefix, u.nextClipNumber, u.clipPadding, u.clipSuffix ?? '');
 }
+
+// ------------------------------------------------------------ sound styling ---
+// Production sound accent - a cool blue, deliberately distinct from every
+// camera-side color (green ROLL, red CUT/rolling, brass GOLD) so the Sound
+// slot never reads as a fifth camera. Shared by RollingScreen (the live deck
+// and the post-cut sheet) and TakeEditSheet (the sound row in the take
+// editor), so the one accent stays in sync everywhere rather than drifting
+// between copies. The shared --sound token (styles.css) carries the actual
+// value; these stay JS handles so the inline color-mix overrides below stay
+// in sync with the rest of the app instead of hard-coding a hex here.
+export const SOUND_ACCENT = 'var(--sound)';
+export const soundBadgeStyle = {
+  color: SOUND_ACCENT,
+  background: `color-mix(in srgb, ${SOUND_ACCENT} 16%, var(--ink-800))`,
+  borderColor: `color-mix(in srgb, ${SOUND_ACCENT} 45%, transparent)`,
+};
+export const soundTextStyle = { color: SOUND_ACCENT };
+export const soundRollingStyle = {
+  borderColor: `color-mix(in srgb, ${SOUND_ACCENT} 45%, var(--line-soft))`,
+  background: `color-mix(in srgb, ${SOUND_ACCENT} 10%, var(--ink-900))`,
+};

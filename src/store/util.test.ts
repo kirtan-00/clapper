@@ -5,9 +5,9 @@
 // local.ts, which are just transaction wrappers around this logic.
 
 import { describe, expect, it } from 'vitest';
-import { buildTakeClips, nextTakeNumber, reassignTakeTo } from './util';
+import { buildTakeClips, nextTakeNumber, reassignTakeTo, rebaseClipNumbers, reclaimClipNumbers } from './util';
 import type { TakeInput } from './util';
-import type { CameraUnit, Project, Take } from '../types';
+import type { CameraUnit, CameraUnitLetter, Project, Take, TakeClip } from '../types';
 
 /** A logged take. `shotId` is only written when given, matching a real row. */
 function take(
@@ -60,6 +60,35 @@ const baseInput: TakeInput = {
   startedAt: 0,
   durationMs: 5000,
 };
+
+/** A multi-cam logged take: one clip per [unit, number], `createdAt` doubling
+ * as the take's CUT-order position (the same field rebaseClipNumbers/
+ * reclaimClipNumbers order by). */
+function multiTake(
+  id: string,
+  number: number,
+  slateId: string,
+  clips: Array<[CameraUnitLetter, number]>,
+  createdAt: number,
+): Take {
+  const takeClips: TakeClip[] = clips.map(([unit, n]) => ({
+    unit,
+    clipName: `C${String(n).padStart(4, '0')}`,
+  }));
+  return {
+    id,
+    slateId,
+    projectId: 'p1',
+    number,
+    clipName: takeClips[0]?.clipName ?? '',
+    clips: takeClips,
+    status: 'good',
+    startedAt: createdAt,
+    durationMs: 1000,
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
 
 describe('buildTakeClips — what "no camera rolled" means', () => {
   const counters = (p: Project) => (p.cameras ?? []).map((u) => u.nextClipNumber);
@@ -188,5 +217,114 @@ describe('reassignTakeTo', () => {
     );
     const loose = take('t9', 4, 's1');
     expect(reassignTakeTo(loose, [], { slateId: 's1' }, 99)).toBe(loose);
+  });
+});
+
+describe('rebaseClipNumbers — a per-take correction touches ONLY its own camera', () => {
+  // Every take carries all three units (A/B/C) so a "correction" that leaves
+  // A and C's typed value equal to their current one, exactly what
+  // TakeEditSheet sends (it always includes every unit's current number, not
+  // just the one the operator actually edited — see typedNumbers() in
+  // TakeEditSheet.tsx), is the realistic input here, not a hand-picked easy
+  // case.
+  const clipOf = (t: Take, unit: CameraUnitLetter) => t.clips!.find((c) => c.unit === unit)!.clipName;
+
+  it('shifts only the edited camera; the other two keep the exact clip names they already had', () => {
+    const project = threeCam(); // next-to-write: A7, B12, C3
+    const earlier = multiTake('t0', 1, 's1', [['A', 6], ['B', 11], ['C', 2]], 50);
+    const edited = multiTake('t1', 2, 's1', [['A', 7], ['B', 12], ['C', 3]], 100);
+    const later = multiTake('t2', 3, 's1', [['A', 8], ['B', 13], ['C', 4]], 200);
+    const all = [earlier, edited, later];
+
+    // Camera B was mis-logged as 12, corrected to 20 — A and C are handed
+    // back their OWN current values, same as the real UI does.
+    const result = rebaseClipNumbers(project, all, edited.id, { A: 7, B: 20, C: 3 }, 999);
+    const byId = new Map(result.takes.map((t) => [t.id, t]));
+
+    // Edited take: B changed, A and C byte-identical to what they were.
+    const gotEdited = byId.get(edited.id)!;
+    expect(clipOf(gotEdited, 'B')).toBe('C0020');
+    expect(clipOf(gotEdited, 'A')).toBe(clipOf(edited, 'A'));
+    expect(clipOf(gotEdited, 'C')).toBe(clipOf(edited, 'C'));
+
+    // Later take: B carries the same +8 delta forward, A and C are NOT in the
+    // changed set at all — untouched, not "touched but equal".
+    const gotLater = byId.get(later.id)!;
+    expect(clipOf(gotLater, 'B')).toBe('C0021');
+    expect(byId.has(later.id)).toBe(true); // it DID change (B moved)…
+    expect(clipOf(gotLater, 'A')).toBe(clipOf(later, 'A'));
+    expect(clipOf(gotLater, 'C')).toBe(clipOf(later, 'C'));
+
+    // Earlier take: never touched at all, on ANY camera — not present in the
+    // returned changed set.
+    expect(byId.has(earlier.id)).toBe(false);
+
+    // The live counters: only B's shifts, by the same delta.
+    const cam = (letter: CameraUnitLetter) => result.project.cameras!.find((c) => c.letter === letter)!;
+    expect(cam('A').nextClipNumber).toBe(7);
+    expect(cam('B').nextClipNumber).toBe(20);
+    expect(cam('C').nextClipNumber).toBe(3);
+  });
+
+  it('walks the WHOLE PROJECT for the edited camera, crossing into a later scene on another day — by design, not by accident', () => {
+    // A camera's card counter runs across every scene until the card is
+    // swapped, so a correction here is meant to reach a take shot on a
+    // different slate entirely. This is the behaviour flagged in the task:
+    // confirmed intentional (rebaseClipNumbers/reclaimClipNumbers both key
+    // off ALL of the project's takes, not the current scene's), and it is
+    // never applied without the caller showing a preview first — see
+    // TakeEditSheet's pendingShift confirmation, which lists exactly which
+    // takes move before committing.
+    const project = threeCam();
+    const today = multiTake('t1', 1, 's-today', [['A', 7], ['B', 12], ['C', 3]], 100);
+    const threeDaysAgo = multiTake('t2', 1, 's-old', [['A', 8], ['B', 13], ['C', 4]], 200);
+    const all = [today, threeDaysAgo];
+
+    const result = rebaseClipNumbers(project, all, today.id, { A: 7, B: 20, C: 3 }, 999);
+    const other = result.takes.find((t) => t.id === threeDaysAgo.id);
+
+    expect(other).toBeDefined();
+    expect(other!.slateId).toBe('s-old'); // a different scene, a different day
+    expect(clipOf(other!, 'B')).toBe('C0021'); // shifted anyway
+    expect(clipOf(other!, 'A')).toBe(clipOf(threeDaysAgo, 'A')); // A never moves
+    expect(clipOf(other!, 'C')).toBe(clipOf(threeDaysAgo, 'C')); // C never moves
+  });
+
+  it('a delta of zero (reformat only) still writes the edited take but nothing downstream', () => {
+    const project = threeCam();
+    const edited = multiTake('t1', 1, 's1', [['A', 7], ['B', 12], ['C', 3]], 100);
+    const later = multiTake('t2', 2, 's1', [['A', 8], ['B', 13], ['C', 4]], 200);
+    const result = rebaseClipNumbers(project, [edited, later], edited.id, { A: 7, B: 12, C: 3 }, 999);
+    expect(result.takes.map((t) => t.id)).toEqual([edited.id]); // later never enters the changed set
+  });
+});
+
+describe('reclaimClipNumbers — DELETE only reclaims the cameras that actually rolled', () => {
+  const clipOf = (t: Take, unit: CameraUnitLetter) => t.clips!.find((c) => c.unit === unit)!.clipName;
+
+  it('a take where only B rolled slides B down on every later take, and never touches A or C anywhere', () => {
+    const project = threeCam();
+    const bOnly = multiTake('t1', 1, 's1', [['B', 12]], 100); // wild line: only B joined
+    const later = multiTake('t2', 2, 's2', [['A', 8], ['B', 13], ['C', 4]], 200); // different scene
+    const result = reclaimClipNumbers(project, [bOnly, later], bOnly.id, 999);
+    const changed = result.takes.find((t) => t.id === later.id)!;
+
+    expect(changed).toBeDefined();
+    expect(clipOf(changed, 'B')).toBe('C0012'); // slid down one
+    expect(clipOf(changed, 'A')).toBe(clipOf(later, 'A')); // A untouched
+    expect(clipOf(changed, 'C')).toBe(clipOf(later, 'C')); // C untouched
+
+    const cam = (letter: CameraUnitLetter) => result.project.cameras!.find((c) => c.letter === letter)!;
+    expect(cam('A').nextClipNumber).toBe(7); // unchanged: A never consumed a number here
+    expect(cam('B').nextClipNumber).toBe(11); // 12 - 1
+    expect(cam('C').nextClipNumber).toBe(3); // unchanged
+  });
+
+  it('an earlier take is never touched, even on the camera that got reclaimed', () => {
+    const project = threeCam();
+    const earlier = multiTake('t0', 1, 's1', [['A', 6], ['B', 11], ['C', 2]], 50);
+    const doomed = multiTake('t1', 2, 's1', [['A', 7], ['B', 12], ['C', 3]], 100);
+    const result = reclaimClipNumbers(project, [earlier, doomed], doomed.id, 999);
+    expect(result.takes.find((t) => t.id === earlier.id)).toBeUndefined();
   });
 });

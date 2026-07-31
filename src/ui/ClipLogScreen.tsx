@@ -1,5 +1,6 @@
 // The clip log — every clip this project has rolled, newest first, and the one
-// place to repair a take that was filed against the wrong setup.
+// place to repair a take that was filed against the wrong setup or carries a
+// wrong clip number, whether it was logged a minute ago or three scenes back.
 //
 // This exists because of a specific on-set failure: the operator forgets to
 // advance the shot, rolls three takes against 5.30 while the camera is actually
@@ -9,15 +10,21 @@
 // grouped by scene like every other screen: you find the clip by the name on
 // the card, not by remembering which setup it was supposed to be.
 //
-// It reads, and it re-files. It does not delete, rename, or renumber clips;
-// those live on the rolling screen where the take was logged.
+// It reads, re-files, corrects a clip/sound number or status/tags/note (via
+// TakeEditSheet, the same sheet the rolling screen opens, just reachable here
+// against any take, not only the last few of the setup currently open),
+// discards a no-good take, and deletes one that was logged when nobody
+// actually rolled. The rolling screen only ever reaches the last few takes of
+// the setup it has open; this screen is what lets a take from this morning, or
+// two setups ago, get the same correction without hunting for it first.
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
 import { nextTakeNumber } from '../store/util';
 import { tc } from '../export/timecode';
-import { Sheet, Rail, Toast } from './common';
+import { Sheet, Rail, Toast, Confirm } from './common';
+import { TakeEditSheet } from './TakeEditSheet';
 import * as haptics from './haptics';
 
 /** Every clip name on a take: "A C0184 · B B0091" multi-cam, "C0184" single. */
@@ -54,16 +61,27 @@ interface ClipRow {
 }
 
 export function ClipLogScreen(props: { project: Project; onBack: () => void }) {
-  const { project } = props;
+  // Local copy, not `props.project` read fresh each render: a clip-number
+  // correction (TakeEditSheet's rebase) writes a new project row with shifted
+  // counters, and the NEXT sheet opened from this screen must see it, same as
+  // RollingScreen keeping its own `project` state for the same reason.
+  const [project, setProject] = useState<Project>(props.project);
   const [slates, setSlates] = useState<Slate[] | null>(null);
   const [takes, setTakes] = useState<Take[] | null>(null);
   const [query, setQuery] = useState('');
   const [moving, setMoving] = useState<ClipRow | null>(null);
+  const [editing, setEditing] = useState<ClipRow | null>(null);
+  const [deleting, setDeleting] = useState<ClipRow | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   async function refresh() {
-    const list = await store.listSlates(project.id);
+    // The project comes back too, not just the rows: a delete hands a clip
+    // number back and moves that camera's live counter (reclaimClipNumbers),
+    // and the next sheet opened from this screen is handed this copy. Same
+    // reason RollingScreen re-reads it in refreshMeta.
+    const [fresh, list] = await Promise.all([store.getProject(project.id), store.listSlates(project.id)]);
     const perSlate = await Promise.all(list.map((s) => store.listTakes(s.id)));
+    if (fresh) setProject(fresh);
     setSlates(list);
     // Newest first. `startedAt` is when the camera rolled, which is the order
     // the day actually happened in; id breaks the tie so two takes stamped in
@@ -113,13 +131,40 @@ export function ClipLogScreen(props: { project: Project; onBack: () => void }) {
 
   async function move(row: ClipRow, destination: { slateId: string; shotId?: string }) {
     haptics.tap();
-    const moved = await store.reassignTake(row.take.id, destination);
-    const destSlate = slateById.get(destination.slateId);
-    const destShot =
-      destSlate && destination.shotId !== undefined ? findShot(destSlate, destination.shotId) : undefined;
-    setMoving(null);
-    await refresh();
-    setToast(`Moved to ${destShot?.code ?? destSlate?.name ?? 'scene'} take ${moved.number}`);
+    try {
+      const moved = await store.reassignTake(row.take.id, destination);
+      const destSlate = slateById.get(destination.slateId);
+      const destShot =
+        destSlate && destination.shotId !== undefined ? findShot(destSlate, destination.shotId) : undefined;
+      setMoving(null);
+      await refresh();
+      setToast(`Moved to ${destShot?.code ?? destSlate?.name ?? 'scene'} take ${moved.number}`);
+    } catch (err) {
+      // A rejected reassignTake must not leave the sheet open on a dead Move
+      // button, so close it and say so, same as every other failed write here.
+      console.error('Clapper: failed to move take', err);
+      setMoving(null);
+      setToast('Could not move that clip, try again');
+    }
+  }
+
+  /** DELETE means the camera never wrote this file, so it hands the clip
+   * number back and slides every later take on that camera (and sound, if it
+   * recorded) down one, see reclaimClipNumbers in store/util.ts. A take that
+   * WAS actually shot belongs on "No good" in the edit sheet instead, which
+   * keeps its number. */
+  async function removeTake(row: ClipRow) {
+    haptics.tap();
+    try {
+      await store.deleteTake(row.take.id);
+      setDeleting(null);
+      await refresh();
+      setToast('Take deleted');
+    } catch (err) {
+      console.error('Clapper: failed to delete take', err);
+      setDeleting(null);
+      setToast('Could not delete that take, try again');
+    }
   }
 
   return (
@@ -176,32 +221,54 @@ export function ClipLogScreen(props: { project: Project; onBack: () => void }) {
             {filtered.map((row) => {
               const { take, slate, shot } = row;
               return (
-                <button
-                  key={take.id}
-                  type="button"
-                  className={`cliprow${take.status === 'discarded' ? ' cliprow--discarded' : ''}`}
-                  aria-label={`${takeClipLabel(take)}, ${slate.name}${
-                    shot ? `, shot ${shot.code}` : ''
-                  }, take ${take.number}. Move it to another scene or shot.`}
-                  onClick={() => setMoving(row)}
-                >
-                  <span className="cliprow__names">
-                    <span className="cliprow__clip">{takeClipLabel(take)}</span>
-                    {take.sound && <span className="cliprow__snd">🔊 {take.sound.fileName}</span>}
-                  </span>
-                  <span className="cliprow__where">
-                    <span className="cliprow__scene">{slate.name}</span>
-                    {/* No shot line for a take that has none. A scene-level
-                        take is a real thing, not missing data. */}
-                    {shot && <span className="cliprow__shot">{shot.code}</span>}
-                    <span className="cliprow__take tnum">take {take.number}</span>
-                    {take.status === 'discarded' && <span className="cliprow__flag">discarded</span>}
-                  </span>
-                  <span className="cliprow__times">
-                    <span className="tnum">{wallClock(take.startedAt)}</span>
-                    <span className="tnum">{tc.msToClock(take.durationMs)}</span>
-                  </span>
-                </button>
+                <div key={take.id} className={`cliprow${take.status === 'discarded' ? ' cliprow--discarded' : ''}`}>
+                  {/* Primary tap target: the correction sheet, reachable here
+                      exactly like it is from the rolling screen's recent takes,
+                      just not limited to the last few. */}
+                  <button
+                    type="button"
+                    className="cliprow__main"
+                    aria-label={`${takeClipLabel(take)}, ${slate.name}${
+                      shot ? `, shot ${shot.code}` : ''
+                    }, take ${take.number}. Tap to fix a clip number, status, tags or note.`}
+                    onClick={() => setEditing(row)}
+                  >
+                    <span className="cliprow__names">
+                      <span className="cliprow__clip">{takeClipLabel(take)}</span>
+                      {take.sound && <span className="cliprow__snd">🔊 {take.sound.fileName}</span>}
+                    </span>
+                    <span className="cliprow__where">
+                      <span className="cliprow__scene">{slate.name}</span>
+                      {/* No shot line for a take that has none. A scene-level
+                          take is a real thing, not missing data. */}
+                      {shot && <span className="cliprow__shot">{shot.code}</span>}
+                      <span className="cliprow__take tnum">take {take.number}</span>
+                      {take.status === 'discarded' && <span className="cliprow__flag">discarded</span>}
+                    </span>
+                    <span className="cliprow__times">
+                      <span className="tnum">{wallClock(take.startedAt)}</span>
+                      <span className="tnum">{tc.msToClock(take.durationMs)}</span>
+                    </span>
+                  </button>
+                  <div className="cliprow__toolbar">
+                    <button
+                      type="button"
+                      className="cliprow__tool"
+                      aria-label={`Move ${takeClipLabel(take)} to another scene or shot`}
+                      onClick={() => setMoving(row)}
+                    >
+                      Move
+                    </button>
+                    <button
+                      type="button"
+                      className="cliprow__tool cliprow__tool--danger"
+                      aria-label={`Delete take ${take.number} (${takeClipLabel(take)})`}
+                      onClick={() => setDeleting(row)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -219,6 +286,40 @@ export function ClipLogScreen(props: { project: Project; onBack: () => void }) {
           allTakes={takes ?? []}
           onClose={() => setMoving(null)}
           onMove={(destination) => void move(moving, destination)}
+        />
+      )}
+
+      {editing && (
+        <TakeEditSheet
+          project={project}
+          slate={editing.slate}
+          take={editing.take}
+          onClose={() => setEditing(null)}
+          onSaved={async (updatedProject, shifted) => {
+            setEditing(null);
+            // The rebase may have shifted a camera's live counter, so take the
+            // project back from the store rather than keeping the stale copy -
+            // exactly what RollingScreen does with the same callback.
+            setProject(updatedProject);
+            if (shifted > 0) {
+              setToast(`Clip fixed - ${shifted} later take${shifted === 1 ? '' : 's'} moved too`);
+            }
+            await refresh();
+          }}
+        />
+      )}
+
+      {deleting && (
+        <Confirm
+          title={`Delete take ${deleting.take.number}?`}
+          message={`Only if the camera never rolled. This removes ${takeClipLabel(deleting.take)}${
+            deleting.take.sound ? ` and sound ${deleting.take.sound.fileName}` : ''
+          } and every moment tagged in it, hands the clip number back, and slides every later take on that camera${
+            deleting.take.sound ? ' (and every later sound file)' : ''
+          } down one. If the camera DID roll and the take was simply no good, discard it instead so it keeps its number. Cannot be undone.`}
+          confirmLabel="Delete take"
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => void removeTake(deleting)}
         />
       )}
 
