@@ -1163,7 +1163,28 @@ select.field {
    shrink below its content). The landscape-tablet media query at the end of
    this file MATERIALIZES them into real boxes to form the side-by-side panes. */
 .roll__panes { display: contents; }
-.roll__body { display: contents; }
+/* Everything ABOVE the deck is what yields when the screen runs out of room.
+   This used to be `display: contents`, which meant the head, the shot strip,
+   the action line and the scene pager were direct children of a FIXED-height
+   .roll and could not shrink below their own text. A wordy action line plus a
+   scene pager therefore pushed the deck down and straight off the bottom of a
+   short viewport - and because .roll is position:fixed there is no page scroll
+   to go and get it. On a Safari phone (URL bar + toolbar leave ~530px) that
+   put the camera strip, MARK IN and CUT off screen mid-take.
+   Making this a real box with min-height:0 and its own scroller means the
+   TEXT scrolls and the CONTROLS never move. */
+.roll__body {
+  display: flex;
+  flex-direction: column;
+  /* Shrinks FIRST and never takes more than its share: this is all reference
+     text (scene, shot spec, action line, pager, clock) and none of it is a
+     control. It scrolls inside itself rather than pushing controls away. */
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 42%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 /* -------------------------------------------------------------- tally ----
    The PRIMARY recording tell: a committed solid-red fill across the very top
@@ -1383,14 +1404,35 @@ select.field {
   flex-direction: column;
   gap: 12px;
   padding-top: 10px;
-  flex: 0 1 auto;
+  /* The controls take every pixel the text does not. The deck itself is the
+     scroller now (not .roll__pads nested inside it - a scroller inside a
+     scroller strands the buttons at the bottom, which is exactly how CUT went
+     off screen), and CUT is stuck to its bottom edge so it is on screen no
+     matter how little room is left. */
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+/* CUT is the one control that may never move or leave. Sticky to the bottom of
+   the deck's own scroll box: everything above it can scroll away, it cannot. */
+.roll__deck > .bigbtn {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+/* No longer its own scroller: the deck above is. Two nested scrollers is what
+   let the keypad collapse to 0px while the buttons below it slid off screen. */
 .roll__pads {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 0;
+  /* Shrinks, but CLIPS what it loses instead of spilling it - without its own
+     overflow the chips escaped the box and MARK IN was drawn over them. The
+     floor keeps at least one row of chips tappable: collapsing to 0 hid the
+     script beats entirely, which is the whole reason this pad exists. */
+  flex: 0 1 auto;
+  min-height: 48px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
