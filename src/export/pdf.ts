@@ -119,6 +119,36 @@ function truncate(text: string, font: PDFFont, size: number, maxWidth: number): 
   return t + '...';
 }
 
+/**
+ * Pack `parts` into as few lines as fit `maxWidth`, breaking only BETWEEN parts.
+ *
+ * The take band's identity is a list of whole clip names, and half a clip name
+ * is worse than useless to whoever is relinking - so this never splits one.
+ * A single part too long for a line still gets its own line and is truncated
+ * there rather than silently dropped.
+ */
+export function packLines(
+  parts: string[],
+  sep: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+): string[] {
+  const lines: string[] = [];
+  let line = '';
+  for (const part of parts) {
+    const candidate = line ? line + sep + part : part;
+    if (!line || font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      line = candidate;
+      continue;
+    }
+    lines.push(line);
+    line = part;
+  }
+  if (line) lines.push(line);
+  return lines.map((l) => truncate(l, font, size, maxWidth));
+}
+
 function safeCameraTc(base: string | undefined, ms: number, fps: Fps): string | undefined {
   if (!base) return undefined;
   try {
@@ -153,13 +183,17 @@ function momentTime(m: Moment): string {
  * rides alongside as one more entry, e.g. "... · SND SND_0042" - never its own
  * column, so a project with no sound renders byte-identical to before.
  */
-function clipLabel(take: Take, project: Project): string {
+function clipLabelParts(take: Take, project: Project): string[] {
   const parts: string[] =
     take.clips && take.clips.length
       ? take.clips.map((c) => `${c.unit} ${c.clipName}`)
       : [take.clipName];
   if (project.sound && take.sound) parts.push(`SND ${take.sound.fileName}`);
-  return parts.join('  ·  ');
+  return parts;
+}
+
+function clipLabel(take: Take, project: Project): string {
+  return clipLabelParts(take, project).join('  ·  ');
 }
 
 export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
@@ -424,24 +458,46 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
       }
 
       // take header band (shaded, full width)
-      const bandH = 16;
+      //
+      // The identity runs free across the left and WRAPS rather than truncates
+      // when it will not fit on one line. A three-camera take with sound is
+      // already five names, and a camera that cut and rejoined adds one more
+      // per file - the old single truncated line silently dropped the tail,
+      // which on this page means a card nobody knows to look for. Breaks only
+      // ever land between whole clip names (packLines).
+      const labelWidth = C_TIME.x - (MARGIN + 4) - 6;
+      // "Take 3  -  A C0193  ·  B C0097  ·  ..." - the dash still sets the take
+      // number apart from the clip list, and the list still joins on the middot
+      // it always did. Only the SEPARATORS between clips are break candidates,
+      // so the take number can never be orphaned from its first clip.
+      const clipParts = clipLabelParts(take, project).map(sanitize);
+      const head = `Take ${take.number}`;
+      const labelLines = packLines(
+        clipParts.length ? [`${head}  -  ${clipParts[0]}`, ...clipParts.slice(1)] : [head],
+        '  ·  ',
+        bold,
+        8.5,
+        labelWidth,
+      );
+      const bandH = 16 + (labelLines.length - 1) * 10;
       ensure(bandH);
       const bandBottom = y - bandH;
       page.drawRectangle({ x: MARGIN, y: bandBottom, width: CONTENT_WIDTH, height: bandH, color: BAND });
       // The band is column-aligned with the moment rows below it, so a value
       // always sits under its own heading: roll length under TIME, and the
-      // clock ONLY under WALL CLOCK. The identity (take + clip) runs free
-      // across the left, truncated before it can reach the TIME column. The
-      // shot is NOT repeated here - it is the sub-heading above this group.
-      const bandBase = baselineOf(bandBottom, bandH, 8.5);
-      const bandLabel = [`Take ${take.number}`, clipLabel(take, project)].filter(Boolean).join('  -  ');
-      const labelWidth = C_TIME.x - (MARGIN + 4) - 6;
-      page.drawText(truncate(sanitize(bandLabel), bold, 8.5, labelWidth), {
-        x: MARGIN + 4,
-        y: bandBase,
-        size: 8.5,
-        font: bold,
-        color: INK,
+      // clock ONLY under WALL CLOCK. Those right-hand cells stay on the FIRST
+      // line whatever the identity wraps to, so the columns still read down
+      // the page. The shot is NOT repeated here - it is the sub-heading above
+      // this group.
+      const bandBase = baselineOf(bandBottom + (bandH - 16), 16, 8.5);
+      labelLines.forEach((line, i) => {
+        page.drawText(line, {
+          x: MARGIN + 4,
+          y: bandBase - i * 10,
+          size: 8.5,
+          font: bold,
+          color: INK,
+        });
       });
       cell(C_DATE, shortDateLabel(displayShootDay(take)), bandBase, { font: bold, size: 8.5 });
       cell(C_TIME, tc.msToClock(take.durationMs), bandBase, { font: bold, size: 8.5 });

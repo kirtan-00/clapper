@@ -314,6 +314,24 @@ export function RollingScreen(props: {
     return startedAt === undefined ? 0 : Math.max(0, nowTick - startedAt);
   }
 
+  /**
+   * `u` with its counter wound forward past every file it has ALREADY closed
+   * inside the take still running.
+   *
+   * A camera that cuts and rejoins while the others keep rolling writes a
+   * SECOND file on its card, and the operator has to read that second number
+   * aloud the moment it turns over again. The stored counter cannot help: it
+   * only moves at CUT, when the whole take is written. So the slot adds the
+   * rolls this camera has already banked this take - one per file - and shows
+   * the number the card is actually on. Idle, `finishedRolls` is empty and
+   * this is the stored unit unchanged.
+   */
+  function liveUnit(u: CameraUnit): CameraUnit {
+    let burnt = 0;
+    for (const r of finishedRolls) if (r.unit === u.letter) burnt += 1;
+    return burnt === 0 ? u : { ...u, nextClipNumber: u.nextClipNumber + burnt };
+  }
+
   function elapsedForSound(): number {
     return soundStartedAt === null ? 0 : Math.max(0, nowTick - soundStartedAt);
   }
@@ -550,9 +568,17 @@ export function RollingScreen(props: {
   }
 
   /** Tap Sound's own ROLL. Starts a take if none is running (typically FIRST,
-   * before any camera), else joins the one already open. */
+   * before any camera), else joins the one already open.
+   *
+   * Refuses once sound has already cut inside this take (`soundFinished`), the
+   * same refusal the big ROLL has always made. A take carries ONE recorder
+   * file, so restarting here would silently throw away the file that closed -
+   * its timing AND its number - and leave the recorder's counter one behind
+   * the card for the rest of the day. The slot renders as spent rather than as
+   * a JOIN nobody can take. Cameras are the opposite case: they DO reopen, and
+   * each reopen is a new file with its own number (see liveUnit). */
   function soundSoloRoll() {
-    if (postCut || soundStartedAt !== null) return;
+    if (postCut || soundStartedAt !== null || soundFinished !== null) return;
     haptics.thump();
     track('roll');
     const now = Date.now();
@@ -1001,6 +1027,9 @@ export function RollingScreen(props: {
           <div className="camstack" aria-label="Every camera - tap one to roll, join, or cut it alone">
             {cameras.map((u) => {
               const camIsRolling = camRolls[u.letter] !== undefined;
+              // What this camera's card is actually on right now - past any
+              // file it already closed and reopened inside this same take.
+              const live = liveUnit(u);
               if (camIsRolling) {
                 // This unit is rolling: tap it to cut just this camera. If it
                 // is the last one still rolling, the whole shot closes.
@@ -1012,7 +1041,7 @@ export function RollingScreen(props: {
                     key={u.letter}
                     type="button"
                     className="camslot camslot--rolling"
-                    aria-label={`Camera ${u.letter} rolling ${renderUnitClip(u)}, tap to cut it`}
+                    aria-label={`Camera ${u.letter} rolling ${renderUnitClip(live)}, tap to cut it`}
                     onClick={() => void soloCut(u.letter)}
                   >
                     <span className="camslot__top">
@@ -1022,7 +1051,7 @@ export function RollingScreen(props: {
                         <span className="recdot" aria-hidden="true" /> REC {tc.msToClock(elapsedForCam(u.letter))}
                       </span>
                     </span>
-                    <ClipNum parts={unitClipParts(u)} className="camslot__clip tnum" />
+                    <ClipNum parts={unitClipParts(live)} className="camslot__clip tnum" />
                   </button>
                 );
               }
@@ -1033,7 +1062,7 @@ export function RollingScreen(props: {
                     key={u.letter}
                     type="button"
                     className="camslot camslot--join"
-                    aria-label={`Join camera ${u.letter} into this shot, next clip ${renderUnitClip(u)}`}
+                    aria-label={`Join camera ${u.letter} into this shot, next clip ${renderUnitClip(live)}`}
                     onClick={() => soloRoll(u.letter)}
                   >
                     <span className="camslot__top">
@@ -1041,7 +1070,7 @@ export function RollingScreen(props: {
                       {u.operator && <span className="camslot__operator">{u.operator}</span>}
                       <span className="camslot__join">JOIN</span>
                     </span>
-                    <ClipNum parts={unitClipParts(u)} className="camslot__clip tnum" />
+                    <ClipNum parts={unitClipParts(live)} className="camslot__clip tnum" />
                   </button>
                 );
               }
@@ -1052,14 +1081,14 @@ export function RollingScreen(props: {
                   <button
                     type="button"
                     className="camslot__main"
-                    aria-label={`Roll camera ${u.letter} alone, next clip ${renderUnitClip(u)}`}
+                    aria-label={`Roll camera ${u.letter} alone, next clip ${renderUnitClip(live)}`}
                     onClick={() => soloRoll(u.letter)}
                   >
                     <span className="camslot__top">
                       <span className="camslot__badge">{u.letter}</span>
                       {u.operator && <span className="camslot__operator">{u.operator}</span>}
                     </span>
-                    <ClipNum parts={unitClipParts(u)} className="camslot__clip tnum" />
+                    <ClipNum parts={unitClipParts(live)} className="camslot__clip tnum" />
                   </button>
                   <button
                     type="button"
@@ -1102,7 +1131,13 @@ export function RollingScreen(props: {
                 🔊 Sound
               </span>
               <span className="section__note" style={{ marginLeft: 'auto' }}>
-                {soundRolling ? 'tap to cut' : rolling ? 'tap to join' : 'tap to roll'}
+                {soundRolling
+                  ? 'tap to cut'
+                  : soundFinished
+                    ? 'done this shot'
+                    : rolling
+                      ? 'tap to join'
+                      : 'tap to roll'}
               </span>
             </div>
             <div aria-label="Production sound - tap to roll, join, or cut it alone">
@@ -1125,6 +1160,19 @@ export function RollingScreen(props: {
                 </span>
                 <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
               </button>
+            ) : soundFinished ? (
+              // Sound already cut inside this shot while a camera kept
+              // rolling. One recorder file per take, so there is nothing left
+              // to join - show the file it wrote, spent, rather than a JOIN
+              // that would refuse the tap (see soundSoloRoll).
+              <div className="camslot camslot--spent" aria-label={`Sound recorded ${renderSoundFile(soundUnit)} for this shot`}>
+                <span className="camslot__top">
+                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+                  {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
+                  <span className="camslot__join" style={soundTextStyle}>DONE</span>
+                </span>
+                <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
+              </div>
             ) : rolling ? (
               // A shot is running (typically sound rolled first) but sound
               // has not joined yet - or a camera opened it and sound is late.
@@ -1655,8 +1703,11 @@ function PostCutSheet(props: {
     <Sheet title={`Shot ${props.take.number} saved`}>
       {clips.length > 0 && (
         <div className="camstack camstack--sheet" aria-label="Clip on each camera">
+          {/* Keyed by the clip NAME, not the unit letter: a camera that cut
+              and rejoined wrote two files on this one shot and gets a slot
+              each, so the letter is no longer unique down this list. */}
           {clips.map((c) => (
-            <div key={c.unit} className="camslot">
+            <div key={`${c.unit}${c.clipName}`} className="camslot">
               <span className="camslot__badge">{c.unit}</span>
               <span className="camslot__clip tnum">{c.clipName}</span>
             </div>

@@ -116,7 +116,20 @@ function unitsOf(bundle: ProjectBundle): Unit[] {
 
 function clipNameFor(take: Take, unit: Unit, multi: boolean): string | undefined {
   if (!multi) return take.clipName;
-  return take.clips?.find((c) => c.unit === unit.letter)?.clipName;
+  return clipsFor(take, unit)[0]?.clipName;
+}
+
+/**
+ * Every file `unit` wrote on `take`, in the order it wrote them. Normally one -
+ * but a camera that cut and rejoined while the others kept rolling closed one
+ * file and opened another inside the same take, and each is a real card the
+ * editor has to relink. Multi-cam only: single-cam carries its one clip in
+ * `take.clipName`, not in `clips`.
+ */
+function clipsFor(take: Take, unit: Unit): TakeClip[] {
+  return (take.clips ?? [])
+    .filter((c) => c.unit === unit.letter)
+    .sort((a, b) => (a.startOffsetMs ?? 0) - (b.startOffsetMs ?? 0));
 }
 
 export function toResolveXml(bundle: ProjectBundle): Blob {
@@ -170,16 +183,22 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
 
   for (const take of allTakesInStoryOrder(bundle)) {
     for (const unit of units) {
-      const clipName = clipNameFor(take, unit, multi);
-      if (!clipName) continue;
-      const key = `${clipName}|${unit.letter}|${shootDayKey(take)}`;
-      if (!assets.has(key)) {
+      // Every file this unit wrote on this take gets its own <asset>. A camera
+      // that cut and rejoined wrote two physical cards inside one take, and
+      // registering only the first would leave the second unrelinkable.
+      const own: Array<{ clipName: string; durationMs?: number }> = multi
+        ? clipsFor(take, unit)
+        : [{ clipName: take.clipName }];
+      for (const clip of own) {
+        const clipName = clip.clipName;
+        if (!clipName) continue;
+        const key = `${clipName}|${unit.letter}|${shootDayKey(take)}`;
+        if (assets.has(key)) continue;
         // The asset's own registered duration is THAT unit's own recorded
         // roll length where we have it (a unit that joined late or cut early
         // only really ran for part of the take), falling back to the take's
         // overall duration for pre-timing saved takes.
-        const ownMs = multi ? take.clips?.find((c) => c.unit === unit.letter)?.durationMs : undefined;
-        const durationFrames = Math.max(1, msToFrames(ownMs ?? take.durationMs, fps));
+        const durationFrames = Math.max(1, msToFrames(clip.durationMs ?? take.durationMs, fps));
         assets.set(key, {
           id: `a${(assetSeq += 1)}`,
           clipName,
@@ -193,10 +212,10 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     }
   }
 
-  /** This unit's own clip on `take`, or undefined if it never rolled it. */
+  /** This unit's FIRST clip on `take`, or undefined if it never rolled it. */
   function clipOf(take: Take, unit: Unit): TakeClip | undefined {
     if (!multi) return undefined;
-    return take.clips?.find((c) => c.unit === unit.letter);
+    return clipsFor(take, unit)[0];
   }
 
   // Production sound: one <asset> per distinct recorder file, registered up
@@ -334,17 +353,30 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     const laneChildren: string[] = [];
     let lane = 0;
     for (const u of units) {
-      if (u === anchor) continue;
-      const clip = clipOf(take, u);
-      const cn = multi ? clip?.clipName : clipNameFor(take, u, multi);
-      if (!cn) continue;
+      // One lane per CAMERA, not per clip - a unit that cut and rejoined puts
+      // both of its files on its own lane, back to back with the hole between
+      // them, which is how the editor sees that camera going down and coming
+      // back. The anchor's FIRST clip is the spine element itself, so only
+      // what it rolled AFTER rejoining needs a lane of its own.
+      const own = multi
+        ? u === anchor
+          ? clipsFor(take, u).slice(1)
+          : clipsFor(take, u)
+        : u === anchor
+          ? []
+          : [{ clipName: clipNameFor(take, u, multi) ?? '', startOffsetMs: 0, durationMs: undefined }];
+      const usable = own.filter((c) => c.clipName);
+      if (usable.length === 0) continue;
       lane += 1;
-      const id = assets.get(`${cn}|${u.letter}|${shootDayKey(take)}`)!.id;
-      const offsetMs = (multi ? clip?.startOffsetMs ?? 0 : 0) - anchorOffsetMs;
-      const durationFrames = Math.max(1, msToFrames((multi ? clip?.durationMs : undefined) ?? take.durationMs, fps));
-      laneChildren.push(
-        `          <asset-clip ref="${id}" lane="${lane}" offset="${framesToRational(Math.max(0, msToFrames(offsetMs, fps)), fd)}" name="${escapeXml(cn)}" duration="${framesToRational(durationFrames, fd)}" start="0s"/>`,
-      );
+      for (const clip of usable) {
+        const cn = clip.clipName;
+        const id = assets.get(`${cn}|${u.letter}|${shootDayKey(take)}`)!.id;
+        const offsetMs = (clip.startOffsetMs ?? 0) - anchorOffsetMs;
+        const durationFrames = Math.max(1, msToFrames(clip.durationMs ?? take.durationMs, fps));
+        laneChildren.push(
+          `          <asset-clip ref="${id}" lane="${lane}" offset="${framesToRational(Math.max(0, msToFrames(offsetMs, fps)), fd)}" name="${escapeXml(cn)}" duration="${framesToRational(durationFrames, fd)}" start="0s"/>`,
+        );
+      }
     }
 
     // Sound rides as one more lane, offset the same way a picture unit that

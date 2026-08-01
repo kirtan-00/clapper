@@ -1846,6 +1846,19 @@ select.field {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The other files this camera wrote on the same take, after cutting and
+   rejoining. Read-only: the stepper above corrects the first one and these
+   slide with it. */
+.camunit__also {
+  margin: 2px 0 0 40px;
+  color: var(--chalk-dim);
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Rolling-screen stacked readout: every camera's current clip, glanceable, and
    (multi-cam) each one's own tap target - roll it alone, join a running shot,
@@ -2068,6 +2081,17 @@ select.field {
   transition: transform 70ms ease, opacity 100ms ease;
 }
 .camslot--join:active { transform: scale(0.98); opacity: 1; }
+
+/* Sound has already written its one file for this shot while a camera kept
+   rolling. Not a button - there is nothing left to tap - so it reads as a
+   record of what is on the card, dimmer than a live slot but still legible
+   enough to call out. */
+.camslot--spent {
+  width: 100%;
+  min-height: var(--tap);
+  text-align: left;
+  opacity: 0.55;
+}
 .camslot__join {
   margin-left: auto;
   flex: none;

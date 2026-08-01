@@ -134,6 +134,64 @@ describe('buildTakeClips — what "no camera rolled" means', () => {
   });
 });
 
+describe('buildTakeClips — a camera that cuts and rejoins mid-take', () => {
+  const counters = (p: Project) => (p.cameras ?? []).map((u) => u.nextClipNumber);
+
+  // B swaps a card, or grabs an insert, while A keeps rolling. B's body wrote
+  // TWO files inside this one take, and a camera counts files, not takes.
+  const rejoin: TakeInput = {
+    ...baseInput,
+    durationMs: 10000,
+    units: [
+      { unit: 'A', startOffsetMs: 0, durationMs: 10000 },
+      { unit: 'B', startOffsetMs: 0, durationMs: 3000 },
+      { unit: 'B', startOffsetMs: 5000, durationMs: 5000 },
+    ],
+  };
+
+  it('logs one clip per file and burns one number per file', () => {
+    const { take, project: after } = buildTakeClips(threeCam(), 1, rejoin, 0);
+    expect(take.clips?.map((c) => `${c.unit} ${c.clipName}`)).toEqual(['A C0007', 'B C0012', 'B C0013']);
+    // B lands two ahead; A moves one; C never rolled and must not move at all.
+    expect(counters(after)).toEqual([8, 14, 3]);
+  });
+
+  it('keeps each file on its own timing', () => {
+    const { take } = buildTakeClips(threeCam(), 1, rejoin, 0);
+    const bs = (take.clips ?? []).filter((c) => c.unit === 'B');
+    expect(bs.map((c) => [c.startOffsetMs, c.durationMs])).toEqual([
+      [0, 3000],
+      [5000, 5000],
+    ]);
+  });
+
+  it('numbers the files in the order the card wrote them, however they arrive', () => {
+    // The rolling screen appends a unit's finished rolls as they cut, so this
+    // list normally arrives in order - but the numbering must come from the
+    // clock, not from the order the caller happened to build the array.
+    const { take } = buildTakeClips(
+      threeCam(),
+      1,
+      {
+        ...baseInput,
+        durationMs: 10000,
+        units: [
+          { unit: 'B', startOffsetMs: 5000, durationMs: 5000 },
+          { unit: 'B', startOffsetMs: 0, durationMs: 3000 },
+        ],
+      },
+      0,
+    );
+    expect(take.clips?.map((c) => c.clipName)).toEqual(['C0012', 'C0013']);
+    expect(take.clips?.map((c) => c.startOffsetMs)).toEqual([0, 5000]);
+  });
+
+  it('mirrors the first camera-letter clip into clipName for legacy readers', () => {
+    const { take } = buildTakeClips(threeCam(), 1, rejoin, 0);
+    expect(take.clipName).toBe('C0007');
+  });
+});
+
 describe('nextTakeNumber', () => {
   it('starts a fresh parent at 1', () => {
     expect(nextTakeNumber([])).toBe(1);
@@ -337,6 +395,49 @@ describe('reclaimClipNumbers — DELETE only reclaims the cameras that actually 
     const doomed = multiTake('t1', 2, 's1', [['A', 7], ['B', 12], ['C', 3]], 100);
     const result = reclaimClipNumbers(project, [earlier, doomed], doomed.id, 999);
     expect(result.takes.find((t) => t.id === earlier.id)).toBeUndefined();
+  });
+
+  it('gives back one number per FILE, so a camera that rejoined mid-take reclaims two', () => {
+    // B cut and rejoined on the doomed take, so its card holds C0012 AND C0013.
+    // Deleting the take says neither file was ever written: every later B clip
+    // slides down TWO, not one. Sliding by one is the drift this whole feature
+    // exists to stop, just pointed the other way.
+    const project = { ...threeCam(), cameras: threeCam().cameras!.map((u) => (u.letter === 'B' ? { ...u, nextClipNumber: 14 } : u)) };
+    const doomed = multiTake('t1', 1, 's1', [['A', 7], ['B', 12], ['B', 13]], 100);
+    const later = multiTake('t2', 2, 's2', [['A', 8], ['B', 14]], 200);
+    const result = reclaimClipNumbers(project, [doomed, later], doomed.id, 999);
+    const changed = result.takes.find((t) => t.id === later.id)!;
+
+    expect(clipOf(changed, 'B')).toBe('C0012'); // 14 - 2
+    expect(clipOf(changed, 'A')).toBe('C0007'); // 8 - 1, one file only
+    const cam = (letter: CameraUnitLetter) => result.project.cameras!.find((c) => c.letter === letter)!;
+    expect(cam('B').nextClipNumber).toBe(12); // 14 - 2
+    expect(cam('A').nextClipNumber).toBe(6); // 7 - 1
+  });
+});
+
+describe('rebaseClipNumbers — correcting a take where a camera rejoined', () => {
+  const clipsOf = (t: Take, unit: CameraUnitLetter) =>
+    t.clips!.filter((c) => c.unit === unit).map((c) => c.clipName);
+
+  it('slides the rest of that camera files on the same take by the same delta', () => {
+    // The operator says B's first file on this take was really C0020, not
+    // C0012. B's SECOND file is one further along its card by definition, so
+    // it has to move with it - a correction that moved only the first would
+    // claim the card wrote C0020 then C0013.
+    const project = threeCam();
+    const edited = multiTake('t1', 1, 's1', [['A', 7], ['B', 12], ['B', 13]], 100);
+    const later = multiTake('t2', 2, 's1', [['B', 14]], 200);
+    const result = rebaseClipNumbers(project, [edited, later], edited.id, { B: 20 }, 999);
+
+    const after = result.takes.find((t) => t.id === edited.id)!;
+    expect(clipsOf(after, 'B')).toEqual(['C0020', 'C0021']);
+    expect(clipsOf(after, 'A')).toEqual(['C0007']); // untouched camera stays put
+
+    // +8 carries forward exactly as it does for a single-file take.
+    const nextUp = result.takes.find((t) => t.id === later.id)!;
+    expect(clipsOf(nextUp, 'B')).toEqual(['C0022']);
+    expect(result.project.cameras!.find((c) => c.letter === 'B')!.nextClipNumber).toBe(20);
   });
 });
 

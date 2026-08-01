@@ -170,3 +170,59 @@ describe('resolve.ts sound — the recorder file collides across days the same w
     expect(srcs).toEqual(['SND/SND_0001.WAV']);
   });
 });
+
+describe('resolve.ts multi-cam — a camera that cut and rejoined inside one take', () => {
+  function multiProject(): Project {
+    const unit = (letter: 'A' | 'B'): CameraUnit => ({
+      letter,
+      clipPrefix: 'C',
+      nextClipNumber: 1,
+      clipPadding: 4,
+      clipExt: '.MP4',
+    });
+    return baseProject({ cameras: [unit('A'), unit('B')] });
+  }
+
+  // B swapped a card 3s in and came back at 5s while A ran the whole 10s: two
+  // physical files on B's card, both belonging to take 1.
+  function rejoinBundle(): ProjectBundle {
+    return {
+      project: multiProject(),
+      slates: [slate('s1', 0)],
+      takes: [
+        {
+          ...take('t1', 's1', 1, 'C0001'),
+          durationMs: 10000,
+          clips: [
+            { unit: 'A', clipName: 'C0001', startOffsetMs: 0, durationMs: 10000 },
+            { unit: 'B', clipName: 'C0004', startOffsetMs: 0, durationMs: 3000 },
+            { unit: 'B', clipName: 'C0005', startOffsetMs: 5000, durationMs: 5000 },
+          ],
+        },
+      ],
+      moments: [],
+    };
+  }
+
+  it('registers BOTH of B files as assets, so neither card goes unrelinkable', async () => {
+    const srcs = assetSrcs(await xmlOf(rejoinBundle()));
+    expect(srcs).toContain('B/C0004.MP4');
+    expect(srcs).toContain('B/C0005.MP4');
+  });
+
+  it('puts both files on B own lane, the second offset to where it actually started', async () => {
+    const xml = await xmlOf(rejoinBundle());
+    const lanes = [...xml.matchAll(/<asset-clip ref="[^"]+" lane="(\d+)" offset="([^"]+)" name="(C\d+)"/g)].map(
+      (m) => ({ lane: m[1], offset: m[2], name: m[3] }),
+    );
+    // Story pass and selects pass each lay the take once; both of B's files
+    // ride lane 1 (one lane per CAMERA), C0004 at the anchor and C0005 5s in.
+    const first = lanes.filter((l) => l.name === 'C0004');
+    const second = lanes.filter((l) => l.name === 'C0005');
+    expect(first.length).toBe(2);
+    expect(second.length).toBe(2);
+    expect(new Set([...first, ...second].map((l) => l.lane))).toEqual(new Set(['1']));
+    expect(new Set(first.map((l) => l.offset))).toEqual(new Set(['0/24s']));
+    expect(new Set(second.map((l) => l.offset))).toEqual(new Set(['120/24s']));
+  });
+});

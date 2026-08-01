@@ -136,6 +136,74 @@ describe('fcpxml.ts multi-cam — the day rides on the reel alongside the unit l
     expect(xml).toContain('<reel><name>A</name></reel>');
     expect(xml).not.toContain('<reel><name>A_');
   });
+
+  describe('a camera that cut and rejoined inside one take', () => {
+    // B swapped a card 3s in and came back at 5s while A ran the whole 10s.
+    // Two physical files on B's card, both inside take 1.
+    function rejoinBundle(moments: ProjectBundle['moments'] = []): ProjectBundle {
+      return {
+        project: multiProject(),
+        slates: [slate('s1', 0)],
+        takes: [
+          {
+            ...take('t1', 's1', 1, 'C0001'),
+            durationMs: 10000,
+            clips: [
+              { unit: 'A', clipName: 'C0001', startOffsetMs: 0, durationMs: 10000 },
+              { unit: 'B', clipName: 'C0004', startOffsetMs: 0, durationMs: 3000 },
+              { unit: 'B', clipName: 'C0005', startOffsetMs: 5000, durationMs: 5000 },
+            ],
+          },
+        ],
+        moments,
+      };
+    }
+
+    it('lays BOTH of B files on the timeline, each at its own offset', async () => {
+      const xml = await xmlOf(rejoinBundle());
+      // Each clip is a linked video + audio clipitem pair, and the take is laid
+      // twice (story cut, then selects pool): 2 x 2 = 4 sightings of each name.
+      // Before the fix B's second file was dropped entirely and C0005 never
+      // appeared at all.
+      expect((xml.match(/<name>C0004<\/name>/g) ?? []).length).toBe(4);
+      expect((xml.match(/<name>C0005<\/name>/g) ?? []).length).toBe(4);
+      // The rejoined file starts 5s (120 frames at 24fps) into the take, not at 0.
+      expect(xml).toMatch(/<name>C0005<\/name>[^]*?<start>120<\/start>/);
+    });
+
+    it('registers each file as its own <file>, so the editor can relink both cards', async () => {
+      const xml = await xmlOf(rejoinBundle());
+      expect(xml).toContain('<name>C0004.MP4</name>');
+      expect(xml).toContain('<name>C0005.MP4</name>');
+    });
+
+    it('carries the take beats ONCE even when the ANCHOR camera is the one that rejoined', async () => {
+      // A is the anchor (it starts the take) AND the camera that cut and came
+      // back, which is the case that duplicates beats if markers hang off
+      // every clip instead of the anchor's first.
+      const bundle: ProjectBundle = {
+        project: multiProject(),
+        slates: [slate('s1', 0)],
+        takes: [
+          {
+            ...take('t1', 's1', 1, 'C0001'),
+            durationMs: 10000,
+            clips: [
+              { unit: 'A', clipName: 'C0001', startOffsetMs: 0, durationMs: 3000 },
+              { unit: 'A', clipName: 'C0002', startOffsetMs: 5000, durationMs: 5000 },
+              { unit: 'B', clipName: 'C0004', startOffsetMs: 0, durationMs: 10000 },
+            ],
+          },
+        ],
+        moments: [
+          { id: 'm1', takeId: 't1', kind: 'point', atMs: 1000, label: 'the look', createdAt: 0, updatedAt: 0 },
+        ],
+      };
+      const xml = await xmlOf(bundle);
+      // Two passes over the take, so exactly two markers - not one per A clip.
+      expect((xml.match(/<marker>/g) ?? []).length).toBe(2);
+    });
+  });
 });
 
 describe('fcpxml.ts sound — the recorder file collides across days the same way picture cards do', () => {

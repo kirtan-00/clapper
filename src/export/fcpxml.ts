@@ -435,28 +435,40 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
   // `start` -> `start + takeDurationFrames` is still the timeline slot the
   // WHOLE take occupies (unaffected by any one unit's own timing), so takes
   // stay laid back-to-back regardless of which camera happened to roll.
+  //
+  // A unit can carry SEVERAL clips on one take - it cut and rejoined while the
+  // others kept rolling (card swap, battery, a B-cam grabbing an insert) - and
+  // each lands on that unit's own track at its own offset, so the editor sees
+  // the gap where that camera was down instead of one clip papering over it.
   function placeTake(take: Take, start: number): number {
     const takeDurationFrames = Math.max(1, msToFrames(take.durationMs, fps));
     const clips = take.clips ?? [];
+
+    // Every clipitem this take will lay down, flattened: unit-letter order
+    // across cameras, roll order within one camera. `ci` is that clip's index
+    // among its OWN unit's rolls, which is what decides who carries the beats.
+    const placements = units.flatMap((unit, ui) =>
+      clips
+        .filter((c) => c.unit === unit.letter)
+        .sort((a, b) => (a.startOffsetMs ?? 0) - (b.startOffsetMs ?? 0))
+        .map((clip, ci) => ({ unit, ui, clip, ci })),
+    );
 
     // Beats belong to the take, not one angle - carried on whichever unit
     // started earliest (offset 0 in the common case), by camera-letter order
     // on ties, so single-cam-shaped multi-cam takes keep anchoring on A.
     let anchorLetter: CameraUnitLetter | undefined;
     let anchorOffsetMs = 0;
-    for (const unit of units) {
-      const clip = clips.find((c) => c.unit === unit.letter);
-      if (!clip) continue;
-      const offset = clip.startOffsetMs ?? 0;
+    for (const p of placements) {
+      if (p.ci !== 0) continue; // a unit anchors on its first roll, not its later ones
+      const offset = p.clip.startOffsetMs ?? 0;
       if (anchorLetter === undefined || offset < anchorOffsetMs) {
-        anchorLetter = unit.letter;
+        anchorLetter = p.unit.letter;
         anchorOffsetMs = offset;
       }
     }
 
-    units.forEach((unit, ui) => {
-      const clip = clips.find((c) => c.unit === unit.letter);
-      if (!clip) return;
+    placements.forEach(({ unit, ui, clip, ci }) => {
       const ext = unit.clipExt ?? '';
       const trackIndex = ui + 1; // V(trackIndex) and A(trackIndex) run in sync
       const clipIndex = (counts[ui] += 1);
@@ -511,7 +523,12 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
         `<link><linkclipref>${aId}</linkclipref><mediatype>audio</mediatype>` +
         `<trackindex>${trackIndex}</trackindex><clipindex>${clipIndex}</clipindex></link>`;
 
-      const markers = unit.letter === anchorLetter ? markersFor(take, anchorOffsetMs, clipDurationFrames) : '';
+      // Beats hang off the anchor unit's FIRST clip only: if that camera cut
+      // and rejoined, its later files must not each carry a duplicate set.
+      const markers =
+        unit.letter === anchorLetter && ci === 0
+          ? markersFor(take, anchorOffsetMs, clipDurationFrames)
+          : '';
 
       vTracks[ui].push(
         `        <clipitem id="${vId}">` +

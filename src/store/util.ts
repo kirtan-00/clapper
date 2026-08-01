@@ -81,7 +81,22 @@ export function clipUnits(project: Project): CameraUnit[] {
   ];
 }
 
-/** The counter baked into `take` for camera `unit`, single- or multi-cam. */
+/**
+ * How many files camera `unit` wrote on `take` - normally 1, but 2+ when it
+ * cut and rejoined mid-take (see buildTakeClips). This is the amount its
+ * counter moved, so it is also the amount a DELETE gives back.
+ */
+function takeClipCount(take: Take, unit: CameraUnit): number {
+  if (take.clips && take.clips.length) return take.clips.filter((c) => c.unit === unit.letter).length;
+  return unit.letter === 'A' ? 1 : 0;
+}
+
+/**
+ * The counter baked into `take` for camera `unit`, single- or multi-cam. Where
+ * the unit wrote several files this is the FIRST of them: corrections are
+ * expressed as "this take's number for B was really N", and the rest of B's
+ * files on the take ride the same shift (withClipNumber below).
+ */
 function takeClipNumber(take: Take, unit: CameraUnit): number {
   const name =
     take.clips && take.clips.length
@@ -90,13 +105,26 @@ function takeClipNumber(take: Take, unit: CameraUnit): number {
   return parseClipNumber(name, unit.clipPrefix, unit.clipSuffix ?? '');
 }
 
-/** Rewrite `take` so camera `unit`'s clip carries counter `n`. */
+/**
+ * Rewrite `take` so camera `unit`'s FIRST clip carries counter `n`, sliding any
+ * further clips that unit wrote on the same take by the identical delta.
+ *
+ * The shift-never-resequence doctrine applies inside a take exactly as it does
+ * across takes: if B rolled twice and its first file was really C0020, its
+ * second is C0021, and any gap the operator deliberately left between them is
+ * preserved rather than closed up.
+ */
 function withClipNumber(take: Take, unit: CameraUnit, n: number): Take {
   const name = formatClip(unit.clipPrefix, n, unit.clipPadding, unit.clipSuffix);
   if (!take.clips || take.clips.length === 0) {
     return unit.letter === 'A' ? { ...take, clipName: name } : take;
   }
-  const clips = take.clips.map((c) => (c.unit === unit.letter ? { ...c, clipName: name } : c));
+  const delta = n - takeClipNumber(take, unit);
+  const clips = take.clips.map((c) => {
+    if (c.unit !== unit.letter) return c;
+    const own = parseClipNumber(c.clipName, unit.clipPrefix, unit.clipSuffix ?? '');
+    return { ...c, clipName: formatClip(unit.clipPrefix, Math.max(0, own + delta), unit.clipPadding, unit.clipSuffix) };
+  });
   return { ...take, clips, clipName: clips[0].clipName };
 }
 
@@ -253,12 +281,11 @@ export function reclaimClipNumbers(
   const units = clipUnits(project);
   // Only units that actually recorded a clip on the doomed take gave up a
   // number, so only those get one back. On a multi-cam take where just the
-  // B-cam rolled, A/C/D never advanced and must not slide.
-  const consumed = units.filter((u) =>
-    doomed.clips && doomed.clips.length
-      ? doomed.clips.some((c) => c.unit === u.letter)
-      : u.letter === 'A',
-  );
+  // B-cam rolled, A/C/D never advanced and must not slide. A unit that cut and
+  // rejoined wrote SEVERAL files on this one take and gives back that many.
+  const consumed = units
+    .map((u) => ({ unit: u, count: takeClipCount(doomed, u) }))
+    .filter((c) => c.count > 0);
   // Sound is one more stream that may have consumed a number on this take. It
   // slides down exactly like a camera: DELETE means the recorder never wrote
   // that file, so later sound files reclaim the gap.
@@ -269,8 +296,8 @@ export function reclaimClipNumbers(
   const changed: Take[] = [];
   for (let i = at + 1; i < ordered.length; i++) {
     let take = ordered[i];
-    for (const u of consumed) {
-      take = withClipNumber(take, u, Math.max(0, takeClipNumber(take, u) - 1));
+    for (const { unit: u, count } of consumed) {
+      take = withClipNumber(take, u, Math.max(0, takeClipNumber(take, u) - count));
     }
     if (doomedHadSound && take.sound) {
       take = withSoundNumber(take, sound!, Math.max(0, takeSoundNumber(take, sound!) - 1));
@@ -278,19 +305,24 @@ export function reclaimClipNumbers(
     if (take !== ordered[i]) changed.push({ ...take, updatedAt: now });
   }
 
-  const letters = new Set(consumed.map((u) => u.letter));
+  const given = new Map(consumed.map((c) => [c.unit.letter, c.count]));
   let nextProject: Project = project;
   if (consumed.length > 0) {
     nextProject =
       project.cameras && project.cameras.length > 0
         ? {
             ...nextProject,
-            cameras: project.cameras.map((u) =>
-              letters.has(u.letter) ? { ...u, nextClipNumber: Math.max(0, u.nextClipNumber - 1) } : u,
-            ),
+            cameras: project.cameras.map((u) => {
+              const back = given.get(u.letter);
+              return back === undefined ? u : { ...u, nextClipNumber: Math.max(0, u.nextClipNumber - back) };
+            }),
             updatedAt: now,
           }
-        : { ...nextProject, nextClipNumber: Math.max(0, project.nextClipNumber - 1), updatedAt: now };
+        : {
+            ...nextProject,
+            nextClipNumber: Math.max(0, project.nextClipNumber - (given.get('A') ?? 1)),
+            updatedAt: now,
+          };
   }
   if (doomedHadSound) {
     nextProject = {
@@ -332,6 +364,11 @@ export interface TakeInput {
   // sound-only wild line. These two are NOT the same, and conflating them
   // burned a clip number on every camera for every wild line, drifting each
   // body's counter permanently out of step with its card.
+  //
+  // ONE UNIT MAY APPEAR MORE THAN ONCE. A camera that cuts and rejoins while
+  // the others keep rolling (a card swap, a battery, a B-cam grabbing an
+  // insert) closed one file and opened another WITHIN the same take, and each
+  // entry here is one of those files. See buildTakeClips.
   units?: TakeUnitRoll[];
   // Sound (orthogonal to cameras): present when the recorder rolled this take,
   // with its own timing. ABSENT = sound did not roll. Ignored if no `sound` unit.
@@ -379,6 +416,12 @@ function applySound(
  * offset). Only those units get a clip in `clips`. `clipName` mirrors the
  * first participating unit in camera-letter order, so a legacy reader that
  * only looks at `clipName` still sees a real clip whether or not A rolled.
+ *
+ * A unit that rolled MORE THAN ONCE inside the take gets one clip per roll and
+ * burns one counter per roll. A camera counts files, not takes: if B cut and
+ * rejoined while A stayed rolling, B's card holds two files, so B's counter
+ * must land two ahead. Collapsing them into one clip is what silently drifts a
+ * body's numbering for the rest of the day.
  */
 export function buildTakeClips(
   project: Project,
@@ -406,25 +449,41 @@ export function buildTakeClips(
     // on every camera and advanced every counter, so each body's next clip
     // silently drifted one ahead of what the card actually wrote — and stayed
     // wrong for the rest of the day.
-    const rolls = new Map<CameraUnitLetter, TakeUnitRoll>(
-      input.units !== undefined
-        ? input.units.map((r) => [r.unit, r])
-        : units.map((u) => [u.letter, { unit: u.letter, startOffsetMs: 0, durationMs: input.durationMs }]),
-    );
+    const given: TakeUnitRoll[] =
+      input.units ??
+      units.map((u) => ({ unit: u.letter, startOffsetMs: 0, durationMs: input.durationMs }));
 
-    const rollingUnits = units.filter((u) => rolls.has(u.letter));
-    const clips: TakeClip[] = rollingUnits.map((u) => {
-      const roll = rolls.get(u.letter)!;
-      return {
-        unit: u.letter,
-        clipName: formatClip(u.clipPrefix, u.nextClipNumber, u.clipPadding, u.clipSuffix),
-        startOffsetMs: roll.startOffsetMs,
-        durationMs: roll.durationMs,
-      };
+    // Rolls per unit, each in the order that unit actually turned over, so the
+    // clip numbers we hand out below run the same way the card wrote them.
+    const rolls = new Map<CameraUnitLetter, TakeUnitRoll[]>();
+    for (const r of given) {
+      const list = rolls.get(r.unit);
+      if (list) list.push(r);
+      else rolls.set(r.unit, [r]);
+    }
+    for (const list of rolls.values()) list.sort((a, b) => a.startOffsetMs - b.startOffsetMs);
+
+    // Camera-letter order across units, roll order within one - so clips[0] is
+    // still the earliest-lettered participating camera's first file, which is
+    // what `clipName` mirrors for legacy readers.
+    const clips: TakeClip[] = [];
+    for (const u of units) {
+      const list = rolls.get(u.letter);
+      if (!list) continue;
+      list.forEach((roll, i) => {
+        clips.push({
+          unit: u.letter,
+          clipName: formatClip(u.clipPrefix, u.nextClipNumber + i, u.clipPadding, u.clipSuffix),
+          startOffsetMs: roll.startOffsetMs,
+          durationMs: roll.durationMs,
+        });
+      });
+    }
+    // One number per FILE the card wrote, not one per unit that appeared.
+    const advanced = units.map((u) => {
+      const burnt = rolls.get(u.letter)?.length ?? 0;
+      return burnt > 0 ? { ...u, nextClipNumber: u.nextClipNumber + burnt } : u;
     });
-    const advanced = units.map((u) =>
-      rolls.has(u.letter) ? { ...u, nextClipNumber: u.nextClipNumber + 1 } : u,
-    );
     const take: Take = {
       id: newId(),
       slateId: input.slateId,

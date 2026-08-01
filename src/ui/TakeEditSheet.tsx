@@ -9,12 +9,29 @@
 // props below are everything either caller can hand over, nothing screen-specific.
 
 import { useEffect, useState } from 'react';
-import type { CameraUnit, CameraUnitLetter, Project, Slate, Take, TakeStatus } from '../types';
+import type { CameraUnit, CameraUnitLetter, Project, Slate, Take, TakeClip, TakeStatus } from '../types';
 import { store } from '../store';
 import { formatClip, parseClipNumber, rebaseClipNumbers } from '../store/util';
 import { renderUnitClip, soundBadgeStyle } from './cameras';
 import { Sheet } from './common';
 import * as haptics from './haptics';
+
+/**
+ * One clip per camera that rolled this take - the FIRST file each one wrote.
+ * Normally that is every clip on the take; a camera that cut and rejoined has
+ * more, and they ride the first one's correction rather than being edited on
+ * their own (see the note where this is used).
+ */
+function firstClipPerUnit(take: Take): TakeClip[] {
+  const seen = new Set<CameraUnitLetter>();
+  const out: TakeClip[] = [];
+  for (const clip of take.clips ?? []) {
+    if (seen.has(clip.unit)) continue;
+    seen.add(clip.unit);
+    out.push(clip);
+  }
+  return out;
+}
 
 // The per-unit clip-number stepper stack, shared by the save-time editor
 // (MultiClipSheet in RollingScreen.tsx) and the take editor below. Each row
@@ -27,6 +44,9 @@ export function ClipNumberRows(props: {
   nums: string[];
   showLetter?: boolean;
   showOperator?: boolean;
+  /** Read-only line under a row, e.g. the other files that unit wrote on this
+   *  take after cutting and rejoining. Absent/blank rows render as before. */
+  notes?: Array<string | undefined>;
   onNum: (i: number, value: string) => void;
 }) {
   const showLetter = props.showLetter !== false;
@@ -44,6 +64,7 @@ export function ClipNumberRows(props: {
               <span className="camunit__eg tnum">{preview}</span>
             </div>
             {showOperator && u.operator && <div className="camunit__operator">{u.operator}</div>}
+            {props.notes?.[i] && <div className="camunit__also">{props.notes[i]}</div>}
             <div className="clipset" style={{ marginBottom: 0 }}>
               <button
                 type="button"
@@ -88,9 +109,17 @@ export function TakeEditSheet(props: {
   // Editable per-unit clip definitions rebuilt from the take's recorded clips,
   // using each unit's current prefix/padding/suffix so the stepper reformats
   // exactly like the save-time editor.
+  //
+  // ONE ROW PER CAMERA, not per clip. A camera that cut and rejoined wrote
+  // several files inside this one take, and they are consecutive on its card -
+  // so the number that can be wrong is the FIRST one, and correcting it slides
+  // the rest by the same amount (withClipNumber in store/util.ts). A row each
+  // would let the operator type two conflicting corrections for one card, and
+  // only one of them could be obeyed. The others are named under the row so
+  // nothing about what the card holds is hidden.
   const [units] = useState<CameraUnit[]>(() =>
     multi
-      ? (take.clips ?? []).map((clip) => {
+      ? firstClipPerUnit(take).map((clip) => {
           const cam = project.cameras?.find((c) => c.letter === clip.unit);
           const clipPrefix = cam?.clipPrefix ?? project.clipPrefix;
           const clipPadding = cam?.clipPadding ?? project.clipPadding;
@@ -120,6 +149,11 @@ export function TakeEditSheet(props: {
   );
 
   const [nums, setNums] = useState(units.map((u) => String(u.nextClipNumber)));
+  // What else each camera wrote on this take, shown read-only beside its row.
+  const alsoWrote = units.map((u) => {
+    const rest = (take.clips ?? []).filter((c) => c.unit === u.letter).slice(1);
+    return rest.length ? `then ${rest.map((c) => c.clipName).join(', ')}` : undefined;
+  });
   // This take's sound file number, editable the same way as a camera clip
   // number - only when BOTH the take actually recorded sound AND the project
   // still has a Sound unit (it may have been turned off since this was shot).
@@ -409,7 +443,7 @@ export function TakeEditSheet(props: {
         by the same gap. Earlier shots never move.
       </p>
 
-      <ClipNumberRows units={units} nums={nums} showLetter={multi} showOperator onNum={setNum} />
+      <ClipNumberRows units={units} nums={nums} notes={alsoWrote} showLetter={multi} showOperator onNum={setNum} />
 
       {soundEditable && (
         <div className="camunit" style={{ marginTop: 12 }}>
