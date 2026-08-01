@@ -122,6 +122,25 @@ function takeClipLabel(t: Take): string {
   return t.clips && t.clips.length ? t.clips.map((c) => `${c.unit} ${c.clipName}`).join(' · ') : t.clipName;
 }
 
+/**
+ * OFF for now, and the reason matters.
+ *
+ * The forgotten-wrap prompt holds a CUT take unwritten inside a Promise while
+ * it waits for the operator's answer. Between CUT and that answer nothing is
+ * persisted - no take, no moments, no counter advance - so if the phone locks
+ * or iOS reclaims the tab in that window, the take is gone. Before the prompt
+ * existed the take was written the instant CUT landed. It fires at most once a
+ * day, but the take it puts at risk is the FIRST take of a new shoot day.
+ *
+ * The right shape is to write the take under the current day and THEN offer
+ * "looked like a new day - renumber?" against a take that already exists on
+ * disk. That is a restructure, not a flag, so until it is built this stays
+ * off: with it off, forgetting to press WRAP DAY simply continues yesterday's
+ * numbering, which is exactly what the app did before any of this existed.
+ * WRAP DAY itself (the button on the project screen) is unaffected and works.
+ */
+const FORGOTTEN_WRAP_PROMPT_ENABLED = false;
+
 /** This unit's next sound file name, e.g. "SND_0012" (no extension, matching renderUnitClip). */
 function renderSoundFile(s: SoundUnit): string {
   return formatClip(s.filePrefix, s.nextFileNumber, s.filePadding, s.fileSuffix);
@@ -369,7 +388,7 @@ export function RollingScreen(props: {
    */
   async function createTakeChecked(input: Parameters<typeof store.createTake>[0]): Promise<Take> {
     const now = Date.now();
-    if (shouldPromptForgottenWrap(project, now)) {
+    if (FORGOTTEN_WRAP_PROMPT_ENABLED && shouldPromptForgottenWrap(project, now)) {
       const last = project.openShootDay?.lastTakeAt ?? now;
       const gapHours = Math.max(1, Math.round((now - last) / (60 * 60 * 1000)));
       return new Promise<Take>((resolve) => setWrapPrompt({ input, gapHours, resolve }));
