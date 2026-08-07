@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+senchine.db
+senchine.db-*
+models/
+.env

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Senchine AI — Predictive Maintenance</title>
+  <meta name="description"
+        content="Multi-agent predictive maintenance platform with EdgeSense retrofit sensor fusion for legacy industrial machines.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>
+      <rect width='24' height='24' rx='5' fill='%231c5cab'/>
+      <g fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round'>
+        <path d='M12 12v7'/><circle cx='12' cy='9' r='1.6' fill='white' stroke='none'/>
+        <path d='M8.6 12.4a4.6 4.6 0 010-6.8M15.4 5.6a4.6 4.6 0 010 6.8'/>
+      </g></svg>">
+  <script>
+    // Apply the stored theme before first paint so the page never flashes the
+    // wrong background on load.
+    (function () {
+      try {
+        var mode = localStorage.getItem('senchine.theme');
+        if (mode === 'dark' || mode === 'light') {
+          document.documentElement.setAttribute('data-theme', mode);
+        }
+      } catch (e) { /* private mode — fall back to the OS setting */ }
+    })();
+  </script>
+</head>
+<body>
+  <div id="app">
+    <div class="loading-page"><div class="spinner"></div></div>
+  </div>
+  <noscript>
+    <div style="padding:40px;text-align:center">
+      Senchine AI needs JavaScript to stream live telemetry.
+    </div>
+  </noscript>
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

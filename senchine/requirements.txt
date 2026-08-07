@@ -1,0 +1,12 @@
+# Senchine AI — runtime dependencies
+# Deliberately small: the ML layer is implemented in NumPy so the prototype
+# runs anywhere without torch/sklearn/scipy wheels.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+numpy>=1.24
+anthropic>=0.40          # optional at runtime — Copilot degrades gracefully without a key
+python-multipart>=0.0.9
+
+# Dev / test
+pytest>=7.4
+httpx>=0.26
