@@ -1,0 +1,168 @@
+/* Grouped inset lists — the shared furniture for Home, Settings and Account.
+   ------------------------------------------------------------------------
+   Owned centrally on purpose. Three agents were about to each invent their
+   own inset hairline, and that one detail is most of what separates an iOS
+   list from a web table, so three near-misses would read as three different
+   apps stitched together.
+
+   Reads semantic tokens ONLY. No raw hex, no tonal names: the app is being
+   repainted dark -> light and this file must survive that untouched.
+
+   Structure:
+
+     <section class="glist">
+       <h2 class="glist-hdr">Shoot</h2>          <- OUTSIDE the card
+       <div class="glist-card">
+         <button class="grow" data-icon>          <- 44px minimum
+           <span class="grow-icon">{svg}</span>
+           <span class="grow-label">Wrap day</span>
+           <span class="grow-value">Day 3</span>
+           <span class="grow-chev">{svg}</span>
+         </button>
+         ...
+       </div>
+     </section>
+*/
+
+.glist {
+  margin: 0 0 26px;
+}
+
+/* Section header sits OUTSIDE the card, above it. Small, quiet, spaced. */
+.glist-hdr {
+  margin: 0 0 8px 16px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.glist-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden; /* clips the first/last row's corners */
+}
+
+/* ---- rows ---------------------------------------------------------------
+   `--glist-inset` is where the hairline starts, and it must line up with the
+   TEXT, not the card edge. A row with a leading icon therefore pushes it
+   further in; that is what `[data-icon]` is for. Overriding the variable
+   rather than the border keeps one rule doing the drawing. */
+.grow {
+  --glist-inset: 16px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 11px 16px;
+  text-align: left;
+  background: none;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.grow[data-icon] {
+  --glist-inset: 52px;
+}
+
+/* The inset hairline. A pseudo-element, not a border, so it can start at the
+   text origin while the row's own background still runs full-bleed. */
+.grow + .grow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--glist-inset);
+  right: 0;
+  height: 1px;
+  background: var(--hairline-soft);
+}
+
+.grow:active {
+  background: var(--surface-raised);
+}
+
+.grow-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  color: var(--text-dim);
+}
+
+.grow-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Trailing value: the muted right-hand text on a settings row. Numbers here
+   are tabular so a counter does not jitter as it ticks. */
+.grow-value {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.grow-chev {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  color: var(--text-faint);
+}
+
+/* A row that is purely informational, never tappable: no chevron, no press
+   state, and it must not read as a control. */
+.grow[data-static],
+.grow[data-static]:active {
+  background: none;
+  cursor: default;
+}
+
+/* Destructive rows tint the LABEL, never the whole row. On the light theme
+   `--rec` is a fill value that fails as type, which is why this reads the
+   deep text token instead. */
+.grow[data-destructive] .grow-label {
+  color: var(--rec-text, var(--rec));
+}
+
+/* Footnote under a card: the "what this costs you" line. */
+.glist-note {
+  margin: 8px 16px 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+/* ---- large title --------------------------------------------------------
+   Shrinks into the header on scroll, the iOS way. CSS only: whoever mounts it
+   sets `data-scrolled` on the container past a ~12px scroll. Kept here so the
+   three tabs cannot drift on the type ramp or the timing. */
+.ltitle {
+  padding: 4px 16px 10px;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  transition: font-size 180ms ease-out, padding 180ms ease-out;
+}
+
+[data-scrolled] .ltitle {
+  font-size: 1.0625rem;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ltitle {
+    transition: none;
+  }
+}

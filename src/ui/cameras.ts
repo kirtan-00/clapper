@@ -193,14 +193,22 @@ export function unitClipParts(u: CameraUnit): ClipParts {
 // between copies. The shared --sound token (styles.css) carries the actual
 // value; these stay JS handles so the inline color-mix overrides below stay
 // in sync with the rest of the app instead of hard-coding a hex here.
-export const SOUND_ACCENT = 'var(--sound)';
+// The accent splits the way every signal does on the clear theme (see
+// docs/specs/2026-08-14-light-theme.md): SOUND_ACCENT still FILLS, but as type
+// on paper it measures 2.91:1, so anything that draws it as text or as an edge
+// takes the deep token instead. On night all four resolve back to the same
+// blue, so the dark theme is unchanged.
+export const SOUND_ACCENT = 'var(--sound)'; // fills only
+export const SOUND_TEXT = 'var(--sound-text)'; // type and icons
+export const SOUND_EDGE = 'var(--sound-edge)';
+export const SOUND_TINT = 'var(--sound-tint)';
 export const soundBadgeStyle = {
-  color: SOUND_ACCENT,
-  background: `color-mix(in srgb, ${SOUND_ACCENT} 16%, var(--ink-800))`,
-  borderColor: `color-mix(in srgb, ${SOUND_ACCENT} 45%, transparent)`,
+  color: SOUND_TEXT,
+  background: SOUND_TINT,
+  borderColor: SOUND_EDGE,
 };
-export const soundTextStyle = { color: SOUND_ACCENT };
+export const soundTextStyle = { color: SOUND_TEXT };
 export const soundRollingStyle = {
-  borderColor: `color-mix(in srgb, ${SOUND_ACCENT} 45%, var(--line-soft))`,
-  background: `color-mix(in srgb, ${SOUND_ACCENT} 10%, var(--ink-900))`,
+  borderColor: SOUND_EDGE,
+  background: SOUND_TINT,
 };
