@@ -16,6 +16,7 @@ import { parseBackupText } from '../export';
 import { Sheet } from './common';
 import { Section, Row, LinkRow, ReadRow, ScreenHeader } from './glist';
 import { HowToScreen } from './HowToScreen';
+import { ThemeToggleRow } from './ThemeToggleRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
@@ -69,29 +70,14 @@ export function SettingsScreen(props: { nav: Nav }) {
     <div className="app">
       <ScreenHeader title="Settings" />
 
-      {/* ═════════════════════════════════════════════════════════════════════
-          TODO(theme-agent): THE NIGHT TOGGLE MOUNTS HERE.
-
-          <ThemeToggleRow/> is being built self-contained in another worktree,
-          so it does not exist in this tree yet and this section ships commented
-          out rather than as an empty card. Landing it is exactly two edits and
-          nothing else:
-
-            1. add to the imports at the top of this file:
-                 import { ThemeToggleRow } from './ThemeToggleRow';
-            2. replace this whole comment block with the section below.
-
-          It belongs FIRST, above Help: it is the one setting a crew member
-          changes on the day (light for a midday exterior, night for a 5am call),
-          so it must not be buried under documentation.
-
-          <Section
-            title="Appearance"
-            note="Light is the default. Night is for a call time before sunrise, not for a dark room at noon."
-          >
-            <ThemeToggleRow />
-          </Section>
-      ═══════════════════════════════════════════════════════════════════════ */}
+      {/* First, above Help, on purpose: this is the one setting a crew member
+          changes on the day, so it must not sit under documentation. */}
+      <Section
+        title="Appearance"
+        note="Light is the default. Night is for a call time before sunrise, not for a dark room at noon."
+      >
+        <ThemeToggleRow />
+      </Section>
 
       <Section title="Help">
         <Row label="How to use" value="9 sections" mono push onClick={openGuide} />

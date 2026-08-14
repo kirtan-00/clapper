@@ -504,49 +504,6 @@ input, select, textarea {
   .tswitch__knob { transition: none; }
 }
 
-/* ------------------------------------------------------------- stub ------
-   Honest placeholder for a tab that is wired but not written yet. Deliberately
-   plain: it must not read as a finished screen. Delete this rule (and
-   src/ui/Stub.tsx) once Home, Settings and Account are all real. */
-.stub {
-  margin: 26px 0 0;
-  padding: 22px 18px;
-  border: 1px dashed var(--hairline);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-.stub__h {
-  margin: 8px 0 6px;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-.stub__p { margin: 0; color: var(--text-dim); font-size: 0.86rem; }
-.stub__list {
-  margin: 14px 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.stub__list li {
-  color: var(--text-dim);
-  font-size: 0.86rem;
-  padding-left: 16px;
-  position: relative;
-}
-.stub__list li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.55em;
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
-  background: var(--text-faint);
-}
-
 /* The clapper stripe rail - identity mark + section divider */
 .rail {
   height: 10px;
