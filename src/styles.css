@@ -49,6 +49,46 @@
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
 
+  /* ---- Semantic layer ---------------------------------------------------
+     New components read THESE, never the tonal ramp above and never a raw
+     hex. The ramp is the CURRENT (dark) palette's raw values; repainting the
+     app is a swap of this block plus those values, with no component CSS
+     touched. Names say what a colour is FOR, not what shade it is, so
+     `--surface` still means the right thing on a light theme where it is no
+     longer near-black.
+
+     Older rules in this file still reference the tonal names directly. That
+     is fine and deliberate: they alias to the same values, so a repaint moves
+     them together. Migrate them opportunistically, do not do it in one pass. */
+  --bg: var(--ink-950);
+  --surface: var(--ink-900);
+  --surface-raised: var(--ink-850);
+  --text: var(--chalk);
+  --text-dim: var(--chalk-dim);
+  --text-faint: var(--chalk-faint);
+  --hairline: var(--line);
+  --hairline-soft: var(--line-soft);
+
+  /* Signals split in two once the light theme lands (see
+     docs/specs/2026-08-14-light-theme.md): the BRIGHT value fills things, a
+     DEEP value carries text and icons, because #38d178 as text on paper is
+     1.91:1 and unreadable. On this near-black theme the bright value IS the
+     legible one, so --go-text aliases it and nothing changes today. Anything
+     that draws the signal as TYPE or an ICON must read --go-text; only fills
+     read --go. Getting this wrong is invisible now and illegible later.
+     --rec-text / --brass-text / --sound-text arrive with the repaint. */
+  --go-text: var(--go);
+
+  /* ---- Material chrome --------------------------------------------------
+     The tab tray, and any sticky header that follows it, are a MATERIAL
+     LAYER: a translucent tint over a blur, the way an iOS tab bar reads, not
+     an opaque bar with a baked-in colour. Clear material, not glassmorphism —
+     no refraction, no borders that pretend to be bevels, one hairline.
+     Retint the whole chrome by editing these three values. */
+  --material-bg: color-mix(in srgb, var(--surface) 80%, transparent);
+  --material-blur: saturate(180%) blur(20px);
+  --material-hairline: var(--hairline);
+
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -146,6 +186,132 @@ input, select, textarea {
   /* rolling screen manages its own full-bleed layout */
   padding: 0;
   max-width: 620px;
+}
+
+/* ------------------------------------------------------------ tab tray ---
+   The one piece of chrome that outlives every screen. It is a MATERIAL layer,
+   not a painted bar: --material-bg over --material-blur, so the list scrolling
+   underneath stays faintly readable through it and the whole chrome retints
+   from :root. Hairline top rule, four cells, the signal colour only on the one
+   you are in.
+
+   z-index 30. The ladder, in full: dragging rows 5, tray 30, scrim 40 (so a
+   sheet rises OVER the tray), guide and toast 60, ProCta confetti 80. */
+.tabtray {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--material-bg);
+  backdrop-filter: var(--material-blur);
+  -webkit-backdrop-filter: var(--material-blur);
+  border-top: 1px solid var(--material-hairline);
+  padding-bottom: var(--safe-bottom);
+  /* The on-screen keyboard must not leave the tray floating in the middle of
+     the screen. main.tsx already publishes --kb (how far the keyboard overlaps
+     the bottom) off visualViewport; min() clamps the slide to exactly the
+     tray's own height, so any keyboard drops it clean off the bottom edge and
+     --kb: 0 leaves it put. */
+  transform: translateY(min(var(--kb, 0px), 100%));
+  transition: transform 140ms ease;
+}
+
+/* No blur available: raise the material to fully opaque rather than leave a
+   see-through bar with text over moving content. Overriding the TOKEN, not the
+   rule, so the chrome stays repaintable from :root alone. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --material-bg: var(--surface); }
+}
+
+.tabtray__tab {
+  position: relative;
+  height: var(--bar-h);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--text-faint);
+  padding: 0 2px;
+}
+/* Press state is a tint of the text colour, not a surface colour: it has to
+   read on a translucent material in either theme. */
+.tabtray__tab:active { background: color-mix(in srgb, var(--text) 10%, transparent); }
+/* Icon + label are TYPE, so they take the deep signal, not the fill one. */
+.tabtray__tab--on { color: var(--go-text); }
+
+/* The active mark sits ON the hairline, a short rule rather than a pill —
+   pills read as someone else's design system. It is a FILL, so it keeps the
+   bright value. */
+.tabtray__tab--on::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 26px;
+  height: 3px;
+  margin-left: -13px;
+  border-radius: 0 0 2px 2px;
+  background: var(--go);
+}
+
+.tabtray__icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+.tabtray__label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* ------------------------------------------------------------- stub ------
+   Honest placeholder for a tab that is wired but not written yet. Deliberately
+   plain: it must not read as a finished screen. Delete this rule (and
+   src/ui/Stub.tsx) once Home, Settings and Account are all real. */
+.stub {
+  margin: 26px 0 0;
+  padding: 22px 18px;
+  border: 1px dashed var(--hairline);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.stub__h {
+  margin: 8px 0 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.stub__p { margin: 0; color: var(--text-dim); font-size: 0.86rem; }
+.stub__list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stub__list li {
+  color: var(--text-dim);
+  font-size: 0.86rem;
+  padding-left: 16px;
+  position: relative;
+}
+.stub__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--text-faint);
 }
 
 /* The clapper stripe rail - identity mark + section divider */
@@ -1625,7 +1791,9 @@ select.field {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + 22px);
+  /* +--tray-lift, or it lands exactly on the tab tray. Zero on the roll screen
+     and under the guide, where the tray is unmounted. */
+  bottom: calc(var(--tray-lift, 0px) + var(--safe-bottom) + 22px);
   transform: translateX(-50%);
   background: var(--ink-800);
   border: 1px solid var(--line);

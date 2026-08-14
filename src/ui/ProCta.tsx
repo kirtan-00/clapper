@@ -12,7 +12,7 @@ export type ProGate = 'script' | 'premiere' | 'csv';
 
 // Palette pulled straight from styles.css tokens: signal green, brass GOLD, and
 // chalk. Deliberately no record-red (reads as an error) and never any orange.
-const CONFETTI_COLORS = ['#38d178', '#e3b24a', '#ece9e1'];
+const CONFETTI_COLORS = ['#38d178', '#d8b23c', '#ece9e1'];
 
 /**
  * Fire a lightweight confetti burst from around the given element. Draws ~40
