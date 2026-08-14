@@ -27,7 +27,9 @@ import {
   soundTextStyle,
   soundRollingStyle,
   unitClipParts,
-  SOUND_ACCENT,
+  SOUND_TEXT,
+  SOUND_EDGE,
+  SOUND_TINT,
   type ClipParts,
 } from './cameras';
 import { ClipNumberRows, TakeEditSheet } from './TakeEditSheet';
@@ -1111,9 +1113,9 @@ export function RollingScreen(props: {
               width: '100%',
               maxWidth: 420,
               padding: '9px 10px 11px',
-              border: `1px solid color-mix(in srgb, ${SOUND_ACCENT} 32%, transparent)`,
+              border: `1px solid ${SOUND_EDGE}`,
               borderRadius: 14,
-              background: `color-mix(in srgb, ${SOUND_ACCENT} 8%, transparent)`,
+              background: SOUND_TINT,
             }}
           >
             {/* Its own labelled, tinted zone so the audio roll is unmistakable
@@ -1125,7 +1127,7 @@ export function RollingScreen(props: {
                   fontWeight: 800,
                   letterSpacing: '0.18em',
                   textTransform: 'uppercase',
-                  color: SOUND_ACCENT,
+                  color: SOUND_TEXT,
                 }}
               >
                 🔊 Sound

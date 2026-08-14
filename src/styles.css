@@ -1,10 +1,16 @@
 /* ==========================================================================
    Clapper - on-set take logger
-   Design language: camera-department hardware. Warm charcoal slate, chalk
-   off-white type, one signal green (GO), record red (ROLLING), brass for GOLD.
-   All numerals are tabular monospace, like a real timecode readout. The
-   clapper stick stripe is the recurring signature.
+   Design language: camera-department hardware. One signal green (GO), record
+   red (ROLLING), brass for GOLD. All numerals are tabular monospace, like a
+   real timecode readout. The clapper stick stripe is the recurring signature.
    System fonts only (offline PWA, no network). No em dashes in copy.
+
+   THE CLEAR THEME IS THE DEFAULT (docs/specs/2026-08-14-light-theme.md).
+   A phone at midday holds ~1,000 nits against ~10,000 lux; a dark UI outdoors
+   stops being a screen and becomes a mirror. Night is a manual toggle, not
+   `prefers-color-scheme`, because the OS switches on a clock and a 2pm
+   interior and a 2pm exterior want opposite things. `data-theme="night"` is
+   set on <html> by an inline script in index.html BEFORE first paint.
    ========================================================================== */
 
 /* Grouped inset lists, shared by Home, Settings and Account. Owned centrally
@@ -14,27 +20,100 @@
 @import './ui/list.css';
 
 :root {
-  /* Surfaces - warm charcoal, layered by elevation */
-  --ink-950: #0c0d10;
-  --ink-900: #121319;
-  --ink-850: #181a21;
-  --ink-800: #1f222b;
-  --line: #2b2e39;
-  --line-soft: #23262f;
+  /* ---- Palette primitives ------------------------------------------------
+     Roles, not shades. `--paper` is the ground the app sits on and `--ink` is
+     the type that sits on it, whichever theme is up; on night the "paper" is
+     charcoal slate and the "ink" is chalk. Only this block and the signal
+     aliases below are redefined by [data-theme="night"]; everything downstream
+     of them follows for free. */
+  --paper: #fbfaf7;        /* page ground. Warm ivory, not #fff: ties to the
+                              landing page and stops the screen reading clinical */
+  --paper-raised: #ffffff; /* cards, grouped inset rows */
+  --paper-sunk: #f2f0ea;   /* wells, inputs, the scrubbed track */
+  --paper-sunk-deep: #edeae2; /* 4th step: chips, keycaps, badges. Held this
+                              light on purpose - every signal *-text token
+                              measures exactly >=4.50:1 on it, and one step
+                              darker drops --go-text to 4.33 */
+  --ink: #14151a;          /* primary type        17.47:1 on paper */
+  --ink-dim: #5a5e68;      /* secondary            6.22:1 */
+  --ink-faint: #7c808a;    /* non-essential ONLY   3.79:1 - never for a number,
+                              never for a label that carries meaning.
+                              Auditing the rendered app against this rule moved
+                              19 rules off it and onto --text-dim: warning copy,
+                              empty states, "0 / 10 in the can", "1 / 7", and
+                              every icon-only control (the chip ✕, the row ✎,
+                              the reorder arrows). They failed in BOTH themes,
+                              so those are fixes, not repaint casualties. What
+                              legitimately stays faint: chevrons, placeholders,
+                              the un-shot dot, and takes already struck through
+                              as discarded, where the strike is the message. */
+  --rule: #ddd9d0;
+  --rule-soft: #ebe8e1;
 
-  /* Type - chalk, deliberately warm off-white, never pure #fff */
-  --chalk: #ece9e1;
-  --chalk-dim: #9a9da7;
-  --chalk-faint: #61646e;
+  /* ---- Signals -----------------------------------------------------------
+     Every signal splits in two, because NONE of the bright values survives as
+     type on paper: --go 1.91:1, --brass 1.94:1, --sound 2.79:1, --rec 3.40:1.
 
-  /* Signals */
+       BRIGHT (--go)       FILLS ONLY. Filled buttons via --go-fill, the
+                           rolling pulse, tag chips, decorative dots.
+       DEEP   (--go-text)  TYPE, ICONS, AND FUNCTIONAL INDICATORS. Labels, the
+                           active tab, an inline number, and any border or dot
+                           that is the only thing saying which state you are in
+                           - bright --go as a 1px edge on paper is 1.91:1 and
+                           fails even the 3:1 non-text bar.
+
+     On night the bright value IS the legible one, so --go-text aliases back to
+     --go and nothing about the dark theme moves. */
   --go: #38d178;         /* action / go / rolling-ready */
-  --go-deep: #1f7a48;
+  --go-text: #0e7a43;    /* 5.18:1 on paper */
   --rec: #ff3b30;        /* cut / rolling / destructive */
-  --rec-deep: #7a1c17;
+  --rec-text: #c0261d;   /* 5.69:1 */
   --brass: #d8b23c;      /* GOLD tag, highlights */
+  --brass-text: #7a5f0e; /* 5.80:1 */
   --sound: #4f9fd1;      /* production-sound accent, never a fifth camera */
-  --sound-deep: #2c5f7a; /* darker sound variant, for keyed shadows / fills */
+  --sound-text: #1f6187; /* 6.45:1 */
+
+  /* A filled control and the ink that sits on it. White on --go-text is
+     5.41:1 and on --rec-text 5.94:1; white on the BRIGHT values is 1.99:1 and
+     3.55:1, which is the whole reason this indirection exists. */
+  --go-fill: var(--go-text);
+  --go-fill-ink: #ffffff;
+  --rec-fill: var(--rec-text);
+  --rec-fill-ink: #ffffff;
+  --brass-fill: var(--brass-text);
+  --brass-fill-ink: #ffffff;
+
+  /* The signal drawn as an EDGE. Solid on paper (a mix toward transparent
+     lands at ~2:1 and the outline simply disappears); a soft mix on night,
+     exactly as shipped. */
+  --go-edge: var(--go-text);
+  --rec-edge: var(--rec-text);
+  --brass-edge: var(--brass-text);
+  --sound-edge: var(--sound-text);
+
+  /* The signal drawn as a WASH behind its own type: a tinted chip, a keycap,
+     a badge. Deliberately over `transparent` so it composites onto whatever
+     surface it lands on. 8% is the ceiling that keeps every *-text token at
+     or above 4.5:1 on paper, on a card and on --surface-raised. */
+  --go-tint: color-mix(in srgb, var(--go) 8%, transparent);
+  --rec-tint: color-mix(in srgb, var(--rec) 8%, transparent);
+  --brass-tint: color-mix(in srgb, var(--brass) 8%, transparent);
+  --sound-tint: color-mix(in srgb, var(--sound) 8%, transparent);
+
+  /* Under-key shadow on the hardware-style buttons: must be DARKER than the
+     fill it sits under, so it inverts with the fill. */
+  --go-deep: #08512c;
+  --rec-deep: #7a1610;
+  --sound-deep: #1a4f6d;
+
+  /* Big timecode readout while rolling. */
+  --live-ink: var(--rec-text);
+  --live-glow: none;
+
+  /* Elevation. Light prefers a hairline to a shadow, so the hardware-key drop
+     is a quarter of night's weight rather than a black slab on ivory. */
+  --key-shadow: rgba(20, 21, 26, 0.16);
+  --lift-shadow: rgba(20, 21, 26, 0.14);
 
   --radius: 14px;
   --radius-sm: 10px;
@@ -45,7 +124,8 @@
      0.58rem label and still leaves the whole 25%-wide cell over 44px tall. */
   --bar-h: 56px;
 
-  /* Clapper stick stripe (the signature motif) */
+  /* Clapper stick stripe (the signature motif). Deliberately NOT themed: a
+     clapper stick is black and white on every set in the world. */
   --stripe: repeating-linear-gradient(
     -60deg,
     #ece9e1 0 14px,
@@ -56,42 +136,52 @@
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
 
   /* ---- Semantic layer ---------------------------------------------------
-     New components read THESE, never the tonal ramp above and never a raw
-     hex. The ramp is the CURRENT (dark) palette's raw values; repainting the
-     app is a swap of this block plus those values, with no component CSS
-     touched. Names say what a colour is FOR, not what shade it is, so
-     `--surface` still means the right thing on a light theme where it is no
-     longer near-black.
+     New components read THESE, never the primitives above and never a raw
+     hex. Names say what a colour is FOR, not what shade it is, which is what
+     lets `--surface` still mean the right thing on a theme where it is white
+     rather than near-black. */
+  --bg: var(--paper);
+  --surface: var(--paper-raised);
+  --surface-raised: var(--paper-sunk);
+  --surface-sunk: var(--paper-sunk-deep);
+  --text: var(--ink);
+  --text-dim: var(--ink-dim);
+  --text-faint: var(--ink-faint);
+  --hairline: var(--rule);
+  --hairline-soft: var(--rule-soft);
 
-     Older rules in this file still reference the tonal names directly. That
-     is fine and deliberate: they alias to the same values, so a repaint moves
-     them together. Migrate them opportunistically, do not do it in one pass. */
-  --bg: var(--ink-950);
-  --surface: var(--ink-900);
-  --surface-raised: var(--ink-850);
-  --text: var(--chalk);
-  --text-dim: var(--chalk-dim);
-  --text-faint: var(--chalk-faint);
-  --hairline: var(--line);
-  --hairline-soft: var(--line-soft);
+  /* ---- Legacy tonal bridge ----------------------------------------------
+     The dark theme's ramp names, kept alive as theme-following aliases. Most
+     of this file, and a handful of inline styles in screens this repaint is
+     not allowed to touch, still say var(--ink-800) or var(--chalk-dim). They
+     resolve through the semantic layer, so they repaint with everything else.
 
-  /* Signals split in two once the light theme lands (see
-     docs/specs/2026-08-14-light-theme.md): the BRIGHT value fills things, a
-     DEEP value carries text and icons, because #38d178 as text on paper is
-     1.91:1 and unreadable. On this near-black theme the bright value IS the
-     legible one, so --go-text aliases it and nothing changes today. Anything
-     that draws the signal as TYPE or an ICON must read --go-text; only fills
-     read --go. Getting this wrong is invisible now and illegible later.
-     --rec-text / --brass-text / --sound-text arrive with the repaint. */
-  --go-text: var(--go);
+     READ THIS BEFORE ADDING A USE: `--ink` is TYPE (#14151a on light) and
+     `--ink-950` is the GROUND (#fbfaf7 on light). They are opposites that
+     sort next to each other in an editor. Do not add new uses of the NUMBERED
+     names - reach for --bg / --surface / --text instead. */
+  --ink-950: var(--bg);
+  --ink-900: var(--surface);
+  --ink-850: var(--surface-raised);
+  --ink-800: var(--surface-sunk);
+  --line: var(--hairline);
+  --line-soft: var(--hairline-soft);
+  --chalk: var(--text);
+  --chalk-dim: var(--text-dim);
+  --chalk-faint: var(--text-faint);
 
   /* ---- Material chrome --------------------------------------------------
      The tab tray, and any sticky header that follows it, are a MATERIAL
      LAYER: a translucent tint over a blur, the way an iOS tab bar reads, not
      an opaque bar with a baked-in colour. Clear material, not glassmorphism —
      no refraction, no borders that pretend to be bevels, one hairline.
-     Retint the whole chrome by editing these three values. */
-  --material-bg: color-mix(in srgb, var(--surface) 80%, transparent);
+     Retint the whole chrome by editing these values.
+
+     Light is MORE OPAQUE than night (0.86 vs 0.80) on purpose. Translucency
+     costs contrast, and the light theme exists precisely for the condition
+     where contrast is already losing. Do not equalise them for tidiness. */
+  --material-bg: rgba(251, 250, 247, 0.86);
+  --material-solid: var(--paper); /* the no-blur fallback, see @supports below */
   --material-blur: saturate(180%) blur(20px);
   --material-hairline: var(--hairline);
 
@@ -99,6 +189,65 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* ============================================================== NIGHT =====
+   The 5am call time, and only that. Set on <html> from the inline script in
+   index.html before first paint - doing it in React means a white flash into
+   night mode at 4am, which is exactly the moment it is least welcome.
+
+   This is the ramp exactly as it shipped, restored onto the primitive names.
+   Every signal's *-text alias collapses back onto the bright value, because
+   on near-black the bright value is the legible one: --go measures 9.77:1 on
+   this ground against 1.91:1 on paper. Nothing downstream of these names
+   needs a night rule of its own. */
+[data-theme="night"] {
+  --paper: #0c0d10;
+  --paper-raised: #121319;
+  --paper-sunk: #181a21;
+  --paper-sunk-deep: #1f222b;
+  --ink: #ece9e1;       /* chalk: warm off-white, never pure #fff */
+  --ink-dim: #9a9da7;
+  --ink-faint: #61646e;
+  --rule: #2b2e39;
+  --rule-soft: #23262f;
+
+  /* The split collapses: bright IS the type colour here. */
+  --go-text: var(--go);
+  --rec-text: var(--rec);
+  --brass-text: var(--brass);
+  --sound-text: var(--sound);
+
+  --go-fill: var(--go);
+  --go-fill-ink: #052213;
+  --rec-fill: var(--rec);
+  --rec-fill-ink: #ffffff;
+  --brass-fill: var(--brass);
+  --brass-fill-ink: #241a02;
+
+  /* A soft edge reads on charcoal where it would vanish on ivory. */
+  --go-edge: color-mix(in srgb, var(--go) 45%, transparent);
+  --rec-edge: color-mix(in srgb, var(--rec) 45%, transparent);
+  --brass-edge: color-mix(in srgb, var(--brass) 45%, transparent);
+  --sound-edge: color-mix(in srgb, var(--sound) 45%, transparent);
+
+  --go-tint: color-mix(in srgb, var(--go) 14%, transparent);
+  --rec-tint: color-mix(in srgb, var(--rec) 14%, transparent);
+  --brass-tint: color-mix(in srgb, var(--brass) 14%, transparent);
+  --sound-tint: color-mix(in srgb, var(--sound) 14%, transparent);
+
+  --go-deep: #1f7a48;
+  --rec-deep: #7a1c17;
+  --sound-deep: #2c5f7a;
+
+  --live-ink: #ffffff;
+  --live-glow: 0 0 26px rgba(255, 59, 48, 0.35);
+
+  --key-shadow: rgba(0, 0, 0, 0.42);
+  --lift-shadow: rgba(0, 0, 0, 0.45);
+
+  --material-bg: rgba(18, 19, 25, 0.80);
+  --material-solid: var(--surface);
 }
 
 * { box-sizing: border-box; }
@@ -109,8 +258,8 @@ html, body, #root {
 
 body {
   margin: 0;
-  background: var(--ink-950);
-  color: var(--chalk);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-ui);
   font-size: 16px;
   line-height: 1.4;
@@ -131,12 +280,14 @@ button {
 
 input, select, textarea {
   font-family: inherit;
-  color: var(--chalk);
+  color: var(--text);
   font-size: 16px; /* >=16 stops iOS zoom-on-focus */
 }
 
+/* The focus ring is a functional indicator, so it takes the deep token: the
+   bright --go on paper is 1.91:1 and would be a ring you cannot see. */
 :focus-visible {
-  outline: 2px solid var(--go);
+  outline: 2px solid var(--go-text);
   outline-offset: 2px;
 }
 
@@ -147,13 +298,17 @@ input, select, textarea {
   letter-spacing: -0.01em;
 }
 
-/* Tiny hardware-label caps used throughout (ROLL / SCENE / TAKE vernacular) */
+/* Tiny hardware-label caps used throughout (ROLL / SCENE / TAKE vernacular).
+   Promoted off --text-faint in the repaint: 0.66rem letterspaced caps are the
+   hardest type in the app to read, and --text-faint measures 3.79:1 on paper
+   and 3.29:1 on charcoal. These labels name the numbers beside them, so they
+   are not the "non-essential only" case --text-faint is reserved for. */
 .label {
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
 }
 
 /* --------------------------------------------------------------- shell --- */
@@ -236,7 +391,7 @@ input, select, textarea {
    see-through bar with text over moving content. Overriding the TOKEN, not the
    rule, so the chrome stays repaintable from :root alone. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root { --material-bg: var(--surface); }
+  :root { --material-bg: var(--material-solid); }
 }
 
 .tabtray__tab {
@@ -247,7 +402,9 @@ input, select, textarea {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  color: var(--text-faint);
+  /* Was --text-faint. On the light material an inactive tab measured 3.82:1,
+     and these four words are how you navigate the app in sunlight. */
+  color: var(--text-dim);
   padding: 0 2px;
 }
 /* Press state is a tint of the text colour, not a surface colour: it has to
@@ -257,8 +414,10 @@ input, select, textarea {
 .tabtray__tab--on { color: var(--go-text); }
 
 /* The active mark sits ON the hairline, a short rule rather than a pill —
-   pills read as someone else's design system. It is a FILL, so it keeps the
-   bright value. */
+   pills read as someone else's design system. It is a fill, but it is also the
+   ONLY thing marking which tab you are in, so it takes the deep token: bright
+   --go on the light material is 1.91:1 and fails even the 3:1 non-text bar.
+   On night --go-text aliases --go, so the dark tray is unchanged. */
 .tabtray__tab--on::before {
   content: "";
   position: absolute;
@@ -268,7 +427,7 @@ input, select, textarea {
   height: 3px;
   margin-left: -13px;
   border-radius: 0 0 2px 2px;
-  background: var(--go);
+  background: var(--go-text);
 }
 
 .tabtray__icon {
@@ -282,6 +441,67 @@ input, select, textarea {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
+}
+
+/* ---- grouped-inset card edge -------------------------------------------
+   src/ui/list.css draws the card as --surface on --bg and nothing else, which
+   is right on night (#121319 on #0c0d10) but lands at 1.04:1 on light, where
+   the card is #ffffff on #fbfaf7 and effectively disappears. iOS gets away
+   with that separation because its grouped background is markedly greyer than
+   its rows; our paper is a warm ivory chosen to match the landing page, and it
+   is not.
+
+   So the card takes a hairline, which is also what `.card` next to it already
+   does - one house rule, not a light-theme patch. Lives here rather than in
+   list.css so that file stays the three tabs' shared contract, untouched by
+   the repaint. */
+.glist-card {
+  border: 1px solid var(--hairline-soft);
+}
+
+/* ---- settings switch ----------------------------------------------------
+   The trailing control on a `.grow` row (src/ui/ThemeToggleRow.tsx). One
+   track, one knob, no gloss and no inner bevel: it is a switch, not a jewel.
+
+   The ON track is --go-fill, not the bright --go, so the knob keeps 5.4:1
+   against it on light instead of 1.99:1, and the whole control still clears
+   3:1 against the row behind it. The row itself owns the 44px target; the
+   track is only the picture of the state. */
+.tswitch {
+  flex: 0 0 auto;
+  position: relative;
+  width: 51px;
+  height: 31px;
+  border-radius: 999px;
+  /* The OFF track is --hairline rather than a surface step: against a white
+     card, --surface-sunk sits at 1.15:1 and the track disappears entirely. */
+  background: var(--hairline);
+  transition: background 200ms ease-out;
+}
+/* White in BOTH themes, like every switch on the platform. Its position is the
+   real state signal, so it does not need to carry the contrast on its own; the
+   shadow is what separates it from a pale off-track. */
+.tswitch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  transition: transform 200ms cubic-bezier(0.2, 0.85, 0.2, 1);
+}
+.tswitch--on {
+  background: var(--go-fill);
+}
+.tswitch--on .tswitch__knob {
+  transform: translateX(20px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tswitch,
+  .tswitch__knob { transition: none; }
 }
 
 /* ------------------------------------------------------------- stub ------
@@ -461,7 +681,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   color: var(--chalk-dim);
 }
 .rollhint__arrow {
-  color: var(--go);
+  color: var(--go-text);
   font-weight: 700;
 }
 .card__namewrap {
@@ -485,14 +705,18 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background: transparent;
   border: 1.5px solid var(--chalk-faint);
 }
+/* Bright fill inside a deep ring: the fill carries the green read, the ring
+   carries the contrast (5.18:1 on paper, where the bare fill is 1.91:1). The
+   glow this used to have is gone - a coloured halo is decoration, and on ivory
+   it just smears the edge it needs. */
 .scene-dot--done {
   background: var(--go);
-  border-color: var(--go);
-  box-shadow: 0 0 9px rgba(56, 209, 120, 0.55);
+  border-color: var(--go-text);
 }
-/* A shot scene gets a green left edge so the "done" read is instant - full
- * --go (not --go-deep) so it survives daylight. */
-.card--done { border-left: 3px solid var(--go); }
+/* A shot scene gets a green left edge so the "done" read is instant. It is the
+ * only mark saying "in the can", so it takes the deep token: as bright --go it
+ * measured 1.91:1 on paper, which is the opposite of surviving daylight. */
+.card--done { border-left: 3px solid var(--go-text); }
 .card__meta {
   margin-top: 8px;
   display: flex;
@@ -506,14 +730,14 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: 1.05rem;
-  color: var(--go);
+  color: var(--go-text);
   font-weight: 700;
 }
 /* Subtle "9th in script" hint: shown only once a drag has made shooting order
  * diverge from story order for that scene. Same quiet weight as the other
  * meta items — never louder than the shot count. */
 .card__storyhint {
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-style: italic;
 }
 
@@ -532,8 +756,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   z-index: 5;
 }
 .cardrow--dragging .card {
-  border-color: var(--go);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  border-color: var(--go-text);
+  box-shadow: 0 10px 28px var(--lift-shadow);
   background: var(--ink-850);
 }
 
@@ -554,7 +778,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-size: 0.6rem;
   line-height: 1;
 }
@@ -608,8 +832,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .btn:active { transform: scale(0.97); }
 .btn--ghost { background: transparent; }
-.btn--go { background: var(--go); color: #062012; border-color: transparent; }
-.btn--danger { color: var(--rec); border-color: var(--rec-deep); background: transparent; }
+.btn--go { background: var(--go-fill); color: var(--go-fill-ink); border-color: transparent; }
+.btn--danger { color: var(--rec-text); border-color: var(--rec-deep); background: transparent; }
 .btn--full { width: 100%; }
 .btn:disabled { opacity: 0.4; }
 
@@ -751,7 +975,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
-.guide__navchip:active { border-color: var(--go); color: var(--chalk); }
+.guide__navchip:active { border-color: var(--go-text); color: var(--chalk); }
 
 .guide__scroll {
   flex: 1;
@@ -787,7 +1011,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
 }
 
 .gsec__h {
@@ -840,7 +1064,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--rec) !important;
+  color: var(--rec-text) !important;
 }
 .grule__big {
   font-size: 1.12rem !important;
@@ -852,7 +1076,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 /* muted aside, used for caveats and gotchas */
 .gnote {
   font-size: 0.86rem !important;
-  color: var(--chalk-faint) !important;
+  color: var(--text-dim) !important;
   border-left: 2px solid var(--line);
   padding-left: 11px;
 }
@@ -908,8 +1132,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
-.gsplit__k--keep { color: var(--brass) !important; }
-.gsplit__k--kill { color: var(--rec) !important; }
+.gsplit__k--keep { color: var(--brass-text) !important; }
+.gsplit__k--kill { color: var(--rec-text) !important; }
 .gsplit__half p { font-size: 0.89rem; }
 
 /* term / definition pairs (voice commands, exports) */
@@ -919,7 +1143,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   margin-bottom: 5px;
 }
 .gsay dd {
@@ -942,7 +1166,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   vertical-align: middle;
   margin: 0 1px;
 }
-.gdot--done { background: var(--go); border-color: var(--go); }
+.gdot--done { background: var(--go); border-color: var(--go-text); }
 
 @media (min-width: 520px) {
   .gsplit { grid-template-columns: 1fr 1fr; }
@@ -997,7 +1221,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .clipset__preview .tnum {
   font-size: 1.5rem;
-  color: var(--go);
+  color: var(--go-text);
   font-weight: 700;
 }
 
@@ -1030,15 +1254,15 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    carrying the .bigbtn hardware-key shadow so it depresses on tap. */
 .newproject--primary {
   border: none;
-  background: var(--go);
-  color: #052213;
+  background: var(--go-fill);
+  color: var(--go-fill-ink);
   box-shadow: 0 6px 0 0 var(--go-deep);
   transition: transform 80ms ease;
 }
 .newproject--primary:active {
   transform: translateY(3px);
-  background: var(--go);
-  color: #052213;
+  background: var(--go-fill);
+  color: var(--go-fill-ink);
   box-shadow: 0 3px 0 0 var(--go-deep);
 }
 
@@ -1063,8 +1287,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
-.rowdel:hover { color: var(--rec); border-color: color-mix(in srgb, var(--rec) 55%, transparent); }
-.rowdel:active { background: color-mix(in srgb, var(--rec) 14%, transparent); color: var(--rec); border-color: var(--rec); }
+.rowdel:hover { color: var(--rec-text); border-color: var(--rec-edge); }
+.rowdel:active { background: var(--rec-tint); color: var(--rec-text); border-color: var(--rec-text); }
 
 /* --------------------------------------------------------------- fields -- */
 
@@ -1080,7 +1304,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 textarea.field { padding: 10px 12px; min-height: 60px; resize: none; line-height: 1.4; }
 .field::placeholder { color: var(--chalk-faint); }
 .field--mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
-.field:focus { border-color: var(--go); outline: none; }
+.field:focus { border-color: var(--go-text); outline: none; }
 select.field {
   appearance: none;
   -webkit-appearance: none;
@@ -1119,20 +1343,20 @@ select.field {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--go);
-  border: 1px solid color-mix(in srgb, var(--go) 45%, transparent);
-  background: color-mix(in srgb, var(--go) 12%, transparent);
+  color: var(--go-text);
+  border: 1px solid var(--go-edge);
+  background: var(--go-tint);
 }
 .cambadge--approx {
-  color: var(--brass);
-  border-color: color-mix(in srgb, var(--brass) 45%, transparent);
-  background: color-mix(in srgb, var(--brass) 12%, transparent);
+  color: var(--brass-text);
+  border-color: var(--brass-edge);
+  background: var(--brass-tint);
 }
 .camnote {
   margin: 8px 0 0;
   font-size: 0.76rem;
   line-height: 1.35;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
 }
 
 /* --------------------------------------------------------------- chips --- */
@@ -1155,20 +1379,20 @@ select.field {
   transition: transform 70ms ease, background 120ms ease, border-color 120ms ease;
 }
 .chip:active { transform: scale(0.94); }
-.chip--gold { border-color: color-mix(in srgb, var(--brass) 55%, transparent); color: var(--brass); }
+.chip--gold { border-color: var(--brass-edge); color: var(--brass-text); }
 .chip--removable { padding-right: 8px; }
 .chip__x {
   width: 22px; height: 22px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 6px;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-size: 1rem;
 }
-.chip__x:active { background: var(--ink-950); color: var(--rec); }
+.chip__x:active { background: var(--ink-950); color: var(--rec-text); }
 
 @keyframes chipflash {
   0% { transform: scale(1); }
-  35% { transform: scale(1.14); background: var(--go); color: #062012; border-color: transparent; }
+  35% { transform: scale(1.14); background: var(--go-fill); color: var(--go-fill-ink); border-color: transparent; }
   100% { transform: scale(1); }
 }
 .chip--flash { animation: chipflash 360ms ease; }
@@ -1177,7 +1401,7 @@ select.field {
 }
 @keyframes chipflashgold {
   0% { transform: scale(1); }
-  35% { transform: scale(1.14); background: var(--brass); color: #241a02; border-color: transparent; }
+  35% { transform: scale(1.14); background: var(--brass-fill); color: var(--brass-fill-ink); border-color: transparent; }
   100% { transform: scale(1); }
 }
 
@@ -1213,11 +1437,11 @@ select.field {
   text-align: center;
   line-height: 1.15;
   /* hardware key: sits proud, then depresses on press (same language as .bigbtn) */
-  box-shadow: 0 4px 0 0 rgba(0, 0, 0, 0.42);
+  box-shadow: 0 4px 0 0 var(--key-shadow);
   transition: transform 70ms ease, background 120ms ease, border-color 120ms ease;
 }
 /* Wins over the base .chip:active scale - a key travels DOWN onto its shadow. */
-.chip.keycap:active { transform: translateY(3px); box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.42); }
+.chip.keycap:active { transform: translateY(3px); box-shadow: 0 1px 0 0 var(--key-shadow); }
 
 /* Label clamps to 2 lines inside the fixed cell rather than widening it. */
 .keycap__label {
@@ -1235,7 +1459,7 @@ select.field {
   flex: none;
   font-size: 0.74rem;
   font-weight: 800;
-  color: var(--go);
+  color: var(--go-text);
   opacity: 0.95;
 }
 
@@ -1245,12 +1469,12 @@ select.field {
 .keycap--key,
 .keycap--gold {
   text-transform: none;
-  color: var(--brass);
-  background: color-mix(in srgb, var(--brass) 15%, var(--ink-800));
-  border-color: color-mix(in srgb, var(--brass) 50%, transparent);
+  color: var(--brass-text);
+  background: var(--brass-tint);
+  border-color: var(--brass-edge);
 }
 .keycap--key .keycap__count,
-.keycap--gold .keycap__count { color: var(--brass); }
+.keycap--gold .keycap__count { color: var(--brass-text); }
 
 /* -------------------------------------------------------------- section -- */
 
@@ -1264,7 +1488,7 @@ select.field {
 .section__head .label { color: var(--chalk-dim); }
 .section__note {
   font-size: 0.72rem;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   text-align: right;
   min-width: 0;
   overflow: hidden;
@@ -1303,7 +1527,7 @@ select.field {
   justify-content: space-between;
 }
 .tccalc__result .tnum { font-size: 1.4rem; font-weight: 700; }
-.tccalc__result .tnum--bad { color: var(--rec); font-size: 0.95rem; }
+.tccalc__result .tnum--bad { color: var(--rec-text); font-size: 0.95rem; }
 
 /* clip preview strip */
 .clipwidget {
@@ -1321,7 +1545,7 @@ select.field {
 .clipwidget__preview .tnum {
   font-size: 1.8rem;
   font-weight: 800;
-  color: var(--go);
+  color: var(--go-text);
 }
 .clipgrid { display: grid; grid-template-columns: 1.4fr 1fr 0.8fr; gap: 10px; }
 
@@ -1410,9 +1634,9 @@ select.field {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: var(--rec);
-  color: #fff;
-  box-shadow: 0 3px 0 0 var(--rec-deep), 0 8px 22px rgba(255, 59, 48, 0.28);
+  background: var(--rec-fill);
+  color: var(--rec-fill-ink);
+  box-shadow: 0 3px 0 0 var(--rec-deep), 0 8px 22px var(--lift-shadow);
 }
 .tally__rec {
   display: inline-flex;
@@ -1421,13 +1645,13 @@ select.field {
   font-weight: 900;
   font-size: 0.98rem;
   letter-spacing: 0.22em;
-  color: #fff;
+  color: var(--rec-fill-ink);
 }
 .tally__dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--rec-fill-ink);
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28);
   /* SECONDARY pulse only - the solid fill is the real signal and never fades. */
   animation: tallypulse 1.1s ease-in-out infinite;
@@ -1439,7 +1663,7 @@ select.field {
   font-weight: 800;
   font-size: 1rem;
   letter-spacing: 0.02em;
-  color: #fff;
+  color: var(--rec-fill-ink);
 }
 
 .roll__head {
@@ -1513,7 +1737,10 @@ select.field {
   font-size: clamp(2.6rem, 13vw, 6.4rem);
   color: var(--chalk);
 }
-.readout--live { color: #fff; text-shadow: 0 0 26px rgba(255, 59, 48, 0.35); }
+/* On night this is white over the red wash, with the glow it shipped with. On
+   paper white would be invisible, so it takes the deep red and drops the glow:
+   a halo behind type on ivory only softens the edge it needs. */
+.readout--live { color: var(--live-ink); text-shadow: var(--live-glow); }
 .readout--idle { color: var(--chalk-dim); }
 
 .stage__hint {
@@ -1528,7 +1755,7 @@ select.field {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--rec);
+  color: var(--rec-text);
   font-weight: 800;
   letter-spacing: 0.18em;
   font-size: 0.72rem;
@@ -1555,12 +1782,12 @@ select.field {
   font-size: 0.85rem;
 }
 .minitake .tnum { color: var(--chalk); font-weight: 700; }
-.minitake .clip { color: var(--go); font-family: var(--font-mono); font-size: 0.82rem; }
+.minitake .clip { color: var(--go-text); font-family: var(--font-mono); font-size: 0.82rem; }
 .minitake .dur { margin-left: auto; color: var(--chalk-dim); font-family: var(--font-mono); }
 .minitake--discarded { color: var(--chalk-faint); }
 .minitake--discarded .tnum,
 .minitake--discarded .clip { color: var(--chalk-faint); text-decoration: line-through; }
-.minitakes__empty { text-align: center; color: var(--chalk-faint); font-size: 0.82rem; padding: 8px; }
+.minitakes__empty { text-align: center; color: var(--text-dim); font-size: 0.82rem; padding: 8px; }
 
 /* moments logged this take */
 .momentlog {
@@ -1584,8 +1811,8 @@ select.field {
   border-left: 3px solid var(--line);
   font-size: 0.85rem;
 }
-.momentrow--gold { border-left-color: var(--brass); }
-.momentrow--range { border-left-color: var(--go); }
+.momentrow--gold { border-left-color: var(--brass-text); }
+.momentrow--range { border-left-color: var(--go-text); }
 .momentrow .at { font-family: var(--font-mono); color: var(--chalk); font-weight: 700; }
 .momentrow .tag { font-weight: 700; letter-spacing: 0.06em; font-size: 0.74rem; color: var(--chalk-dim); }
 .momentrow .lbl { color: var(--chalk-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1662,11 +1889,11 @@ select.field {
   gap: 10px;
 }
 .markbtn:active { transform: scale(0.98); }
-.markbtn--armed { border-color: var(--go); color: var(--go); }
+.markbtn--armed { border-color: var(--go-text); color: var(--go-text); }
 .markbtn__badge {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  color: var(--go);
+  color: var(--go-text);
   font-weight: 700;
 }
 
@@ -1683,17 +1910,17 @@ select.field {
   justify-content: center;
   gap: 14px;
   transition: transform 80ms ease;
-  box-shadow: 0 10px 0 0 rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 0 0 var(--key-shadow);
 }
-.bigbtn:active { transform: translateY(4px); box-shadow: 0 6px 0 0 rgba(0, 0, 0, 0.35); }
+.bigbtn:active { transform: translateY(4px); box-shadow: 0 6px 0 0 var(--key-shadow); }
 .bigbtn--go {
-  background: var(--go);
-  color: #052213;
+  background: var(--go-fill);
+  color: var(--go-fill-ink);
   border: none;
 }
 .bigbtn--cut {
-  background: var(--rec);
-  color: #fff;
+  background: var(--rec-fill);
+  color: var(--rec-fill-ink);
   border: none;
   box-shadow: 0 10px 0 0 var(--rec-deep);
 }
@@ -1723,12 +1950,14 @@ select.field {
 }
 .mictoggle:active { transform: scale(0.97); }
 .mictoggle--on {
-  color: var(--go);
-  border-color: color-mix(in srgb, var(--go) 45%, transparent);
-  background: color-mix(in srgb, var(--go) 12%, var(--ink-850));
+  color: var(--go-text);
+  border-color: var(--go-edge);
+  background: var(--go-tint);
 }
 .miclamp { width: 9px; height: 9px; border-radius: 50%; background: var(--chalk-faint); }
-.mictoggle--on .miclamp { background: var(--go); animation: listen 1.4s ease-in-out infinite; }
+/* The lamp is 9px on a pale wash, so it takes the deep token: the bright fill
+   on the light tint is 1.7:1 and the lamp simply is not there. */
+.mictoggle--on .miclamp { background: var(--go-text); animation: listen 1.4s ease-in-out infinite; }
 @keyframes listen { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } }
 
 /* ============================================================ SHEET ======= */
@@ -1798,7 +2027,7 @@ select.field {
   font-size: 1.3rem;
   font-weight: 800;
 }
-.takesummary__cell .val--clip { color: var(--go); }
+.takesummary__cell .val--clip { color: var(--go-text); }
 
 /* toast confirm */
 .toast {
@@ -1817,7 +2046,7 @@ select.field {
   font-size: 0.86rem;
   letter-spacing: 0.02em;
   z-index: 60;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 30px var(--lift-shadow);
   animation: toastin 200ms ease;
 }
 @keyframes toastin { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
@@ -1825,7 +2054,7 @@ select.field {
 /* empty states */
 .empty {
   text-align: center;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   padding: 40px 20px;
   font-size: 0.9rem;
 }
@@ -1928,9 +2157,9 @@ select.field {
   font-size: 0.86rem;
   letter-spacing: 0.02em;
   text-transform: none;
-  color: var(--brass);
-  border-color: color-mix(in srgb, var(--brass) 45%, transparent);
-  background: color-mix(in srgb, var(--brass) 9%, var(--ink-800));
+  color: var(--brass-text);
+  border-color: var(--brass-edge);
+  background: var(--brass-tint);
 }
 
 /* ------------------------------------------------------- go-Pro CTA ------ */
@@ -1954,13 +2183,13 @@ select.field {
   align-items: center;
   justify-content: center;
   gap: 9px;
-  color: var(--brass);
-  border: 1px solid color-mix(in srgb, var(--brass) 50%, transparent);
-  background: color-mix(in srgb, var(--brass) 10%, var(--ink-850));
+  color: var(--brass-text);
+  border: 1px solid var(--brass-edge);
+  background: var(--brass-tint);
   transition: transform 80ms ease, background 120ms ease, border-color 120ms ease;
 }
 .procta__btn:active { transform: scale(0.97); }
-.procta__btn:hover { border-color: color-mix(in srgb, var(--brass) 70%, transparent); }
+.procta__btn:hover { border-color: var(--brass-edge); }
 .procta__spark { font-size: 0.9em; line-height: 1; }
 .procta__msg {
   margin: 0;
@@ -1992,9 +2221,9 @@ select.field {
 }
 .camcount__opt:active { transform: scale(0.97); }
 .camcount__opt--on {
-  color: var(--go);
-  background: color-mix(in srgb, var(--go) 14%, var(--ink-850));
-  border-color: color-mix(in srgb, var(--go) 55%, transparent);
+  color: var(--go-text);
+  background: var(--go-tint);
+  border-color: var(--go-edge);
 }
 
 /* Per-camera setup / counter card (New project + project settings). */
@@ -2022,9 +2251,9 @@ select.field {
   font-family: var(--font-mono);
   font-weight: 800;
   font-size: 0.95rem;
-  color: var(--go);
-  background: color-mix(in srgb, var(--go) 16%, var(--ink-800));
-  border: 1px solid color-mix(in srgb, var(--go) 45%, transparent);
+  color: var(--go-text);
+  background: var(--go-tint);
+  border: 1px solid var(--go-edge);
 }
 .camunit__eg {
   color: var(--chalk);
@@ -2140,7 +2369,7 @@ select.field {
 .camslot__clip {
   display: block;
   width: 100%;
-  color: var(--go);
+  color: var(--go-text);
   font-weight: 800;
   font-size: 1.34rem;
   letter-spacing: -0.01em;
@@ -2215,7 +2444,7 @@ select.field {
   border-radius: 8px;
 }
 .camslot__penbtn:active { background: var(--ink-800); }
-.camslot__pen { color: var(--chalk-faint); font-size: 0.82rem; }
+.camslot__pen { color: var(--text-dim); font-size: 0.82rem; }
 
 /* Rolling: this specific unit is live right now - tap it to cut just this
    camera. Reads red/hot, matching the CUT button. */
@@ -2223,15 +2452,15 @@ select.field {
   width: 100%;
   min-height: var(--tap);
   text-align: left;
-  border-color: color-mix(in srgb, var(--rec) 45%, var(--line-soft));
-  background: color-mix(in srgb, var(--rec) 10%, var(--ink-900));
+  border-color: var(--rec-tint);
+  background: var(--rec-tint);
   transition: transform 70ms ease;
 }
 .camslot--rolling:active { transform: scale(0.98); }
 .camslot--rolling .camslot__badge {
-  color: var(--rec);
-  background: color-mix(in srgb, var(--rec) 20%, var(--ink-800));
-  border-color: color-mix(in srgb, var(--rec) 55%, transparent);
+  color: var(--rec-text);
+  background: var(--rec-tint);
+  border-color: var(--rec-edge);
 }
 /* The clip number outranks the running clock. It is what the operator reads
    back to the loader, and it was being ellipsised to "C…" on the rolling slot
@@ -2253,7 +2482,7 @@ select.field {
   /* Text ("REC") + shape (the dot) carry the rolling state; the red tint is
      only a bonus on top - never the sole signal (daylight, red set-lighting,
      and red/green colour-blindness all defeat colour-only cues). */
-  color: var(--rec);
+  color: var(--rec-text);
 }
 .camslot__elapsed .recdot { width: 7px; height: 7px; flex: none; }
 /* Three or four cameras share the width two had, so the clock text goes and the
@@ -2301,7 +2530,7 @@ select.field {
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: var(--go);
+  color: var(--go-text);
 }
 
 /* Tap the take row to edit it; the info spans become one big target. */
@@ -2319,12 +2548,12 @@ select.field {
   text-align: left;
 }
 .minitake__open:active { opacity: 0.7; }
-.minitake__pen { color: var(--chalk-faint); font-size: 0.82rem; }
+.minitake__pen { color: var(--text-dim); font-size: 0.82rem; }
 
 /* Selectable tag chips in the take editor (on = kept, off = dimmed). */
 .chip--off { opacity: 0.42; }
-.chip--on { border-color: color-mix(in srgb, var(--go) 60%, transparent); color: var(--go); }
-.chip--on.chip--gold { border-color: color-mix(in srgb, var(--brass) 60%, transparent); color: var(--brass); }
+.chip--on { border-color: var(--go-edge); color: var(--go-text); }
+.chip--on.chip--gold { border-color: var(--brass-edge); color: var(--brass-text); }
 
 /* Delete-shot control on a recent-take row. */
 .minitake__del {
@@ -2334,12 +2563,12 @@ select.field {
   border-radius: 8px;
   border: 1px solid var(--line);
   background: transparent;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-size: 1.05rem;
   line-height: 1;
   flex: none;
 }
-.minitake__del:active { background: var(--ink-950); color: var(--rec); border-color: var(--rec); }
+.minitake__del:active { background: var(--ink-950); color: var(--rec-text); border-color: var(--rec-text); }
 
 /* ===================================================================
    INSTALL NUDGE  (src/ui/InstallNudge.tsx)
@@ -2377,7 +2606,7 @@ select.field {
 .installnudge__glyph {
   display: inline-block;
   vertical-align: -2px;
-  color: var(--go);
+  color: var(--go-text);
 }
 .installnudge__actions {
   display: flex;
@@ -2400,7 +2629,7 @@ select.field {
   justify-content: center;
   border: none;
   background: transparent;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-size: 0.95rem;
   line-height: 1;
   border-radius: 8px;
@@ -2511,7 +2740,7 @@ select.field {
   flex: none;
   min-width: 44px;
   font-weight: 800;
-  color: var(--brass);
+  color: var(--brass-text);
   font-size: 0.95rem;
 }
 /* Size + move read as spec, not as the name — the action line below is what
@@ -2525,7 +2754,7 @@ select.field {
 }
 .shotline {
   margin-top: 4px;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-size: 0.85rem;
   font-style: italic;
   line-height: 1.4;
@@ -2568,8 +2797,8 @@ select.field {
   gap: 8px;
   padding: 0 12px;
   border-radius: var(--radius-sm);
-  border: 1px solid color-mix(in srgb, var(--brass) 40%, transparent);
-  background: color-mix(in srgb, var(--brass) 12%, var(--ink-850));
+  border: 1px solid var(--brass-edge);
+  background: var(--brass-tint);
   color: var(--chalk);
   text-align: left;
 }
@@ -2579,7 +2808,7 @@ select.field {
   flex: none;
   font-weight: 800;
   font-size: 1.05rem;
-  color: var(--brass);
+  color: var(--brass-text);
 }
 .shotstrip__spec {
   flex: 1;
@@ -2595,7 +2824,7 @@ select.field {
 }
 .shotstrip__pos {
   flex: none;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -2603,7 +2832,7 @@ select.field {
 /* The spoken line under the strip, when the setup carries one. */
 .roll__line {
   margin-top: 6px;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-size: 0.88rem;
   font-style: italic;
   line-height: 1.4;
@@ -2633,13 +2862,13 @@ select.field {
   text-align: left;
 }
 .shotjump__row--now {
-  border-color: color-mix(in srgb, var(--brass) 55%, transparent);
-  background: color-mix(in srgb, var(--brass) 14%, var(--ink-850));
+  border-color: var(--brass-edge);
+  background: var(--brass-tint);
 }
 .shotjump__code {
   grid-column: 1;
   font-weight: 800;
-  color: var(--brass);
+  color: var(--brass-text);
   font-size: 0.95rem;
 }
 .shotjump__spec {
@@ -2652,7 +2881,7 @@ select.field {
 }
 .shotjump__action {
   grid-column: 2;
-  color: var(--chalk-faint);
+  color: var(--text-dim);
   font-size: 0.85rem;
   line-height: 1.35;
   overflow: hidden;
@@ -2720,13 +2949,13 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-size: 0.92rem;
   font-weight: 700;
-  color: var(--go);
+  color: var(--go-text);
   overflow-wrap: anywhere;
 }
 .cliprow__snd {
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  color: var(--sound);
+  color: var(--sound-text);
   overflow-wrap: anywhere;
 }
 
@@ -2744,10 +2973,10 @@ select.field {
 .cliprow__scene { font-weight: 700; color: var(--chalk); }
 /* Brass, matching .shotcode and the rolling strip: the shot code always reads
    as "what the slate says", wherever it appears. */
-.cliprow__shot { font-weight: 800; color: var(--brass); }
+.cliprow__shot { font-weight: 800; color: var(--brass-text); }
 .cliprow__take { color: var(--chalk-dim); }
 .cliprow__flag {
-  color: var(--rec);
+  color: var(--rec-text);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -2790,7 +3019,7 @@ select.field {
   color: var(--chalk-dim);
 }
 .cliprow__tool:active { opacity: 0.6; }
-.cliprow__tool--danger { color: var(--rec); }
+.cliprow__tool--danger { color: var(--rec-text); }
 
 .cliprow--discarded { color: var(--chalk-faint); }
 .cliprow--discarded .cliprow__clip,
@@ -2818,10 +3047,10 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-size: 1rem;
   font-weight: 700;
-  color: var(--go);
+  color: var(--go-text);
   overflow-wrap: anywhere;
 }
-.movepreview__snd { font-family: var(--font-mono); font-size: 0.82rem; color: var(--sound); }
+.movepreview__snd { font-family: var(--font-mono); font-size: 0.82rem; color: var(--sound-text); }
 
 /* The consequence, spelled out before you commit to it. */
 .movesay {
@@ -2831,7 +3060,7 @@ select.field {
   line-height: 1.45;
 }
 .movesay b { color: var(--chalk); font-family: var(--font-mono); }
-.movesay--note { margin-top: 8px; color: var(--chalk-faint); font-size: 0.8rem; }
+.movesay--note { margin-top: 8px; color: var(--text-dim); font-size: 0.8rem; }
 
 /* ==========================================================================
    HOME TAB  (src/ui/HomeScreen.tsx)

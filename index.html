@@ -4,8 +4,41 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#0c0d10" />
+    <!-- Was "black-translucent", which draws WHITE status-bar glyphs over the
+         page. That was right when the app was near-black and is unreadable now
+         that the default ground is ivory, and it cannot be switched at runtime.
+         "default" gives dark glyphs on a bar iOS paints itself, which is legible
+         on paper; night pays for it with a light bar above a dark app. NOT yet
+         confirmed on a real iPhone in standalone mode. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- Kept in sync with the theme by the script below and by src/ui/theme.ts.
+         Without that the iOS status bar and the PWA splash stay the other
+         theme's colour. -->
+    <meta name="theme-color" content="#fbfaf7" />
+
+    <!--
+      Theme, applied BEFORE first paint. Doing this in React means a white
+      flash into night mode at 4am, which is exactly the moment it is least
+      welcome. Kept deliberately tiny and dependency-free: it runs ahead of the
+      bundle on every cold start, including offline from the service worker.
+      Storage can throw outright (Safari private mode, blocked cookies), and
+      the failure mode has to be "light", never "no app".
+      The values here are --paper from src/styles.css. If you change one,
+      change all three: here, the :root token, and THEME_COLOR in src/ui/theme.ts.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('clapper.theme');
+          if (t !== 'night') return; // absent, 'light', or anything unexpected
+          document.documentElement.setAttribute('data-theme', 'night');
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', '#0c0d10');
+        } catch (e) {
+          /* light is the default and is already in the markup */
+        }
+      })();
+    </script>
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />

@@ -31,10 +31,12 @@ const DEFAULT_TAGS = ['WIDE', 'MID', 'CU', 'OTS', 'INSERT', 'GOLD', 'PICKUP', 'N
 // Production sound's badge accent - same cool blue RollingScreen uses for the
 // Sound roll control, applied inline on the shared .camunit__badge here too
 // (styling stays scoped to src/ui/, not the shared stylesheet).
+// The deep token for the type and the edge, the wash for the fill: bright
+// --sound as text on paper is 2.91:1. See docs/specs/2026-08-14-light-theme.md.
 const soundBadgeStyle = {
-  color: 'var(--sound)',
-  background: 'color-mix(in srgb, var(--sound) 16%, var(--ink-800))',
-  borderColor: 'color-mix(in srgb, var(--sound) 45%, transparent)',
+  color: 'var(--sound-text)',
+  background: 'var(--sound-tint)',
+  borderColor: 'var(--sound-edge)',
 };
 
 interface Row {
@@ -572,7 +574,7 @@ function CreateProjectSheet(props: {
               fontWeight: 800,
               letterSpacing: '0.16em',
               textTransform: 'uppercase',
-              color: 'var(--sound)',
+              color: 'var(--sound-text)',
             }}
           >
             Audio
