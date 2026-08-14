@@ -91,12 +91,12 @@ interface NavState {
 }
 
 /**
- * Cold open lands on Projects, not Home. Home is the gateway the spec wants and
- * it is a stub in this phase; opening the app onto "not built yet" would break
- * the one flow that has to survive a refactor — open, tap a project, roll.
- * The agent who builds Home flips this to 'home'.
+ * Cold open lands on HOME. It pointed at Projects only for as long as Home was
+ * a stub — opening the app onto "not built yet" would have broken the one flow
+ * that had to survive the refactor. Home is real now, and it is the gateway:
+ * the whole point of the tab is that a cold app is one tap from rolling.
  */
-const INITIAL_TAB: Tab = 'projects';
+const INITIAL_TAB: Tab = 'home';
 
 function initialState(): NavState {
   return {

@@ -2832,3 +2832,157 @@ select.field {
 }
 .movesay b { color: var(--chalk); font-family: var(--font-mono); }
 .movesay--note { margin-top: 8px; color: var(--chalk-faint); font-size: 0.8rem; }
+
+/* ==========================================================================
+   HOME TAB  (src/ui/HomeScreen.tsx)
+   --------------------------------------------------------------------------
+   Owned by the Home screen only. Semantic tokens ONLY — no raw hex and no
+   tonal names — because the app is being repainted dark to light underneath
+   this block and every rule here has to survive that untouched.
+
+   The one colour decision worth writing down: the hero is filled with
+   `--go-text`, not `--go`, and its type is `--surface`. On the light theme the
+   bright green measures 1.91:1 as type and 2.8:1 behind white, so a bright
+   fill with white on it is unreadable in exactly the daylight the repaint
+   exists for; the deep value takes white at 5.41:1. On the night theme
+   `--go-text` still aliases the bright green and `--surface` is near-black, so
+   the same two lines draw the green key the app has always had.
+
+   Everything else is greyscale. Colour is signal, and on this screen the only
+   signal is "this is the button".
+   ========================================================================== */
+
+.home-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+/* The masthead stick, held to the large title's cap height rather than the
+   masthead's own size, so the two settle on one baseline as the title shrinks. */
+.home-head .masthead__mark {
+  flex: none;
+  transition: transform 180ms ease-out;
+}
+[data-scrolled].home .masthead__mark {
+  transform: scale(0.72);
+}
+.home-head .ltitle {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-head .masthead__mark { transition: none; }
+}
+
+/* ---- the hero -----------------------------------------------------------
+   The one thing on the tab that is allowed to be loud. No gradient, no glow,
+   no hardware shadow: it is loud because it is the only filled thing on a
+   page of paper, which is a cheaper way to be loud and survives a repaint. */
+.home-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 78px;
+  padding: 16px 18px;
+  margin: 4px 0 0;
+  border-radius: var(--radius);
+  background: var(--go-text);
+  color: var(--surface);
+  text-align: left;
+  transition: transform 90ms ease-out, opacity 160ms ease-out;
+}
+.home-hero:active {
+  transform: scale(0.985);
+}
+.home-hero:disabled {
+  opacity: 0.62;
+}
+.home-hero__mark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+}
+.home-hero__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.home-hero__title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+}
+/* Deliberately not a dimmed token: on a filled key there is no --text-dim that
+   reads, so the sub-line borrows the fill's own type colour at reduced weight. */
+.home-hero__sub {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  opacity: 0.78;
+}
+
+.home-rail {
+  margin: 16px 0 24px;
+}
+
+/* ---- the resume row -----------------------------------------------------
+   A `.grow` whose label is two lines instead of one: the project on top, its
+   day and counts under it. Numbers are tabular so the count does not jitter
+   when it ticks between visits. */
+.home-rowtext {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.home-rowtext__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.home-rowtext__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.home-rowtext__meta b {
+  font-weight: 700;
+  color: var(--text);
+}
+.home-rowtext__meta i {
+  font-style: normal;
+  color: var(--text-faint);
+}
+.home-rowtext__meta .tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.home-mark,
+.home-chev {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+}
+
+/* ---- first run ----------------------------------------------------------
+   Shown only when the phone holds no projects at all. It explains the hero
+   rather than adding a second thing to do. */
+.home-first {
+  margin: 2px 16px 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
