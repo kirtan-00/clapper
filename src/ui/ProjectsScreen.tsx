@@ -5,6 +5,7 @@ import { restoreBackup } from '../store/restore';
 import { parseBackupText } from '../export';
 import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
 import { Sheet, Confirm, Rail } from './common';
+import { useFullScreenClaim } from './AppShell';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
 import { extractPdfText } from './pdftext';
 import { parseShotlist, shotlistToPack } from './shotlist';
@@ -1115,6 +1116,11 @@ const GUIDE_NAV: { id: string; label: string }[] = [
 function HowToScreen(props: { onClose: () => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onClose } = props;
+
+  // `.guide` is `position: fixed; inset: 0` — it IS the window while it is up.
+  // Claiming it unmounts the tab tray (see AppShell), rather than leaving a bar
+  // of chrome floating over documentation that owns the whole viewport.
+  useFullScreenClaim();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

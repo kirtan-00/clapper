@@ -1,5 +1,16 @@
-import { useState } from 'react';
-import type { Project, Shot, Slate } from './types';
+// The router. It maps one route to one screen and nothing else — the nav state
+// lives in ui/nav.ts, the chrome around it in ui/AppShell.tsx.
+//
+// The Projects stack (projects → project → shots / cliplog → rolling) predates
+// the shell and keeps its own narrow callback props, so each screen still only
+// knows the one move it is allowed to make. The three new tabs take the `nav`
+// object whole, because they are the ones that will need to go anywhere.
+
+import { AppShell } from './ui/AppShell';
+import { enterSlate, type Nav, type Route } from './ui/nav';
+import { HomeScreen } from './ui/HomeScreen';
+import { SettingsScreen } from './ui/SettingsScreen';
+import { AccountScreen } from './ui/AccountScreen';
 import { ProjectsScreen } from './ui/ProjectsScreen';
 import { ProjectScreen } from './ui/ProjectScreen';
 import { ShotsScreen } from './ui/ShotsScreen';
@@ -7,68 +18,44 @@ import { ClipLogScreen } from './ui/ClipLogScreen';
 import { RollingScreen } from './ui/RollingScreen';
 import './styles.css';
 
-type Screen =
-  | { name: 'projects' }
-  | { name: 'project'; project: Project }
-  // The shot list for one scene. Only reachable for scenes that HAVE shots —
-  // a hand-made scene goes straight from the project screen to rolling, as it
-  // always has.
-  | { name: 'shots'; project: Project; slate: Slate }
-  // Every clip the project has rolled, flat and newest-first. Project-wide by
-  // nature (you look a clip up by name, not by remembering its scene), so it
-  // carries the project only and backs out to the project screen.
-  // `from` is where BACK returns to. The clip log is reachable from the
-  // project screen AND from the rolling screen (it is the fix-a-mistake path,
-  // so it has to be close to where the mistake is noticed) - and backing out
-  // of it must land where you came from, not always on the project screen.
-  | { name: 'cliplog'; project: Project; from?: Screen }
-  // `shot` is absent when the scene has no breakdown: takes then log against
-  // the scene itself, exactly as before shots existed.
-  | { name: 'rolling'; project: Project; slate: Slate; shot?: Shot };
+function renderRoute(route: Route, nav: Nav) {
+  switch (route.name) {
+    case 'home':
+      return <HomeScreen nav={nav} />;
 
-/** A scene with a breakdown opens its shot list; a bare scene opens rolling. */
-function enterSlate(project: Project, slate: Slate): Screen {
-  return slate.shots?.length
-    ? { name: 'shots', project, slate }
-    : { name: 'rolling', project, slate };
-}
+    case 'settings':
+      return <SettingsScreen nav={nav} />;
 
-export default function App() {
-  const [screen, setScreen] = useState<Screen>({ name: 'projects' });
+    case 'account':
+      return <AccountScreen nav={nav} />;
 
-  switch (screen.name) {
     case 'projects':
-      return (
-        <ProjectsScreen onOpen={(project) => setScreen({ name: 'project', project })} />
-      );
+      return <ProjectsScreen onOpen={(project) => nav.push({ name: 'project', project })} />;
 
     case 'project':
       return (
         <ProjectScreen
-          project={screen.project}
-          onBack={() => setScreen({ name: 'projects' })}
-          onProjectChanged={(project) => setScreen({ name: 'project', project })}
-          onOpenSlate={(project, slate) => setScreen(enterSlate(project, slate))}
-          onOpenClipLog={() => setScreen({ name: 'cliplog', project: screen.project })}
+          project={route.project}
+          onBack={() => nav.pop()}
+          onProjectChanged={(project) => nav.replace({ name: 'project', project })}
+          onOpenSlate={(project, slate) => nav.push(enterSlate(project, slate))}
+          onOpenClipLog={() => nav.push({ name: 'cliplog', project: route.project })}
         />
       );
 
     case 'cliplog':
-      return (
-        <ClipLogScreen
-          project={screen.project}
-          onBack={() => setScreen(screen.from ?? { name: 'project', project: screen.project })}
-        />
-      );
+      // Back lands wherever you opened it from — the project screen or the
+      // rolling screen — because the stack under it is that screen.
+      return <ClipLogScreen project={route.project} onBack={() => nav.pop()} />;
 
     case 'shots':
       return (
         <ShotsScreen
-          project={screen.project}
-          slate={screen.slate}
-          onBack={() => setScreen({ name: 'project', project: screen.project })}
+          project={route.project}
+          slate={route.slate}
+          onBack={() => nav.pop()}
           onOpenShot={(shot) =>
-            setScreen({ name: 'rolling', project: screen.project, slate: screen.slate, shot })
+            nav.push({ name: 'rolling', project: route.project, slate: route.slate, shot })
           }
         />
       );
@@ -76,26 +63,30 @@ export default function App() {
     case 'rolling':
       return (
         <RollingScreen
-          project={screen.project}
-          slate={screen.slate}
-          shot={screen.shot}
+          project={route.project}
+          slate={route.slate}
+          shot={route.shot}
           // Back goes to whichever list you came through: the shot list for a
-          // scene with a breakdown, the scene list for one without.
-          onExit={() =>
-            setScreen(
-              screen.slate.shots?.length
-                ? { name: 'shots', project: screen.project, slate: screen.slate }
-                : { name: 'project', project: screen.project },
-            )
-          }
-          onNavigate={(slate) => setScreen(enterSlate(screen.project, slate))}
+          // scene with a breakdown, the scene list for one without. The stack
+          // already holds that, so this is just a pop now.
+          onExit={() => nav.pop()}
+          // Moving to a DIFFERENT scene is sideways, not deeper: unwind to the
+          // project screen first, so BACK out of the new scene means "the scene
+          // list", not "the scene I was in before".
+          onNavigate={(slate) => {
+            nav.popTo('project');
+            nav.push(enterSlate(route.project, slate));
+          }}
+          // A different shot in the SAME scene is the same depth.
           onNavigateShot={(shot) =>
-            setScreen({ name: 'rolling', project: screen.project, slate: screen.slate, shot })
+            nav.replace({ name: 'rolling', project: route.project, slate: route.slate, shot })
           }
-          onOpenClipLog={() =>
-            setScreen({ name: 'cliplog', project: screen.project, from: screen })
-          }
+          onOpenClipLog={() => nav.push({ name: 'cliplog', project: route.project })}
         />
       );
   }
+}
+
+export default function App() {
+  return <AppShell render={renderRoute} />;
 }

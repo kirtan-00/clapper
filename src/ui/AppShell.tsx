@@ -1,0 +1,75 @@
+// The wrapper that outlives every screen. It owns the nav state, renders the
+// current screen and decides whether the tab tray exists at all.
+//
+// UNMOUNT, DO NOT HIDE. The tray is dropped from the tree on two screens
+// rather than made invisible:
+//
+//   rolling — `.roll` is `position: fixed; inset: 0` and CUT is `sticky;
+//     bottom: 0` under a written contract that CUT is never allowed off
+//     screen. A tray element that is merely hidden still takes part in
+//     layout and eats the vertical budget CUT is fighting for, which has
+//     already caused real bugs on that screen.
+//   the guide — `.guide` is the same full-window shape, and it is
+//     documentation you read standing up: it gets the whole viewport.
+//
+// The guide is opened deep inside ProjectsScreen, so instead of threading a
+// prop up four levels it CLAIMS the screen while it is mounted (see
+// useFullScreenClaim below). Any future full-window overlay does the same and
+// the tray gets out of the way for free.
+
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { useNavState, type Nav, type Route } from './nav';
+import { TabTray } from './TabTray';
+
+// ------------------------------------------------- full-screen claims -----
+
+let claims = 0;
+const listeners = new Set<() => void>();
+
+function emit(): void {
+  for (const fn of listeners) fn();
+}
+function subscribe(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+function claimed(): boolean {
+  return claims > 0;
+}
+
+/**
+ * Call from any component that takes the whole window. While it is mounted the
+ * tab tray is unmounted. The cleanup always decrements, so StrictMode's double
+ * invoke stays balanced.
+ */
+export function useFullScreenClaim(): void {
+  useEffect(() => {
+    claims += 1;
+    emit();
+    return () => {
+      claims -= 1;
+      emit();
+    };
+  }, []);
+}
+
+function useFullScreenClaimed(): boolean {
+  return useSyncExternalStore(subscribe, claimed, () => false);
+}
+
+// ------------------------------------------------------------- shell -----
+
+export function AppShell(props: { render: (route: Route, nav: Nav) => ReactNode }) {
+  const { route, nav } = useNavState();
+  const overlay = useFullScreenClaimed();
+  const tray = route.name !== 'rolling' && !overlay;
+
+  return (
+    // --tray-lift rides on this class, so anything floating inside (the toast)
+    // knows whether there is a tray to clear.
+    <div className={`shell${tray ? ' shell--tray' : ''}`}>
+      {props.render(route, nav)}
+      {tray && <TabTray nav={nav} />}
+    </div>
+  );
+}
