@@ -1,11 +1,27 @@
 // The bottom tab tray. Four cells, always there, except where it is not:
 // see AppShell for the two screens that unmount it outright.
 //
-// Icons are hand-drawn inline SVG. This is an offline PWA — no icon font, no
-// CDN, no library — and the marks are the app's own vocabulary rather than a
-// generic set: HOME is the clapper stick from the masthead, PROJECTS is a
-// stack of slates, SETTINGS is a pair of faders (not a gear, which is what
-// every other app reaches for), ACCOUNT is a plain head and shoulders.
+// Icons are hand-drawn inline SVG in the SF Symbols IDIOM, not SF Symbols
+// themselves: Apple's licence covers Apple-platform UI, not a web PWA
+// redistributing the glyphs. No icon font and no CDN either (offline PWA), and
+// certainly no emoji, which is the loudest "nobody designed this" tell there
+// is.
+//
+// The house rules for the set, so a fifth icon added later still matches:
+//   - one 24 viewBox, one 1.75 stroke, across all four. Never mix a filled
+//     mark into a stroked row.
+//   - round caps and joins, one corner-radius family (2.5), so they read as
+//     one hand.
+//   - stroke="currentColor" and no fill, so colour arrives from the token on
+//     the parent and the active state, both themes and the light repaint all
+//     work without touching this file.
+//   - optically centred on 12,12 rather than mathematically: each mark's own
+//     ink is balanced, not its bounding box.
+//
+// The marks are the app's own vocabulary: HOME is the clapper stick from the
+// masthead, PROJECTS is one slate stacked behind another, SETTINGS is a pair
+// of faders (a sound desk, not the gear every other app reaches for), ACCOUNT
+// is a plain head and shoulders.
 
 import type { Nav, Tab } from './nav';
 import { TABS } from './nav';
@@ -21,7 +37,7 @@ const LABEL: Record<Tab, string> = {
 const STROKE = {
   fill: 'none',
   stroke: 'currentColor',
-  strokeWidth: 1.6,
+  strokeWidth: 1.75,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
 };
@@ -29,43 +45,45 @@ const STROKE = {
 function Icon(props: { tab: Tab }) {
   const common = {
     className: 'tabtray__icon',
-    viewBox: '0 0 22 22',
+    viewBox: '0 0 24 24',
     'aria-hidden': true,
     focusable: 'false' as const,
   };
   switch (props.tab) {
-    // The clapper stick, closed: the app's own mark.
+    // The clapper stick, closed. Two slashes, not three: at 22px a third is mush.
     case 'home':
       return (
         <svg {...common}>
-          <rect x="2.5" y="8.5" width="17" height="10.5" rx="2" {...STROKE} />
-          <path d="M3.6 8.5 6.9 3.6M8.9 8.5l3.3-4.9M14.2 8.5l3.3-4.9" {...STROKE} />
-          <path d="M2.9 3.9 18.4 2.6l.5 5.9H3.1z" {...STROKE} />
+          <rect x="3" y="9" width="18" height="11.5" rx="2.5" {...STROKE} />
+          <path d="M3 9V5.6L20 3.7a1.2 1.2 0 0 1 1 1.2V9" {...STROKE} />
+          <path d="M8.2 5 6.8 9M14 4.4 12.6 9" {...STROKE} />
         </svg>
       );
-    // A stack of slates, front one squared up.
+    // One slate behind another. Only the visible L of the back card is drawn,
+    // so no stroke crosses another and it stays clean at 22px.
     case 'projects':
       return (
         <svg {...common}>
-          <rect x="3" y="7.5" width="16" height="11.5" rx="2" {...STROKE} />
-          <path d="M5.4 4.8h11.2M7.2 2.6h7.6" {...STROKE} />
-          <path d="M7.2 12h7.6M7.2 15.4h4.6" {...STROKE} />
+          <rect x="3.5" y="8" width="12.5" height="12.5" rx="2.5" {...STROKE} />
+          <path
+            d="M8 8V6a2.5 2.5 0 0 1 2.5-2.5H18A2.5 2.5 0 0 1 20.5 6v7.5A2.5 2.5 0 0 1 18 16h-2"
+            {...STROKE}
+          />
         </svg>
       );
-    // Two faders. A sound desk, not a gear.
     case 'settings':
       return (
         <svg {...common}>
-          <path d="M3 7.2h16M3 14.8h16" {...STROKE} />
-          <circle cx="8" cy="7.2" r="2.5" {...STROKE} />
-          <circle cx="14.4" cy="14.8" r="2.5" {...STROKE} />
+          <path d="M3.5 8h17M3.5 16h17" {...STROKE} />
+          <circle cx="9" cy="8" r="2.6" {...STROKE} />
+          <circle cx="15.5" cy="16" r="2.6" {...STROKE} />
         </svg>
       );
     case 'account':
       return (
         <svg {...common}>
-          <circle cx="11" cy="7.6" r="3.6" {...STROKE} />
-          <path d="M3.9 19a7.1 7.1 0 0 1 14.2 0" {...STROKE} />
+          <circle cx="12" cy="8" r="3.8" {...STROKE} />
+          <path d="M4.8 20.2a7.2 7.2 0 0 1 14.4 0" {...STROKE} />
         </svg>
       );
   }

@@ -216,7 +216,14 @@ input, select, textarea {
      tray's own height, so any keyboard drops it clean off the bottom edge and
      --kb: 0 leaves it put. */
   transform: translateY(min(var(--kb, 0px), 100%));
-  transition: transform 140ms ease;
+  /* 140ms deliberately, not the 250-300ms the rest of the app's motion uses:
+     this one is matched to `.scrim`'s padding-bottom transition so the tray
+     and the sheet above it move on the same keyboard, together. */
+  transition: transform 140ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabtray { transition: none; }
 }
 
 /* No blur available: raise the material to fully opaque rather than leave a
