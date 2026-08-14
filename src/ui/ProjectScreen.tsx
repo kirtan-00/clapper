@@ -585,15 +585,15 @@ export function ProjectScreen(props: {
         onUndone={(openDay) => void refreshDayCount(openDay)}
       />
 
-      <ClipCounterSection project={project} onCommit={commitProject} />
-
-      <SoundSection project={project} onCommit={commitProject} />
-
-      <TcCalculator project={project} />
-
-      {/* Sits directly above the handoff, because that is when it gets used:
-          the last thing you do before sending the day to the editor is check
-          that every clip is filed under the setup it was actually shot on. */}
+      {/* WRAP DAY, then check the clips, then hand off: the three things you do
+          at the end of a shoot day now sit together, in that order, one short
+          scroll from the top. They used to be split by four setup sections
+          with the handoff dead last, which was survivable while it was the
+          bottom of the page and stopped being so once the tab tray moved in
+          permanently underneath it. Clip log keeps its old place directly
+          above the handoff, because that is when it gets used: the last thing
+          you do before sending the day to the editor is check that every clip
+          is filed under the setup it was actually shot on. */}
       <section className="section">
         <div className="section__head">
           <span className="label">Clip log</span>
@@ -604,6 +604,14 @@ export function ProjectScreen(props: {
       </section>
 
       <ExportBar project={project} />
+
+      {/* Setup and correction below the fold: touched once at the top of the
+          day, or when a number goes wrong, not at wrap. */}
+      <ClipCounterSection project={project} onCommit={commitProject} />
+
+      <SoundSection project={project} onCommit={commitProject} />
+
+      <TcCalculator project={project} />
 
       <div style={{ marginTop: 22 }}>
         <Rail thin />
