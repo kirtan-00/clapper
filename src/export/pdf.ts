@@ -17,14 +17,26 @@ const BOTTOM = 64; // keep clear of the page number
 const CONTENT_WIDTH = A4[0] - MARGIN * 2;
 const RIGHT = A4[0] - MARGIN;
 
-const INK = rgb(0.09, 0.09, 0.11);
-const GRAY = rgb(0.45, 0.45, 0.48);
-const LIGHT = rgb(0.78, 0.78, 0.8);
-const RULE = rgb(0.85, 0.85, 0.88);
-const GOLD = rgb(0.62, 0.47, 0.08);
-const BAND = rgb(0.925, 0.925, 0.94); // take header band
-const HEADBAND = rgb(0.87, 0.87, 0.9); // column header row
-const ALT = rgb(0.972, 0.972, 0.98); // alternating detail row
+// The app's own palette, straight off the :root tokens in styles.css - the
+// report should read as the same object as the thing that logged it. INK is
+// the TEXT colour here (chalk on ink), not the darkest thing on the page:
+// every name kept its role so the whole file did not have to be re-read.
+//
+// Chalk is deliberately warm off-white, never pure #fff, exactly as on screen.
+const PAPER = rgb(0.047, 0.051, 0.063); // --ink-950, the page itself
+const INK = rgb(0.925, 0.914, 0.882); // --chalk, primary text
+const GRAY = rgb(0.604, 0.616, 0.655); // --chalk-dim, secondary text
+// --chalk-faint lifted: on a backlit phone #61646e reads fine as tertiary, but
+// printed as toner on a black field it sits at 3.2:1 and disappears. This is
+// the same role, pulled up to ~4.9:1.
+const LIGHT = rgb(0.49, 0.502, 0.545);
+const RULE = rgb(0.137, 0.149, 0.184); // --line-soft, hairlines inside tables
+const GOLD = rgb(0.89, 0.698, 0.29); // --brass, GOLD tags
+const BAND = rgb(0.122, 0.133, 0.169); // --ink-800, take header band
+const HEADBAND = rgb(0.094, 0.102, 0.129); // --ink-850, column header row
+const ALT = rgb(0.071, 0.075, 0.098); // --ink-900, alternating detail row
+const STICK_DARK = rgb(0.078, 0.082, 0.102); // the dark teeth of the clapper stick
+const GO = rgb(0.22, 0.82, 0.47); // --go, the mark's lens dot
 
 type Color = ReturnType<typeof rgb>;
 type Align = 'left' | 'right';
@@ -81,18 +93,154 @@ const [, , C_MOMENT, C_TIME, C_CAMTC, C_DATE, C_WALL] = TAKE_COLS;
 // SHOT (46) is new; its width comes straight out of LABEL (235.28 -> 189.28) so
 // the row still sums to CONTENT_WIDTH exactly. DATE (40) is new too, its width
 // taken straight out of LABEL again (189.28 -> 149.28):
-//   96 + 46 + 40 + 56 + 40 + 60 + 149.28 = 487.28.
+// CLIP was 56 and truncated any real multi-cam name to "A A001_C0..." - the
+// one string in this table an assistant actually needs to read. It takes 44
+// back out of LABEL (149.28 -> 105.28), which is a summary line and survives
+// being shorter:
+//   96 + 46 + 40 + 100 + 40 + 60 + 105.28 = 487.28.
 const GOLD_COLS = layout([
   ['SCENE', 96, 'left'],
   ['SHOT', 46, 'left'],
   ['TAKE', 40, 'left'],
-  ['CLIP', 56, 'left'],
+  ['CLIP', 100, 'left'],
   ['DATE', 40, 'left'],
   ['TIME', 60, 'right'],
-  ['LABEL', 149.28, 'left'],
+  ['LABEL', 105.28, 'left'],
 ]);
 // POSITIONAL destructure, seven entries to match the seven specs above.
 const [G_SCENE, G_SHOT, G_TAKE, G_CLIP, G_DATE, G_TIME, G_LABEL] = GOLD_COLS;
+
+// ------------------------------------------------------------ brand marks ---
+// The clapper stick stripe is the app's signature motif (--stripe in
+// styles.css: a -60deg repeating gradient, 14px chalk / 14px ink). It is the
+// one thing that has to look identical on the phone and on this page, so the
+// geometry below is the same angle and the same duty cycle, scaled to points.
+
+const STRIPE_ANGLE_DX = 0.577; // tan(30deg): a -60deg stripe leans this much per unit of height
+// One light + one dark tooth. The app's stripe is 14px+14px on a phone; scaled
+// to a 487pt A4 measure that reads as about two dozen teeth across the page.
+// Finer than this and the stick stops looking like a clapper and starts looking
+// like a serrated rule.
+const STRIPE_PITCH = 24;
+
+type Pt = { x: number; y: number };
+
+/**
+ * Clip a convex polygon to a vertical slab (Sutherland-Hodgman, two planes).
+ *
+ * The teeth are parallelograms that overhang both ends of the bar they sit in.
+ * Clipping them properly - rather than covering the overhang with a
+ * page-coloured rectangle - means a stick can be drawn over ANY background,
+ * including on top of another filled band, without leaving a seam.
+ */
+function clipToSlab(poly: Pt[], x0: number, x1: number): Pt[] {
+  const pass = (pts: Pt[], keep: (p: Pt) => boolean, at: (a: Pt, b: Pt) => Pt): Pt[] => {
+    const out: Pt[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      const cur = pts[i];
+      const prev = pts[(i + pts.length - 1) % pts.length];
+      const curIn = keep(cur);
+      if (curIn !== keep(prev)) out.push(at(prev, cur));
+      if (curIn) out.push(cur);
+    }
+    return out;
+  };
+  const cross = (a: Pt, b: Pt, x: number): Pt => ({
+    x,
+    y: a.y + ((b.y - a.y) * (x - a.x)) / (b.x - a.x || 1),
+  });
+  const left = pass(poly, (p) => p.x >= x0, (a, b) => cross(a, b, x0));
+  if (left.length === 0) return [];
+  return pass(left, (p) => p.x <= x1, (a, b) => cross(a, b, x1));
+}
+
+/**
+ * A run of clapper-stick stripe. `light` is the chalk tooth colour and `dark`
+ * the gap between them; the caller fills the bar with `dark` first, so only
+ * the light teeth are actually drawn.
+ */
+function stripeBar(
+  page: PDFPage,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  opts: { light?: Color; dark?: Color; pitch?: number } = {},
+): void {
+  const light = opts.light ?? INK;
+  const dark = opts.dark ?? STICK_DARK;
+  const pitch = opts.pitch ?? STRIPE_PITCH;
+  page.drawRectangle({ x, y, width: w, height: h, color: dark });
+  const lean = h * STRIPE_ANGLE_DX;
+  const tooth = pitch / 2;
+  // Start far enough left that the first tooth's TOP edge can still overhang.
+  for (let left = x - lean - pitch; left < x + w + pitch; left += pitch) {
+    const quad: Pt[] = [
+      { x: left, y },
+      { x: left + tooth, y },
+      { x: left + tooth + lean, y: y + h },
+      { x: left + lean, y: y + h },
+    ];
+    const clipped = clipToSlab(quad, x, x + w);
+    if (clipped.length < 3) continue;
+    // drawSvgPath draws in SVG space - y runs DOWN from the anchor - so a point
+    // written as (X, -Y) against a (0, 0) anchor lands at PDF (X, Y). Handing
+    // it raw PDF coordinates puts every tooth off the top of the page, which
+    // is silent: the path is emitted, it just never intersects the paper.
+    page.drawSvgPath(`M ${clipped.map((p) => `${p.x} ${-p.y}`).join(' L ')} Z`, {
+      x: 0,
+      y: 0,
+      color: light,
+      borderWidth: 0,
+    });
+  }
+}
+
+/**
+ * The Clapper mark: a slate body with three ruled lines and a lens dot, and the
+ * striped stick hinged open above it. Same construction as public/favicon.svg,
+ * drawn in points so it stays crisp at any size instead of riding a bitmap.
+ *
+ * Anchored by its BOTTOM-LEFT corner, `size` points square.
+ */
+function drawMark(page: PDFPage, x: number, y: number, size: number): void {
+  const u = size / 1024; // the favicon's own coordinate space
+  const px = (v: number) => x + v * u;
+  // The SVG's y axis runs down the tile; ours runs up the page.
+  const py = (v: number) => y + size - v * u;
+
+  page.drawRectangle({ x, y, width: size, height: size, color: PAPER });
+  // slate body
+  page.drawRectangle({
+    x: px(150),
+    y: py(842),
+    width: 724 * u,
+    height: 372 * u,
+    color: BAND,
+  });
+  // the three ruled lines on the slate, shortening down the body
+  for (const [x2, yv] of [
+    [802, 572],
+    [690, 660],
+    [600, 748],
+  ]) {
+    page.drawLine({
+      start: { x: px(222), y: py(yv) },
+      end: { x: px(x2), y: py(yv) },
+      thickness: 18 * u,
+      color: RULE,
+    });
+  }
+  page.drawCircle({ x: px(792), y: py(748), size: 52 * u, color: GO });
+  // The stick sits level here rather than at the favicon's -16deg: at this size
+  // a rotated stripe reads as a printing fault, and the lean of the teeth
+  // already carries the clapper idea.
+  // The favicon's own pitch (128 of its 1024 units), not the page's: at this
+  // size the A4 pitch would put half a tooth on the stick and it would read as
+  // a smudge. Six teeth, exactly as the icon on the home screen.
+  stripeBar(page, px(150), py(506), 772 * u, 176 * u, { pitch: 128 * u });
+  page.drawCircle({ x: px(214), y: py(432), size: 30 * u, color: GO });
+}
 
 /** Make text safe for WinAnsi encoding; swap em/en dashes for '-'. */
 function sanitize(text: string): string {
@@ -204,7 +352,19 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   const helv = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  let page: PDFPage = doc.addPage(A4);
+  /** Every page is the app's own surface: full-bleed ink, with a thin strip of
+   *  clapper stick along the very top edge so a loose page still reads as ours. */
+  const startPage = (first = false): PDFPage => {
+    const p = doc.addPage(A4);
+    p.drawRectangle({ x: 0, y: 0, width: A4[0], height: A4[1], color: PAPER });
+    // Exactly ONE stick per page. Page 1 gets the hero one under the masthead,
+    // so it skips this rail - two parallel sticks an inch apart fight each
+    // other and neither reads as the signature.
+    if (!first) stripeBar(p, 0, A4[1] - 6, A4[0], 6);
+    return p;
+  };
+
+  let page: PDFPage = startPage(true);
   let y = A4[1] - MARGIN;
 
   // Redrawn at the top of a fresh page when a table breaks mid-flow.
@@ -216,7 +376,7 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   let currentShotLabel: string | null = null;
 
   const newPage = () => {
-    page = doc.addPage(A4);
+    page = startPage();
     y = A4[1] - MARGIN;
     if (onBreak) onBreak();
   };
@@ -325,8 +485,14 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   const takeById = new Map(takes.map((t) => [t.id, t]));
 
   // ---- cover header ------------------------------------------------------
+  // The mark sits to the LEFT of the title on its own baseline, the same
+  // relationship the app's masthead has, so the report opens the way the app
+  // does rather than with a logo parked in a corner.
   y -= 18;
-  page.drawText(sanitize(project.name), { x: MARGIN, y, size: 26, font: bold, color: INK });
+  const MARK = 46;
+  drawMark(page, MARGIN, y - 13, MARK);
+  const titleX = MARGIN + MARK + 14;
+  page.drawText(sanitize(project.name), { x: titleX, y, size: 26, font: bold, color: INK });
   y -= 16;
   page.drawText(formatDate(Date.now()), { x: MARGIN, y, size: 9.5, font: helv, color: GRAY });
   y -= 16;
@@ -360,9 +526,10 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
     page.drawText(sanitize(operatorLine), { x: MARGIN, y, size: 8, font: helv, color: GRAY });
   }
 
-  y -= 14;
-  rule();
-  y -= 20;
+  // The main line under the masthead IS the clapper stick, not a hairline.
+  y -= 18;
+  stripeBar(page, MARGIN, y, CONTENT_WIDTH, 9);
+  y -= 22;
 
   // ---- GOLD moments summary table ----------------------------------------
   const goodTakeIds = new Set(goodTakes.map((t) => t.id));
