@@ -4,6 +4,7 @@
 // insert must not break any user action.
 
 import { supabase } from './supabase';
+import { pixel } from './pixel';
 
 /**
  * Record an analytics event. Attaches the current user's id when signed in,
@@ -11,6 +12,12 @@ import { supabase } from './supabase';
  * the client never needs read access to `events`. Swallows every error.
  */
 export function track(name: string, props?: Record<string, unknown>): void {
+  // Ad attribution rides along here rather than at each call site, so there's
+  // exactly one list of what we send Meta and no way to forget it. It's
+  // synchronous, silent, and can't throw, so the insert below is unaffected —
+  // and it filters both the event names and the props itself (see pixel.ts).
+  pixel(name, props);
+
   void (async () => {
     try {
       const { data } = await supabase.auth.getSession();

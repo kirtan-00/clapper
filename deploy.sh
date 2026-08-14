@@ -50,6 +50,20 @@ cp landing/sw-selfdestruct.js "$STAGE/sw.js"
 touch "$STAGE/.nojekyll"
 printf 'clapboard.duckdns.org\n' > "$STAGE/CNAME"
 
+# 2b. Meta Pixel. The HTML sources carry the placeholder __META_PIXEL_ID__ wrapped in
+# <!-- META-PIXEL-START --> ... <!-- META-PIXEL-END --> sentinels. Here we either bake the
+# real ID in, or remove the whole block so no pixel ships. The real ID never lives in git.
+if [ -n "${META_PIXEL_ID:-}" ]; then
+  export META_PIXEL_ID
+  find "$STAGE" -type f -name '*.html' -exec \
+    perl -0777 -i -pe 's/__META_PIXEL_ID__/$ENV{META_PIXEL_ID}/g' {} +
+  echo "meta pixel: baked ID into $STAGE (all .html)"
+else
+  find "$STAGE" -type f -name '*.html' -exec \
+    perl -0777 -i -pe 's/[ \t]*<!-- META-PIXEL-START -->.*?<!-- META-PIXEL-END -->[ \t]*\r?\n?//gs' {} +
+  echo "WARNING: META_PIXEL_ID is unset or empty - Meta Pixel block stripped, no pixel will ship."
+fi
+
 # 3. Push as orphan gh-pages
 cd "$STAGE"
 git init -q
