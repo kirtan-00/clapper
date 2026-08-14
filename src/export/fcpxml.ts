@@ -18,6 +18,7 @@
 
 import type { CameraUnit, CameraUnitLetter, Fps, Moment, ProjectBundle, Take } from '../types';
 import { isMultiCam } from '../types';
+import { mediaPath } from './paths';
 // Ordering lives in order.ts, not here: it used to be copy-pasted between this
 // file and resolve.ts, and the shot-order sort key has to land in both.
 import {
@@ -143,6 +144,8 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
     const ext = sound.fileExt ?? '';
     const name = escapeXml(take.sound.fileName);
     const fileName = escapeXml(take.sound.fileName + ext);
+    // The path is a URL, not XML text, so it is encoded from the raw name.
+    const filePath = mediaPath(take.sound.fileName + ext);
     // Same file name recurs every shoot day (SND_0001 resets with the rest of
     // the counters), so the dedupe key must include the day or two different
     // days' SND_0001 collapse into one <file> — same collision class as the
@@ -171,7 +174,7 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
       fileXml =
         `<file id="${fileId}">` +
         `<name>${fileName}</name>` +
-        `<pathurl>file://localhost/${fileName}</pathurl>` +
+        `<pathurl>file://localhost/${filePath}</pathurl>` +
         rateXml +
         `<duration>${durationFrames}</duration>` +
         reel +
@@ -202,6 +205,7 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
     const name = escapeXml(take.clipName);
     // The real media file the editor relinks to, e.g. "C0001.MP4".
     const fileName = escapeXml(take.clipName + ext);
+    const filePath = mediaPath(take.clipName + ext);
     // Every shoot day restarts at C0001, so the SAME fileName recurs day after
     // day — the dedupe key must include the day or day 1's C0001 and day 5's
     // C0001 collapse into ONE <file>, silently relinking the editor to the
@@ -227,7 +231,7 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
       fileXml =
         `<file id="${fileId}">` +
         `<name>${fileName}</name>` +
-        `<pathurl>file://localhost/${fileName}</pathurl>` +
+        `<pathurl>file://localhost/${filePath}</pathurl>` +
         rateXml +
         `<duration>${durationFrames}</duration>` +
         reel +
@@ -356,6 +360,8 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
     const ext = sound.fileExt ?? '';
     const name = escapeXml(take.sound.fileName);
     const fileName = escapeXml(take.sound.fileName + ext);
+    // The path is a URL, not XML text, so it is encoded from the raw name.
+    const filePath = mediaPath(take.sound.fileName + ext);
     // Same file name recurs every shoot day (SND_0001 resets with the rest of
     // the counters), so the dedupe key must include the day or two different
     // days' SND_0001 collapse into one <file> and relink to the wrong take's
@@ -377,7 +383,7 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       fileXml =
         `<file id="${fileId}">` +
         `<name>${fileName}</name>` +
-        `<pathurl>file://localhost/${fileName}</pathurl>` +
+        `<pathurl>file://localhost/${filePath}</pathurl>` +
         rateXml +
         `<duration>${durationFrames}</duration>` +
         `<timecode>${rateXml}<string>00:00:00:00</string><frame>0</frame>` +
@@ -482,6 +488,7 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       const aId = `clipitem-${(clipitemSeq += 1)}`;
       const name = escapeXml(clip.clipName);
       const fileName = escapeXml(clip.clipName + ext);
+      const filePath = mediaPath(clip.clipName + ext);
       // Every shoot day restarts at C0001, so two units of the SAME letter on
       // DIFFERENT days can still natively write the identical filename - the
       // unit letter alone (the old key) no longer disambiguates them. Fold
@@ -506,7 +513,7 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
         fileVideoXml =
           `<file id="${fileId}">` +
           `<name>${fileName}</name>` +
-          `<pathurl>file://localhost/${fileName}</pathurl>` +
+          `<pathurl>file://localhost/${filePath}</pathurl>` +
           rateXml +
           `<duration>${clipDurationFrames}</duration>` +
           `<timecode>${rateXml}<string>00:00:00:00</string><frame>0</frame>` +

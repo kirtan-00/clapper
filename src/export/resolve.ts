@@ -46,6 +46,7 @@
 // offset for the editor to look at and group by hand.
 
 import type { CameraUnitLetter, Fps, Moment, ProjectBundle, Take, TakeClip } from '../types';
+import { mediaPath } from './paths';
 import { isMultiCam } from '../types';
 import { tc } from './timecode';
 // Shared with fcpxml.ts - these two used to carry byte-identical private copies
@@ -424,7 +425,6 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     `    <format id="r1" name="ClapperFormat" frameDuration="${fd.num}/${fd.den}s" width="1920" height="1080"/>`,
   ];
   for (const entry of assets.values()) {
-    const fileName = escapeXml(entry.clipName + entry.ext);
     // FCPXML has no equivalent of xmeml's <reel> tape name, and two camera
     // units natively write identically-named files - so a bare filename here
     // would give two DIFFERENT physical clips the exact same src URL, which
@@ -439,11 +439,14 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     // legacy take (no shootDay) gets exactly the path it always did - plain
     // filename for single-cam, plain unit-letter folder for multi-cam.
     const dateSuffix = shootDaySuffix(entry);
+    // Built from the RAW name, not the XML-escaped one: this is a URL, so a
+    // space or a "#" in a card name has to be percent-encoded, not entity-escaped.
+    const rawFile = entry.clipName + entry.ext;
     const srcPath = multi
-      ? `${escapeXml(entry.unitLetter)}${dateSuffix}/${fileName}`
+      ? mediaPath(`${entry.unitLetter}${dateSuffix}`, rawFile)
       : entry.shootDay
-        ? `A${dateSuffix}/${fileName}`
-        : fileName;
+        ? mediaPath(`A${dateSuffix}`, rawFile)
+        : mediaPath(rawFile);
     resourceLines.push(
       `    <asset id="${entry.id}" name="${escapeXml(entry.clipName)}" start="0s" duration="${framesToRational(entry.durationFrames, fd)}" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" format="r1">
       <media-rep kind="original-media" src="file:///${srcPath}"/>
@@ -451,14 +454,13 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     );
   }
   for (const entry of soundAssets.values()) {
-    const fileName = escapeXml(entry.fileName + entry.ext);
     // Sound files live under their own "SND/" path segment, same disambiguation
     // trick as the per-unit-letter nesting above - it also keeps a recorder
     // file that happens to share a name with a picture clip from colliding.
     // Same day-fold as the picture assets: absent for a legacy take (no
     // shootDay), so its path stays exactly "SND/...".
     const dateSuffix = shootDaySuffix(entry);
-    const srcPath = `SND${dateSuffix}/${fileName}`;
+    const srcPath = mediaPath(`SND${dateSuffix}`, entry.fileName + entry.ext);
     resourceLines.push(
       `    <asset id="${entry.id}" name="${escapeXml(entry.fileName)}" start="0s" duration="${framesToRational(entry.durationFrames, fd)}" hasVideo="0" hasAudio="1" audioSources="1" audioChannels="2" format="r1">
       <media-rep kind="original-media" src="file:///${srcPath}"/>
