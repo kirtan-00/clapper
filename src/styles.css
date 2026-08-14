@@ -26,13 +26,18 @@
   --go-deep: #1f7a48;
   --rec: #ff3b30;        /* cut / rolling / destructive */
   --rec-deep: #7a1c17;
-  --brass: #e3b24a;      /* GOLD tag, highlights */
+  --brass: #d8b23c;      /* GOLD tag, highlights */
   --sound: #4f9fd1;      /* production-sound accent, never a fifth camera */
   --sound-deep: #2c5f7a; /* darker sound variant, for keyed shadows / fills */
 
   --radius: 14px;
   --radius-sm: 10px;
   --tap: 44px;
+  /* Height of the bottom tab tray, NOT counting the home-indicator inset the
+     tray adds under it. Anything that has to clear the tray adds this plus
+     --safe-bottom. 56 is the smallest height that fits a 22px icon over a
+     0.58rem label and still leaves the whole 25%-wide cell over 44px tall. */
+  --bar-h: 56px;
 
   /* Clapper stick stripe (the signature motif) */
   --stripe: repeating-linear-gradient(
@@ -107,6 +112,21 @@ input, select, textarea {
 
 /* --------------------------------------------------------------- shell --- */
 
+/* Everything the app draws lives inside .shell, including the fixed-position
+   screens. It carries height (so .app's `min-height: 100%` still has a sized
+   parent to resolve against) and the --tray-lift switch below. */
+.shell {
+  height: 100%;
+}
+
+/* How far a floating element has to climb to clear the tab tray. The tray is
+   UNMOUNTED on the roll screen and under the guide, so this is a switch the
+   shell throws rather than a constant: on those screens a toast raised by
+   --bar-h would be floating 56px above nothing. */
+.shell--tray {
+  --tray-lift: var(--bar-h);
+}
+
 .app {
   min-height: 100%;
   max-width: 560px;
@@ -114,7 +134,9 @@ input, select, textarea {
   padding:
     calc(var(--safe-top) + 8px)
     calc(var(--safe-right) + 18px)
-    calc(var(--safe-bottom) + 24px)
+    /* clears the tray: without this the last row of every screen (the export
+       bar, the account row) renders underneath it */
+    calc(var(--bar-h) + var(--safe-bottom) + 24px)
     calc(var(--safe-left) + 18px);
   display: flex;
   flex-direction: column;

@@ -93,6 +93,25 @@ export interface Project {
   clipSuffix?: string;     // static tail after the counter, e.g. "_*" (RED) or "_D" (DJI)
   clipExt?: string;        // media file extension incl. dot, e.g. ".MP4" / ".R3D" — lets Premiere relink
   camera?: string;         // camera preset id the clip format came from, e.g. "sony"
+  /**
+   * Where the footage actually LIVES on the edit machine, e.g.
+   * "/Volumes/My Book-02/crave stdio 2/HU kon Chu/day 1/M4ROOT/CLIP".
+   *
+   * The exporters write an ABSOLUTE path into <pathurl>. With no root set,
+   * "crav_0054.MP4" resolves to the root of the boot volume, where nothing
+   * ever is — which is why a real 232-clip import landed every single clip
+   * offline and had to be located by hand. Set this and the same export
+   * imports fully online with no relinking at all.
+   *
+   * ABSENT is still the normal case (the phone cannot know the editor's disk
+   * layout until someone tells it), and absent falls back to the per-reel
+   * folder the Resolve exporter has always written — still offline, but at
+   * least unique per camera and shoot day, so day 1's C0001 can no longer
+   * relink to day 5's C0001.
+   *
+   * Stored verbatim as the user typed it; the exporters own the encoding.
+   */
+  mediaRoot?: string;
   // Multi-cam: 2-4 camera units, A..D by position. ABSENT for single-cam
   // projects, which keep behaving EXACTLY through the top-level clip fields
   // above. Present (length >= 2) switches the app into multi-cam mode.

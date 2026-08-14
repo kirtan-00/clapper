@@ -16,7 +16,7 @@
 // identical same-type filenames (both "C0001.MP4") still relink to the right
 // card without any filename change.
 
-import type { CameraUnit, CameraUnitLetter, Fps, Moment, ProjectBundle, Take } from '../types';
+import type { CameraUnit, CameraUnitLetter, Fps, Moment, Project, ProjectBundle, Take } from '../types';
 import { isMultiCam } from '../types';
 import { mediaPath } from './paths';
 // Ordering lives in order.ts, not here: it used to be copy-pasted between this
@@ -59,6 +59,93 @@ function msToFrames(ms: number, fps: Fps): number {
   return Math.round((ms * exactRate(fps)) / 1000);
 }
 
+/**
+ * The per-reel folder a clip hangs off when the editor has not told us where
+ * the footage really lives: "A_20260808", "SND_20260808_D2". Mirrors what
+ * resolve.ts has always written.
+ *
+ * `undefined` for a take stamped before shoot days existed — there is nothing
+ * to disambiguate, and the path stays the bare file name it always was.
+ */
+/**
+ * The master clip a clipitem belongs to, derived from the <file> it plays.
+ *
+ * Premiere builds the project panel from <masterclipid>, NOT from <file>: with
+ * the tag absent it invents one master clip per CLIPITEM, so a good take —
+ * which by design appears in both the story cut and the selects pool — lands
+ * in the bin twice, and a multi-cam take lands twice more for its linked audio
+ * side. The last real shoot exported 351 clipitems for 232 physical files, and
+ * every one of those duplicates had to be relinked by hand, separately.
+ *
+ * Keying it to the file id collapses every clipitem that plays the same card
+ * onto one master clip, which is what the editor actually has: one file.
+ */
+function masterclipIdFor(fileId: string): string {
+  return `masterclip-${fileId}`;
+}
+
+function reelFolder(prefix: string, take: Take): string | undefined {
+  return take.shootDay ? `${prefix}${shootDaySuffix(take)}` : undefined;
+}
+
+/**
+ * File names that are NOT unique across the export because the same name was
+ * written on more than one shoot day — every day restarts at C0001, so a
+ * two-week shoot has fourteen of them.
+ *
+ * This is the one case where a bare file name is not merely wrong-but-
+ * relinkable, it is DANGEROUS: two master clips both claiming "/C0001.MP4"
+ * let one "Relink others automatically" bind both to the same physical card,
+ * and the edit silently contains the wrong take. Those names — and only those
+ * — get pushed down into their reel folder so the two paths differ.
+ *
+ * Everything else keeps the bare name it has always had, which is what makes
+ * a single Locate + "relink others automatically" bring the whole shoot
+ * online in one go.
+ */
+function ambiguousFileNames(takes: Take[], ext: string): Set<string> {
+  const daysByName = new Map<string, Set<string>>();
+  for (const take of takes) {
+    const name = take.clipName + ext;
+    const days = daysByName.get(name) ?? new Set<string>();
+    days.add(shootDayKey(take));
+    daysByName.set(name, days);
+  }
+  const ambiguous = new Set<string>();
+  for (const [name, days] of daysByName) if (days.size > 1) ambiguous.add(name);
+  return ambiguous;
+}
+
+/**
+ * The folder for a PICTURE clip's <pathurl>.
+ *
+ * The editor's real footage root wins when they have set one — that is the
+ * whole point of it, and the difference between an import that lands online
+ * and 232 clips located by hand.
+ *
+ * With no root, the bare file name stays, deliberately: it is what Premiere's
+ * "relink others automatically" is good at, and it is what this exporter has
+ * always written. The single exception is a name that repeats across shoot
+ * days (see ambiguousFileNames), which would otherwise relink to the wrong
+ * card without saying so.
+ *
+ * Production sound deliberately does NOT read mediaRoot: a recorder's files
+ * live on their own card, not in the camera's folder, and inventing a path
+ * inside the picture root would point Premiere confidently at nothing. Sound
+ * keeps the reel folder until it gets a root of its own.
+ */
+function mediaFolderFor(
+  project: Project,
+  take: Take,
+  reelPrefix: string,
+  ambiguous: Set<string>,
+  fileName: string,
+): string | undefined {
+  const root = project.mediaRoot?.trim();
+  if (root) return root;
+  return ambiguous.has(fileName) ? reelFolder(reelPrefix, take) : undefined;
+}
+
 export function toFcpXml(bundle: ProjectBundle): Blob {
   if (isMultiCam(bundle.project)) return multiCamFcpXml(bundle);
   return singleCamFcpXml(bundle);
@@ -83,6 +170,10 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
   }
 
   const shotIndex = buildShotIndex(bundle);
+
+  // Computed once over EVERY take, not per band: a name is ambiguous or it is
+  // not, and the answer must not depend on which pass is being written.
+  const ambiguous = ambiguousFileNames(bundle.takes, ext);
 
   function markersFor(take: Take, durationFrames: number): string {
     // The clip <name> deliberately stays the raw camera file name (editors
@@ -145,7 +236,9 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
     const name = escapeXml(take.sound.fileName);
     const fileName = escapeXml(take.sound.fileName + ext);
     // The path is a URL, not XML text, so it is encoded from the raw name.
-    const filePath = mediaPath(take.sound.fileName + ext);
+    // Sound hangs off its own reel folder, never the picture root — see
+    // mediaFolderFor.
+    const filePath = mediaPath(reelFolder('SND', take), take.sound.fileName + ext);
     // Same file name recurs every shoot day (SND_0001 resets with the rest of
     // the counters), so the dedupe key must include the day or two different
     // days' SND_0001 collapse into one <file> — same collision class as the
@@ -184,6 +277,7 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
 
     soundClipItems.push(
       `        <clipitem id="soundclip-${(soundClipSeq += 1)}">
+          <masterclipid>${masterclipIdFor(fileId)}</masterclipid>
           <name>${name}</name>
           <duration>${durationFrames}</duration>
           ${rateXml}
@@ -205,7 +299,18 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
     const name = escapeXml(take.clipName);
     // The real media file the editor relinks to, e.g. "C0001.MP4".
     const fileName = escapeXml(take.clipName + ext);
-    const filePath = mediaPath(take.clipName + ext);
+    // <pathurl> is ABSOLUTE. A bare "C0001.MP4" resolves to the root of the
+    // boot volume, so every clip imports offline and has to be located by
+    // hand — the failure a real 232-clip import hit. project.mediaRoot is the
+    // editor's actual footage folder and makes the import land fully online;
+    // with none set we fall back to the per-reel folder resolve.ts has always
+    // written, which is still offline but at least keeps day 1's C0001 from
+    // relinking to day 5's C0001. A legacy take (no shootDay, no root) still
+    // emits the bare file name, byte-identical to before.
+    const filePath = mediaPath(
+      mediaFolderFor(project, take, 'A', ambiguous, take.clipName + ext),
+      take.clipName + ext,
+    );
     // Every shoot day restarts at C0001, so the SAME fileName recurs day after
     // day — the dedupe key must include the day or day 1's C0001 and day 5's
     // C0001 collapse into ONE <file>, silently relinking the editor to the
@@ -243,6 +348,7 @@ function singleCamFcpXml(bundle: ProjectBundle): Blob {
 
     clipItems.push(
       `        <clipitem id="clipitem-${(clipSeq += 1)}">
+          <masterclipid>${masterclipIdFor(fileId)}</masterclipid>
           <name>${name}</name>
           <duration>${durationFrames}</duration>
           ${rateXml}
@@ -361,7 +467,9 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
     const name = escapeXml(take.sound.fileName);
     const fileName = escapeXml(take.sound.fileName + ext);
     // The path is a URL, not XML text, so it is encoded from the raw name.
-    const filePath = mediaPath(take.sound.fileName + ext);
+    // Sound hangs off its own reel folder, never the picture root — see
+    // mediaFolderFor.
+    const filePath = mediaPath(reelFolder('SND', take), take.sound.fileName + ext);
     // Same file name recurs every shoot day (SND_0001 resets with the rest of
     // the counters), so the dedupe key must include the day or two different
     // days' SND_0001 collapse into one <file> and relink to the wrong take's
@@ -394,6 +502,7 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
 
     soundTrack.push(
       `        <clipitem id="soundclip-${(soundClipSeq += 1)}">` +
+        `<masterclipid>${masterclipIdFor(fileId)}</masterclipid>` +
         `<name>${name}</name><duration>${durationFrames}</duration>${rateXml}` +
         `<start>${clipStart}</start><end>${clipEnd}</end><in>0</in><out>${durationFrames}</out>` +
         fileXml +
@@ -488,7 +597,16 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       const aId = `clipitem-${(clipitemSeq += 1)}`;
       const name = escapeXml(clip.clipName);
       const fileName = escapeXml(clip.clipName + ext);
-      const filePath = mediaPath(clip.clipName + ext);
+      // Multi-cam ALWAYS nests by unit, unlike single-cam: two cameras of the
+      // same model natively write the identical file name on the same day, so
+      // a bare path is not merely offline, it is two different cards claiming
+      // one location. This mirrors what resolve.ts has always done. The
+      // editor's root, when set, sits above the unit folder.
+      const filePath = mediaPath(
+        project.mediaRoot?.trim(),
+        `${unit.letter}${shootDaySuffix(take)}`,
+        clip.clipName + ext,
+      );
       // Every shoot day restarts at C0001, so two units of the SAME letter on
       // DIFFERENT days can still natively write the identical filename - the
       // unit letter alone (the old key) no longer disambiguates them. Fold
@@ -537,8 +655,14 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
           ? markersFor(take, anchorOffsetMs, clipDurationFrames)
           : '';
 
+      // Video and its own audio side are ONE master clip — the same physical
+      // file — so they share a masterclipid and the bin shows one item, not a
+      // picture entry and a phantom audio entry beside it.
+      const masterId = masterclipIdFor(fileId);
+
       vTracks[ui].push(
         `        <clipitem id="${vId}">` +
+          `<masterclipid>${masterId}</masterclipid>` +
           `<name>${name}</name><duration>${clipDurationFrames}</duration>${rateXml}` +
           `<start>${clipStart}</start><end>${clipEnd}</end><in>0</in><out>${clipDurationFrames}</out>` +
           fileVideoXml +
@@ -549,6 +673,7 @@ function multiCamFcpXml(bundle: ProjectBundle): Blob {
       );
       aTracks[ui].push(
         `        <clipitem id="${aId}">` +
+          `<masterclipid>${masterId}</masterclipid>` +
           `<name>${name}</name><duration>${clipDurationFrames}</duration>${rateXml}` +
           `<start>${clipStart}</start><end>${clipEnd}</end><in>0</in><out>${clipDurationFrames}</out>` +
           fileAudioXml +

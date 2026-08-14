@@ -227,3 +227,142 @@ describe('fcpxml.ts sound — the recorder file collides across days the same wa
     expect((xml.match(/<file id="soundfile-\d+">/g) ?? []).length).toBe(2);
   });
 });
+
+// The two failures a real 232-clip Hu Kon Chu import hit in Premiere: every
+// clip landed offline and had to be located by hand, and the bin held far more
+// items than the shoot had files. Both are pinned here.
+
+describe('fcpxml.ts — one master clip per physical file', () => {
+  it('a good take, laid in BOTH the story cut and the selects pool, is ONE master clip', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject(),
+      slates: [slate('s1', 0)],
+      takes: [take('t1', 's1', 1, 'C0001')],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    // Laid twice by design — story band, then selects pool.
+    expect((xml.match(/<clipitem id="clipitem-\d+">/g) ?? []).length).toBe(2);
+    // But one file, so one bin item.
+    const masters = new Set(xml.match(/<masterclipid>[^<]+<\/masterclipid>/g) ?? []);
+    expect(masters.size).toBe(1);
+  });
+
+  it('distinct master clips equal distinct FILES, not clipitems — the 232-not-351 property', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject(),
+      slates: [slate('s1', 0)],
+      takes: [
+        take('t1', 's1', 1, 'C0001'),
+        take('t2', 's1', 2, 'C0002'),
+        { ...take('t3', 's1', 3, 'C0003'), status: 'discarded' as const },
+      ],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    // 2 good in the story band + all 3 in the selects pool.
+    expect((xml.match(/<clipitem id="clipitem-\d+">/g) ?? []).length).toBe(5);
+    const masters = new Set(xml.match(/<masterclipid>[^<]+<\/masterclipid>/g) ?? []);
+    expect(masters.size).toBe(3);
+  });
+
+  it('multi-cam links picture and its own audio side to the SAME master clip', async () => {
+    const unit = (letter: 'A' | 'B'): CameraUnit => ({
+      letter,
+      clipPrefix: 'C',
+      nextClipNumber: 1,
+      clipPadding: 4,
+      clipExt: '.MP4',
+    });
+    const bundle: ProjectBundle = {
+      project: baseProject({ cameras: [unit('A'), unit('B')] }),
+      slates: [slate('s1', 0)],
+      takes: [{ ...take('t1', 's1', 1, 'C0001'), clips: [{ unit: 'A', clipName: 'C0001' }] }],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    // One camera rolled, laid in both bands, each as a linked V+A pair: 4
+    // clipitems, one physical file, therefore one master clip.
+    expect((xml.match(/<clipitem id="clipitem-\d+">/g) ?? []).length).toBe(4);
+    const masters = new Set(xml.match(/<masterclipid>[^<]+<\/masterclipid>/g) ?? []);
+    expect(masters.size).toBe(1);
+  });
+});
+
+describe('fcpxml.ts — <pathurl> points where the footage actually is', () => {
+  const pathsIn = (xml: string) => [...new Set(xml.match(/<pathurl>[^<]+<\/pathurl>/g) ?? [])];
+
+  it('the editor’s real footage root lands in the path, percent-encoded', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject({
+        mediaRoot: '/Volumes/My Book-02/HU kon Chu? 8-08-2026/day 1/M4ROOT/CLIP',
+      }),
+      slates: [slate('s1', 0)],
+      takes: [take('t1', 's1', 1, 'crav_0054')],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    expect(pathsIn(xml)).toEqual([
+      '<pathurl>file://localhost/Volumes/My%20Book-02/HU%20kon%20Chu%3F%208-08-2026/day%201/M4ROOT/CLIP/crav_0054.MP4</pathurl>',
+    ]);
+  });
+
+  it('with no root set, a unique file name stays BARE — what relink-others-automatically is good at', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject(),
+      slates: [slate('s1', 0)],
+      takes: [take('t1', 's1', 1, 'C0001', '2026-01-01')],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    expect(pathsIn(xml)).toEqual(['<pathurl>file://localhost/C0001.MP4</pathurl>']);
+  });
+
+  it('a name that REPEATS across shoot days gets pushed into its reel folder, so the two paths differ', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject(),
+      slates: [slate('s1', 0), slate('s2', 1)],
+      takes: [
+        take('t1', 's1', 1, 'C0001', '2026-01-01'),
+        take('t2', 's2', 1, 'C0001', '2026-01-05'),
+      ],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    // Two cards, two locations. A bare name would let one "relink others
+    // automatically" bind both to the same physical file, silently.
+    expect(pathsIn(xml).sort()).toEqual([
+      '<pathurl>file://localhost/A_20260101/C0001.MP4</pathurl>',
+      '<pathurl>file://localhost/A_20260105/C0001.MP4</pathurl>',
+    ]);
+  });
+
+  it('multi-cam ALWAYS nests by unit — two cameras natively write the identical name', async () => {
+    const unit = (letter: 'A' | 'B'): CameraUnit => ({
+      letter,
+      clipPrefix: 'C',
+      nextClipNumber: 1,
+      clipPadding: 4,
+      clipExt: '.MP4',
+    });
+    const bundle: ProjectBundle = {
+      project: baseProject({ cameras: [unit('A'), unit('B')] }),
+      slates: [slate('s1', 0)],
+      takes: [
+        {
+          ...take('t1', 's1', 1, 'C0001'),
+          clips: [
+            { unit: 'A', clipName: 'C0001' },
+            { unit: 'B', clipName: 'C0001' },
+          ],
+        },
+      ],
+      moments: [],
+    };
+    const xml = await xmlOf(bundle);
+    expect(pathsIn(xml).sort()).toEqual([
+      '<pathurl>file://localhost/A/C0001.MP4</pathurl>',
+      '<pathurl>file://localhost/B/C0001.MP4</pathurl>',
+    ]);
+  });
+});
