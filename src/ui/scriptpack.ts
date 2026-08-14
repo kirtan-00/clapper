@@ -14,6 +14,10 @@ import { newId } from '../store/util';
 // shotlist PDF through the same parser the app uses, then merges in the
 // key-moment chips from one server run. Regenerate rather than edit by hand.
 import letsMeetDobaara from './packs/lets-meet-dobaara.json';
+// Hand-built from the revised breakdown PDF in a Claude session, not parsed: the
+// source table carries no shot-size or camera-move column, so those stay absent
+// rather than being guessed at on the crew's behalf.
+import huKonChu from './packs/hu-kon-chu.json';
 
 /**
  * One setup inside a pack scene. Present when the source document was a
@@ -410,8 +414,18 @@ export async function importTreelandDemo(): Promise<Project[]> {
 // it already matches ScriptPack; the cast just tells TypeScript that, since a
 // JSON import widens every literal to string.
 const LETS_MEET_DOBAARA = letsMeetDobaara as unknown as ScriptPack;
+// Same cast, same reason — a JSON import widens every literal to string.
+const HU_KON_CHU = huKonChu as unknown as ScriptPack;
 
 export const EXAMPLE_PACKS: { key: string; label: string; blurb: string; pack: ScriptPack }[] = [
+  // First, because it is the one currently shooting: an operator opens the app
+  // on set and the top demo is the film in front of the camera.
+  {
+    key: 'hukonchu',
+    label: 'Hu Kon Chu?',
+    blurb: 'Short film · 10 scenes · 76 shots',
+    pack: HU_KON_CHU,
+  },
   { key: 'grandfather', label: 'Grandfather ad', blurb: 'Family / lifestyle spot · 7 scenes', pack: TREELAND_DEMO[0] },
   {
     key: 'dobaara',
