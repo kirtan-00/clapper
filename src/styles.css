@@ -7,6 +7,12 @@
    System fonts only (offline PWA, no network). No em dashes in copy.
    ========================================================================== */
 
+/* Grouped inset lists — shared furniture for Home, Settings and Account.
+   Lives in its own file because three tabs build against it and the inset
+   hairline is the detail they must not each reinvent. Must precede :root:
+   CSS requires @import before any rule. */
+@import './ui/list.css';
+
 :root {
   /* Surfaces - warm charcoal, layered by elevation */
   --ink-950: #0c0d10;
