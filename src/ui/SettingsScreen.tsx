@@ -113,7 +113,7 @@ export function SettingsScreen(props: { nav: Nav }) {
 
       <Section
         title="Clapper"
-        note="Clapper is an early beta. Tell us what broke and what is missing — it is read by the person who builds it."
+        note="Clapper is an early beta. Tell us what broke and what is missing. It is read by the person who builds it."
       >
         <Row
           label="Send feedback"

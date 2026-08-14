@@ -122,7 +122,7 @@ export function AccountScreen(_props: { nav: Nav }) {
         <>
           <Section
             title="Sign in"
-            note="A free Google sign-in. We receive your email address and nothing else — it is what the server counts your free uses against."
+            note="A free Google sign-in. We receive your email address and nothing else. It is what the server counts your free uses against."
           >
             <Row
               label={busy ? 'Opening Google…' : 'Sign in with Google'}
