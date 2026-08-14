@@ -179,6 +179,59 @@ Contrast numbers are necessary, not sufficient. The claim being made is
 5. **On a real phone, outdoors, at full brightness.** Nothing on a desktop
    monitor tests the thing this change exists for.
 
+---
+
+## The iOS idiom
+
+Kirtan, same session: *"frosted look ios style sleek all icon and other things
+ios app style minimal nd good"*, *"sleak smart elegant"*.
+
+Read as: it should feel native, and the throughline is **restraint**. Anything
+that adds visual noise is wrong, however nice it looks alone.
+
+### Icons — and the licensing trap
+
+**Do not ship SF Symbols.** Apple's licence restricts them to Apple-platform
+UI; a web PWA redistributing the glyphs is not covered. No CDN icon font
+either — offline PWA. **No emoji as icons**, which is the loudest possible
+"nobody designed this" tell.
+
+Hand-drawn inline SVG, in the SF Symbols idiom:
+
+- One stroke weight across the entire set. `1.75px` on a 24px viewBox.
+- `stroke-linecap="round"`, `stroke-linejoin="round"`.
+- `stroke="currentColor"`, never a hardcoded fill — colour arrives from the
+  token on the parent, so both themes and the active/inactive tab state work
+  with no extra code.
+- Optically centred, not mathematically. A chevron or a triangle needs its own
+  nudge.
+- One corner-radius family across the set, so they read as one hand.
+- Never mix filled and stroked in the same row.
+
+### The list idiom
+
+- Grouped inset lists: a `--surface` card at `--radius`, sitting on `--bg`.
+- Rows >= 44px. Chevron on anything that pushes: ~13px, `--text-faint`.
+- **Hairlines between rows inset to the text origin, not full-bleed.** This one
+  detail is most of what separates "iOS list" from "web table".
+- Section headers small, uppercase, letter-spaced, `--text-dim`, sitting
+  *outside* the card above it.
+- Large title shrinking into the header on scroll.
+- Sheets rise from the bottom with a grabber, over the scrim at z-index 40.
+
+### What "elegant" means here, concretely
+
+- No decorative gradients. No coloured glows. At most one soft elevation
+  shadow, and prefer a hairline to a shadow.
+- **Colour is signal only** — rolling, GOLD, discarded, sound. Chrome stays
+  greyscale. An app where everything is coloured has no way left to say *this
+  one matters*, which on a set is the only job the colour has.
+- Whitespace over density. Rows breathe.
+- Mono + tabular numerals on every number, so digits do not jitter as a counter
+  ticks.
+- Motion short and springy, ~0.25–0.3s, ease-out. Honour
+  `prefers-reduced-motion`. No parallax, no bounce for fun.
+
 ## Not in scope
 
 No new features. No layout changes. No touching `src/export/**`. The structural
