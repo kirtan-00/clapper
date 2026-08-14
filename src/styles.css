@@ -7,6 +7,11 @@
    System fonts only (offline PWA, no network). No em dashes in copy.
    ========================================================================== */
 
+/* Grouped inset lists, shared by Home, Settings and Account. @import has to
+   come before any rule, which is why it sits above :root rather than with the
+   other list styles. */
+@import './ui/list.css';
+
 :root {
   /* Surfaces - warm charcoal, layered by elevation */
   --ink-950: #0c0d10;
@@ -2826,3 +2831,74 @@ select.field {
 }
 .movesay b { color: var(--chalk); font-family: var(--font-mono); }
 .movesay--note { margin-top: 8px; color: var(--chalk-faint); font-size: 0.8rem; }
+
+/* ==========================================================================
+   SETTINGS + ACCOUNT — added by the tabs agent, 2026-08-14.
+   Everything structural for the grouped inset lists lives in ui/list.css,
+   which is owned centrally. This block is only what those two screens need on
+   top of it. Semantic tokens exclusively — the app is being repainted dark to
+   light and nothing here may hold a raw colour.
+   ========================================================================== */
+
+/* An anchor wearing a row. `.grow` already sets the layout and the colour; a
+   link still arrives with an underline, which is the one thing left to say. */
+.grow--link { text-decoration: none; }
+
+/* Disabled rows read as unavailable rather than as missing: the label dims,
+   the row keeps its place, and the press state stops. */
+.grow:disabled { color: var(--text-faint); }
+.grow:disabled:active { background: none; }
+
+/* The one row on a screen that is the reason you opened it — sign-in on the
+   Account tab. It takes the signal colour because that IS the signal, and it
+   takes it as TYPE, so it reads --go-text and never --go: the bright green
+   measures 1.91:1 on paper and would be unreadable the moment the light theme
+   lands. Weight and colour only; no fill, no border, no glow. */
+.grow[data-primary] .grow-label {
+  color: var(--go-text);
+  font-weight: 600;
+}
+.grow[data-primary]:disabled .grow-label { color: var(--text-faint); }
+
+/* ---- the large title, in its bar ----------------------------------------
+   The second and last piece of MATERIAL chrome in the app, per the spec: a
+   translucent tint over a blur, one hairline, and nothing that pretends to be
+   glass. It full-bleeds out of `.app`'s own padding with negative margins, and
+   its padding then puts the title back on the CARD edge (18px), while
+   `.glist-hdr` sits 16px further in at the rows' text origin. That offset is
+   the iOS relationship between a large title and a section header.
+
+   z-index 20: over rows (5), under the tray (30), so a scrolled list passes
+   beneath the title and the tray still wins at the bottom of the ladder. */
+.ltop {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin:
+    calc(-1 * (var(--safe-top) + 8px))
+    calc(-1 * (var(--safe-right) + 18px))
+    12px
+    calc(-1 * (var(--safe-left) + 18px));
+  padding:
+    calc(var(--safe-top) + 6px)
+    calc(var(--safe-right) + 2px)
+    0
+    calc(var(--safe-left) + 2px);
+  background: var(--material-bg);
+  backdrop-filter: var(--material-blur);
+  -webkit-backdrop-filter: var(--material-blur);
+  /* Transparent until there is something behind it, so a screen at rest is a
+     title on the page rather than a title in a box. */
+  border-bottom: 1px solid transparent;
+  transition: border-color 180ms ease-out;
+}
+
+.ltop[data-scrolled] { border-bottom-color: var(--material-hairline); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ltop { transition: none; }
+}
+
+/* The Pro CTA sits between two cards on the Account tab, so it keeps the same
+   rhythm the cards hold between themselves rather than inventing its own. */
+.app .procta { margin: 2px 0 26px; }

@@ -8,7 +8,11 @@
 import { useRef, useState } from 'react';
 import { track } from '../net/analytics';
 
-export type ProGate = 'script' | 'premiere' | 'csv';
+// Where the tap came from. The first three are cap-hits; 'account' is the
+// standing CTA on the Account tab, which is interest with no wall behind it and
+// is worth counting separately rather than mislabelling as a cap. This is an
+// ANALYTICS label only — it gates nothing and the server never sees it.
+export type ProGate = 'script' | 'premiere' | 'csv' | 'account';
 
 // Palette pulled straight from styles.css tokens: signal green, brass GOLD, and
 // chalk. Deliberately no record-red (reads as an error) and never any orange.
