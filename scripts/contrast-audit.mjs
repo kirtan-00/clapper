@@ -500,24 +500,58 @@ for (const theme of THEMES) {
   await page.evaluate(() => window.scrollTo(0, 640));
   await frame('shots-midscroll');
 
-  // 4. a signal colour parked deliberately under the tray band, not wherever
-  //    the scroll happened to leave one.
+  // 4. THE WORST CASE THE SPEC NAMES: a saturated element parked deliberately
+  //    inside the tray band, not wherever the scroll happened to leave one.
+  //    It then CHECKS that the element really landed there and reports which
+  //    one and in what colour - a frame that silently missed would let the
+  //    whole audit pass while never testing the case it exists for.
   const parked = await page.evaluate(() => {
     const tray = document.querySelector('.tabtray');
-    if (!tray) return false;
-    const band = tray.getBoundingClientRect().top;
-    const pool = [...document.querySelectorAll('.chip, .tag, .shotcode, [class*="rec"], [class*="go"], [class*="brass"]')]
-      .filter((e) => {
-        const r = e.getBoundingClientRect();
-        return r.width > 6 && r.height > 6;
-      });
-    if (!pool.length) return false;
+    if (!tray) return { ok: false, why: 'no tray' };
+    const band = tray.getBoundingClientRect();
+    const chromatic = (c) => {
+      const m = c.match(/(\d+),\s*(\d+),\s*(\d+)/);
+      if (!m) return 0;
+      const v = [+m[1], +m[2], +m[3]];
+      return Math.max(...v) - Math.min(...v);
+    };
+    // anything whose own text or fill carries chroma: brass shot codes, the
+    // green counts, tag chips, REC dots.
+    const pool = [...document.querySelectorAll('*')].filter((e) => {
+      const r = e.getBoundingClientRect();
+      if (r.width < 8 || r.height < 8 || r.width > 400) return false;
+      const cs = getComputedStyle(e);
+      return chromatic(cs.color) > 24 || chromatic(cs.backgroundColor) > 24;
+    });
+    if (!pool.length) return { ok: false, why: 'no chromatic element on this screen' };
     const target = pool[Math.floor(pool.length / 2)];
     const top = target.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo(0, Math.max(0, top - band + 12));
-    return true;
+    // aim its middle at the middle of the tray band
+    window.scrollTo(0, Math.max(0, top - band.top - band.height / 2 + 10));
+    const r = target.getBoundingClientRect();
+    const hit = r.bottom > band.top && r.top < band.bottom;
+    const cs = getComputedStyle(target);
+    return {
+      ok: true, hit,
+      what: (typeof target.className === 'string' ? target.className : target.tagName).slice(0, 40),
+      text: (target.textContent || '').trim().slice(0, 20),
+      color: cs.color, bgcolor: cs.backgroundColor,
+      trayTop: Math.round(band.top), elTop: Math.round(r.top), elBottom: Math.round(r.bottom),
+    };
   });
-  if (parked) await frame('shots-signal-under-tray');
+  if (parked.ok) {
+    console.error(
+      `  ${theme}/shots-signal-under-tray: ` +
+      (parked.hit
+        ? `PARKED .${parked.what} "${parked.text}" ${parked.color} in the tray band ` +
+          `(${parked.elTop}-${parked.elBottom} vs band top ${parked.trayTop})`
+        : `MISSED - .${parked.what} did not land in the band. ` +
+          `THE WORST CASE WAS NOT TESTED IN THIS RUN.`)
+    );
+    await frame('shots-signal-under-tray');
+  } else {
+    console.error(`  ${theme}/shots-signal-under-tray: SKIPPED (${parked.why})`);
+  }
 
   // 5. .ltop on every tab root, scrolled
   for (const tab of ['home', 'projects', 'settings', 'account']) {
