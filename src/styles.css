@@ -804,39 +804,10 @@ input, select, textarea {
 }
 .iconbtn:active { background: var(--ink-850); color: var(--chalk); }
 
-/* -------------------------------------------------------------- masthead - */
-
-.masthead {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--sp-3);
-  margin: var(--sp-3) 0 var(--sp-6);
-}
-.masthead__mark {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--line);
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  flex: none;
-}
-.masthead__mark span { display: block; }
-.masthead__mark span:first-child { background: var(--stripe); background-size: auto 200%; }
-.masthead__mark span:last-child { background: var(--ink-800); }
-.masthead h1 {
-  font-size: var(--t-display);
-  font-weight: 700;
-  letter-spacing: var(--track-tighter);
-  margin: 0;
-  line-height: 1;
-}
-.masthead p {
-  margin: var(--sp-1) 0 0;
-  font-size: var(--t-caption);
-  color: var(--chalk-dim);
-}
+/* Masthead removed. Both screens that carried one (Home and Projects) now use
+   the shared large-title bar - `.ltop` / `.ltitle` in ui/list.css - like
+   Settings and Account already did. The clapper stick lives on as `.rail`, the
+   signature stripe, spent once per surface. */
 
 /* ---------------------------------------------------------------- cards -- */
 
@@ -973,20 +944,9 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   justify-content: center;
   gap: var(--sp-1);
 }
-.scenehandle__step {
-  width: 100%;
-  height: 22px;
-  min-height: 0;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-dim);
-  font-size: var(--t-caps);
-  line-height: 1;
-}
-.scenehandle__step:active:not(:disabled) { background: var(--ink-850); color: var(--chalk); }
-.scenehandle__step:disabled { opacity: 0.25; }
+/* The up/down steppers are gone: a grip AND a pair of buttons AND drag was
+   three overlapping ways to do one thing. The grip is the only one that is also
+   the drag target and also takes the arrow keys, so it is the one that stays. */
 .scenehandle__grip {
   width: 100%;
   flex: 1 1 auto;
@@ -1127,33 +1087,10 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   min-height: var(--tap);
 }
 
-.guide__close {
-  flex: none;
-  width: var(--tap);
-  height: var(--tap);
-  margin-left: calc(-1 * var(--sp-2));
-  display: grid;
-  place-items: center;
-  font-size: var(--t-title);
-  line-height: 1;
-  color: var(--chalk-dim);
-  border-radius: var(--radius-sm);
-}
-.guide__close:active { background: var(--ink-850); color: var(--chalk); }
-
-.guide__mark {
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--line);
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-}
-.guide__mark span { display: block; }
-.guide__mark span:first-child { background: var(--stripe); background-size: auto 200%; }
-.guide__mark span:last-child { background: var(--ink-800); }
+/* `.guide__close` and `.guide__mark` are gone: the guide's bar carries the
+   shared `.backbtn` now, so the glyph-in-a-box and the two-stripe app lockup
+   both went with it. The stripe survives once on this surface, as the tail
+   rule (`.guide__tail`). */
 
 .guide__title {
   margin: 0;
@@ -1458,7 +1395,11 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   margin-top: var(--sp-4);
   width: 100%;
   min-height: 60px;
-  border: 1.5px dashed var(--line);
+  /* SOLID. It was 1.5px dashed, and dashed reads as placeholder: a wireframe
+     that shipped. On `.newproject--ghost` that dashed box was wrapped around
+     PDF SHOTLIST IMPORT, the single most differentiating thing the app does,
+     drawn as if it had not been built yet. */
+  border: 1px solid var(--hairline);
   border-radius: var(--radius);
   color: var(--chalk-dim);
   font-weight: 600;
@@ -1468,46 +1409,59 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   gap: var(--sp-3);
   background: transparent;
 }
-.newproject:active { background: var(--ink-900); color: var(--chalk); }
+/* The press is a background tint, not an opacity dim: opacity reads web,
+   background reads native. --surface-raised, because the ghost now RESTS on
+   --surface and a press has to be visible against where it started. */
+.newproject:active { background: var(--surface-raised); color: var(--text); }
 
-/* Solid PRIMARY variant: a committed green key (not the dashed placeholder),
-   carrying the .bigbtn hardware-key shadow so it depresses on tap. */
+/* Solid PRIMARY variant: a committed green key.
+   It used to carry `0 6px 0 0` - a HARD-OFFSET SOLID shadow, the
+   Wordle/Duolingo/itch.io idiom, game UI on a professional tool. The metaphor
+   is right and stays (a big target you press), the finish is not: the resting
+   elevation is now one soft shadow, and the press is 2px of travel with a
+   compressed shadow and a hair of scale, which is how a real key behaves.
+   ROLL and CUT keep their own physics; they are the roll screen's, not this
+   screen's, and they are the one place the hardware metaphor is load-bearing. */
 .newproject--primary {
   border: none;
   background: var(--go-fill);
   color: var(--go-fill-ink);
-  box-shadow: 0 6px 0 0 var(--go-deep);
-  transition: transform var(--dur-press) var(--ease-out);
+  box-shadow: 0 4px 12px var(--lift-shadow);
+  transition: transform var(--dur-press) var(--ease-out),
+    box-shadow var(--dur-press) var(--ease-out);
 }
 .newproject--primary:active {
-  transform: translateY(3px);
+  transform: translateY(2px) scale(0.99);
   background: var(--go-fill);
   color: var(--go-fill-ink);
-  box-shadow: 0 3px 0 0 var(--go-deep);
+  box-shadow: 0 1px 4px var(--lift-shadow);
 }
 
-/* A real, bounded delete control for project/scene rows - a clearly boxed
-   >=44px target, never faint tap-anywhere text. Sits to the side of a row. */
-.rowdel {
+/* `.rowdel` is GONE. A bounded, boxed, 44px DELETE rendered at rest inside
+   every scene card and every project row: the most destructive control on the
+   screen, ten of it, on a list you thumb-scroll. Well-built and in the wrong
+   place. Delete is now inside the scene's edit sheet and at the bottom of the
+   project's own screen, both still behind the same confirmation.
+
+   What is left in the card is EDIT, and it is deliberately quieter than the
+   control it replaced: text, no box, no border, the same 44px target. */
+.rowedit {
   flex: none;
+  margin-left: auto;
   min-height: var(--tap);
-  padding: var(--sp-2) var(--sp-4);
+  min-width: var(--tap);
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--chalk-dim);
+  justify-content: flex-end;
+  color: var(--text-dim);
   font-size: var(--t-caption);
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
+  transition: color var(--dur-state) var(--ease-out);
 }
-.rowdel:hover { color: var(--rec-text); border-color: var(--rec-edge); }
-.rowdel:active { background: var(--rec-tint); color: var(--rec-text); border-color: var(--rec-text); }
+.rowedit:active { color: var(--text); }
 
 /* --------------------------------------------------------------- fields -- */
 
@@ -2394,9 +2348,9 @@ select.field {
 /* Secondary "Load script pack" button under New project. */
 .newproject--ghost {
   margin-top: var(--sp-3);
-  background: transparent;
-  color: var(--chalk-dim);
-  border-style: dashed;
+  background: var(--surface);
+  color: var(--text);
+  border-style: solid;
 }
 .newproject--ghost:active { color: var(--chalk); }
 
@@ -2470,7 +2424,7 @@ select.field {
   justify-content: flex-start;
   margin-top: var(--sp-1);
   padding-top: var(--sp-3);
-  border-top: 1px dashed var(--line-soft);
+  border-top: 1px solid var(--line-soft);
 }
 .chip--coverage {
   color: var(--chalk-dim);
@@ -3432,34 +3386,10 @@ select.field {
    signal is "this is the button".
    ========================================================================== */
 
-/* The masthead bar. It is the same MATERIAL header the other tab roots use
-   (`.ltop` carries the full-bleed, the blur and the hairline), plus the stick.
-   Only the horizontal padding differs: `.ltop` normally leaves the 16px to
-   `.ltitle`, and here the stick sits to the left of the title, so the bar owns
-   the inset instead and the title gives its own up (below). */
-.home-head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-}
-.home-head.ltop {
-  padding-left: calc(var(--safe-left) + var(--inset));
-  padding-right: calc(var(--safe-right) + var(--inset));
-}
-/* The masthead stick, held to the large title's cap height rather than the
-   masthead's own size, so the two settle on one baseline as the title shrinks. */
-.home-head .masthead__mark {
-  flex: none;
-  transition: transform var(--dur-move) var(--ease-out);
-}
-[data-scrolled].home .masthead__mark {
-  transform: scale(0.72);
-}
-.home-head .ltitle {
-  padding-left: 0;
-  padding-right: 0;
-}
-
+/* The Home masthead bar is GONE, and with it the app icon and the wordmark it
+   held (premium standard 7.7: a logo lockup at the top of a screen is a website
+   header). Home now renders the same bare `.ltop` the other three tab roots do,
+   so there is nothing left here to style. */
 
 /* ---- the hero -----------------------------------------------------------
    The one thing on the tab that is allowed to be loud. No gradient, no glow,
@@ -3565,16 +3495,6 @@ select.field {
   fill: none;
 }
 
-/* ---- first run ----------------------------------------------------------
-   Shown only when the phone holds no projects at all. It explains the hero
-   rather than adding a second thing to do. */
-.home-first {
-  margin: var(--sp-1) var(--inset) 0;
-  font-size: var(--t-secondary);
-  line-height: 1.4;
-  color: var(--text-dim);
-}
-
 /* ==========================================================================
    SETTINGS + ACCOUNT — added by the tabs agent, 2026-08-14.
    Everything structural for the grouped inset lists lives in ui/list.css,
@@ -3646,3 +3566,91 @@ select.field {
 /* The Pro CTA sits between two cards on the Account tab, so it keeps the same
    rhythm the cards hold between themselves rather than inventing its own. */
 .app .procta { margin: var(--sp-1) 0 var(--sp-7); }
+
+/* ==========================================================================
+   THE HOUSE MARKS + THE LABELLED BACK BUTTON
+   Added 2026-08-15 by the prose/components pass (premium standard 7.9, 7.10).
+
+   Every rule here reads a semantic token and nothing else: no raw colour, no
+   new type/spacing/radius/motion token. It exists because the glyphs it
+   replaces (the chevrons, the close cross, the plus) were TEXT, and text
+   carries a baseline and side bearings, so centring a 44px box around one puts
+   the ink high and left. An SVG's viewBox is the ink's frame, which means
+   centring the box centres the mark.
+   ========================================================================== */
+
+/* Base: block, so there is no inline baseline gap; currentColor, so the
+   parent's token is the only thing deciding the colour, in both themes. */
+.mark {
+  display: block;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: none;
+}
+
+/* The back chevron sits beside a 17px label at the size iOS uses: a touch
+   smaller than the type next to it, never larger. */
+.mark--back { width: 17px; height: 17px; }
+.mark--fwd { width: 15px; height: 15px; }
+.mark--close { width: 15px; height: 15px; }
+.mark--plus,
+.mark--list { width: 19px; height: 19px; }
+.mark--down { width: 15px; height: 15px; }
+
+/* ---- the labelled back button -------------------------------------------
+   iOS names the screen you are going back to. A bare chevron makes the user
+   remember; the name makes the app tell them. The label ellipsizes rather than
+   wrapping, so a project called "Let's Meet Dobaara" cannot push the title out
+   of the bar: it is capped so the title always keeps the majority of the width.
+
+   Colour is --text-dim (6.22:1 on paper, over the 4.5:1 secondary floor) and
+   deliberately NOT a signal colour. Chrome stays greyscale, and on the light
+   theme the bright values are fill-only in any case. */
+.backbtn {
+  flex: none;
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -6px; /* optical: pull the chevron out toward the screen edge */
+  padding: 0 6px 0 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+}
+.backbtn__label {
+  max-width: 36vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.02rem;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+.backbtn:active { color: var(--text); }
+
+/* ---- the marks in place -------------------------------------------------
+   Each of these rules used to set a font-size in order to size a glyph. The
+   size now lives on the mark, so all that is left is the colour and the box. */
+.card__chevron { font-size: 0; }
+.rollhint__arrow {
+  display: inline-flex;
+  align-items: center;
+}
+.chip__x { font-size: 0; }
+.installnudge__dismiss { font-size: 0; }
+
+/* The destructive action inside the scene's edit sheet. Full width so it is
+   findable, but below the field and above the Cancel/Save pair, so it never
+   sits where a thumb goes for Save. */
+.sp-danger { margin-top: 18px; }
+
+/* One sheet where the two actions are NOT peers: the after-cut sheet, where
+   Discard throws the take away and Keep is what happens ninety-nine times out
+   of a hundred. Equal width and equal weight made the sheet ask a question it
+   had already answered. */
+.sheet__actions--weighted .btn--danger {
+  flex: 0 1 38%;
+  font-weight: 600;
+}

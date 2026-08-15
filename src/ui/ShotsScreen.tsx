@@ -11,6 +11,7 @@ import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
 import { Rail } from './common';
 import { useScrolled } from './glist';
+import { BackButton, ForwardMark } from './marks';
 import { sizeInWords } from './shotlist';
 import { tc } from '../export/timecode';
 
@@ -24,6 +25,8 @@ interface ShotStat {
 export function ShotsScreen(props: {
   project: Project;
   slate: Slate;
+  /** The name of the screen BACK lands on. The router knows it; this does not. */
+  backLabel: string;
   onBack: () => void;
   onOpenShot: (shot: Shot) => void;
 }) {
@@ -80,9 +83,7 @@ export function ShotsScreen(props: {
   return (
     <div className="app">
       <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
-        <button type="button" className="iconbtn" aria-label="Back to scenes" onClick={props.onBack}>
-          &lsaquo;
-        </button>
+        <BackButton label={props.backLabel} onClick={props.onBack} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 className="topbar__title">{slate.name}</h1>
           <div className="topbar__sub">
@@ -133,7 +134,7 @@ export function ShotsScreen(props: {
                     </span>
                     {takeCount > 0 && <span className="card__count">{takeCount}</span>}
                     <span className="card__chevron" aria-hidden="true">
-                      &rsaquo;
+                      <ForwardMark />
                     </span>
                   </div>
                   {shot.action && <div className="card__summary">{shot.action}</div>}

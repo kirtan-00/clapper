@@ -11,6 +11,7 @@ import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
 import { Sheet, SheetClose, Confirm, Rail } from './common';
 import { useScrolled } from './glist';
+import { BackButton, ForwardMark, DownMark } from './marks';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
@@ -72,7 +73,11 @@ function markRollHintSeen(): void {
 
 export function ProjectScreen(props: {
   project: Project;
+  /** The name of the screen BACK lands on. The router knows it; this does not. */
+  backLabel: string;
   onBack: () => void;
+  /** The project is gone; leave this screen. */
+  onDeleted: () => void;
   onOpenSlate: (project: Project, slate: Slate) => void;
   onProjectChanged: (project: Project) => void;
   onOpenClipLog: () => void;
@@ -86,6 +91,7 @@ export function ProjectScreen(props: {
   const [addName, setAddName] = useState('');
   const [renaming, setRenaming] = useState<Slate | null>(null);
   const [deleting, setDeleting] = useState<Slate | null>(null);
+  const [deletingProject, setDeletingProject] = useState(false);
   const [hintSeen, setHintSeen] = useState<boolean>(() => rollHintSeen());
   const [liveMsg, setLiveMsg] = useState('');
   // Takes logged against the currently OPEN shoot day — what the "DAY 3 · 31
@@ -100,7 +106,7 @@ export function ProjectScreen(props: {
   // sits at the top (stamps Slate.shootOrder via the same reorderSlates atomic
   // write drag-to-reorder uses) and flags each scene's Slate.today. Mirrors
   // Script Mode's own upload → sign-in → error pattern (see ProjectsScreen).
-  const { session: csSession, loading: csSessionLoading } = useSession();
+  const { session: csSession } = useSession();
   const [csPhase, setCsPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
   const [csError, setCsError] = useState<string | null>(null);
   const [csNote, setCsNote] = useState<string | null>(null);
@@ -330,9 +336,7 @@ export function ProjectScreen(props: {
   return (
     <div className="app">
       <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
-        <button type="button" className="iconbtn" aria-label="Back to projects" onClick={props.onBack}>
-          &lsaquo;
-        </button>
+        <BackButton label={props.backLabel} onClick={props.onBack} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 className="topbar__title">{project.name}</h1>
           <div className="topbar__sub">
@@ -355,17 +359,12 @@ export function ProjectScreen(props: {
 
       <Rail thin />
 
-      {/* Sync only runs signed in (see net/sync.ts's flush()), so a signed-out
-          shoot has no copy anywhere but this phone. Persistent, not a toast —
-          this is true for the entire time it's true, not for 1400ms after a
-          tap. The action is the Backup button down by the export bar. */}
-      {!csSessionLoading && !csSession && (
-        <p className="camnote" style={{ textAlign: 'center', margin: '14px 0 0' }}>
-          Signed out — this project exists only on this phone. If you lose the phone, you lose the
-          shoot. Back it up below.
-        </p>
-      )}
-
+      {/* The signed-out warning that used to sit here is gone from this screen.
+          It was two lines of ambient dread on EVERY visit to EVERY project, and
+          it is not a fact about this project: it is a fact about the account,
+          which is why it now reads as a badged row on the Account tab
+          ("Your shoots - This phone only"). The guide's wrap section carries
+          the same warning next to the Backup button that answers it. */}
       <section className="section">
         <div className="section__head">
           <span className="label">Scenes</span>
@@ -385,7 +384,7 @@ export function ProjectScreen(props: {
         ) : slates.length === 0 ? (
           <div className="empty">
             <b>No scenes yet</b>
-            Add a scene for your first setup, then tap it to start rolling.
+            Add your first setup below.
           </div>
         ) : (
           <>
@@ -393,7 +392,7 @@ export function ProjectScreen(props: {
               <div className="rollhint">
                 Tap a scene to start rolling
                 <span className="rollhint__arrow" aria-hidden="true">
-                  ↓
+                  <DownMark />
                 </span>
               </div>
             )}
@@ -414,20 +413,17 @@ export function ProjectScreen(props: {
                     transition: isDragging ? 'none' : 'transform 150ms ease',
                   }}
                 >
+                  {/* ONE reorder affordance. There used to be three - a grip,
+                      a pair of up/down steppers, and drag - all doing the same
+                      job, which reads as three tries at the problem rather than
+                      one answer. The grip survives because it is the only one
+                      that is also the drag target AND takes the arrow keys, so
+                      nothing was lost with the steppers: see onGripKeyDown. */}
                   <div className="scenehandle">
                     <button
                       type="button"
-                      className="scenehandle__step"
-                      aria-label={`Move ${slate.name} up`}
-                      disabled={i === 0}
-                      onClick={() => void commitReorder(i, i - 1)}
-                    >
-                      ▲
-                    </button>
-                    <button
-                      type="button"
                       className="scenehandle__grip"
-                      aria-label={`Reorder ${slate.name}. Position ${displayPos} of ${slates.length} in shooting order. Drag, or use the up and down buttons, to move it.`}
+                      aria-label={`Reorder ${slate.name}. Position ${displayPos} of ${slates.length} in shooting order. Drag it, or use the up and down arrow keys.`}
                       onPointerDown={(e) => startDrag(e, i)}
                       onKeyDown={(e) => onGripKeyDown(e, i)}
                     >
@@ -439,15 +435,6 @@ export function ProjectScreen(props: {
                         <circle cx="4" cy="13" r="1.4" fill="currentColor" />
                         <circle cx="12" cy="13" r="1.4" fill="currentColor" />
                       </svg>
-                    </button>
-                    <button
-                      type="button"
-                      className="scenehandle__step"
-                      aria-label={`Move ${slate.name} down`}
-                      disabled={i === slates.length - 1}
-                      onClick={() => void commitReorder(i, i + 1)}
-                    >
-                      ▼
                     </button>
                   </div>
                   <button
@@ -466,7 +453,7 @@ export function ProjectScreen(props: {
                       </span>
                       <span className="card__count">{takeCount}</span>
                       <span className="card__chevron" aria-hidden="true">
-                        ›
+                        <ForwardMark />
                       </span>
                     </div>
                     {slate.summary && <div className="card__summary">{slate.summary}</div>}
@@ -487,12 +474,18 @@ export function ProjectScreen(props: {
                       <span>
                         roll <b className="tnum">{tc.msToClock(totalMs)}</b>
                       </span>
+                      {/* DELETE NO LONGER RENDERS AT REST. The single most
+                          destructive control on the screen used to sit inside
+                          every card, ten of them, on a list you thumb-scroll
+                          past at 5am. iOS puts destroy behind swipe or an edit
+                          mode; this app already had an edit affordance, so
+                          delete moved inside it and still confirms exactly as
+                          it did before. */}
                       <span
-                        className="iconbtn"
+                        className="rowedit"
                         role="button"
                         tabIndex={0}
-                        aria-label={`Rename scene ${slate.name}`}
-                        style={{ marginLeft: 'auto', minHeight: 32, minWidth: 32 }}
+                        aria-label={`Edit scene ${slate.name}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           setRenaming(slate);
@@ -505,26 +498,7 @@ export function ProjectScreen(props: {
                           }
                         }}
                       >
-                        edit
-                      </span>
-                      <span
-                        className="rowdel"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Delete scene ${slate.name}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleting(slate);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDeleting(slate);
-                          }
-                        }}
-                      >
-                        Delete
+                        Edit
                       </span>
                     </div>
                   </button>
@@ -618,9 +592,22 @@ export function ProjectScreen(props: {
 
       <TcCalculator project={project} />
 
-      <div style={{ marginTop: 22 }}>
-        <Rail thin />
-      </div>
+      {/* DELETE THE PROJECT lives here, at the bottom of its own detail screen,
+          which is where iOS puts destroy (delete-contact, delete-album). It used
+          to render inside every row of the projects LIST, at rest, next to a
+          card you tap to open - the same hazard the scene cards had. */}
+      <section className="section">
+        <button
+          type="button"
+          className="btn btn--danger btn--full"
+          onClick={() => {
+            haptics.tap();
+            setDeletingProject(true);
+          }}
+        >
+          Delete project
+        </button>
+      </section>
 
       {renaming && (
         <RenameSheet
@@ -630,6 +617,26 @@ export function ProjectScreen(props: {
             await store.updateSlate(renaming.id, { name });
             setRenaming(null);
             void refresh();
+          }}
+          onDelete={() => {
+            const slate = renaming;
+            setRenaming(null);
+            setDeleting(slate);
+          }}
+        />
+      )}
+
+      {/* A project called "Hu Kon Chu?" was producing "Delete Hu Kon Chu??". */}
+      {deletingProject && (
+        <Confirm
+          title={`Delete ${project.name.replace(/[?!.]+$/, '')}?`}
+          message="This removes the project and every scene, shot, take and moment in it. This cannot be undone."
+          confirmLabel="Delete project"
+          onCancel={() => setDeletingProject(false)}
+          onConfirm={async () => {
+            await store.deleteProject(project.id);
+            setDeletingProject(false);
+            props.onDeleted();
           }}
         />
       )}
@@ -1491,10 +1498,21 @@ function ExportBar(props: { project: Project }) {
   );
 }
 
-function RenameSheet(props: { slate: Slate; onClose: () => void; onSave: (name: string) => void }) {
+/**
+ * Edit one scene. It was "Rename scene" and did only that; it now also carries
+ * DELETE, which used to render inside every card in the list at rest. The
+ * confirmation is unchanged - the caller still opens the same Confirm - so the
+ * destructive path is one tap further away and no less careful.
+ */
+function RenameSheet(props: {
+  slate: Slate;
+  onClose: () => void;
+  onSave: (name: string) => void;
+  onDelete: () => void;
+}) {
   const [name, setName] = useState(props.slate.name);
   return (
-    <Sheet title="Rename scene" onClose={props.onClose}>
+    <Sheet title="Edit scene" onClose={props.onClose}>
       <div className="formrow">
         <label className="label" htmlFor="rn-name">
           Scene name
@@ -1510,6 +1528,14 @@ function RenameSheet(props: { slate: Slate; onClose: () => void; onSave: (name: 
           }}
         />
       </div>
+      <button
+        type="button"
+        className="btn btn--danger btn--full sp-danger"
+        onClick={props.onDelete}
+      >
+        Delete scene
+      </button>
+
       <div className="sheet__actions">
         <SheetClose className="btn btn--ghost" onClose={props.onClose}>
           Cancel

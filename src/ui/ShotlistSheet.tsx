@@ -140,11 +140,10 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
 
   return (
     <Sheet title="Shotlist" onClose={props.onClose}>
-      <p className="camnote">
-        Upload your shotlist as a PDF. We read every scene and every numbered shot off it — 1.1,
-        1.2, 1.3 — with the size and move each one is marked with, then work out the key moments
-        inside each shot. On set you pick the shot and roll.
-      </p>
+      {/* One line. The four-line version of this (what a numbered shot looks
+          like, what the size column is, what happens to the document, what the
+          key moments are for) is in the guide under "Setting up a project". */}
+      <p className="camnote">Every scene and numbered shot, read off the PDF.</p>
 
       {loading ? (
         <div className="empty">Checking your account</div>
@@ -175,9 +174,9 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
           >
             {signingIn ? 'Opening Google…' : 'Sign in with Google to upload'}
           </button>
-          <p className="camnote" style={{ marginBottom: 0 }}>
-            Reading your shotlist needs a free account. The examples below work without one.
-          </p>
+          {/* No second footnote here. The button says the upload needs an
+              account, and the "or try an example" divider directly under it
+              says the other path does not. */}
         </>
       )}
 
@@ -258,9 +257,13 @@ function SetupStep(props: { pack: ScriptPack; onClose: () => void; onImported: (
 
   return (
     <Sheet title="Set up the shoot" onClose={busy ? undefined : props.onClose}>
+      {/* A count, not a paragraph. What used to follow it - that clip
+          numbering, extra cameras and sound are all editable afterwards - is a
+          reassurance nobody needs before they have hit a wall. */}
       <p className="camnote" style={{ marginTop: 0, marginBottom: 18 }}>
-        {props.pack.scenes.length} scenes and {shotCount} shots are ready. Set the camera and frame
-        rate, then start. Clip numbering, extra cameras and sound are all on the project screen.
+        <span className="tnum">{props.pack.scenes.length}</span> scenes{' '}
+        <span aria-hidden="true">&middot;</span> <span className="tnum">{shotCount}</span> shots
+        ready
       </p>
 
       <div className="formrow">

@@ -15,6 +15,8 @@ import { extractPdfText } from './pdftext';
 import { parseShotlist, shotlistToPack } from './shotlist';
 import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
+import { ScreenHeader } from './glist';
+import { PlusMark, ListMark, CloseMark } from './marks';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
 import { useSession, signInWithGoogle } from '../net/auth';
@@ -57,7 +59,6 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   const [creating, setCreating] = useState(false);
   const [loadingScript, setLoadingScript] = useState(false);
   const [pendingPack, setPendingPack] = useState<ScriptPack | null>(null);
-  const [deleting, setDeleting] = useState<Project | null>(null);
 
   async function refresh() {
     const projects = await store.listProjects();
@@ -77,16 +78,11 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
 
   return (
     <div className="app">
-      <header className="masthead">
-        <div className="masthead__mark" aria-hidden="true">
-          <span />
-          <span />
-        </div>
-        <div>
-          <h1>Clapper</h1>
-          <p>On-set shot log</p>
-        </div>
-      </header>
+      {/* Was an app icon, the wordmark and a tagline: a website header, on a tab
+          that is not even called Clapper. It is now the same large title the
+          other three roots carry, from the same component, so all four shrink
+          into the material bar on the same beat. */}
+      <ScreenHeader title="Projects" />
 
       <InstallNudge />
 
@@ -95,8 +91,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
       ) : rows.length === 0 ? (
         <div className="empty">
           <b>No projects yet</b>
-          Start one for your shoot day. Set the frame rate and clip numbering once, then just
-          roll.
+          Start one for your shoot day.
         </div>
       ) : (
         <div className="stack">
@@ -119,26 +114,8 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
                 <span>
                   {takeCount === 1 ? '1 take' : `${takeCount} takes`}
                 </span>
-                <span
-                  className="rowdel"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Delete ${project.name}`}
-                  style={{ marginLeft: 'auto' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleting(project);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDeleting(project);
-                    }
-                  }}
-                >
-                  Delete
-                </span>
+                {/* No Delete at rest. It is a destructive row at the bottom of
+                    the project's own screen now, which is where iOS puts one. */}
               </div>
             </button>
           ))}
@@ -153,7 +130,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           setCreating(true);
         }}
       >
-        <span aria-hidden="true">+</span> New project
+        <PlusMark /> New project
       </button>
 
       <button
@@ -164,7 +141,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           setLoadingScript(true);
         }}
       >
-        <span aria-hidden="true">≡</span> Shotlist · from a PDF
+        <ListMark /> Shotlist · from a PDF
       </button>
 
       <div style={{ marginTop: 22 }}>
@@ -203,19 +180,6 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         />
       )}
 
-      {deleting && (
-        <Confirm
-          title={`Delete ${deleting.name}?`}
-          message="This removes the project and every scene, shot, take and moment in it. This cannot be undone."
-          confirmLabel="Delete project"
-          onCancel={() => setDeleting(null)}
-          onConfirm={async () => {
-            await store.deleteProject(deleting.id);
-            setDeleting(null);
-            void refresh();
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -334,8 +298,7 @@ function CreateProjectSheet(props: {
     <Sheet title={props.pack ? 'Set up the shoot' : 'New project'} onClose={props.onClose}>
       {props.pack && (
         <p className="camnote" style={{ marginTop: 0 }}>
-          {props.pack.scenes.length} scenes ready from your script. Set your camera and clip
-          numbering, then start. The scenes load with their tap chips.
+          <span className="tnum">{props.pack.scenes.length}</span> scenes ready
         </p>
       )}
       <div className="formrow">
@@ -703,7 +666,7 @@ function CreateProjectSheet(props: {
                 aria-label={`Remove tag ${t}`}
                 onClick={() => setTags(tags.filter((x) => x !== t))}
               >
-                &times;
+                <CloseMark />
               </button>
             </span>
           ))}

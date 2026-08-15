@@ -18,6 +18,33 @@ import { ClipLogScreen } from './ui/ClipLogScreen';
 import { RollingScreen } from './ui/RollingScreen';
 import './styles.css';
 
+/**
+ * What a screen is CALLED when it is the thing you are going back to. iOS
+ * labels a back button with the previous screen's name rather than leaving a
+ * bare chevron, and only the router knows what that screen is.
+ */
+function labelFor(route: Route | undefined): string {
+  switch (route?.name) {
+    case 'home':
+      return 'Home';
+    case 'projects':
+      return 'Projects';
+    case 'settings':
+      return 'Settings';
+    case 'account':
+      return 'Account';
+    case 'project':
+      return route.project.name;
+    case 'shots':
+    case 'rolling':
+      return route.slate.name;
+    case 'cliplog':
+      return 'Clip log';
+    default:
+      return 'Back';
+  }
+}
+
 function renderRoute(route: Route, nav: Nav) {
   switch (route.name) {
     case 'home':
@@ -36,7 +63,9 @@ function renderRoute(route: Route, nav: Nav) {
       return (
         <ProjectScreen
           project={route.project}
+          backLabel={labelFor(nav.previous)}
           onBack={() => nav.pop()}
+          onDeleted={() => nav.pop()}
           onProjectChanged={(project) => nav.replace({ name: 'project', project })}
           onOpenSlate={(project, slate) => nav.push(enterSlate(project, slate))}
           onOpenClipLog={() => nav.push({ name: 'cliplog', project: route.project })}
@@ -46,13 +75,20 @@ function renderRoute(route: Route, nav: Nav) {
     case 'cliplog':
       // Back lands wherever you opened it from — the project screen or the
       // rolling screen — because the stack under it is that screen.
-      return <ClipLogScreen project={route.project} onBack={() => nav.pop()} />;
+      return (
+        <ClipLogScreen
+          project={route.project}
+          backLabel={labelFor(nav.previous)}
+          onBack={() => nav.pop()}
+        />
+      );
 
     case 'shots':
       return (
         <ShotsScreen
           project={route.project}
           slate={route.slate}
+          backLabel={labelFor(nav.previous)}
           onBack={() => nav.pop()}
           onOpenShot={(shot) =>
             nav.push({ name: 'rolling', project: route.project, slate: route.slate, shot })

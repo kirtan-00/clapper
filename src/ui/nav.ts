@@ -64,6 +64,14 @@ export interface Nav {
   readonly tab: Tab;
   /** Routes on the current tab's stack. 1 means you are at its root. */
   readonly depth: number;
+  /**
+   * The screen BACK lands on, or undefined at a tab root. Exists so a pushed
+   * screen can LABEL its back button with the previous screen's name, which is
+   * the iOS convention and is not something the screen itself can know: the
+   * clip log is pushed from the project screen and from the rolling screen, and
+   * a project is pushed from Projects and from Home's resume row.
+   */
+  readonly previous: Route | undefined;
   /** Push a screen onto the CURRENT tab's stack. */
   push(route: Route): void;
   /** Swap the top screen without growing the stack (rename, next shot). */
@@ -134,6 +142,7 @@ export function useNavState(): { route: Route; nav: Nav } {
     () => ({
       tab: state.tab,
       depth: stack.length,
+      previous: stack.length > 1 ? stack[stack.length - 2] : undefined,
       push: (r) => edit((s) => [...s, r]),
       replace: (r) => edit((s) => [...s.slice(0, -1), r]),
       pop: () => edit((s) => (s.length > 1 ? s.slice(0, -1) : s)),
@@ -152,7 +161,7 @@ export function useNavState(): { route: Route; nav: Nav } {
               : prev.stacks,
         })),
     }),
-    [state.tab, stack.length, edit],
+    [state.tab, stack, edit],
   );
 
   return { route, nav };

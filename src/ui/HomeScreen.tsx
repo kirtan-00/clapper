@@ -95,8 +95,8 @@ export function HomeScreen(props: { nav: Nav }) {
   const [resume, setResume] = useState<ResumeInfo | null | undefined>(undefined);
   const [rolling, setRolling] = useState(false);
   const [shotlist, setShotlist] = useState(false);
-  // The masthead bar is sticky material and the title shrinks into it, same
-  // contract the Settings and Account headers run on.
+  // The title bar is sticky material and the large title shrinks into it, the
+  // same contract the Settings and Account headers run on.
   const scrolled = useScrolled();
 
   useEffect(() => {
@@ -154,12 +154,13 @@ export function HomeScreen(props: { nav: Nav }) {
 
   return (
     <div className="app home" data-scrolled={scrolled ? '' : undefined}>
-      <header className="ltop home-head" data-scrolled={scrolled ? '' : undefined}>
-        <div className="masthead__mark" aria-hidden="true">
-          <span />
-          <span />
-        </div>
-        <h1 className="ltitle">Clapper</h1>
+      {/* No app icon and no wordmark. A logo lockup at the top of a screen is a
+          WEBSITE header; the OS already showed the icon on the way in, and the
+          tab underneath already says which tab this is. What is left is the
+          plain large title every other tab root carries, so the four roots read
+          as one stack rather than one branded page and three app screens. */}
+      <header className="ltop" data-scrolled={scrolled ? '' : undefined}>
+        <h1 className="ltitle">Home</h1>
       </header>
 
       <InstallNudge />
@@ -241,21 +242,18 @@ export function HomeScreen(props: { nav: Nav }) {
             </span>
           </button>
         </div>
-        <p className="glist-note">
-          Every scene and every numbered shot, read off the document and laid out as scenes you can
-          tap. Two example breakdowns are built in if you have nothing to hand.
-        </p>
+        {/* The paragraph that used to sit here (what gets read, what stays on
+            the device, the two built-in examples) is in the guide, under
+            "Setting up a project". A row that says what it does does not need a
+            footnote saying it again. */}
       </section>
 
       {/* Podcast mode lands here in a later phase. Nothing is drawn for it on
           purpose — see the note at the top of this file. */}
 
-      {resume === null && (
-        <p className="home-first">
-          Nothing logged on this phone yet. New roll is the whole setup: it opens a project named
-          for today, adds a scene, and starts the slate. You can rename any of it later.
-        </p>
-      )}
+      {/* The first-run paragraph is gone. It explained what NEW ROLL does, which
+          is what the hero's own sub-line already says, one line above it and in
+          the button that does it. */}
 
       {shotlist && (
         <ShotlistSheet
