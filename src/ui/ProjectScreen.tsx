@@ -10,6 +10,7 @@ import { exportDateStamp, shortDateLabel } from '../export/order';
 import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
 import { Sheet, Confirm, Rail } from './common';
+import { useScrolled } from './glist';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
@@ -322,9 +323,13 @@ export function ProjectScreen(props: {
     props.onProjectChanged(updated);
   }
 
+  // The nav bar is sticky material; the hairline under it arrives only once
+  // there is a list behind it to separate from.
+  const scrolled = useScrolled();
+
   return (
     <div className="app">
-      <div className="topbar">
+      <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
         <button type="button" className="iconbtn" aria-label="Back to projects" onClick={props.onBack}>
           &lsaquo;
         </button>

@@ -24,6 +24,7 @@ import { store } from '../store';
 import { nextTakeNumber } from '../store/util';
 import { tc } from '../export/timecode';
 import { Sheet, Rail, Toast, Confirm } from './common';
+import { useScrolled } from './glist';
 import { TakeEditSheet } from './TakeEditSheet';
 import * as haptics from './haptics';
 
@@ -167,9 +168,13 @@ export function ClipLogScreen(props: { project: Project; onBack: () => void }) {
     }
   }
 
+  // The nav bar is sticky material; the hairline under it arrives only once
+  // there is a list behind it to separate from.
+  const scrolled = useScrolled();
+
   return (
     <div className="app">
-      <div className="topbar">
+      <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
         <button type="button" className="iconbtn" aria-label="Back to project" onClick={props.onBack}>
           &lsaquo;
         </button>

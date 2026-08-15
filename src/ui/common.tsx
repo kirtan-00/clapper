@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { ClipParts } from './cameras';
 
 /**
@@ -23,7 +23,17 @@ export function ClipNum(props: { parts: ClipParts; className?: string }) {
   );
 }
 
-/** Full-bleed bottom sheet on a scrim. Tapping the scrim dismisses. */
+/**
+ * Full-bleed bottom sheet on a scrim. Tapping the scrim dismisses.
+ *
+ * Two boxes, not one: a MATERIAL cap carrying the grabber and the title, and a
+ * body that scrolls UNDER it. The cap is a sibling of the scroller rather than
+ * a sticky child of it — `backdrop-filter` inside a scroll container repaints
+ * the blur every frame, and this app is used one-handed on old phones. The cap
+ * therefore has to be told how tall it is: `--sheet-head-h` is measured once
+ * per title (and on resize, for a title that rewraps) and becomes the body's
+ * top padding, so no content can ever start underneath it.
+ */
 export function Sheet(props: {
   title?: string;
   lede?: string;
@@ -32,6 +42,21 @@ export function Sheet(props: {
   children: ReactNode;
 }) {
   const { title, lede, onClose, children } = props;
+  const headRef = useRef<HTMLDivElement | null>(null);
+  // Seeded with the two heights the cap actually takes, so the very first
+  // paint is already right and nothing jumps once the measurement lands.
+  const [headH, setHeadH] = useState(title ? 56 : 34);
+  const [scrolled, setScrolled] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = headRef.current;
+    if (!el) return;
+    const measure = () => setHeadH(el.offsetHeight);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [title]);
+
   return (
     <div
       className="scrim"
@@ -40,11 +65,25 @@ export function Sheet(props: {
         if (e.target === e.currentTarget && onClose) onClose();
       }}
     >
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="sheet__grab" aria-hidden="true" />
-        {title && <h2 className="sheet__title">{title}</h2>}
-        {lede && <p className="sheet__lede">{lede}</p>}
-        {children}
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        data-scrolled={scrolled ? '' : undefined}
+        style={{ '--sheet-head-h': `${headH}px` } as CSSProperties}
+      >
+        <div className="sheet__head" ref={headRef}>
+          <div className="sheet__grab" aria-hidden="true" />
+          {title && <h2 className="sheet__title">{title}</h2>}
+        </div>
+        <div
+          className="sheet__body"
+          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 12)}
+        >
+          {lede && <p className="sheet__lede">{lede}</p>}
+          {children}
+        </div>
       </div>
     </div>
   );

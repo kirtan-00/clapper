@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
 import { Rail } from './common';
+import { useScrolled } from './glist';
 import { sizeInWords } from './shotlist';
 import { tc } from '../export/timecode';
 
@@ -72,9 +73,13 @@ export function ShotsScreen(props: {
 
   const covered = stats ? stats.filter((s) => s.goodCount > 0).length : 0;
 
+  // The nav bar is sticky material; the hairline under it arrives only once
+  // there is a list behind it to separate from.
+  const scrolled = useScrolled();
+
   return (
     <div className="app">
-      <div className="topbar">
+      <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
         <button type="button" className="iconbtn" aria-label="Back to scenes" onClick={props.onBack}>
           &lsaquo;
         </button>

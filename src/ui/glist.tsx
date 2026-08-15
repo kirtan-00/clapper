@@ -44,27 +44,41 @@ export function ExternalMark() {
 }
 
 /**
+ * True once the document has scrolled past a thumb's worth of drift (12px:
+ * before the title has really moved, after a resting finger has stopped
+ * counting). Every `data-scrolled` in the app comes from here, so the hairline
+ * under a large title, a nav bar and the home masthead all appear on the same
+ * beat rather than three screens each picking their own threshold.
+ *
+ * The document IS the scroller on every screen that uses this; the rolling
+ * screen, which scrolls inside itself, has no material chrome at all.
+ */
+export function useScrolled(threshold = 12) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > threshold);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+
+  return scrolled;
+}
+
+/**
  * The large title, in a sticky material bar that it shrinks into on scroll —
- * the iOS idiom, and the one place besides the tab tray the spec allows the
- * material chrome. The type ramp and the timing live in ui/list.css (`.ltitle`
- * and `[data-scrolled] .ltitle`); this only decides WHEN, off the document
- * scroll, since the document is the scroller on these screens.
+ * the iOS idiom, and the tab roots' half of the material chrome. The type ramp
+ * and the timing live in ui/list.css (`.ltitle` and `[data-scrolled] .ltitle`);
+ * this only decides WHEN.
  *
  * The hairline under the bar appears only once there is content behind it, so
  * a screen at rest is a title on paper rather than a title in a box.
  */
 export function ScreenHeader(props: { title: string }) {
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    function onScroll() {
-      // 12px: past a thumb's worth of drift, before the title has really moved.
-      setScrolled(window.scrollY > 12);
-    }
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  const scrolled = useScrolled();
 
   return (
     <header className="ltop" data-scrolled={scrolled ? '' : undefined}>

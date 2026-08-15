@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import type { Project } from '../types';
 import type { Nav } from './nav';
 import { Rail } from './common';
+import { useScrolled } from './glist';
 import InstallNudge from './InstallNudge';
 import { ShotlistSheet } from './ShotlistSheet';
 import { readResume, startNewRoll, type ResumeInfo } from './newRoll';
@@ -94,7 +95,9 @@ export function HomeScreen(props: { nav: Nav }) {
   const [resume, setResume] = useState<ResumeInfo | null | undefined>(undefined);
   const [rolling, setRolling] = useState(false);
   const [shotlist, setShotlist] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  // The masthead bar is sticky material and the title shrinks into it, same
+  // contract the Settings and Account headers run on.
+  const scrolled = useScrolled();
 
   useEffect(() => {
     let active = true;
@@ -108,17 +111,6 @@ export function HomeScreen(props: { nav: Nav }) {
     return () => {
       active = false;
     };
-  }, []);
-
-  // The large title shrinks into the header past a short scroll, the iOS way.
-  // `.ltitle` owns the type ramp and the timing; this only throws the switch.
-  useEffect(() => {
-    function onScroll() {
-      setScrolled(window.scrollY > 12);
-    }
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   /**
@@ -162,7 +154,7 @@ export function HomeScreen(props: { nav: Nav }) {
 
   return (
     <div className="app home" data-scrolled={scrolled ? '' : undefined}>
-      <header className="home-head">
+      <header className="ltop home-head" data-scrolled={scrolled ? '' : undefined}>
         <div className="masthead__mark" aria-hidden="true">
           <span />
           <span />
