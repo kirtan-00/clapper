@@ -1135,7 +1135,14 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .gsec:last-of-type { border-bottom: none; margin-bottom: 0; }
 
-.gsec__num {
+/* Every modifier below is ancestor-scoped, and that is load-bearing rather than
+   decorative: `.gsec p` is (0,1,1) and beats any bare single-class rule no
+   matter where it sits in the file. That mismatch is what the row of
+   `!important`s used to paper over. `.gsec .x` is (0,2,0), which wins on
+   specificity instead of on shouting, and does not depend on source order.
+   `.gsec__num` was NOT shouting and so lost outright - the section numbers were
+   rendering 16px chalk-dim instead of 11px caps. Same fix, same reason. */
+.gsec .gsec__num {
   margin: 0 0 var(--sp-2);
   font-size: var(--t-caps);
   font-weight: 600;
@@ -1161,9 +1168,9 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 .gsec p:last-child { margin-bottom: 0; }
 .gsec b { color: var(--chalk); font-weight: 600; }
 
-.gsec__lede {
-  font-size: var(--t-body) !important;
-  color: var(--chalk) !important;
+.gsec .gsec__lede {
+  font-size: var(--t-body);
+  color: var(--chalk);
   border-left: 2px solid var(--line);
   padding-left: var(--sp-3);
 }
@@ -1187,25 +1194,25 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background-size: auto 200%;
   opacity: 0.85;
 }
-.grule__label {
-  margin: var(--sp-2) 0 var(--sp-2) !important;
-  font-size: var(--t-caps) !important;
+.gsec .grule__label {
+  margin: var(--sp-2) 0 var(--sp-2);
+  font-size: var(--t-caps);
   font-weight: 600;
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
-  color: var(--rec-text) !important;
+  color: var(--rec-text);
 }
-.grule__big {
-  font-size: var(--t-row) !important;
-  line-height: 1.3 !important;
+.gsec .grule__big {
+  font-size: var(--t-row);
+  line-height: 1.3;
   font-weight: 600;
-  color: var(--chalk) !important;
+  color: var(--chalk);
 }
 
 /* muted aside, used for caveats and gotchas */
-.gnote {
-  font-size: var(--t-secondary) !important;
-  color: var(--text-dim) !important;
+.gsec .gnote {
+  font-size: var(--t-secondary);
+  color: var(--text-dim);
   border-left: 2px solid var(--line);
   padding-left: var(--sp-3);
 }
@@ -1254,15 +1261,15 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background: var(--ink-900);
   padding: var(--sp-4);
 }
-.gsplit__k {
-  margin: 0 0 var(--sp-2) !important;
-  font-size: var(--t-caps) !important;
+.gsec .gsplit__k {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--t-caps);
   font-weight: 600;
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }
-.gsplit__k--keep { color: var(--brass-text) !important; }
-.gsplit__k--kill { color: var(--rec-text) !important; }
+.gsec .gsplit__k--keep { color: var(--brass-text); }
+.gsec .gsplit__k--kill { color: var(--rec-text); }
 .gsplit__half p { font-size: var(--t-secondary); }
 
 /* term / definition pairs (voice commands, exports) */
@@ -2906,8 +2913,9 @@ select.field {
   .roll { max-width: 720px; }
   /* DOCUMENTED EXCEPTION to the nine-step ramp: --t-timecode is the phone's
      clamp, and a tablet has a genuinely different viewport to clamp against.
-     Same token, retuned bounds - not a tenth size. */
-  .readout { font-size: clamp(3.4rem, 12vw, 7rem); }
+     Same TOKEN, retuned bounds - not a tenth size, and not an inline literal
+     sitting outside the ramp where the next audit counts it as one. */
+  :root { --t-timecode: clamp(3.4rem, 12vw, 7rem); }
 }
 
 /* Landscape tablets (and big landscape phones): two panes. The short landscape
@@ -2951,8 +2959,11 @@ select.field {
   }
   /* Landscape is width-rich but height-poor: keep the readout bold but not so
      tall it dominates the short pane. */
-  /* The same documented --t-timecode exception, landscape bounds. */
-  .readout { font-size: clamp(3rem, 9vw, 6rem); }
+  /* The same documented --t-timecode exception, landscape bounds. A landscape
+     tablet matches the 700px query too; this block is LATER in the file and
+     both are :root, so source order is what makes landscape win. Do not
+     reorder these two blocks. */
+  :root { --t-timecode: clamp(3rem, 9vw, 6rem); }
 }
 
 /* ---------------------------------------------------------------- shots ---
