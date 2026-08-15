@@ -262,8 +262,11 @@
      The tab tray, and any sticky header that follows it, are a MATERIAL
      LAYER: a translucent tint over a blur, the way an iOS tab bar reads, not
      an opaque bar with a baked-in colour. Clear material, not glassmorphism —
-     no refraction, no borders that pretend to be bevels, one hairline.
-     Retint the whole chrome by editing these values.
+     no refraction, no four-sided borders pretending to be bevels, no glow
+     around a card, no gradient edge. The ONE catch-light in the app is on the
+     sheet cap, because that is the only material surface with a curve to
+     catch it; see the note there. Retint the whole chrome by editing these
+     values.
 
      Light is MORE OPAQUE than night (0.86 vs 0.80) on purpose. Translucency
      costs contrast, and the light theme exists precisely for the condition
@@ -277,8 +280,45 @@
      which repaints the blur every frame on a phone that is already working. */
   --material-bg: rgba(251, 250, 247, 0.86);
   --material-solid: var(--paper); /* the no-blur fallback, see @supports below */
-  --material-blur: saturate(180%) blur(20px);
   --material-hairline: var(--hairline);
+
+  /* ---- Vibrancy, and why it is not shared between the themes -------------
+     OPACITY IS THE ONLY LEVER THAT SPENDS CONTRAST. 0.86 light / 0.80 night
+     is therefore a FLOOR and never erodes in the name of "glassier"; the
+     glass is bought with saturate() and radius, which cost nothing.
+
+     Light gets the bigger saturation lift because ivory paper has almost no
+     chroma of its own, so 190% only shows where real colour passes under the
+     bar - a brass shot code, a green fill. Night gets 150%, deliberately NOT
+     mirroring it: on near-black, boosting saturation pushes the REC red and
+     the brass toward neon, which reads cheap.
+
+     BRIGHTNESS IS OFF ON LIGHT AND ALMOST OFF ON NIGHT, against the councils'
+     hypothesis of 1.04/0.92, because measured on the built app it is
+     self-defeating in both directions. Any brightness multiplier moves the
+     backdrop TOWARD the tint's own end of the range - up, toward ivory; down,
+     toward charcoal - so backdrop and tint converge and less of the backdrop
+     survives the composite. On the scene list with cards under the tray:
+
+       light  saturate(190%) blur(20px)                  band moves 1.27
+       light  saturate(190%) brightness(1.04) blur(20px) band moves 0.65   <-
+       night  saturate(150%) blur(18px)                  band moves 1.17
+       night  saturate(150%) brightness(0.92) blur(22px) band moves 0.92   <-
+
+     (`node scripts/contrast-audit.mjs`, MOVE column: mean per-pixel change
+     against the same bar with the blur switched off. Looked at as well as
+     counted - at 1.04 the white card behind the tray stops reading as a card
+     and the band goes uniform.) Night keeps a hair of LIFT at 1.02, which is
+     what an iOS dark material does: it sits lighter than the ground it is on.
+
+     RADIUS IS 16/18, DOWN FROM 20/22, on two measurements agreeing. Across
+     20px -> 10px the band moves by less than one level of grey in either
+     theme, so the extra radius buys nothing anyone can see - and
+     `backdrop-filter` on the fixed tray re-blurs that region on every scroll
+     frame in Safari, so the radius is paid for in jank on the phone this app
+     is actually held in. Night keeps the LARGER radius because it is the more
+     transparent of the two and therefore has more to average. */
+  --material-blur: saturate(190%) blur(16px);
 
   /* The same material mixed from --surface instead of --paper, for the one
      bar that sits on a CARD rather than on the page: the sheet's grabber cap.
@@ -362,6 +402,11 @@
   --material-solid: var(--surface);
   --material-cap-bg: rgba(18, 19, 25, 0.80);
   --material-cap-solid: var(--surface);
+  /* Half of light's saturation lift, and a hair of brightness rather than
+     light's none. See the long note beside the light value; the short version
+     is that 190% on near-black turns REC and brass neon, and that a dark iOS
+     material sits LIGHTER than its ground. */
+  --material-blur: saturate(150%) brightness(1.02) blur(18px);
 }
 
 * { box-sizing: border-box; }
@@ -528,6 +573,22 @@ input, select, textarea {
     --material-bg: var(--material-solid);
     --material-cap-bg: var(--material-cap-solid);
   }
+}
+
+/* A sheet covers the tray completely - the scrim is z-40 and the sheet rises
+   from the same bottom edge the tray sits on. So while one is open the tray's
+   blur is computing a frosted image of content that nobody can see: the
+   auditor measures the tray band moving 0.0 with the material on versus off
+   in that state, which is the definition of paid-for and thrown away. On
+   Safari a `position: fixed` backdrop-filter repaints per scroll frame, and
+   the page behind a sheet still scrolls, so this is not free.
+
+   Switching the filter off, not the bar: the tint stays, the ladder is
+   untouched, the tray does not move, and it comes back the frame the sheet
+   unmounts (the scrim has no exit animation to flash through). */
+.shell:has(.scrim) .tabtray {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .tabtray__tab {
@@ -2204,6 +2265,22 @@ select.field {
   transition: border-color var(--dur-move) var(--ease-out);
 }
 .sheet[data-scrolled] .sheet__head { border-bottom-color: var(--material-hairline); }
+
+/* The specular edge, and the ONLY surface in the app that gets one.
+   Apple's material bends light along a CURVED edge, so a highlight belongs
+   where there is curvature to catch it at a grazing angle. The sheet cap has
+   a 20px top radius; the tray, the large-title bar and the nav bar are flat
+   and full-bleed, they have no curve, and Apple never puts a highlight on one
+   - which is why a glow on every glass box is the loudest pastiche tell in
+   the idiom. `inset` on a radiused element follows the corner for free.
+
+   A single TOP catch, never a loop around the perimeter: a four-sided white
+   border is the banned "glassmorphism card" look, not a material.
+
+   Night is 0.12 rather than 0.55 because the same white on charcoal is a
+   glow; on ivory it is a rim. */
+.sheet__head { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+[data-theme="night"] .sheet__head { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12); }
 
 .sheet__body {
   flex: 1 1 auto;
