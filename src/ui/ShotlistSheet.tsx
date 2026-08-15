@@ -25,7 +25,7 @@
 
 import { useEffect, useState, type ChangeEvent } from 'react';
 import type { Fps, Project } from '../types';
-import { Sheet } from './common';
+import { Sheet, SheetClose } from './common';
 import { CAMERA_PRESETS, findPreset, renderClip } from './cameras';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
 import { extractPdfText } from './pdftext';
@@ -208,9 +208,9 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
       </div>
 
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={busy}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
           Close
-        </button>
+        </SheetClose>
       </div>
     </Sheet>
   );
@@ -325,9 +325,9 @@ function SetupStep(props: { pack: ScriptPack; onClose: () => void; onImported: (
       </div>
 
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={busy}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
           Cancel
-        </button>
+        </SheetClose>
         <button type="button" className="btn btn--go" disabled={!canStart} onClick={() => void create()}>
           {busy ? 'Loading scenes…' : 'Start the shoot'}
         </button>

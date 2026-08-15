@@ -1026,6 +1026,15 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   flex-direction: column;
   animation: fade var(--dur-state) var(--ease-out);
 }
+/* ENTER, AND EXIT. `fade` has no fill-mode, so the resting opacity really is 1
+   and this transition has a live value to leave from. Same duration out as in,
+   on --ease-in: the guide is a full-window read, not a control, so it has no
+   travel to make subtler - only a curve to reverse. HowToScreen holds the mount
+   for GUIDE_EXIT_MS, which must stay longer than this. */
+.guide[data-closing] {
+  opacity: 0;
+  transition: opacity var(--dur-state) var(--ease-in);
+}
 
 .guide__bar {
   flex: none;

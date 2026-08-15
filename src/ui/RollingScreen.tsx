@@ -35,7 +35,7 @@ import {
 import { ClipNumberRows, TakeEditSheet } from './TakeEditSheet';
 import { sizeInWords } from './shotlist';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
-import { ClipNum, Sheet, Rail, Toast, Confirm } from './common';
+import { ClipNum, Sheet, SheetClose, Rail, Toast, Confirm } from './common';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
@@ -79,9 +79,9 @@ function ShotJumpSheet(props: {
         })}
       </div>
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose}>
           Close
-        </button>
+        </SheetClose>
       </div>
     </Sheet>
   );
@@ -1580,9 +1580,9 @@ function ClipNumberSheet(props: {
         <span className="tnum">{preview}</span>
       </div>
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose}>
           Cancel
-        </button>
+        </SheetClose>
         <button type="button" className="btn btn--go" onClick={() => props.onSet(n)}>
           Set clip
         </button>
@@ -1639,9 +1639,9 @@ function SoundNumberSheet(props: {
         <span className="tnum">{preview}</span>
       </div>
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose}>
           Cancel
-        </button>
+        </SheetClose>
         <button type="button" className="btn btn--go" onClick={() => props.onSet(n)}>
           Set number
         </button>
@@ -1675,9 +1675,9 @@ function MultiClipSheet(props: {
       </p>
       <ClipNumberRows units={props.cameras} nums={nums} onNum={setNum} />
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose}>
           Cancel
-        </button>
+        </SheetClose>
         <button type="button" className="btn btn--go" onClick={() => props.onSet(parsed)}>
           Set clips
         </button>

@@ -13,7 +13,7 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import type { Project } from '../types';
 import { restoreBackup } from '../store/restore';
 import { parseBackupText } from '../export';
-import { Sheet } from './common';
+import { Sheet, SheetClose } from './common';
 import { Section, Row, LinkRow, ReadRow, ScreenHeader } from './glist';
 import { HowToScreen } from './HowToScreen';
 import { ThemeToggleRow } from './ThemeToggleRow';
@@ -183,9 +183,9 @@ function RestoreSheet(props: { onClose: () => void; onRestored: (project: Projec
       </label>
       {error && <span className="tnum tnum--bad sp-error">{error}</span>}
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={busy}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
           Close
-        </button>
+        </SheetClose>
       </div>
     </Sheet>
   );

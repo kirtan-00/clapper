@@ -23,7 +23,7 @@ import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
 import { nextTakeNumber } from '../store/util';
 import { tc } from '../export/timecode';
-import { Sheet, Rail, Toast, Confirm } from './common';
+import { Sheet, SheetClose, Rail, Toast, Confirm } from './common';
 import { useScrolled } from './glist';
 import { TakeEditSheet } from './TakeEditSheet';
 import * as haptics from './haptics';
@@ -460,9 +460,9 @@ function MoveSheet(props: {
       )}
 
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose}>
           Cancel
-        </button>
+        </SheetClose>
         <button
           type="button"
           className="btn btn--go"

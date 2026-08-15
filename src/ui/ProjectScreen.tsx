@@ -9,7 +9,7 @@ import { exporter, shareBlob, buildBackupBlob } from '../export';
 import { exportDateStamp, shortDateLabel } from '../export/order';
 import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
-import { Sheet, Confirm, Rail } from './common';
+import { Sheet, SheetClose, Confirm, Rail } from './common';
 import { useScrolled } from './glist';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
@@ -1511,9 +1511,9 @@ function RenameSheet(props: { slate: Slate; onClose: () => void; onSave: (name: 
         />
       </div>
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose}>
           Cancel
-        </button>
+        </SheetClose>
         <button
           type="button"
           className="btn btn--go"

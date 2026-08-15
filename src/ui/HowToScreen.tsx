@@ -16,7 +16,7 @@
 // opener pushes a history entry so Android's hardware BACK dismisses the guide
 // instead of leaving the app. See openGuide in SettingsScreen.
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFullScreenClaim } from './AppShell';
 import * as haptics from './haptics';
 
@@ -32,6 +32,13 @@ const GUIDE_NAV: { id: string; label: string }[] = [
   { id: 'g-out', label: 'Handing off' },
 ];
 
+/**
+ * How long the guide stays mounted after a dismiss so its fade can play. Must
+ * outlast the 120ms `--dur-state` on `.guide[data-closing]` in styles.css; the
+ * two move together.
+ */
+const GUIDE_EXIT_MS = 130;
+
 export function HowToScreen(props: { onClose: () => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onClose } = props;
@@ -41,13 +48,34 @@ export function HowToScreen(props: { onClose: () => void }) {
   // of chrome floating over documentation that owns the whole viewport.
   useFullScreenClaim();
 
+  // The guide faded IN and then vanished between two frames, which is the
+  // defect the sheets just had: an entrance that animates and an exit that does
+  // not reads as the screen being switched off rather than put away. Same shape
+  // as Sheet's — a closing phase the CSS can catch, then the real close once it
+  // has played. It stays fast: --dur-state out against --dur-state in, because
+  // an exit is never slower than its enter.
+  //
+  // KNOWN LIMIT, deliberately not engineered around: Android's hardware BACK and
+  // the browser's own back gesture unmount this instantly, because they pop the
+  // history entry before React hears about it. §6 blesses instant; what it bans
+  // is a half-committed one.
+  const [closing, setClosing] = useState(false);
+  const goneRef = useRef<number | null>(null);
+  useEffect(() => () => { if (goneRef.current) window.clearTimeout(goneRef.current); }, []);
+
+  const dismiss = useCallback(() => {
+    if (goneRef.current) return;
+    setClosing(true);
+    goneRef.current = window.setTimeout(onClose, GUIDE_EXIT_MS);
+  }, [onClose]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') dismiss();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [dismiss]);
 
   function jump(id: string) {
     const el = scrollRef.current?.querySelector(`#${id}`);
@@ -55,7 +83,13 @@ export function HowToScreen(props: { onClose: () => void }) {
   }
 
   return (
-    <div className="guide" role="dialog" aria-modal="true" aria-label="How Clapper works">
+    <div
+      className="guide"
+      role="dialog"
+      aria-modal="true"
+      aria-label="How Clapper works"
+      data-closing={closing ? '' : undefined}
+    >
       <div className="guide__bar">
         <div className="guide__barrow">
           <button
@@ -64,7 +98,7 @@ export function HowToScreen(props: { onClose: () => void }) {
             aria-label="Close the guide"
             onClick={() => {
               haptics.tap();
-              onClose();
+              dismiss();
             }}
           >
             <span aria-hidden="true">←</span>
@@ -377,7 +411,7 @@ export function HowToScreen(props: { onClose: () => void }) {
 
           <div className="rail rail--thin guide__tail" aria-hidden="true" />
 
-          <button type="button" className="btn btn--go btn--full" onClick={onClose}>
+          <button type="button" className="btn btn--go btn--full" onClick={dismiss}>
             Back to settings
           </button>
         </div>

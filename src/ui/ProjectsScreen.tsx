@@ -9,7 +9,7 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import type { Fps, Project } from '../types';
 import { store } from '../store';
 import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
-import { Sheet, Confirm, Rail } from './common';
+import { Sheet, SheetClose, Confirm, Rail } from './common';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
 import { extractPdfText } from './pdftext';
 import { parseShotlist, shotlistToPack } from './shotlist';
@@ -728,9 +728,9 @@ function CreateProjectSheet(props: {
       </div>
 
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose}>
           Cancel
-        </button>
+        </SheetClose>
         <button type="button" className="btn btn--go" disabled={!canCreate} onClick={create}>
           {props.pack ? 'Start shoot' : 'Create project'}
         </button>
@@ -917,9 +917,9 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
       </>
 
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={busy}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
           Close
-        </button>
+        </SheetClose>
       </div>
     </Sheet>
   );

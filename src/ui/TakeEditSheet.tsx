@@ -13,7 +13,7 @@ import type { CameraUnit, CameraUnitLetter, Project, Slate, Take, TakeClip, Take
 import { store } from '../store';
 import { formatClip, parseClipNumber, rebaseClipNumbers } from '../store/util';
 import { renderUnitClip, soundBadgeStyle } from './cameras';
-import { Sheet } from './common';
+import { Sheet, SheetClose } from './common';
 import * as haptics from './haptics';
 
 /**
@@ -544,9 +544,9 @@ export function TakeEditSheet(props: {
       </div>
 
       <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onClose} disabled={saving}>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={saving}>
           Cancel
-        </button>
+        </SheetClose>
         <button type="button" className="btn btn--go" disabled={saving} onClick={() => void requestSave()}>
           Save shot
         </button>

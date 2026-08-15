@@ -56,6 +56,35 @@ export function useSheetDismiss(fallback: () => void) {
   return dismiss ?? fallback;
 }
 
+/**
+ * The Cancel / Close button every sheet ends with, wired to the sheet's exit.
+ *
+ * This exists because the hook alone could not reach the buttons that needed
+ * it. Context is read where the hook RUNS, and every sheet's footer button is
+ * written inside the component that renders `<Sheet>` — one level ABOVE the
+ * provider — so `useSheetDismiss` there returns the fallback and the sheet
+ * blinks out in a single frame exactly as before. A component is the fix: this
+ * one renders where it is written, which is inside the sheet, so it reads the
+ * dismiss the same way `ConfirmActions` does.
+ *
+ * BACKOUTS ONLY. Cancel and Close come through here; Save, Create and Set do
+ * not, on the same reasoning as Confirm — the thing they trigger replaces what
+ * is underneath, and holding a dead sheet over it for 190ms reads as lag.
+ */
+export function SheetClose(props: {
+  onClose: () => void;
+  className?: string;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  const dismiss = useSheetDismiss(props.onClose);
+  return (
+    <button type="button" className={props.className} disabled={props.disabled} onClick={dismiss}>
+      {props.children}
+    </button>
+  );
+}
+
 /** The toast's exit is 120ms, --dur-state on --ease-in. */
 const TOAST_EXIT_MS = 130;
 
