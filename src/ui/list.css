@@ -31,9 +31,9 @@
 /* Section header sits OUTSIDE the card, above it. Small, quiet, spaced. */
 .glist-hdr {
   margin: 0 0 8px 16px;
-  font-size: 0.72rem;
+  font-size: var(--t-caps);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
   color: var(--text-dim);
 }
@@ -61,7 +61,7 @@
   text-align: left;
   background: none;
   color: var(--text);
-  font-size: 1rem;
+  font-size: var(--t-row);
 }
 
 .grow[data-icon] {
@@ -141,8 +141,8 @@
    for a sentence somebody has to read outdoors. */
 .glist-note {
   margin: 8px 16px 0;
-  font-size: 0.8rem;
-  line-height: 1.45;
+  font-size: var(--t-secondary);
+  line-height: 1.4;
   color: var(--text-dim);
 }
 
@@ -152,15 +152,18 @@
    three tabs cannot drift on the type ramp or the timing. */
 .ltitle {
   padding: 4px 16px 10px;
-  font-size: 2rem;
+  font-size: var(--t-large);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tighter);
   color: var(--text);
   transition: font-size 180ms ease-out, padding 180ms ease-out;
 }
 
+/* The shrink target is the row step at the emphasis weight - a nav-bar title,
+   not a small large-title. */
 [data-scrolled] .ltitle {
-  font-size: 1.0625rem;
+  font-size: var(--t-row);
+  font-weight: 600;
   padding-top: 10px;
   padding-bottom: 10px;
 }

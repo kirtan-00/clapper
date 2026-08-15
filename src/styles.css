@@ -375,8 +375,12 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 16px;
-  line-height: 1.4;
+  font-size: var(--t-body);
+  /* 400 IS THE DEFAULT VOICE. It was never declared, and 84 bold declarations
+     grew into the vacuum: when everything is 700 nothing is emphasised, and
+     weight contrast is most of what makes SF look expensive. */
+  font-weight: 400;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
@@ -395,7 +399,7 @@ button {
 input, select, textarea {
   font-family: inherit;
   color: var(--text);
-  font-size: 16px; /* >=16 stops iOS zoom-on-focus */
+  font-size: var(--t-body); /* 16 also stops iOS zoom-on-focus */
 }
 
 /* The focus ring is a functional indicator, so it takes the deep token: the
@@ -409,7 +413,7 @@ input, select, textarea {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--track-tight);
 }
 
 /* Tiny hardware-label caps used throughout (ROLL / SCENE / TAKE vernacular).
@@ -418,9 +422,9 @@ input, select, textarea {
    and 3.29:1 on charcoal. These labels name the numbers beside them, so they
    are not the "non-essential only" case --text-faint is reserved for. */
 .label {
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
   color: var(--text-dim);
 }
@@ -571,9 +575,9 @@ input, select, textarea {
   height: 22px;
 }
 .tabtray__label {
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
   line-height: 1;
 }
@@ -701,9 +705,9 @@ input, select, textarea {
   .topbar { transition: none; }
 }
 .topbar__title {
-  font-size: 1.06rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--t-row);
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
   margin: 0;
   flex: 1;
   min-width: 0;
@@ -712,7 +716,7 @@ input, select, textarea {
   white-space: nowrap;
 }
 .topbar__sub {
-  font-size: 0.8rem;
+  font-size: var(--t-caption);
   color: var(--chalk-dim);
 }
 
@@ -724,7 +728,7 @@ input, select, textarea {
   justify-content: center;
   border-radius: var(--radius-sm);
   color: var(--chalk-dim);
-  font-size: 1.1rem;
+  font-size: var(--t-row);
   font-weight: 600;
   border: 1px solid transparent;
 }
@@ -752,15 +756,15 @@ input, select, textarea {
 .masthead__mark span:first-child { background: var(--stripe); background-size: auto 200%; }
 .masthead__mark span:last-child { background: var(--ink-800); }
 .masthead h1 {
-  font-size: 1.7rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: var(--t-display);
+  font-weight: 700;
+  letter-spacing: var(--track-tighter);
   margin: 0;
   line-height: 1;
 }
 .masthead p {
   margin: 4px 0 0;
-  font-size: 0.8rem;
+  font-size: var(--t-caption);
   color: var(--chalk-dim);
 }
 
@@ -793,7 +797,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   flex: none;
   align-self: center;
   margin-left: 2px;
-  font-size: 1.5rem;
+  font-size: var(--t-title);
   line-height: 1;
   color: var(--chalk-faint);
 }
@@ -804,12 +808,12 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   align-items: center;
   gap: 6px;
   margin-bottom: 12px;
-  font-size: 0.82rem;
+  font-size: var(--t-secondary);
   color: var(--chalk-dim);
 }
 .rollhint__arrow {
   color: var(--go-text);
-  font-weight: 700;
+  font-weight: 600;
 }
 .card__namewrap {
   display: flex;
@@ -819,9 +823,9 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   flex: 1;
 }
 .card__name {
-  font-size: 1.12rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--t-row);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
 }
 /* Scene coverage marker: green = a shot is in the can, dim = still to shoot. */
 .scene-dot {
@@ -849,16 +853,18 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  font-size: 0.82rem;
+  font-size: var(--t-secondary);
   color: var(--chalk-dim);
 }
-.card__meta b { color: var(--chalk); font-weight: 700; }
+.card__meta b { color: var(--chalk); font-weight: 600; }
+/* "3 shots in the can" is a COUNTER, not slate language: UI face with
+   tabular numerals, the way .grow-value already does it. */
 .card__count {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 1.05rem;
+  font-feature-settings: 'tnum' 1;
+  font-size: var(--t-row);
   color: var(--go-text);
-  font-weight: 700;
+  font-weight: 600;
 }
 /* Subtle "9th in script" hint: shown only once a drag has made shooting order
  * diverge from story order for that scene. Same quiet weight as the other
@@ -906,7 +912,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   align-items: center;
   justify-content: center;
   color: var(--text-dim);
-  font-size: 0.6rem;
+  font-size: var(--t-caps);
   line-height: 1;
 }
 .scenehandle__step:active:not(:disabled) { background: var(--ink-850); color: var(--chalk); }
@@ -945,9 +951,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   min-height: var(--tap);
   padding: 0 18px;
   border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: 0.01em;
+  font-weight: 600;
+  font-size: var(--t-row);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -977,7 +982,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 .sp-error {
   display: block;
   margin-top: 10px;
-  font-size: 0.78rem;
+  font-size: var(--t-caption);
 }
 .sp-or {
   display: flex;
@@ -985,8 +990,9 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   gap: 12px;
   margin: 20px 0 14px;
   color: var(--chalk-dim);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }
 .sp-or::before,
@@ -1005,8 +1011,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   padding: 14px;
   min-height: 62px;
 }
-.sp-example b { font-size: 0.95rem; }
-.sp-example span { font-size: 0.72rem; color: var(--chalk-dim); }
+.sp-example b { font-size: var(--t-row); font-weight: 600; }
+.sp-example span { font-size: var(--t-secondary); color: var(--chalk-dim); }
 
 /* ------------------------------------------------------------- guide ---
    The how-to takes the whole window, not a sheet: it is read standing up,
@@ -1049,7 +1055,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   margin-left: -8px;
   display: grid;
   place-items: center;
-  font-size: 1.35rem;
+  font-size: var(--t-title);
   line-height: 1;
   color: var(--chalk-dim);
   border-radius: var(--radius-sm);
@@ -1072,9 +1078,9 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 
 .guide__title {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--t-row);
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
   color: var(--chalk);
 }
 
@@ -1097,9 +1103,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   border: 1px solid var(--line);
   background: var(--ink-850);
   color: var(--chalk-dim);
-  font-size: 0.74rem;
+  font-size: var(--t-caption);
   font-weight: 600;
-  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 .guide__navchip:active { border-color: var(--go-text); color: var(--chalk); }
@@ -1135,32 +1140,32 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 
 .gsec__num {
   margin: 0 0 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   color: var(--text-dim);
 }
 
 .gsec__h {
   margin: 0 0 12px;
-  font-size: 1.32rem;
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: var(--t-title);
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
   color: var(--chalk);
 }
 
 .gsec p {
   margin: 0 0 13px;
-  font-size: 0.95rem;
-  line-height: 1.55;
+  font-size: var(--t-body);
+  line-height: 1.45;
   color: var(--chalk-dim);
 }
 .gsec p:last-child { margin-bottom: 0; }
-.gsec b { color: var(--chalk); font-weight: 700; }
+.gsec b { color: var(--chalk); font-weight: 600; }
 
 .gsec__lede {
-  font-size: 1.02rem !important;
+  font-size: var(--t-body) !important;
   color: var(--chalk) !important;
   border-left: 2px solid var(--line);
   padding-left: 12px;
@@ -1187,22 +1192,22 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .grule__label {
   margin: 6px 0 8px !important;
-  font-size: 0.66rem !important;
-  font-weight: 700;
-  letter-spacing: 0.2em;
+  font-size: var(--t-caps) !important;
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
   color: var(--rec-text) !important;
 }
 .grule__big {
-  font-size: 1.12rem !important;
-  line-height: 1.35 !important;
-  font-weight: 700;
+  font-size: var(--t-row) !important;
+  line-height: 1.3 !important;
+  font-weight: 600;
   color: var(--chalk) !important;
 }
 
 /* muted aside, used for caveats and gotchas */
 .gnote {
-  font-size: 0.86rem !important;
+  font-size: var(--t-secondary) !important;
   color: var(--text-dim) !important;
   border-left: 2px solid var(--line);
   padding-left: 11px;
@@ -1219,8 +1224,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   counter-increment: gflow;
   position: relative;
   padding: 0 0 14px 30px;
-  font-size: 0.95rem;
-  line-height: 1.55;
+  font-size: var(--t-body);
+  line-height: 1.45;
   color: var(--chalk-dim);
   border-left: 1px solid var(--line);
   margin-left: 6px;
@@ -1237,9 +1242,9 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background: var(--ink-800);
   border: 1px solid var(--line);
   color: var(--chalk-dim);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-caps);
+  font-weight: 600;
   display: grid;
   place-items: center;
 }
@@ -1254,29 +1259,29 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .gsplit__k {
   margin: 0 0 8px !important;
-  font-size: 0.7rem !important;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-size: var(--t-caps) !important;
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }
 .gsplit__k--keep { color: var(--brass-text) !important; }
 .gsplit__k--kill { color: var(--rec-text) !important; }
-.gsplit__half p { font-size: 0.89rem; }
+.gsplit__half p { font-size: var(--t-secondary); }
 
 /* term / definition pairs (voice commands, exports) */
 .gsay { margin: 4px 0 14px; }
 .gsay dt {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
   color: var(--text-dim);
   margin-bottom: 5px;
 }
 .gsay dd {
   margin: 0 0 14px;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  font-size: var(--t-body);
+  line-height: 1.45;
   color: var(--chalk);
   border-left: 2px solid var(--go-deep);
   padding-left: 12px;
@@ -1297,7 +1302,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 
 @media (min-width: 520px) {
   .gsplit { grid-template-columns: 1fr 1fr; }
-  .gsec__h { font-size: 1.5rem; }
+  .gsec__h { font-size: var(--t-display); }
 }
 
 /* Tappable clip number in the rolling head + its on-the-fly editor */
@@ -1315,7 +1320,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   border-radius: 6px;
 }
 .clipedit:active { background: var(--ink-800); }
-.clipedit__pen { font-size: 0.72em; opacity: 0.5; }
+.clipedit__pen { font-size: var(--t-secondary); opacity: 0.5; }
 .clipset {
   display: flex;
   align-items: center;
@@ -1330,14 +1335,14 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background: var(--ink-800);
   border: 1px solid var(--line-soft);
   color: var(--chalk);
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--t-title);
+  font-weight: 600;
 }
 .clipset__step:active { transform: scale(0.96); }
 .clipset__input {
   flex: 1;
   text-align: center;
-  font-size: 1.4rem;
+  font-size: var(--t-title);
 }
 .clipset__preview {
   display: flex;
@@ -1347,7 +1352,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   margin: 12px 0 2px;
 }
 .clipset__preview .tnum {
-  font-size: 1.5rem;
+  font-size: var(--t-display);
   color: var(--go-text);
   font-weight: 700;
 }
@@ -1367,8 +1372,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   border: 1.5px dashed var(--line);
   border-radius: var(--radius);
   color: var(--chalk-dim);
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1406,9 +1410,8 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   border: 1px solid var(--line);
   background: transparent;
   color: var(--chalk-dim);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: var(--t-caption);
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -1430,7 +1433,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 textarea.field { padding: 10px 12px; min-height: 60px; resize: none; line-height: 1.4; }
 .field::placeholder { color: var(--chalk-faint); }
-.field--mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.field--mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .field:focus { border-color: var(--go-text); outline: none; }
 select.field {
   appearance: none;
@@ -1457,18 +1460,17 @@ select.field {
 .campreview__eg .tnum {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-size: var(--t-title);
+  font-weight: 600;
   color: var(--chalk);
-  letter-spacing: 0.04em;
 }
 .cambadge {
   flex: none;
   padding: 3px 9px;
   border-radius: 999px;
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
   color: var(--go-text);
   border: 1px solid var(--go-edge);
@@ -1481,7 +1483,7 @@ select.field {
 }
 .camnote {
   margin: 8px 0 0;
-  font-size: 0.76rem;
+  font-size: var(--t-caption);
   line-height: 1.35;
   color: var(--text-dim);
 }
@@ -1497,9 +1499,8 @@ select.field {
   background: var(--ink-800);
   border: 1px solid var(--line);
   color: var(--chalk);
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  font-size: var(--t-secondary);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1513,7 +1514,7 @@ select.field {
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 6px;
   color: var(--text-dim);
-  font-size: 1rem;
+  font-size: var(--t-body);
 }
 .chip__x:active { background: var(--ink-950); color: var(--rec-text); }
 
@@ -1554,9 +1555,8 @@ select.field {
   background: var(--ink-800);
   border: 1px solid var(--line);
   color: var(--chalk);
-  font-weight: 800;
-  font-size: 0.86rem;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  font-size: var(--t-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1584,8 +1584,8 @@ select.field {
 /* Running per-chip tap count for THIS take, e.g. "CU ×3". */
 .keycap__count {
   flex: none;
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: var(--t-caption);
+  font-weight: 600;
   color: var(--go-text);
   opacity: 0.95;
 }
@@ -1614,7 +1614,7 @@ select.field {
 }
 .section__head .label { color: var(--chalk-dim); }
 .section__note {
-  font-size: 0.72rem;
+  font-size: var(--t-caption);
   color: var(--text-dim);
   text-align: right;
   min-width: 0;
@@ -1653,8 +1653,8 @@ select.field {
   align-items: baseline;
   justify-content: space-between;
 }
-.tccalc__result .tnum { font-size: 1.4rem; font-weight: 700; }
-.tccalc__result .tnum--bad { color: var(--rec-text); font-size: 0.95rem; }
+.tccalc__result .tnum { font-size: var(--t-title); font-weight: 600; }
+.tccalc__result .tnum--bad { color: var(--rec-text); font-size: var(--t-body); }
 
 /* clip preview strip */
 .clipwidget {
@@ -1670,8 +1670,8 @@ select.field {
   margin-bottom: 14px;
 }
 .clipwidget__preview .tnum {
-  font-size: 1.8rem;
-  font-weight: 800;
+  font-size: var(--t-display);
+  font-weight: 700;
   color: var(--go-text);
 }
 .clipgrid { display: grid; grid-template-columns: 1.4fr 1fr 0.8fr; gap: 10px; }
@@ -1769,8 +1769,10 @@ select.field {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  font-weight: 900;
-  font-size: 0.98rem;
+  /* 800 is the ceiling and REC is one of the three places that earns it. The
+     0.22em is the spec's one sanctioned tracking outlier: this is signage. */
+  font-weight: 800;
+  font-size: var(--t-row);
   letter-spacing: 0.22em;
   color: var(--rec-fill-ink);
 }
@@ -1787,9 +1789,8 @@ select.field {
 .tally__clock {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  font-size: 1rem;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  font-size: var(--t-row);
   color: var(--rec-fill-ink);
 }
 
@@ -1801,8 +1802,8 @@ select.field {
 }
 .roll__slate { flex: 1; min-width: 0; }
 .roll__slate .name {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: var(--t-row);
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1811,10 +1812,10 @@ select.field {
   display: flex;
   gap: 8px;
   margin-top: 2px;
-  font-size: 0.78rem;
+  font-size: var(--t-caption);
   color: var(--chalk-dim);
 }
-.roll__nextline .tnum { color: var(--chalk); font-weight: 700; }
+.roll__nextline .tnum { color: var(--chalk); font-weight: 600; }
 
 .roll__rail { margin: 10px 0; }
 
@@ -1856,12 +1857,12 @@ select.field {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-tighter);
   line-height: 0.95;
   /* Smaller floor + gentler vw than before so the clock fits a short/narrow
      phone without needing the stage to scroll — the tally band already mirrors
      the running time up top, so the centre readout no longer has to be huge. */
-  font-size: clamp(2.6rem, 13vw, 6.4rem);
+  font-size: var(--t-timecode);
   color: var(--chalk);
 }
 /* On night this is white over the red wash, with the glow it shipped with. On
@@ -1875,17 +1876,17 @@ select.field {
   /* Load-bearing "Tap ROLL..." prompt - promoted off --chalk-faint so it holds
      up in daylight. */
   color: var(--chalk-dim);
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
+  font-size: var(--t-secondary);
 }
 .stage__reclabel {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  /* REC: one of the three places 800 is earned. */
   color: var(--rec-text);
   font-weight: 800;
-  letter-spacing: 0.18em;
-  font-size: 0.72rem;
+  letter-spacing: var(--track-caps);
+  font-size: var(--t-caps);
 }
 .recdot { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); animation: recpulse 1.2s infinite; }
 
@@ -1906,15 +1907,15 @@ select.field {
   gap: 10px;
   padding: 9px 12px;
   background: var(--ink-900);
-  font-size: 0.85rem;
+  font-size: var(--t-secondary);
 }
-.minitake .tnum { color: var(--chalk); font-weight: 700; }
-.minitake .clip { color: var(--go-text); font-family: var(--font-mono); font-size: 0.82rem; }
+.minitake .tnum { color: var(--chalk); font-weight: 600; }
+.minitake .clip { color: var(--go-text); font-family: var(--font-mono); font-size: var(--t-secondary); }
 .minitake .dur { margin-left: auto; color: var(--chalk-dim); font-family: var(--font-mono); }
 .minitake--discarded { color: var(--chalk-faint); }
 .minitake--discarded .tnum,
 .minitake--discarded .clip { color: var(--chalk-faint); text-decoration: line-through; }
-.minitakes__empty { text-align: center; color: var(--text-dim); font-size: 0.82rem; padding: 8px; }
+.minitakes__empty { text-align: center; color: var(--text-dim); font-size: var(--t-secondary); padding: 8px; }
 
 /* moments logged this take */
 .momentlog {
@@ -1936,12 +1937,12 @@ select.field {
   background: var(--ink-900);
   border-radius: 8px;
   border-left: 3px solid var(--line);
-  font-size: 0.85rem;
+  font-size: var(--t-secondary);
 }
 .momentrow--gold { border-left-color: var(--brass-text); }
 .momentrow--range { border-left-color: var(--go-text); }
-.momentrow .at { font-family: var(--font-mono); color: var(--chalk); font-weight: 700; }
-.momentrow .tag { font-weight: 700; letter-spacing: 0.06em; font-size: 0.74rem; color: var(--chalk-dim); }
+.momentrow .at { font-family: var(--font-mono); color: var(--chalk); font-weight: 600; }
+.momentrow .tag { font-weight: 600; letter-spacing: var(--track-caps); font-size: var(--t-caps); color: var(--chalk-dim); }
 .momentrow .lbl { color: var(--chalk-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* bottom control zone - one thumb.
@@ -2000,6 +2001,9 @@ select.field {
 /* rolling tools row: tags + mark */
 .tagbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 
+/* MARK IN is a SUBORDINATE action sitting directly above CUT. It was 800 at
+   the same width and shape as the button it must not be confused with, so it
+   drops to the emphasis weight and lets CUT own the register. */
 .markbtn {
   width: 100%;
   min-height: 56px;
@@ -2007,9 +2011,8 @@ select.field {
   border: 1.5px solid var(--line);
   background: var(--ink-850);
   color: var(--chalk);
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  font-size: 0.95rem;
+  font-weight: 600;
+  font-size: var(--t-row);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2017,11 +2020,13 @@ select.field {
 }
 .markbtn:active { transform: scale(0.98); }
 .markbtn--armed { border-color: var(--go-text); color: var(--go-text); }
+/* "MARK IN 2" counts marks; a count is not slate language, so it is UI face
+   with tabular figures rather than a costume monospace. */
 .markbtn__badge {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
   color: var(--go-text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* the big ROLL / CUT button */
@@ -2029,9 +2034,10 @@ select.field {
   width: 100%;
   min-height: 104px;
   border-radius: 18px;
-  font-weight: 900;
-  font-size: 2rem;
-  letter-spacing: 0.06em;
+  /* ROLL and CUT. The last place 800+ is allowed to live. */
+  font-weight: 800;
+  font-size: var(--t-large);
+  letter-spacing: var(--track-caps);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2066,9 +2072,8 @@ select.field {
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--chalk-dim);
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  font-size: var(--t-secondary);
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -2171,9 +2176,9 @@ select.field {
   background: var(--line); margin: 2px auto 10px;
 }
 .sheet__title {
-  font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; margin: 0;
+  font-size: var(--t-title); font-weight: 650; letter-spacing: var(--track-tight); margin: 0;
 }
-.sheet__lede { margin: 0 0 18px; color: var(--chalk-dim); font-size: 0.86rem; }
+.sheet__lede { margin: 0 0 18px; color: var(--chalk-dim); font-size: var(--t-secondary); }
 .sheet__actions { display: flex; gap: 10px; margin-top: 20px; }
 .sheet__actions .btn { flex: 1; }
 
@@ -2192,11 +2197,15 @@ select.field {
   padding: 12px 14px;
 }
 .takesummary__cell .label { margin-bottom: 5px; }
+/* CLIP / SHOT / LENGTH. Two of the three are slate language (a clip name and a
+   duration), and the triptych has to read as one row, so the whole strip keeps
+   mono rather than splitting faces down the middle of the best moment in the
+   app. */
 .takesummary__cell .val {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 1.3rem;
-  font-weight: 800;
+  font-size: var(--t-display);
+  font-weight: 700;
 }
 .takesummary__cell .val--clip { color: var(--go-text); }
 
@@ -2213,9 +2222,8 @@ select.field {
   color: var(--chalk);
   padding: 10px 18px;
   border-radius: 999px;
-  font-weight: 700;
-  font-size: 0.86rem;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  font-size: var(--t-secondary);
   z-index: 60;
   box-shadow: 0 8px 30px var(--lift-shadow);
   animation: toastin 200ms ease;
@@ -2227,9 +2235,9 @@ select.field {
   text-align: center;
   color: var(--text-dim);
   padding: 40px 20px;
-  font-size: 0.9rem;
+  font-size: var(--t-secondary);
 }
-.empty b { color: var(--chalk-dim); display: block; margin-bottom: 6px; font-size: 1rem; }
+.empty b { color: var(--chalk-dim); display: block; margin-bottom: 6px; font-size: var(--t-row); font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
@@ -2263,13 +2271,13 @@ select.field {
 /* Scene summary under the slate name, in the list and on the rolling head. */
 .card__summary {
   margin-top: 6px;
-  font-size: 0.9rem;
+  font-size: var(--t-secondary);
   line-height: 1.35;
   color: var(--chalk-dim);
 }
 .roll__summary {
   margin-top: 8px;
-  font-size: 0.92rem;
+  font-size: var(--t-body);
   line-height: 1.35;
   color: var(--chalk-dim);
   /* Three lines is a recognizer, not a read — and it keeps a wordy action line
@@ -2297,9 +2305,8 @@ select.field {
   border: 1px solid var(--line);
   background: var(--ink-850);
   color: var(--chalk);
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  font-size: 0.9rem;
+  font-weight: 600;
+  font-size: var(--t-row);
 }
 .scenepager__btn:active { transform: scale(0.98); }
 .scenepager__btn:disabled { opacity: 0.32; }
@@ -2307,8 +2314,9 @@ select.field {
   min-width: 52px;
   text-align: center;
   color: var(--chalk-dim);
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: var(--t-secondary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 /* Two-tier tap chips. Coverage = neutral, key moments = amber. */
@@ -2325,8 +2333,7 @@ select.field {
 }
 .chip--key {
   min-height: 48px;
-  font-size: 0.86rem;
-  letter-spacing: 0.02em;
+  font-size: var(--t-secondary);
   text-transform: none;
   color: var(--brass-text);
   border-color: var(--brass-edge);
@@ -2347,9 +2354,8 @@ select.field {
   min-height: var(--tap);
   padding: 0 18px;
   border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  font-size: var(--t-row);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2361,10 +2367,10 @@ select.field {
 }
 .procta__btn:active { transform: scale(0.97); }
 .procta__btn:hover { border-color: var(--brass-edge); }
-.procta__spark { font-size: 0.9em; line-height: 1; }
+.procta__spark { font-size: var(--t-secondary); line-height: 1; }
 .procta__msg {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--t-secondary);
   line-height: 1.4;
   color: var(--chalk-dim);
   animation: fade 200ms ease;
@@ -2384,10 +2390,11 @@ select.field {
   border: 1px solid var(--line);
   background: var(--ink-850);
   color: var(--chalk-dim);
-  font-family: var(--font-mono);
+  /* 1-2-3-4 is a count of cameras, not a clip name: UI face, tabular. */
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  font-size: 1.05rem;
+  font-feature-settings: 'tnum' 1;
+  font-weight: 600;
+  font-size: var(--t-row);
   transition: transform 70ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .camcount__opt:active { transform: scale(0.97); }
@@ -2420,17 +2427,17 @@ select.field {
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--t-row);
   color: var(--go-text);
   background: var(--go-tint);
   border: 1px solid var(--go-edge);
 }
 .camunit__eg {
   color: var(--chalk);
-  font-weight: 700;
-  font-size: 1rem;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  font-size: var(--t-row);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2442,9 +2449,8 @@ select.field {
 .camunit__operator {
   margin: 2px 0 0 40px;
   color: var(--chalk-dim);
-  font-size: 0.68rem;
+  font-size: var(--t-caption);
   font-weight: 600;
-  letter-spacing: 0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2455,7 +2461,7 @@ select.field {
 .camunit__also {
   margin: 2px 0 0 40px;
   color: var(--chalk-dim);
-  font-size: 0.68rem;
+  font-size: var(--t-caption);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   overflow: hidden;
@@ -2490,7 +2496,7 @@ select.field {
   grid-template-columns: 1fr;
 }
 .camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip {
-  font-size: 1.62rem;
+  font-size: var(--t-display);
 }
 .camstack--sheet { max-width: none; margin-top: 0; margin-bottom: 16px; }
 /* TWO ROWS, not one. The clip number used to share a row with the badge, the
@@ -2525,7 +2531,7 @@ select.field {
      the right place to take width from. */
   width: 19px;
   height: 19px;
-  font-size: 0.66rem;
+  font-size: var(--t-caps);
   color: var(--chalk-dim);
   background: var(--ink-800);
   border-color: var(--line);
@@ -2541,9 +2547,9 @@ select.field {
   display: block;
   width: 100%;
   color: var(--go-text);
-  font-weight: 800;
-  font-size: 1.34rem;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  font-size: var(--t-title);
+  letter-spacing: var(--track-tight);
   line-height: 1.05;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2561,9 +2567,8 @@ select.field {
 .camslot__operator {
   /* Who is on the camera - promoted off --chalk-faint for daylight legibility. */
   color: var(--chalk-dim);
-  font-size: 0.68rem;
+  font-size: var(--t-caption);
   font-weight: 600;
-  letter-spacing: 0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2615,7 +2620,7 @@ select.field {
   border-radius: 8px;
 }
 .camslot__penbtn:active { background: var(--ink-800); }
-.camslot__pen { color: var(--text-dim); font-size: 0.82rem; }
+.camslot__pen { color: var(--text-dim); font-size: var(--t-secondary); }
 
 /* Rolling: this specific unit is live right now - tap it to cut just this
    camera. Reads red/hot, matching the CUT button. */
@@ -2647,9 +2652,8 @@ select.field {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.86rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-size: var(--t-secondary);
+  font-weight: 600;
   /* Text ("REC") + shape (the dot) carry the rolling state; the red tint is
      only a bonus on top - never the sole signal (daylight, red set-lighting,
      and red/green colour-blindness all defeat colour-only cues). */
@@ -2698,9 +2702,9 @@ select.field {
 .camslot__join {
   margin-left: auto;
   flex: none;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   color: var(--go-text);
 }
 
@@ -2719,7 +2723,7 @@ select.field {
   text-align: left;
 }
 .minitake__open:active { opacity: 0.7; }
-.minitake__pen { color: var(--text-dim); font-size: 0.82rem; }
+.minitake__pen { color: var(--text-dim); font-size: var(--t-secondary); }
 
 /* Selectable tag chips in the take editor (on = kept, off = dimmed). */
 .chip--off { opacity: 0.42; }
@@ -2735,7 +2739,7 @@ select.field {
   border: 1px solid var(--line);
   background: transparent;
   color: var(--text-dim);
-  font-size: 1.05rem;
+  font-size: var(--t-body);
   line-height: 1;
   flex: none;
 }
@@ -2763,17 +2767,17 @@ select.field {
 .installnudge__body { flex: 1; min-width: 0; }
 .installnudge__title {
   margin: 0 0 4px;
-  font-weight: 800;
-  font-size: 0.9rem;
+  font-weight: 600;
+  font-size: var(--t-row);
   color: var(--chalk);
 }
 .installnudge__msg {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--t-secondary);
   line-height: 1.4;
   color: var(--chalk-dim);
 }
-.installnudge__msg b { color: var(--chalk); font-weight: 700; }
+.installnudge__msg b { color: var(--chalk); font-weight: 600; }
 .installnudge__glyph {
   display: inline-block;
   vertical-align: -2px;
@@ -2789,7 +2793,7 @@ select.field {
 .installnudge__install {
   min-height: 36px;
   padding: 0 14px;
-  font-size: 0.82rem;
+  font-size: var(--t-secondary);
 }
 .installnudge__dismiss {
   width: var(--tap);
@@ -2801,7 +2805,7 @@ select.field {
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font-size: 0.95rem;
+  font-size: var(--t-body);
   line-height: 1;
   border-radius: 8px;
 }
@@ -2822,15 +2826,15 @@ select.field {
 }
 .crashscreen__title {
   margin: 0 0 10px;
-  font-size: 1.3rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: var(--t-title);
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
   color: var(--chalk);
 }
 .crashscreen__msg {
   margin: 0 0 24px;
-  font-size: 0.92rem;
-  line-height: 1.5;
+  font-size: var(--t-body);
+  line-height: 1.45;
   color: var(--chalk-dim);
 }
 
@@ -2846,6 +2850,9 @@ select.field {
   .app { max-width: 640px; }
   .app--rolling,
   .roll { max-width: 720px; }
+  /* DOCUMENTED EXCEPTION to the nine-step ramp: --t-timecode is the phone's
+     clamp, and a tablet has a genuinely different viewport to clamp against.
+     Same token, retuned bounds - not a tenth size. */
   .readout { font-size: clamp(3.4rem, 12vw, 7rem); }
 }
 
@@ -2890,6 +2897,7 @@ select.field {
   }
   /* Landscape is width-rich but height-poor: keep the readout bold but not so
      tall it dominates the short pane. */
+  /* The same documented --t-timecode exception, landscape bounds. */
   .readout { font-size: clamp(3rem, 9vw, 6rem); }
 }
 
@@ -2902,31 +2910,36 @@ select.field {
 .shots__summary {
   margin: 10px 0 0;
   color: var(--chalk-dim);
-  font-size: 0.92rem;
+  font-size: var(--t-body);
   line-height: 1.45;
 }
 
-/* The shot code, monospaced so 5.9 and 5.31 line up down the list. */
+/* The shot code, monospaced so 5.9 and 5.31 line up down the list - which is
+   what this comment promised for a month while no rule declared a family, so
+   they did not. A shot code IS slate language, so mono is right; the fix is the
+   family, plus tabular figures, applied to every place the code appears. */
 .shotcode {
   flex: none;
   min-width: 44px;
-  font-weight: 800;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
   color: var(--brass-text);
-  font-size: 0.95rem;
+  font-size: var(--t-row);
 }
 /* Size + move read as spec, not as the name — the action line below is what
    the operator actually recognises the setup by. */
 .shotspec {
   color: var(--chalk-dim);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  font-size: var(--t-caps);
   text-transform: uppercase;
 }
 .shotline {
   margin-top: 4px;
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-size: var(--t-secondary);
   font-style: italic;
   line-height: 1.4;
   overflow: hidden;
@@ -2950,8 +2963,8 @@ select.field {
   border: 1px solid var(--line);
   background: var(--ink-850);
   color: var(--chalk);
-  font-size: 1.25rem;
-  font-weight: 800;
+  font-size: var(--t-title);
+  font-weight: 600;
   line-height: 1;
 }
 .shotstrip__btn:active { transform: scale(0.96); }
@@ -2977,8 +2990,10 @@ select.field {
 .shotstrip__now:disabled { opacity: 0.55; }
 .shotstrip__code {
   flex: none;
-  font-weight: 800;
-  font-size: 1.05rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--t-row);
   color: var(--brass-text);
 }
 .shotstrip__spec {
@@ -2988,23 +3003,24 @@ select.field {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--chalk-dim);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }
 .shotstrip__pos {
   flex: none;
   color: var(--text-dim);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 /* The spoken line under the strip, when the setup carries one. */
 .roll__line {
   margin-top: 6px;
   color: var(--text-dim);
-  font-size: 0.88rem;
+  font-size: var(--t-secondary);
   font-style: italic;
   line-height: 1.4;
 }
@@ -3038,22 +3054,24 @@ select.field {
 }
 .shotjump__code {
   grid-column: 1;
-  font-weight: 800;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
   color: var(--brass-text);
-  font-size: 0.95rem;
+  font-size: var(--t-row);
 }
 .shotjump__spec {
   grid-column: 2;
   color: var(--chalk-dim);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }
 .shotjump__action {
   grid-column: 2;
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-size: var(--t-secondary);
   line-height: 1.35;
   overflow: hidden;
   display: -webkit-box;
@@ -3118,14 +3136,14 @@ select.field {
 .cliprow__clip {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: var(--t-secondary);
+  font-weight: 600;
   color: var(--go-text);
   overflow-wrap: anywhere;
 }
 .cliprow__snd {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: var(--t-caption);
   color: var(--sound-text);
   overflow-wrap: anywhere;
 }
@@ -3138,19 +3156,19 @@ select.field {
   align-items: baseline;
   gap: 2px 8px;
   min-width: 0;
-  font-size: 0.8rem;
+  font-size: var(--t-caption);
   color: var(--chalk-dim);
 }
-.cliprow__scene { font-weight: 700; color: var(--chalk); }
+.cliprow__scene { font-weight: 600; color: var(--chalk); }
 /* Brass, matching .shotcode and the rolling strip: the shot code always reads
    as "what the slate says", wherever it appears. */
-.cliprow__shot { font-weight: 800; color: var(--brass-text); }
+.cliprow__shot { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--brass-text); }
 .cliprow__take { color: var(--chalk-dim); }
 .cliprow__flag {
   color: var(--rec-text);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }
 
@@ -3162,7 +3180,7 @@ select.field {
   flex-direction: column;
   align-items: flex-end;
   gap: 3px;
-  font-size: 0.78rem;
+  font-size: var(--t-caption);
   color: var(--chalk-dim);
   white-space: nowrap;
 }
@@ -3184,9 +3202,8 @@ select.field {
   padding: 4px 2px;
   background: none;
   border: none;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: var(--t-caption);
+  font-weight: 600;
   color: var(--chalk-dim);
 }
 .cliprow__tool:active { opacity: 0.6; }
@@ -3216,22 +3233,22 @@ select.field {
 .movepreview__clip {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--t-row);
+  font-weight: 600;
   color: var(--go-text);
   overflow-wrap: anywhere;
 }
-.movepreview__snd { font-family: var(--font-mono); font-size: 0.82rem; color: var(--sound-text); }
+.movepreview__snd { font-family: var(--font-mono); font-size: var(--t-secondary); color: var(--sound-text); }
 
 /* The consequence, spelled out before you commit to it. */
 .movesay {
   margin: 4px 0 0;
   color: var(--chalk-dim);
-  font-size: 0.88rem;
+  font-size: var(--t-secondary);
   line-height: 1.45;
 }
 .movesay b { color: var(--chalk); font-family: var(--font-mono); }
-.movesay--note { margin-top: 8px; color: var(--text-dim); font-size: 0.8rem; }
+.movesay--note { margin-top: 8px; color: var(--text-dim); font-size: var(--t-caption); }
 
 /* ==========================================================================
    HOME TAB  (src/ui/HomeScreen.tsx)
@@ -3320,17 +3337,17 @@ select.field {
   min-width: 0;
 }
 .home-hero__title {
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: -0.015em;
-  line-height: 1.05;
+  font-size: var(--t-display);
+  font-weight: 700;
+  letter-spacing: var(--track-tighter);
+  line-height: 1.15;
 }
 /* Deliberately not a dimmed token: on a filled key there is no --text-dim that
    reads, so the sub-line borrows the fill's own type colour at reduced weight. */
 .home-hero__sub {
-  font-size: 0.82rem;
+  font-size: var(--t-secondary);
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.4;
   opacity: 0.78;
 }
 
@@ -3360,19 +3377,22 @@ select.field {
   align-items: baseline;
   flex-wrap: wrap;
   gap: 5px;
-  font-size: 0.8rem;
+  font-size: var(--t-caption);
   color: var(--text-dim);
 }
 .home-rowtext__meta b {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 .home-rowtext__meta i {
   font-style: normal;
   color: var(--text-faint);
 }
+/* "Day 3 - 12 in the can" are counters, not clip names. UI face, tabular
+   figures, overriding .tnum's monospace: mono on any number that is not read
+   off a slate is a costume. */
 .home-rowtext__meta .tnum {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
 }
@@ -3390,8 +3410,8 @@ select.field {
    rather than adding a second thing to do. */
 .home-first {
   margin: 2px 16px 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: var(--t-secondary);
+  line-height: 1.4;
   color: var(--text-dim);
 }
 
