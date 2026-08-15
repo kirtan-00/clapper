@@ -90,7 +90,6 @@ export function AccountScreen(_props: { nav: Nav }) {
               <ReadRow
                 key={key}
                 label={label}
-                mono
                 value={usage ? `${usage[key].left} of ${FREE_LIMIT}` : '—'}
               />
             ))}
@@ -143,7 +142,7 @@ export function AccountScreen(_props: { nav: Nav }) {
             <ReadRow label="Take logging" value="Free" />
             <ReadRow label="PDF shot log" value="Free" />
             <ReadRow label="Backup and restore" value="Free" />
-            <ReadRow label="Premiere and Resolve XML" value={`${ANON_LIMIT_XML} times`} mono />
+            <ReadRow label="Premiere and Resolve XML" value={`${ANON_LIMIT_XML} times`} />
             <ReadRow label="Shotlist import" value="Sign in" />
             <ReadRow label="CSV export" value="Sign in" />
           </Section>

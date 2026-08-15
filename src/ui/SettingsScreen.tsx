@@ -80,7 +80,7 @@ export function SettingsScreen(props: { nav: Nav }) {
       </Section>
 
       <Section title="Help">
-        <Row label="How to use" value="9 sections" mono push onClick={openGuide} />
+        <Row label="How to use" value="9 sections" push onClick={openGuide} />
       </Section>
 
       <Section

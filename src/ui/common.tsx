@@ -1,4 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { ClipParts } from './cameras';
 
 /**
@@ -29,6 +38,23 @@ export function ClipNum(props: { parts: ClipParts; className?: string }) {
  * these live in styles.css under "ENTER, AND EXIT" and move together.
  */
 const SHEET_UNMOUNT_MS = 190;
+
+/**
+ * The sheet's own dismiss, published to whatever it wraps.
+ *
+ * A sheet cannot animate itself out if the thing that closes it is a button
+ * whose onClick flips the PARENT's state: React unmounts the tree in the same
+ * frame and there is nothing left to transition. Anything rendered inside a
+ * Sheet can call this instead of the raw close handler and get the exit for
+ * free. Null outside a Sheet, so a caller can fall back.
+ */
+export const SheetDismiss = createContext<(() => void) | null>(null);
+
+/** The sheet's dismiss if there is one, else the raw handler passed in. */
+export function useSheetDismiss(fallback: () => void) {
+  const dismiss = useContext(SheetDismiss);
+  return dismiss ?? fallback;
+}
 
 /** The toast's exit is 120ms, --dur-state on --ease-in. */
 const TOAST_EXIT_MS = 130;
@@ -105,6 +131,7 @@ export function Sheet(props: {
         if (e.target === e.currentTarget) dismiss();
       }}
     >
+      <SheetDismiss.Provider value={dismiss}>
       <div
         className="sheet"
         role="dialog"
@@ -125,6 +152,7 @@ export function Sheet(props: {
           {children}
         </div>
       </div>
+      </SheetDismiss.Provider>
     </div>
   );
 }
@@ -139,15 +167,28 @@ export function Confirm(props: {
 }) {
   return (
     <Sheet title={props.title} lede={props.message} onClose={props.onCancel}>
-      <div className="sheet__actions">
-        <button type="button" className="btn btn--ghost" onClick={props.onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="btn btn--danger" onClick={props.onConfirm}>
-          {props.confirmLabel}
-        </button>
-      </div>
+      <ConfirmActions {...props} />
     </Sheet>
+  );
+}
+
+/**
+ * Split out so it sits INSIDE the Sheet and can read its dismiss. Cancel goes
+ * through the sheet, so backing out of a destructive confirmation gets the
+ * exit; Confirm does not, because the thing it triggers replaces the screen
+ * anyway and holding a dead sheet on top of it for 190ms would read as lag.
+ */
+function ConfirmActions(props: { confirmLabel: string; onConfirm: () => void; onCancel: () => void }) {
+  const cancel = useSheetDismiss(props.onCancel);
+  return (
+    <div className="sheet__actions">
+      <button type="button" className="btn btn--ghost" onClick={cancel}>
+        Cancel
+      </button>
+      <button type="button" className="btn btn--danger" onClick={props.onConfirm}>
+        {props.confirmLabel}
+      </button>
+    </div>
   );
 }
 
