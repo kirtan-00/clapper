@@ -99,12 +99,27 @@ export function DownMark() {
 }
 
 /**
+ * How many characters of previous-screen name fit beside a title before the
+ * title starts losing words. Measured on an iPhone 14 viewport against the
+ * longest real title in the app ("SC 1 · EXT. GIFT CITY — LATE NIGHT"): at 18
+ * characters of label the title truncated at "EXT. GIFT CIT...".
+ */
+const BACK_LABEL_MAX = 14;
+
+/**
  * The labelled back button, in the iOS idiom: a chevron and the NAME of the
- * screen you are going back to, not a bare arrow. The label ellipsizes rather
- * than wrapping or being dropped, because a project called "Let's Meet Dobaara"
- * must not push the title out of the bar.
+ * screen you are going back to, not a bare arrow.
+ *
+ * The fallback to the word "Back" when the name is too long is iOS's own rule,
+ * not a shortcut around it. UIKit measures the previous title against the space
+ * left over and substitutes "Back" when it will not fit, because the title of
+ * the screen you are ON matters more than the name of the one behind it. A
+ * character count is the cheap version of that measurement and lands in the
+ * same place for every screen this app has. The accessible name always carries
+ * the real destination.
  */
 export function BackButton(props: { label: string; onClick: () => void }) {
+  const shown = props.label.length > BACK_LABEL_MAX ? 'Back' : props.label;
   return (
     <button
       type="button"
@@ -113,7 +128,7 @@ export function BackButton(props: { label: string; onClick: () => void }) {
       onClick={props.onClick}
     >
       <BackMark />
-      <span className="backbtn__label">{props.label}</span>
+      <span className="backbtn__label">{shown}</span>
     </button>
   );
 }

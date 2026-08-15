@@ -3369,7 +3369,7 @@ select.field {
   color: var(--text-dim);
 }
 .backbtn__label {
-  max-width: 42vw;
+  max-width: 36vw;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
