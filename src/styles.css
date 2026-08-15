@@ -115,8 +115,96 @@
   --key-shadow: rgba(20, 21, 26, 0.16);
   --lift-shadow: rgba(20, 21, 26, 0.14);
 
-  --radius: 14px;
+  /* ---- Type: nine steps ---------------------------------------------------
+     docs/specs/2026-08-15-premium-standard.md §4. The council counted 37
+     distinct font sizes against zero declared 400s: every value locally
+     defensible, collectively the texture of a machine that made a reasonable
+     choice 200 times without ever deciding. These nine are the whole ramp.
+
+     Sizes only. Weight, line-height and tracking are enforced in the rules,
+     because a `font:` shorthand token would reset `font-variant-numeric` and
+     silently kill the tabular numerals this app is built on.
+
+       token          size    weight     use
+       --t-caps       11px    600 caps   section headers, hardware labels, tabs
+       --t-caption    12px    400/600    footnotes, meta, operator names
+       --t-secondary  13px    400/600    row sublines, card meta, toasts
+       --t-body       16px    400        prose, inputs (16 kills iOS zoom)
+       --t-row        17px    400/600    row labels, card names, buttons
+       --t-title      20px    650        sheet titles, guide heads
+       --t-display    28px    700        hero lines, post-cut numbers
+       --t-large      34px    700        large titles (shrink target --t-row)
+       --t-timecode   fluid   700 mono   the rolling readout only
+
+     THE 11px FLOOR IS A SUNLIGHT RULE, not a taste one. Nothing that carries
+     meaning goes below --t-caps: at midday the small type is the first
+     casualty, and .tabtray__label (9.3px) and .label (10.6px) were the two
+     things you navigate and read the slate by. */
+  --t-caps: 11px;
+  --t-caption: 12px;
+  --t-secondary: 13px;
+  --t-body: 16px;
+  --t-row: 17px;
+  --t-title: 20px;
+  --t-display: 28px;
+  --t-large: 34px;
+  --t-timecode: clamp(44px, 13vw, 96px);
+
+  /* Tracking collapses from fifteen values to three: caps get +0.08em, the
+     display end gets a tighten, everything between gets nothing at all. The
+     0.22em on the REC banner is the one sanctioned outlier - that is signage,
+     not type. */
+  --track-caps: 0.08em;
+  --track-tight: -0.01em;
+  --track-tighter: -0.02em;
+
+  /* ---- Spacing: a 4pt ladder --------------------------------------------
+     §5. The "14/16 house rhythm" is retired; it produced 18 gap values
+     including 1, 3, 5, 7, 9 and 13, which is a vibe approximating a grid with
+     2px of jitter. ONE LEVEL PER RELATIONSHIP - the hierarchy of gaps IS the
+     visual hierarchy, and reusing --sp-3 for both "inside a component" and
+     "between two groups" throws that away. */
+  --sp-1: 4px;   /* micro: label-to-value, icon-to-dot */
+  --sp-2: 8px;   /* intra-component: chip gaps */
+  --sp-3: 12px;  /* component internals, row gaps */
+  --sp-4: 16px;  /* component padding-x, SCREEN INSET, sheet padding */
+  --sp-5: 20px;  /* large component padding */
+  --sp-6: 24px;  /* small section break */
+  --sp-7: 32px;  /* section rhythm between groups */
+  --sp-8: 48px;  /* screen-level breathing, empty states */
+
+  /* The screen inset, spent once so the large title, the section headers and
+     the row text share ONE left edge. It was 18px in .app, 16px in
+     --glist-inset, 20px in the sheet and 14px in the guide: four near-miss
+     origins, which is the near-miss texture the whole spec is about. */
+  --inset: var(--sp-4);
+
+  /* Radius: three steps and a pill. Nested elements take OUTER MINUS PADDING,
+     never a free pick. Drawn shapes that happen to use border-radius - the
+     grabber pill, the stripe rail, the tab tray's active mark, and every 50%
+     circle - are geometry, not members of this family. */
   --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* ---- Motion: two curves, five durations -------------------------------
+     §6. 33 bare `ease`s are 33 separate non-decisions. --ease-out enters and
+     settles; --ease-in is the rare exit, and an exit is ALWAYS subtler and
+     faster than its enter. */
+  --ease-out: cubic-bezier(0.2, 0.85, 0.25, 1);
+  --ease-in: cubic-bezier(0.4, 0, 0.7, 0.2);
+  --dur-press: 80ms;  /* the key depression. On iOS there is no Vibration API,
+                         so this travel IS the haptic - never an opacity dim. */
+  --dur-state: 120ms; /* a colour, a border, a tint */
+  --dur-move: 180ms;  /* something crosses the screen; every sheet EXIT */
+  --dur-panel: 240ms; /* a sheet rising, a screen pushing */
+  --dur-kb: 140ms;    /* FIXED POINT: the tray's transform AND the scrim's
+                         padding-bottom. They ride the same keyboard, so they
+                         must ride the same clock. Never retune one alone.
+                         This is a token precisely so the constraint outlives
+                         the comment. */
+
   --tap: 44px;
   /* Height of the bottom tab tray, NOT counting the home-indicator inset the
      tray adds under it. Anything that has to clear the tray adds this plus
