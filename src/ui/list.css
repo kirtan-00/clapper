@@ -134,12 +134,16 @@
   color: var(--rec-text, var(--rec));
 }
 
-/* Footnote under a card: the "what this costs you" line. */
+/* Footnote under a card: the "what this costs you" line. --text-dim, not
+   --text-faint: the rendered audit puts faint at 3.79:1 on light and 3.29:1 on
+   night here, and this line is the only place several screens explain what the
+   card above them actually does. Faint is for chevrons and placeholders, not
+   for a sentence somebody has to read outdoors. */
 .glist-note {
   margin: 8px 16px 0;
   font-size: 0.8rem;
   line-height: 1.45;
-  color: var(--text-faint);
+  color: var(--text-dim);
 }
 
 /* ---- large title --------------------------------------------------------
