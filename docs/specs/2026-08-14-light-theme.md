@@ -132,6 +132,46 @@ contrast is already under attack. Do not equalise them for tidiness.
 
 Applies to: the tab tray, and any sticky header that follows it. Nothing else.
 
+### Amendment, 2026-08-15 — the material is now a language, not one bar
+
+The tray was the only material surface that had actually been built. The
+mechanism now covers every piece of chrome that content scrolls underneath,
+and every one of them reads the same tokens, so a repaint is a token swap and
+not a component rewrite.
+
+| surface | what it is | tint token | fallback token |
+|---|---|---|---|
+| `.tabtray` | the tab tray | `--material-bg` | `--material-solid` |
+| `.ltop` | large-title bar, tab roots (Home, Settings, Account) | `--material-bg` | `--material-solid` |
+| `.topbar` | nav bar, pushed screens (project, shots, clip log) | `--material-bg` | `--material-solid` |
+| `.sheet__head` | the sheet's grabber cap | `--material-cap-bg` | `--material-cap-solid` |
+| `.scrim` | the wash under a sheet | `--scrim-bg` | none needed, it is already opaque enough |
+
+Blur is `--material-blur` on all four material surfaces and `--scrim-blur` on
+the scrim; the hairline is `--material-hairline` everywhere. One rule in
+`styles.css` carries the blur pair for all four, so the `-webkit-` prefix
+cannot be forgotten by the next surface to arrive.
+
+`--material-cap-bg` exists because the sheet cap sits on `--surface`, not on
+`--paper`: mixing it from paper lays a warm band across the top of a white
+sheet whenever the sheet is short enough not to scroll.
+
+Two rules that fell out of building it:
+
+- **A material surface must not be a descendant of the scroller it covers.**
+  The sheet is therefore a shell (`.sheet`), an absolutely positioned cap
+  (`.sheet__head`) and a scrolling body (`.sheet__body`) whose top padding is
+  the measured cap height, published as `--sheet-head-h` from `common.tsx`.
+- **The blur radius decides how much reads through, not the opacity alone.**
+  At `blur(20px)` a line of body text averages almost entirely away: measured
+  on the rendered app, content under the nav bar moves the band by about 3
+  levels of grey (light 250 -> 247, night 18 -> 21). Large blocks — the
+  clapper stripe, a filled button — are what make the layer read as a layer.
+
+**Superseded pending the design council's spec.** The tint, opacity, edge and
+shadow values above are deliberately left where the original spec put them.
+The next pass re-specifies the look; it should not need to move the plumbing.
+
 **Implementation rules that will bite:**
 
 - `-webkit-backdrop-filter` alongside `backdrop-filter`. iOS Safari is the
