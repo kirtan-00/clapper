@@ -65,6 +65,7 @@ function renderRoute(route: Route, nav: Nav) {
           project={route.project}
           backLabel={labelFor(nav.previous)}
           onBack={() => nav.pop()}
+          onDeleted={() => nav.pop()}
           onProjectChanged={(project) => nav.replace({ name: 'project', project })}
           onOpenSlate={(project, slate) => nav.push(enterSlate(project, slate))}
           onOpenClipLog={() => nav.push({ name: 'cliplog', project: route.project })}

@@ -9,7 +9,7 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import type { Fps, Project } from '../types';
 import { store } from '../store';
 import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
-import { Sheet, Confirm, Rail } from './common';
+import { Sheet, Rail } from './common';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
 import { extractPdfText } from './pdftext';
 import { parseShotlist, shotlistToPack } from './shotlist';
@@ -59,7 +59,6 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   const [creating, setCreating] = useState(false);
   const [loadingScript, setLoadingScript] = useState(false);
   const [pendingPack, setPendingPack] = useState<ScriptPack | null>(null);
-  const [deleting, setDeleting] = useState<Project | null>(null);
 
   async function refresh() {
     const projects = await store.listProjects();
@@ -115,26 +114,8 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
                 <span>
                   {takeCount === 1 ? '1 take' : `${takeCount} takes`}
                 </span>
-                <span
-                  className="rowdel"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Delete ${project.name}`}
-                  style={{ marginLeft: 'auto' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleting(project);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDeleting(project);
-                    }
-                  }}
-                >
-                  Delete
-                </span>
+                {/* No Delete at rest. It is a destructive row at the bottom of
+                    the project's own screen now, which is where iOS puts one. */}
               </div>
             </button>
           ))}
@@ -199,19 +180,6 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         />
       )}
 
-      {deleting && (
-        <Confirm
-          title={`Delete ${deleting.name}?`}
-          message="This removes the project and every scene, shot, take and moment in it. This cannot be undone."
-          confirmLabel="Delete project"
-          onCancel={() => setDeleting(null)}
-          onConfirm={async () => {
-            await store.deleteProject(deleting.id);
-            setDeleting(null);
-            void refresh();
-          }}
-        />
-      )}
     </div>
   );
 }
