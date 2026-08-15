@@ -602,6 +602,18 @@ input, select, textarea {
   border: 1px solid var(--hairline-soft);
 }
 
+/* ...and everything OUTSIDE the card moves with it. A border is layout, so
+   that hairline pushes every row's text one pixel in: measured on the rendered
+   app, the section header landed at x=32 and the row text it labels at x=33.
+   §5 asks for ONE left edge and got two a pixel apart - the exact near-miss
+   texture the spec is about, just at a scale you have to measure to see. The
+   compensation lives HERE, beside the border that causes it, rather than in
+   list.css where it would read as an arbitrary +1. */
+.glist-hdr,
+.glist-note {
+  margin-left: calc(var(--inset) + 1px);
+}
+
 /* ---- settings switch ----------------------------------------------------
    The trailing control on a `.grow` row (src/ui/ThemeToggleRow.tsx). One
    track, one knob, no gloss and no inner bevel: it is a switch, not a jewel.
