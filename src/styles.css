@@ -514,12 +514,9 @@ input, select, textarea {
   /* 140ms deliberately, not the 250-300ms the rest of the app's motion uses:
      this one is matched to `.scrim`'s padding-bottom transition so the tray
      and the sheet above it move on the same keyboard, together. */
-  transition: transform 140ms ease-out;
+  transition: transform var(--dur-kb) var(--ease-out);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tabtray { transition: none; }
-}
 
 /* No blur available: raise the material to fully opaque rather than leave a
    see-through bar with text over moving content. Overriding the TOKEN, not the
@@ -545,6 +542,13 @@ input, select, textarea {
      and these four words are how you navigate the app in sunlight. */
   color: var(--text-dim);
   padding: 0 var(--sp-1);
+  /* SWITCHING TABS IS INSTANT, and that is a decision, not an omission: it is
+     the most frequent action in the app and the content must be there before
+     the thumb lifts. Only the active MARK is allowed to move, and only as a
+     colour crossfade. Recorded here so nobody adds a slide as "polish".
+     Screen pushes are instant for the same reason - the spec's own line is
+     that instant is acceptable and a half-committed slide is not. */
+  transition: color var(--dur-state) var(--ease-out);
 }
 /* Press state is a tint of the text colour, not a surface colour: it has to
    read on a translucent material in either theme. */
@@ -615,7 +619,7 @@ input, select, textarea {
   /* The OFF track is --hairline rather than a surface step: against a white
      card, --surface-sunk sits at 1.15:1 and the track disappears entirely. */
   background: var(--hairline);
-  transition: background 200ms ease-out;
+  transition: background var(--dur-move) var(--ease-out);
 }
 /* White in BOTH themes, like every switch on the platform. Its position is the
    real state signal, so it does not need to carry the contrast on its own; the
@@ -629,7 +633,7 @@ input, select, textarea {
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
-  transition: transform 200ms cubic-bezier(0.2, 0.85, 0.2, 1);
+  transition: transform var(--dur-move) var(--ease-out);
 }
 .tswitch--on {
   background: var(--go-fill);
@@ -638,10 +642,6 @@ input, select, textarea {
   transform: translateX(20px);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tswitch,
-  .tswitch__knob { transition: none; }
-}
 
 /* The clapper stripe rail - identity mark + section divider */
 .rail {
@@ -658,7 +658,7 @@ input, select, textarea {
   58%  { transform: skewX(7deg) scaleX(0.99); }
   100% { transform: skewX(0deg) scaleX(1); }
 }
-.rail--clap { animation: clap 360ms cubic-bezier(0.2, 0.85, 0.2, 1); transform-origin: left center; }
+.rail--clap { animation: clap var(--dur-panel) var(--ease-out); transform-origin: left center; }
 
 /* --------------------------------------------------------------- topbar --
    The nav bar on the PUSHED screens (project, shots, clip log): back arrow,
@@ -696,14 +696,11 @@ input, select, textarea {
   /* Transparent until something is actually behind it, same contract as the
      large-title bar: at rest this is a title on paper, not a title in a box. */
   border-bottom: 1px solid transparent;
-  transition: border-color 180ms ease-out;
+  transition: border-color var(--dur-move) var(--ease-out);
 }
 
 .topbar[data-scrolled] { border-bottom-color: var(--material-hairline); }
 
-@media (prefers-reduced-motion: reduce) {
-  .topbar { transition: none; }
-}
 .topbar__title {
   font-size: var(--t-row);
   font-weight: 650;
@@ -781,7 +778,7 @@ input, select, textarea {
   padding: var(--sp-4);
   display: block;
   color: inherit;
-  transition: border-color 120ms ease, transform 80ms ease;
+  transition: border-color var(--dur-state) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 button.card:active { transform: scale(0.99); border-color: var(--line); background: var(--ink-850); }
 button.card:active .card__chevron { color: var(--chalk-dim); }
@@ -960,7 +957,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   border: 1px solid var(--line);
   background: var(--ink-850);
   color: var(--chalk);
-  transition: transform 80ms ease, background 120ms ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out);
 }
 .btn:active { transform: scale(0.97); }
 .btn--ghost { background: transparent; }
@@ -1027,7 +1024,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background: var(--ink-950);
   display: flex;
   flex-direction: column;
-  animation: fade 140ms ease;
+  animation: fade var(--dur-state) var(--ease-out);
 }
 
 .guide__bar {
@@ -1391,7 +1388,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background: var(--go-fill);
   color: var(--go-fill-ink);
   box-shadow: 0 6px 0 0 var(--go-deep);
-  transition: transform 80ms ease;
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .newproject--primary:active {
   transform: translateY(3px);
@@ -1418,7 +1415,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
 }
 .rowdel:hover { color: var(--rec-text); border-color: var(--rec-edge); }
 .rowdel:active { background: var(--rec-tint); color: var(--rec-text); border-color: var(--rec-text); }
@@ -1507,7 +1504,7 @@ select.field {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  transition: transform 70ms ease, background 120ms ease, border-color 120ms ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
 }
 .chip:active { transform: scale(0.94); }
 .chip--gold { border-color: var(--brass-edge); color: var(--brass-text); }
@@ -1523,16 +1520,16 @@ select.field {
 
 @keyframes chipflash {
   0% { transform: scale(1); }
-  35% { transform: scale(1.14); background: var(--go-fill); color: var(--go-fill-ink); border-color: transparent; }
+  35% { transform: scale(1.06); background: var(--go-fill); color: var(--go-fill-ink); border-color: transparent; }
   100% { transform: scale(1); }
 }
-.chip--flash { animation: chipflash 360ms ease; }
+.chip--flash { animation: chipflash var(--dur-panel) var(--ease-out); }
 .chip--flash.chip--gold {
   animation-name: chipflashgold;
 }
 @keyframes chipflashgold {
   0% { transform: scale(1); }
-  35% { transform: scale(1.14); background: var(--brass-fill); color: var(--brass-fill-ink); border-color: transparent; }
+  35% { transform: scale(1.06); background: var(--brass-fill); color: var(--brass-fill-ink); border-color: transparent; }
   100% { transform: scale(1); }
 }
 
@@ -1568,7 +1565,7 @@ select.field {
   line-height: 1.15;
   /* hardware key: sits proud, then depresses on press (same language as .bigbtn) */
   box-shadow: 0 4px 0 0 var(--key-shadow);
-  transition: transform 70ms ease, background 120ms ease, border-color 120ms ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
 }
 /* Wins over the base .chip:active scale - a key travels DOWN onto its shadow. */
 .chip.keycap:active { transform: translateY(3px); box-shadow: 0 1px 0 0 var(--key-shadow); }
@@ -1707,10 +1704,9 @@ select.field {
   inset: 0;
   pointer-events: none;
   box-shadow: inset 0 0 0 2.5px var(--rec);
+  /* static: the border states the frame is hot, the tally dot does the blinking */
   opacity: 0.55;
-  animation: recpulse 1.8s ease-in-out infinite;
 }
-@keyframes recpulse { 0%, 100% { opacity: 0.28; } 50% { opacity: 0.7; } }
 
 /* Two-pane wrappers. On phone/portrait they are `display: contents` — they
    vanish from layout entirely, so head/pager/rail/stage/deck stay DIRECT flex
@@ -1785,10 +1781,13 @@ select.field {
   border-radius: 50%;
   background: var(--rec-fill-ink);
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28);
-  /* SECONDARY pulse only - the solid fill is the real signal and never fades. */
-  animation: tallypulse 1.1s ease-in-out infinite;
+  /* THE ONE HEARTBEAT IN THE APP. A real tally light blinks, so this pulse is
+     earned; the solid fill behind it is the actual signal and never fades.
+     'alternate' rather than a symmetric 0/50/100 keyframe, so it can ride
+     --ease-out in both directions instead of a bare ease-in-out. */
+  animation: tallypulse 550ms var(--ease-out) infinite alternate;
 }
-@keyframes tallypulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes tallypulse { from { opacity: 1; } to { opacity: 0.5; } }
 .tally__clock {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -1891,7 +1890,10 @@ select.field {
   letter-spacing: var(--track-caps);
   font-size: var(--t-caps);
 }
-.recdot { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); animation: recpulse 1.2s infinite; }
+/* Static. It used to run its own 1.2s loop against the tally dot's 1.1s, which
+   is two red dots blinking slightly out of step - the least premium thing a
+   screen can do. Shape and colour already say "rolling". */
+.recdot { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
 
 /* last-takes mini list (idle) */
 .minitakes {
@@ -2048,7 +2050,7 @@ select.field {
   align-items: center;
   justify-content: center;
   gap: var(--sp-3);
-  transition: transform 80ms ease;
+  transition: transform var(--dur-press) var(--ease-out);
   box-shadow: 0 10px 0 0 var(--key-shadow);
 }
 .bigbtn:active { transform: translateY(4px); box-shadow: 0 6px 0 0 var(--key-shadow); }
@@ -2095,8 +2097,8 @@ select.field {
 .miclamp { width: 9px; height: 9px; border-radius: 50%; background: var(--chalk-faint); }
 /* The lamp is 9px on a pale wash, so it takes the deep token: the bright fill
    on the light tint is 1.7:1 and the lamp simply is not there. */
-.mictoggle--on .miclamp { background: var(--go-text); animation: listen 1.4s ease-in-out infinite; }
-@keyframes listen { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } }
+/* Static: the lamp being lit is the state. It does not need to breathe about it. */
+.mictoggle--on .miclamp { background: var(--go-text); }
 
 /* ============================================================ SHEET ======= */
 
@@ -2112,10 +2114,17 @@ select.field {
   align-items: flex-end;
   justify-content: center;
   z-index: 40;
-  animation: fade 160ms ease;
-  /* lift the sheet above the on-screen keyboard when it opens */
+  opacity: 0;
+  /* lift the sheet above the on-screen keyboard when it opens. --dur-kb is the
+     tray's transform duration too, and that pairing is the whole reason it is a
+     token: they ride the same keyboard, so they ride the same clock. */
   padding-bottom: var(--kb, 0px);
-  transition: padding-bottom 140ms ease;
+  transition: opacity var(--dur-move) var(--ease-out), padding-bottom var(--dur-kb) var(--ease-out);
+}
+.scrim[data-open] { opacity: 1; }
+.scrim[data-closing] {
+  opacity: 0;
+  transition: opacity 160ms var(--ease-in), padding-bottom var(--dur-kb) var(--ease-out);
 }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
@@ -2133,14 +2142,19 @@ select.field {
   border: 1px solid var(--line);
   border-bottom: none;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  animation: rise 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  transform: translateY(100%);
+  transition: transform var(--dur-panel) var(--ease-out);
   /* never taller than what's actually visible above the keyboard */
   max-height: calc(var(--vvh, 92vh) - 12px);
   display: flex;
   flex-direction: column;
   overflow: hidden; /* keeps the body's corners inside the sheet's radius */
 }
-@keyframes rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.scrim[data-open] .sheet { transform: translateY(0); }
+.scrim[data-closing] .sheet {
+  transform: translateY(100%);
+  transition: transform var(--dur-move) var(--ease-in);
+}
 
 /* The cap. Absolute rather than a flex row, so the body genuinely passes
    BEHIND it and the blur has something to blur; the body's top padding is
@@ -2159,7 +2173,7 @@ select.field {
   /* Transparent until the body has actually scrolled, same contract as every
      other bar in the app: a short sheet is one surface, not two. */
   border-bottom: 1px solid transparent;
-  transition: border-color 180ms ease-out;
+  transition: border-color var(--dur-move) var(--ease-out);
 }
 .sheet[data-scrolled] .sheet__head { border-bottom-color: var(--material-hairline); }
 
@@ -2173,9 +2187,6 @@ select.field {
   padding: calc(var(--sheet-head-h, 56px) + var(--sp-1)) var(--sp-4) calc(var(--safe-bottom) + var(--sp-6));
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sheet__head { transition: none; }
-}
 
 .sheet__grab {
   width: 40px; height: 4px; border-radius: 2px;
@@ -2233,9 +2244,16 @@ select.field {
   font-size: var(--t-secondary);
   z-index: 60;
   box-shadow: 0 8px 30px var(--lift-shadow);
-  animation: toastin 200ms ease;
+  opacity: 0;
+  transform: translate(-50%, 10px);
+  transition: opacity var(--dur-move) var(--ease-out), transform var(--dur-move) var(--ease-out);
 }
-@keyframes toastin { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.toast[data-open] { opacity: 1; transform: translate(-50%, 0); }
+.toast[data-closing] {
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition: opacity var(--dur-state) var(--ease-in), transform var(--dur-state) var(--ease-in);
+}
 
 /* empty states */
 .empty {
@@ -2246,9 +2264,24 @@ select.field {
 }
 .empty b { color: var(--chalk-dim); display: block; margin-bottom: var(--sp-2); font-size: var(--t-row); font-weight: 600; }
 
+/* ------------------------------------------------------- reduced motion ----
+   ONE rule for the whole app. Opacity is the single channel that survives,
+   because a fade carries no motion: a sheet still appears and disappears, it
+   just stops travelling. Everything else - transforms, the heartbeat, the chip
+   flash, the title shrink - lands on its final value immediately.
+
+   This replaces the * { animation-duration: 0.001ms } nuke, which did not disable
+   animations at all: it ran each one to completion in a thousandth of a
+   millisecond, so the app still paid for every frame and anything relying on an
+   animation's end state kept relying on it. */
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
-  .bigbtn, .btn, .chip, .card, .cardrow { transition: none; }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-property: opacity !important;
+    transition-duration: var(--dur-state) !important;
+  }
 }
 
 /* ------------------------------------------------------- script mode ----- */
@@ -2370,7 +2403,7 @@ select.field {
   color: var(--brass-text);
   border: 1px solid var(--brass-edge);
   background: var(--brass-tint);
-  transition: transform 80ms ease, background 120ms ease, border-color 120ms ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
 }
 .procta__btn:active { transform: scale(0.97); }
 .procta__btn:hover { border-color: var(--brass-edge); }
@@ -2380,7 +2413,7 @@ select.field {
   font-size: var(--t-secondary);
   line-height: 1.4;
   color: var(--chalk-dim);
-  animation: fade 200ms ease;
+  animation: fade var(--dur-move) var(--ease-out);
 }
 
 /* ------------------------------------------------------- multi-camera ---- */
@@ -2402,7 +2435,7 @@ select.field {
   font-feature-settings: 'tnum' 1;
   font-weight: 600;
   font-size: var(--t-row);
-  transition: transform 70ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
 }
 .camcount__opt:active { transform: scale(0.97); }
 .camcount__opt--on {
@@ -2611,9 +2644,12 @@ select.field {
   padding: 0;
   text-align: left;
   color: inherit;
-  transition: opacity 100ms ease;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-state) var(--ease-out);
 }
-.camslot__main:active { opacity: 0.7; }
+/* Was opacity: 0.7. A dim reads web; a background tint reads native, and it is
+   the same press .grow and .tabtray__tab already use. */
+.camslot__main:active { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .camslot__penbtn {
   position: absolute;
   top: 5px;
@@ -2639,7 +2675,7 @@ select.field {
   text-align: left;
   border-color: var(--rec-tint);
   background: var(--rec-tint);
-  transition: transform 70ms ease;
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .camslot--rolling:active { transform: scale(0.98); }
 .camslot--rolling .camslot__badge {
@@ -2703,7 +2739,7 @@ select.field {
   text-align: left;
   border-style: dashed;
   opacity: 0.8;
-  transition: transform 70ms ease, opacity 100ms ease;
+  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-state) var(--ease-out);
 }
 .camslot--join:active { transform: scale(0.98); opacity: 1; }
 
@@ -2740,7 +2776,7 @@ select.field {
   font: inherit;
   text-align: left;
 }
-.minitake__open:active { opacity: 0.7; }
+.minitake__open:active { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .minitake__pen { color: var(--text-dim); font-size: var(--t-secondary); }
 
 /* Selectable tag chips in the take editor (on = kept, off = dimmed). */
@@ -2779,7 +2815,7 @@ select.field {
   border-left: 3px solid var(--go);
   border-radius: var(--radius);
   background: var(--ink-900);
-  animation: installnudge-in 200ms ease;
+  animation: installnudge-in var(--dur-move) var(--ease-out);
 }
 @keyframes installnudge-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .installnudge__body { flex: 1; min-width: 0; }
@@ -3140,7 +3176,7 @@ select.field {
   font: inherit;
   text-align: left;
 }
-.cliprow__main:active { opacity: 0.8; }
+.cliprow__main:active { background: color-mix(in srgb, var(--text) 8%, transparent); }
 
 /* Row 1, left: the clip name(s), plus the sound file when the take carries one. */
 .cliprow__names {
@@ -3224,7 +3260,7 @@ select.field {
   font-weight: 600;
   color: var(--chalk-dim);
 }
-.cliprow__tool:active { opacity: 0.6; }
+.cliprow__tool:active { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .cliprow__tool--danger { color: var(--rec-text); }
 
 .cliprow--discarded { color: var(--chalk-faint); }
@@ -3305,7 +3341,7 @@ select.field {
    masthead's own size, so the two settle on one baseline as the title shrinks. */
 .home-head .masthead__mark {
   flex: none;
-  transition: transform 180ms ease-out;
+  transition: transform var(--dur-move) var(--ease-out);
 }
 [data-scrolled].home .masthead__mark {
   transform: scale(0.72);
@@ -3315,9 +3351,6 @@ select.field {
   padding-right: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .home-head .masthead__mark { transition: none; }
-}
 
 /* ---- the hero -----------------------------------------------------------
    The one thing on the tab that is allowed to be loud. No gradient, no glow,
@@ -3335,7 +3368,7 @@ select.field {
   background: var(--go-text);
   color: var(--surface);
   text-align: left;
-  transition: transform 90ms ease-out, opacity 160ms ease-out;
+  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-move) var(--ease-out);
 }
 .home-hero:active {
   transform: scale(0.985);
@@ -3495,14 +3528,11 @@ select.field {
   /* Transparent until there is something behind it, so a screen at rest is a
      title on the page rather than a title in a box. */
   border-bottom: 1px solid transparent;
-  transition: border-color 180ms ease-out;
+  transition: border-color var(--dur-move) var(--ease-out);
 }
 
 .ltop[data-scrolled] { border-bottom-color: var(--material-hairline); }
 
-@media (prefers-reduced-motion: reduce) {
-  .ltop { transition: none; }
-}
 
 /* The Pro CTA sits between two cards on the Account tab, so it keeps the same
    rhythm the cards hold between themselves rather than inventing its own. */

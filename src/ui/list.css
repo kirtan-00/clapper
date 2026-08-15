@@ -156,7 +156,7 @@
   font-weight: 700;
   letter-spacing: var(--track-tighter);
   color: var(--text);
-  transition: font-size 180ms ease-out, padding 180ms ease-out;
+  transition: font-size var(--dur-move) var(--ease-out), padding var(--dur-move) var(--ease-out);
 }
 
 /* The shrink target is the row step at the emphasis weight - a nav-bar title,
@@ -168,8 +168,3 @@
   padding-bottom: var(--sp-3);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ltitle {
-    transition: none;
-  }
-}

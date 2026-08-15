@@ -24,6 +24,16 @@ export function ClipNum(props: { parts: ClipParts; className?: string }) {
 }
 
 /**
+ * How long after a dismiss the sheet stays mounted so its exit can play. Must
+ * outlast the longer of the sheet's 180ms slide and the scrim's 160ms fade;
+ * these live in styles.css under "ENTER, AND EXIT" and move together.
+ */
+const SHEET_UNMOUNT_MS = 190;
+
+/** The toast's exit is 120ms, --dur-state on --ease-in. */
+const TOAST_EXIT_MS = 130;
+
+/**
  * Full-bleed bottom sheet on a scrim. Tapping the scrim dismisses.
  *
  * Two boxes, not one: a MATERIAL cap carrying the grabber and the title, and a
@@ -43,6 +53,20 @@ export function Sheet(props: {
 }) {
   const { title, lede, onClose, children } = props;
   const headRef = useRef<HTMLDivElement | null>(null);
+  // Enter and EXIT. The sheet used to animate in and then vanish in a single
+  // frame, which reads as a dialog being switched off rather than put away.
+  //
+  // Class-toggled, not a keyframe: a dismiss that lands mid-rise retargets the
+  // transform from wherever it currently is instead of queueing a second
+  // animation behind the first. `enter` is the pre-paint state, flipped to
+  // `open` on the next frame so the browser has something to transition FROM.
+  //
+  // The exit is subtler and faster than the entrance by contract: 240ms up on
+  // --ease-out, 180ms back down on --ease-in, with the scrim fading out in
+  // parallel over 160ms. UNMOUNT_MS is the longer of the two plus a frame.
+  const [phase, setPhase] = useState<'enter' | 'open' | 'closing'>('enter');
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   // Seeded with the two heights the cap actually takes, so the very first
   // paint is already right and nothing jumps once the measurement lands.
   const [headH, setHeadH] = useState(title ? 56 : 34);
@@ -57,12 +81,28 @@ export function Sheet(props: {
     return () => window.removeEventListener('resize', measure);
   }, [title]);
 
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setPhase((p) => (p === 'enter' ? 'open' : p)));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const exitRef = useRef<number | null>(null);
+  useEffect(() => () => { if (exitRef.current) window.clearTimeout(exitRef.current); }, []);
+
+  function dismiss() {
+    if (!closeRef.current || phase === 'closing') return;
+    setPhase('closing');
+    exitRef.current = window.setTimeout(() => closeRef.current?.(), SHEET_UNMOUNT_MS);
+  }
+
   return (
     <div
       className="scrim"
       role="presentation"
+      data-open={phase === 'open' ? '' : undefined}
+      data-closing={phase === 'closing' ? '' : undefined}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && onClose) onClose();
+        if (e.target === e.currentTarget) dismiss();
       }}
     >
       <div
@@ -111,15 +151,39 @@ export function Confirm(props: {
   );
 }
 
-/** Transient confirmation toast that dismisses itself. */
+/**
+ * Transient confirmation toast that dismisses itself.
+ *
+ * It rises and fades in over --dur-move and leaves over --dur-state on
+ * --ease-in, travelling 4px out against the 10px it came in on: an exit is
+ * always subtler and faster than its entrance. It used to animate in and then
+ * disappear between two frames.
+ */
 export function Toast(props: { message: string; onDone: () => void }) {
   const doneRef = useRef(props.onDone);
   doneRef.current = props.onDone;
+  const [phase, setPhase] = useState<'enter' | 'open' | 'closing'>('enter');
   useEffect(() => {
-    const id = window.setTimeout(() => doneRef.current(), 1400);
-    return () => window.clearTimeout(id);
+    setPhase('enter');
+    const raf = requestAnimationFrame(() => setPhase('open'));
+    const goOut = window.setTimeout(() => setPhase('closing'), 1400);
+    const gone = window.setTimeout(() => doneRef.current(), 1400 + TOAST_EXIT_MS);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(goOut);
+      window.clearTimeout(gone);
+    };
   }, [props.message]);
-  return <div className="toast" role="status">{props.message}</div>;
+  return (
+    <div
+      className="toast"
+      role="status"
+      data-open={phase === 'open' ? '' : undefined}
+      data-closing={phase === 'closing' ? '' : undefined}
+    >
+      {props.message}
+    </div>
+  );
 }
 
 /** The clapper-stick stripe rail (the app signature motif). */
