@@ -80,11 +80,7 @@ export function AccountScreen(_props: { nav: Nav }) {
 
           <Section
             title="Free uses left"
-            note={
-              usage
-                ? `Each counter is its own. ${FREE_LIMIT} free uses of each, and they do not spend each other.`
-                : 'Counted on the server. This needs a connection to read.'
-            }
+            note={usage ? 'Each counter is its own.' : 'Needs a connection to read.'}
           >
             {COUNTERS.map(({ key, label }) => (
               <ReadRow
@@ -96,10 +92,10 @@ export function AccountScreen(_props: { nav: Nav }) {
             ))}
           </Section>
 
-          <Section
-            title="Always free"
-            note="Logging takes, the PDF shot log and Backup never need an account, a connection or a counter. They are the parts you cannot be locked out of at 2am on a location with no signal."
-          >
+          {/* The paragraph that used to sit under this group said, at length,
+              exactly what the three rows already say: Unlimited, Unlimited,
+              Unlimited. */}
+          <Section title="Always free">
             <ReadRow label="Take logging" value="Unlimited" />
             <ReadRow label="PDF shot log" value="Unlimited" />
             <ReadRow label="Backup and restore" value="Unlimited" />
@@ -120,10 +116,21 @@ export function AccountScreen(_props: { nav: Nav }) {
         </>
       ) : (
         <>
+          {/* THE SIGNED-OUT BACKUP WARNING LIVES HERE NOW.
+              It used to sit at the top of every project screen, on every visit,
+              as two lines ending "if you lose the phone, you lose the shoot" -
+              ambient dread, permanently, for a state that is a fact about the
+              ACCOUNT rather than about the project you happen to have open. As
+              a row with a badge it is still true, still findable, and no longer
+              shouted at someone who is mid-shoot and cannot act on it. */}
           <Section
             title="Sign in"
-            note="A free Google sign-in. We receive your email address and nothing else. It is what the server counts your free uses against."
+            note="We receive your email address and nothing else."
           >
+            <ReadRow
+              label="Your shoots"
+              value={<span className="cambadge cambadge--approx">This phone only</span>}
+            />
             <Row
               label={busy ? 'Opening Google…' : 'Sign in with Google'}
               push
@@ -136,10 +143,7 @@ export function AccountScreen(_props: { nav: Nav }) {
             />
           </Section>
 
-          <Section
-            title="Without an account"
-            note="Signing in is never forced. It unlocks the parts that run on a server, and nothing else changes."
-          >
+          <Section title="Without an account">
             <ReadRow label="Take logging" value="Free" />
             <ReadRow label="PDF shot log" value="Free" />
             <ReadRow label="Backup and restore" value="Free" />

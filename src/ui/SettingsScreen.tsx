@@ -71,11 +71,14 @@ export function SettingsScreen(props: { nav: Nav }) {
       <ScreenHeader title="Settings" />
 
       {/* First, above Help, on purpose: this is the one setting a crew member
-          changes on the day, so it must not sit under documentation. */}
-      <Section
-        title="Appearance"
-        note="Light is the default. Night is for a call time before sunrise, not for a dark room at noon."
-      >
+          changes on the day, so it must not sit under documentation.
+
+          Every group here used to carry a two-line footnote. They are gone. A
+          toggle labelled Light/Night does not need a paragraph about sunrise,
+          and the one note with a real consequence (a restore lands as a NEW
+          project) now appears inside the restore sheet, where the file picker
+          is - at the moment of need rather than on every visit. */}
+      <Section title="Appearance">
         <ThemeToggleRow />
       </Section>
 
@@ -83,10 +86,7 @@ export function SettingsScreen(props: { nav: Nav }) {
         <Row label="How to use" value="9 sections" mono push onClick={openGuide} />
       </Section>
 
-      <Section
-        title="Your work"
-        note="A backup comes back as a brand new project. Nothing already on this phone is touched."
-      >
+      <Section title="Your work">
         <Row
           label="Restore from backup"
           push
@@ -97,10 +97,9 @@ export function SettingsScreen(props: { nav: Nav }) {
         />
       </Section>
 
-      <Section
-        title="Clapper"
-        note="Clapper is an early beta. Tell us what broke and what is missing. It is read by the person who builds it."
-      >
+      {/* The beta note is not lost: FEEDBACK_MAILTO seeds the same words into
+          the message body, where they are a prompt instead of an aside. */}
+      <Section title="Clapper">
         <Row
           label="Send feedback"
           push
@@ -174,8 +173,7 @@ function RestoreSheet(props: { onClose: () => void; onRestored: (project: Projec
   return (
     <Sheet title="Restore from backup" onClose={props.onClose}>
       <p className="camnote" style={{ marginTop: 0 }}>
-        Pick a Backup file (.json) made by this app's Backup button. It comes back as a brand new
-        project — nothing already on this phone is touched.
+        A backup file comes back as a new project. Nothing on this phone is touched.
       </p>
       <label className={`btn btn--go btn--full sp-upload${busy ? ' btn--disabled' : ''}`}>
         {busy ? 'Restoring…' : 'Choose backup file'}

@@ -163,15 +163,14 @@ export default function InstallNudge() {
     <div className="installnudge" role="status">
       <div className="installnudge__body">
         <p className="installnudge__title">Keep your shot log safe</p>
+        {/* One line, and on iOS it is an instruction rather than an
+            explanation: the title above already says why. */}
         {platform === 'ios' ? (
           <p className="installnudge__msg">
-            Install Clapper so your shot logs can&apos;t be cleared: tap{' '}
-            <ShareGlyph /> <b>Share</b>, then <b>Add to Home Screen</b>.
+            Tap <ShareGlyph /> <b>Share</b>, then <b>Add to Home Screen</b>.
           </p>
         ) : (
-          <p className="installnudge__msg">
-            Install Clapper so your shot logs can&apos;t be cleared by the browser.
-          </p>
+          <p className="installnudge__msg">Install it, and the browser cannot clear it.</p>
         )}
       </div>
       <div className="installnudge__actions">

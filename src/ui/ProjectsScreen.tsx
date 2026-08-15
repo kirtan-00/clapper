@@ -15,6 +15,7 @@ import { extractPdfText } from './pdftext';
 import { parseShotlist, shotlistToPack } from './shotlist';
 import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
+import { ScreenHeader } from './glist';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
 import { useSession, signInWithGoogle } from '../net/auth';
@@ -77,16 +78,11 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
 
   return (
     <div className="app">
-      <header className="masthead">
-        <div className="masthead__mark" aria-hidden="true">
-          <span />
-          <span />
-        </div>
-        <div>
-          <h1>Clapper</h1>
-          <p>On-set shot log</p>
-        </div>
-      </header>
+      {/* Was an app icon, the wordmark and a tagline: a website header, on a tab
+          that is not even called Clapper. It is now the same large title the
+          other three roots carry, from the same component, so all four shrink
+          into the material bar on the same beat. */}
+      <ScreenHeader title="Projects" />
 
       <InstallNudge />
 
@@ -95,8 +91,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
       ) : rows.length === 0 ? (
         <div className="empty">
           <b>No projects yet</b>
-          Start one for your shoot day. Set the frame rate and clip numbering once, then just
-          roll.
+          Start one for your shoot day.
         </div>
       ) : (
         <div className="stack">
@@ -334,8 +329,7 @@ function CreateProjectSheet(props: {
     <Sheet title={props.pack ? 'Set up the shoot' : 'New project'} onClose={props.onClose}>
       {props.pack && (
         <p className="camnote" style={{ marginTop: 0 }}>
-          {props.pack.scenes.length} scenes ready from your script. Set your camera and clip
-          numbering, then start. The scenes load with their tap chips.
+          <span className="tnum">{props.pack.scenes.length}</span> scenes ready
         </p>
       )}
       <div className="formrow">

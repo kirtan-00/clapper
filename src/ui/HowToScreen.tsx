@@ -154,6 +154,17 @@ export function HowToScreen(props: { onClose: () => void }) {
               <b>Frame rate.</b> Match what the camera is shooting. It is what the exported timeline
               gets built at.
             </p>
+            {/* RELOCATED from Home and from the shotlist sheet, both of which
+                carried this as a paragraph at rest on every visit. It belongs
+                here: it is read once, when you are deciding how to start. */}
+            <p>
+              <b>Starting from paper.</b> <b>Shotlist · from a PDF</b> on Home reads every scene and
+              every numbered shot off a shot division (rows like 1.1, 1.2, with a size column) and
+              lays them out as scenes you can tap, with the key moments inside each shot already
+              worked out. Two example breakdowns are built in if you have nothing to hand. The
+              document itself never leaves the phone; only the parsed shot list is sent, and only to
+              write the tap chips.
+            </p>
             <p className="gnote">
               iPhone footage shares its counter with the photo roll, so numbers skip and cannot be
               predicted. Set the start from real footage and expect to correct a number during the
@@ -369,9 +380,17 @@ export function HowToScreen(props: { onClose: () => void }) {
               Multi-camera projects export the same way, with every camera’s angle stacked in sync
               at each position.
             </p>
+            {/* RELOCATED from the top of every project screen, where it ran on
+                every visit whether or not anything could be done about it. */}
+            <p>
+              <b>Back it up.</b> Signed out, a project exists on this phone and nowhere else: lose
+              the phone and you lose the shoot. <b>Backup</b> in the export bar writes a file you
+              can mail yourself, and <b>Settings › Restore from backup</b> stands it back up. Signed
+              in, the same work syncs on its own. The Account tab says which of the two you are on.
+            </p>
             <p className="gnote">
               PDF export works offline, no account needed. Premiere, Resolve and CSV need a quick,
-              free Google sign-in — same for uploading a shotlist.
+              free Google sign-in, same for uploading a shotlist.
             </p>
           </section>
 

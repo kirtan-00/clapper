@@ -642,39 +642,10 @@ input, select, textarea {
 }
 .iconbtn:active { background: var(--ink-850); color: var(--chalk); }
 
-/* -------------------------------------------------------------- masthead - */
-
-.masthead {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
-  margin: 10px 0 22px;
-}
-.masthead__mark {
-  width: 44px;
-  height: 44px;
-  border-radius: 9px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  flex: none;
-}
-.masthead__mark span { display: block; }
-.masthead__mark span:first-child { background: var(--stripe); background-size: auto 200%; }
-.masthead__mark span:last-child { background: var(--ink-800); }
-.masthead h1 {
-  font-size: 1.7rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin: 0;
-  line-height: 1;
-}
-.masthead p {
-  margin: 4px 0 0;
-  font-size: 0.8rem;
-  color: var(--chalk-dim);
-}
+/* Masthead removed. Both screens that carried one (Home and Projects) now use
+   the shared large-title bar - `.ltop` / `.ltitle` in ui/list.css - like
+   Settings and Account already did. The clapper stick lives on as `.rail`, the
+   signature stripe, spent once per surface. */
 
 /* ---------------------------------------------------------------- cards -- */
 
@@ -3164,37 +3135,10 @@ select.field {
    signal is "this is the button".
    ========================================================================== */
 
-/* The masthead bar. It is the same MATERIAL header the other tab roots use
-   (`.ltop` carries the full-bleed, the blur and the hairline), plus the stick.
-   Only the horizontal padding differs: `.ltop` normally leaves the 16px to
-   `.ltitle`, and here the stick sits to the left of the title, so the bar owns
-   the inset instead and the title gives its own up (below). */
-.home-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.home-head.ltop {
-  padding-left: calc(var(--safe-left) + 18px);
-  padding-right: calc(var(--safe-right) + 18px);
-}
-/* The masthead stick, held to the large title's cap height rather than the
-   masthead's own size, so the two settle on one baseline as the title shrinks. */
-.home-head .masthead__mark {
-  flex: none;
-  transition: transform 180ms ease-out;
-}
-[data-scrolled].home .masthead__mark {
-  transform: scale(0.72);
-}
-.home-head .ltitle {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-head .masthead__mark { transition: none; }
-}
+/* The Home masthead bar is GONE, and with it the app icon and the wordmark it
+   held (premium standard 7.7: a logo lockup at the top of a screen is a website
+   header). Home now renders the same bare `.ltop` the other three tab roots do,
+   so there is nothing left here to style. */
 
 /* ---- the hero -----------------------------------------------------------
    The one thing on the tab that is allowed to be loud. No gradient, no glow,
@@ -3295,16 +3239,6 @@ select.field {
   width: 100%;
   height: 100%;
   fill: none;
-}
-
-/* ---- first run ----------------------------------------------------------
-   Shown only when the phone holds no projects at all. It explains the hero
-   rather than adding a second thing to do. */
-.home-first {
-  margin: 2px 16px 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--text-dim);
 }
 
 /* ==========================================================================

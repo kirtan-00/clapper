@@ -100,7 +100,7 @@ export function ProjectScreen(props: {
   // sits at the top (stamps Slate.shootOrder via the same reorderSlates atomic
   // write drag-to-reorder uses) and flags each scene's Slate.today. Mirrors
   // Script Mode's own upload → sign-in → error pattern (see ProjectsScreen).
-  const { session: csSession, loading: csSessionLoading } = useSession();
+  const { session: csSession } = useSession();
   const [csPhase, setCsPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
   const [csError, setCsError] = useState<string | null>(null);
   const [csNote, setCsNote] = useState<string | null>(null);
@@ -355,17 +355,12 @@ export function ProjectScreen(props: {
 
       <Rail thin />
 
-      {/* Sync only runs signed in (see net/sync.ts's flush()), so a signed-out
-          shoot has no copy anywhere but this phone. Persistent, not a toast —
-          this is true for the entire time it's true, not for 1400ms after a
-          tap. The action is the Backup button down by the export bar. */}
-      {!csSessionLoading && !csSession && (
-        <p className="camnote" style={{ textAlign: 'center', margin: '14px 0 0' }}>
-          Signed out — this project exists only on this phone. If you lose the phone, you lose the
-          shoot. Back it up below.
-        </p>
-      )}
-
+      {/* The signed-out warning that used to sit here is gone from this screen.
+          It was two lines of ambient dread on EVERY visit to EVERY project, and
+          it is not a fact about this project: it is a fact about the account,
+          which is why it now reads as a badged row on the Account tab
+          ("Your shoots - This phone only"). The guide's wrap section carries
+          the same warning next to the Backup button that answers it. */}
       <section className="section">
         <div className="section__head">
           <span className="label">Scenes</span>
@@ -385,7 +380,7 @@ export function ProjectScreen(props: {
         ) : slates.length === 0 ? (
           <div className="empty">
             <b>No scenes yet</b>
-            Add a scene for your first setup, then tap it to start rolling.
+            Add your first setup below.
           </div>
         ) : (
           <>
