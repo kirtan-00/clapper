@@ -16,6 +16,7 @@ import { parseShotlist, shotlistToPack } from './shotlist';
 import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
 import { ScreenHeader } from './glist';
+import { PlusMark, ListMark, CloseMark } from './marks';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
 import { useSession, signInWithGoogle } from '../net/auth';
@@ -148,7 +149,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           setCreating(true);
         }}
       >
-        <span aria-hidden="true">+</span> New project
+        <PlusMark /> New project
       </button>
 
       <button
@@ -159,7 +160,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           setLoadingScript(true);
         }}
       >
-        <span aria-hidden="true">≡</span> Shotlist · from a PDF
+        <ListMark /> Shotlist · from a PDF
       </button>
 
       <div style={{ marginTop: 22 }}>
@@ -697,7 +698,7 @@ function CreateProjectSheet(props: {
                 aria-label={`Remove tag ${t}`}
                 onClick={() => setTags(tags.filter((x) => x !== t))}
               >
-                &times;
+                <CloseMark />
               </button>
             </span>
           ))}

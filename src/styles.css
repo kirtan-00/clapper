@@ -3310,3 +3310,77 @@ select.field {
 /* The Pro CTA sits between two cards on the Account tab, so it keeps the same
    rhythm the cards hold between themselves rather than inventing its own. */
 .app .procta { margin: 2px 0 26px; }
+
+/* ==========================================================================
+   THE HOUSE MARKS + THE LABELLED BACK BUTTON
+   Added 2026-08-15 by the prose/components pass (premium standard 7.9, 7.10).
+
+   Every rule here reads a semantic token and nothing else: no raw colour, no
+   new type/spacing/radius/motion token. It exists because the glyphs it
+   replaces (the chevrons, the close cross, the plus) were TEXT, and text
+   carries a baseline and side bearings, so centring a 44px box around one puts
+   the ink high and left. An SVG's viewBox is the ink's frame, which means
+   centring the box centres the mark.
+   ========================================================================== */
+
+/* Base: block, so there is no inline baseline gap; currentColor, so the
+   parent's token is the only thing deciding the colour, in both themes. */
+.mark {
+  display: block;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: none;
+}
+
+/* The back chevron sits beside a 17px label at the size iOS uses: a touch
+   smaller than the type next to it, never larger. */
+.mark--back { width: 17px; height: 17px; }
+.mark--fwd { width: 15px; height: 15px; }
+.mark--close { width: 15px; height: 15px; }
+.mark--plus,
+.mark--list { width: 19px; height: 19px; }
+.mark--down { width: 15px; height: 15px; }
+
+/* ---- the labelled back button -------------------------------------------
+   iOS names the screen you are going back to. A bare chevron makes the user
+   remember; the name makes the app tell them. The label ellipsizes rather than
+   wrapping, so a project called "Let's Meet Dobaara" cannot push the title out
+   of the bar: it is capped so the title always keeps the majority of the width.
+
+   Colour is --text-dim (6.22:1 on paper, over the 4.5:1 secondary floor) and
+   deliberately NOT a signal colour. Chrome stays greyscale, and on the light
+   theme the bright values are fill-only in any case. */
+.backbtn {
+  flex: none;
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -6px; /* optical: pull the chevron out toward the screen edge */
+  padding: 0 6px 0 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+}
+.backbtn__label {
+  max-width: 42vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.02rem;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+.backbtn:active { color: var(--text); }
+
+/* ---- the marks in place -------------------------------------------------
+   Each of these rules used to set a font-size in order to size a glyph. The
+   size now lives on the mark, so all that is left is the colour and the box. */
+.card__chevron { font-size: 0; }
+.rollhint__arrow {
+  display: inline-flex;
+  align-items: center;
+}
+.chip__x { font-size: 0; }
+.installnudge__dismiss { font-size: 0; }

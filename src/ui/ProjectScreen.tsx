@@ -11,6 +11,7 @@ import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
 import { Sheet, Confirm, Rail } from './common';
 import { useScrolled } from './glist';
+import { BackButton, ForwardMark, DownMark } from './marks';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
@@ -72,6 +73,8 @@ function markRollHintSeen(): void {
 
 export function ProjectScreen(props: {
   project: Project;
+  /** The name of the screen BACK lands on. The router knows it; this does not. */
+  backLabel: string;
   onBack: () => void;
   onOpenSlate: (project: Project, slate: Slate) => void;
   onProjectChanged: (project: Project) => void;
@@ -330,9 +333,7 @@ export function ProjectScreen(props: {
   return (
     <div className="app">
       <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
-        <button type="button" className="iconbtn" aria-label="Back to projects" onClick={props.onBack}>
-          &lsaquo;
-        </button>
+        <BackButton label={props.backLabel} onClick={props.onBack} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 className="topbar__title">{project.name}</h1>
           <div className="topbar__sub">
@@ -388,7 +389,7 @@ export function ProjectScreen(props: {
               <div className="rollhint">
                 Tap a scene to start rolling
                 <span className="rollhint__arrow" aria-hidden="true">
-                  ↓
+                  <DownMark />
                 </span>
               </div>
             )}
@@ -461,7 +462,7 @@ export function ProjectScreen(props: {
                       </span>
                       <span className="card__count">{takeCount}</span>
                       <span className="card__chevron" aria-hidden="true">
-                        ›
+                        <ForwardMark />
                       </span>
                     </div>
                     {slate.summary && <div className="card__summary">{slate.summary}</div>}

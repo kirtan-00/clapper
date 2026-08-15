@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { track } from '../net/analytics';
+import { CloseMark } from './marks';
 
 const DISMISS_KEY = 'clapper.installNudgeDismissed';
 
@@ -189,7 +190,7 @@ export default function InstallNudge() {
           onClick={onDismiss}
           aria-label="Dismiss"
         >
-          &#10005;
+          <CloseMark />
         </button>
       </div>
     </div>

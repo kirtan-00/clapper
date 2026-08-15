@@ -25,6 +25,7 @@ import { nextTakeNumber } from '../store/util';
 import { tc } from '../export/timecode';
 import { Sheet, Rail, Toast, Confirm } from './common';
 import { useScrolled } from './glist';
+import { BackButton } from './marks';
 import { TakeEditSheet } from './TakeEditSheet';
 import * as haptics from './haptics';
 
@@ -61,7 +62,12 @@ interface ClipRow {
   shot?: Shot;
 }
 
-export function ClipLogScreen(props: { project: Project; onBack: () => void }) {
+export function ClipLogScreen(props: {
+  project: Project;
+  /** The name of the screen BACK lands on. The router knows it; this does not. */
+  backLabel: string;
+  onBack: () => void;
+}) {
   // Local copy, not `props.project` read fresh each render: a clip-number
   // correction (TakeEditSheet's rebase) writes a new project row with shifted
   // counters, and the NEXT sheet opened from this screen must see it, same as
@@ -175,9 +181,7 @@ export function ClipLogScreen(props: { project: Project; onBack: () => void }) {
   return (
     <div className="app">
       <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
-        <button type="button" className="iconbtn" aria-label="Back to project" onClick={props.onBack}>
-          &lsaquo;
-        </button>
+        <BackButton label={props.backLabel} onClick={props.onBack} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 className="topbar__title">Clip log</h1>
           <div className="topbar__sub">
