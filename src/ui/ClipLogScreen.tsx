@@ -223,7 +223,7 @@ export function ClipLogScreen(props: {
             <b>{query.trim() ? 'No clip matches that' : 'No clips yet'}</b>
             {query.trim()
               ? 'Try the number on its own, or the scene name.'
-              : 'Roll a take and its clip name shows up here, with the scene and shot it belongs to.'}
+              : 'Every clip you roll lands here.'}
           </div>
         ) : (
           <div className="cliplog">

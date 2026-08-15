@@ -914,33 +914,10 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   min-height: var(--tap);
 }
 
-.guide__close {
-  flex: none;
-  width: var(--tap);
-  height: var(--tap);
-  margin-left: -8px;
-  display: grid;
-  place-items: center;
-  font-size: 1.35rem;
-  line-height: 1;
-  color: var(--chalk-dim);
-  border-radius: var(--radius-sm);
-}
-.guide__close:active { background: var(--ink-850); color: var(--chalk); }
-
-.guide__mark {
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-}
-.guide__mark span { display: block; }
-.guide__mark span:first-child { background: var(--stripe); background-size: auto 200%; }
-.guide__mark span:last-child { background: var(--ink-800); }
+/* `.guide__close` and `.guide__mark` are gone: the guide's bar carries the
+   shared `.backbtn` now, so the glyph-in-a-box and the two-stripe app lockup
+   both went with it. The stripe survives once on this surface, as the tail
+   rule (`.guide__tail`). */
 
 .guide__title {
   margin: 0;

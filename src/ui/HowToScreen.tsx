@@ -19,6 +19,7 @@
 import { useEffect, useRef } from 'react';
 import { useFullScreenClaim } from './AppShell';
 import * as haptics from './haptics';
+import { BackButton } from './marks';
 
 const GUIDE_NAV: { id: string; label: string }[] = [
   { id: 'g-what', label: 'What it is' },
@@ -58,21 +59,17 @@ export function HowToScreen(props: { onClose: () => void }) {
     <div className="guide" role="dialog" aria-modal="true" aria-label="How Clapper works">
       <div className="guide__bar">
         <div className="guide__barrow">
-          <button
-            type="button"
-            className="guide__close"
-            aria-label="Close the guide"
+          {/* Was a font-glyph arrow in a 44px box, plus the two-stripe app
+              mark: the same website-header lockup that came off Home and
+              Projects, and the second stripe on a surface that already ends in
+              one. Now the house back button, saying where it goes. */}
+          <BackButton
+            label="Settings"
             onClick={() => {
               haptics.tap();
               onClose();
             }}
-          >
-            <span aria-hidden="true">←</span>
-          </button>
-          <div className="guide__mark" aria-hidden="true">
-            <span />
-            <span />
-          </div>
+          />
           <h2 className="guide__title">How Clapper works</h2>
         </div>
         <div className="guide__nav">
