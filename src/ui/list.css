@@ -25,12 +25,12 @@
 */
 
 .glist {
-  margin: 0 0 26px;
+  margin: 0 0 var(--sp-7);
 }
 
 /* Section header sits OUTSIDE the card, above it. Small, quiet, spaced. */
 .glist-hdr {
-  margin: 0 0 8px 16px;
+  margin: 0 0 var(--sp-2) var(--inset);
   font-size: var(--t-caps);
   font-weight: 600;
   letter-spacing: var(--track-caps);
@@ -50,14 +50,14 @@
    further in; that is what `[data-icon]` is for. Overriding the variable
    rather than the border keeps one rule doing the drawing. */
 .grow {
-  --glist-inset: 16px;
+  --glist-inset: var(--inset);
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   width: 100%;
   min-height: var(--tap);
-  padding: 11px 16px;
+  padding: var(--sp-3) var(--sp-4);
   text-align: left;
   background: none;
   color: var(--text);
@@ -65,7 +65,7 @@
 }
 
 .grow[data-icon] {
-  --glist-inset: 52px;
+  --glist-inset: calc(var(--inset) + 24px + var(--sp-3));
 }
 
 /* The inset hairline. A pseudo-element, not a border, so it can start at the
@@ -140,7 +140,7 @@
    card above them actually does. Faint is for chevrons and placeholders, not
    for a sentence somebody has to read outdoors. */
 .glist-note {
-  margin: 8px 16px 0;
+  margin: var(--sp-2) var(--inset) 0;
   font-size: var(--t-secondary);
   line-height: 1.4;
   color: var(--text-dim);
@@ -151,7 +151,7 @@
    sets `data-scrolled` on the container past a ~12px scroll. Kept here so the
    three tabs cannot drift on the type ramp or the timing. */
 .ltitle {
-  padding: 4px 16px 10px;
+  padding: var(--sp-1) var(--inset) var(--sp-3);
   font-size: var(--t-large);
   font-weight: 700;
   letter-spacing: var(--track-tighter);
@@ -164,8 +164,8 @@
 [data-scrolled] .ltitle {
   font-size: var(--t-row);
   font-weight: 600;
-  padding-top: 10px;
-  padding-bottom: 10px;
+  padding-top: var(--sp-3);
+  padding-bottom: var(--sp-3);
 }
 
 @media (prefers-reduced-motion: reduce) {
