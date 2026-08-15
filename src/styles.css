@@ -3394,3 +3394,12 @@ select.field {
    findable, but below the field and above the Cancel/Save pair, so it never
    sits where a thumb goes for Save. */
 .sp-danger { margin-top: 18px; }
+
+/* One sheet where the two actions are NOT peers: the after-cut sheet, where
+   Discard throws the take away and Keep is what happens ninety-nine times out
+   of a hundred. Equal width and equal weight made the sheet ask a question it
+   had already answered. */
+.sheet__actions--weighted .btn--danger {
+  flex: 0 1 38%;
+  font-weight: 600;
+}

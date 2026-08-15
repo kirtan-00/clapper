@@ -626,9 +626,10 @@ export function ProjectScreen(props: {
         />
       )}
 
+      {/* A project called "Hu Kon Chu?" was producing "Delete Hu Kon Chu??". */}
       {deletingProject && (
         <Confirm
-          title={`Delete ${project.name}?`}
+          title={`Delete ${project.name.replace(/[?!.]+$/, '')}?`}
           message="This removes the project and every scene, shot, take and moment in it. This cannot be undone."
           confirmLabel="Delete project"
           onCancel={() => setDeletingProject(false)}

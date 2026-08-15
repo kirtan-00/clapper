@@ -284,9 +284,9 @@ export function ClipLogScreen(props: {
         )}
       </section>
 
-      <div style={{ marginTop: 22 }}>
-        <Rail thin />
-      </div>
+      {/* The second stripe that used to close this screen is gone. Used on
+          every surface and twice on some, the clapper stripe is texture; spent
+          once, under the nav bar, it is the signature. */}
 
       {moving && (
         <MoveSheet

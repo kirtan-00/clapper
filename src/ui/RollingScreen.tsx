@@ -1745,9 +1745,13 @@ function PostCutSheet(props: {
         </div>
       </div>
 
+      {/* Two labels both ended in "(OPTIONAL)", in caps, one under the other.
+          Saying it twice makes it louder, not clearer, and neither field is
+          gated: KEEP works with both empty, which is the real proof. The
+          placeholders carry the format and the example. */}
       <div className="formrow">
         <label className="label" htmlFor="pc-tc">
-          Camera timecode at shot start (optional)
+          Camera timecode at shot start
         </label>
         <input
           id="pc-tc"
@@ -1766,7 +1770,7 @@ function PostCutSheet(props: {
 
       <div className="formrow">
         <label className="label" htmlFor="pc-note">
-          Note (optional)
+          Note
         </label>
         <textarea
           id="pc-note"
@@ -1777,7 +1781,12 @@ function PostCutSheet(props: {
         />
       </div>
 
-      <div className="sheet__actions">
+      {/* DISCARD and KEEP were the same width and the same weight, so the
+          sheet gave equal billing to throwing the take away and to keeping it.
+          A subordinate action has to LOOK subordinate: Keep takes the width,
+          Discard keeps its red but gives the room up. Nothing else moves - the
+          hit target is still well over 44px. */}
+      <div className="sheet__actions sheet__actions--weighted">
         <button
           type="button"
           className="btn btn--danger"
