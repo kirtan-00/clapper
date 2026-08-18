@@ -5,7 +5,7 @@
 // here on purpose: the spec moves both to Home, which another agent owns, and
 // leaving them reachable beats making them unreachable in the meantime.
 
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import type { Fps, Project } from '../types';
 import { store } from '../store';
 import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
@@ -16,6 +16,7 @@ import { parseShotlist, shotlistToPack } from './shotlist';
 import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
 import { ScreenHeader } from './glist';
+import { lastActivity } from './newRoll';
 import { PlusMark, ListMark, CloseMark } from './marks';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
@@ -54,6 +55,38 @@ function fmtDate(ms: number): string {
   });
 }
 
+// Recency buckets, seeded-and-measured against a real 25+ project list: with
+// ONE creation-order pile a director scrolling for a shoot from six weeks ago
+// has no landmark to stop at. Four bands mirror the Photos/Files idiom
+// everyone's phone already teaches — the smallest structure that turns a
+// scroll into a scan. A single band renders no header at all (see `grouped`
+// below): a lone pile has nothing to be distinguished from, so a phone with a
+// handful of projects touched around the same time looks exactly as plain as
+// it does today.
+const BUCKETS = ['Today', 'This week', 'This month', 'Earlier'] as const;
+type Bucket = (typeof BUCKETS)[number];
+const DAY_MS = 86400000;
+
+/** Midnight, local time, for the day `ms` falls on — CALENDAR day, not a
+ *  rolling 24h window. A take logged at 11pm and one logged at 6am the next
+ *  morning are eight hours apart and both "yesterday" by the clock, but the
+ *  crew calls the second one a new day; a stopwatch boundary would still be
+ *  calling the first one TODAY at 5am the morning after. */
+function startOfDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function bucketFor(now: number, p: Project): Bucket {
+  const touched = lastActivity(p);
+  if (startOfDay(touched) === startOfDay(now)) return 'Today';
+  const days = (now - touched) / DAY_MS;
+  if (days < 7) return 'This week';
+  if (days < 30) return 'This month';
+  return 'Earlier';
+}
+
 export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [creating, setCreating] = useState(false);
@@ -62,7 +95,16 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
 
   async function refresh() {
     const projects = await store.listProjects();
-    projects.sort((a, b) => b.createdAt - a.createdAt);
+    // The one you touched last is the one you want — same read `startNewRoll`
+    // already uses to pick where New roll lands (src/ui/newRoll.ts), reused
+    // rather than sorting by creation date, which stops answering "where was
+    // I" the moment a director reopens an old project for a pickup shoot.
+    // Tie-break on id, the same way ClipLogScreen's take sort does, so two
+    // projects that landed the same millisecond never swap places between
+    // renders.
+    projects.sort(
+      (a, b) => lastActivity(b) - lastActivity(a) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+    );
     const withCounts = await Promise.all(
       projects.map(async (project) => {
         const bundle = await store.getBundle(project.id);
@@ -75,6 +117,26 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   useEffect(() => {
     void refresh();
   }, []);
+
+  // One pass into four bands rather than filtering `rows` once per bucket.
+  // `now` is captured here (not read again per row below) so a card can never
+  // wander bands mid-scroll while the clock ticks under it.
+  const grouped = useMemo(() => {
+    if (!rows) return [];
+    const now = Date.now();
+    const byBucket = new Map<Bucket, Row[]>();
+    for (const row of rows) {
+      const bucket = bucketFor(now, row.project);
+      const list = byBucket.get(bucket);
+      if (list) list.push(row);
+      else byBucket.set(bucket, [row]);
+    }
+    const present = BUCKETS.filter((b) => byBucket.has(b));
+    // One band alone has nothing to be distinguished from, so its header adds
+    // a caption nobody asked for rather than a landmark to scan against.
+    const showHeaders = present.length > 1;
+    return present.map((bucket) => ({ bucket, rows: byBucket.get(bucket)!, showHeaders }));
+  }, [rows]);
 
   return (
     <div className="app">
@@ -94,32 +156,38 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           Start one for your shoot day.
         </div>
       ) : (
-        <div className="stack">
-          {rows.map(({ project, takeCount }) => (
-            <button
-              key={project.id}
-              type="button"
-              className="card"
-              onClick={() => props.onOpen(project)}
-            >
-              <div className="card__row">
-                <span className="card__name">{project.name}</span>
-                <span className="card__count">{takeCount}</span>
-              </div>
-              <div className="card__meta">
-                <span>{fmtDate(project.createdAt)}</span>
-                <span>
-                  <b>{project.fps}</b> fps
-                </span>
-                <span>
-                  {takeCount === 1 ? '1 take' : `${takeCount} takes`}
-                </span>
-                {/* No Delete at rest. It is a destructive row at the bottom of
-                    the project's own screen now, which is where iOS puts one. */}
-              </div>
-            </button>
-          ))}
-        </div>
+        grouped.map(({ bucket, rows: bucketRows, showHeaders }) => (
+          <section className="glist" key={bucket}>
+            {showHeaders && <h2 className="glist-hdr">{bucket}</h2>}
+            <div className="stack">
+              {bucketRows.map(({ project, takeCount }) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  className="card"
+                  onClick={() => props.onOpen(project)}
+                >
+                  <div className="card__row">
+                    <span className="card__name">{project.name}</span>
+                    <span className="card__count">{takeCount}</span>
+                  </div>
+                  <div className="card__meta">
+                    <span>{fmtDate(lastActivity(project))}</span>
+                    <span>
+                      <b>{project.fps}</b> fps
+                    </span>
+                    <span>
+                      {takeCount === 1 ? '1 take' : `${takeCount} takes`}
+                    </span>
+                    {/* No Delete at rest. It is a destructive row at the
+                        bottom of the project's own screen now, which is
+                        where iOS puts one. */}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))
       )}
 
       <button
