@@ -590,6 +590,8 @@ export function ProjectScreen(props: {
 
       <SoundSection project={project} onCommit={commitProject} />
 
+      <FootageFolderSection project={project} onCommit={commitProject} />
+
       <TcCalculator project={project} />
 
       {/* DELETE THE PROJECT lives here, at the bottom of its own detail screen,
@@ -1253,6 +1255,118 @@ function SoundSection(props: {
 
       <button type="button" className="btn btn--full" style={{ marginTop: 12 }} onClick={() => void save()}>
         {saved ? 'Saved' : 'Set sound'}
+      </button>
+    </section>
+  );
+}
+
+// The editor's footage folder: the fix for the bug that started all of this.
+//
+// A real 232-clip Premiere import landed EVERY clip offline and had to be
+// located by hand. The cause is in the format, not the app: <pathurl> is an
+// absolute URL, so a bare "crav_0054.MP4" resolves to the root of the boot
+// volume, where nothing ever is. The phone cannot know the edit machine's disk
+// layout, so somebody has to type it once, and this is where.
+//
+// Optional on purpose. Left empty the exporters keep writing bare file names,
+// which is what Premiere's "relink others automatically" is actually good at,
+// and multi-cam still nests each unit in its own folder so day 1's A/C0001 can
+// never claim day 5's. Filled in, the same export imports online with no
+// relinking at all.
+//
+// Stored verbatim. The exporters own the encoding, because xmeml and FCPXML
+// disagree about the scheme, and a path mangled here would be wrong in both.
+function FootageFolderSection(props: {
+  project: Project;
+  onCommit: (patch: Partial<Project>) => Promise<void>;
+}) {
+  const { project } = props;
+  const [root, setRoot] = useState(project.mediaRoot ?? '');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setRoot(project.mediaRoot ?? '');
+  }, [project.id, project.mediaRoot]);
+
+  const trimmed = root.trim().replace(/\/+$/, '');
+  const example =
+    clipName(project.clipPrefix, project.nextClipNumber, project.clipPadding, project.clipSuffix) +
+    (project.clipExt ?? '');
+  // Multi-cam always nests by unit, with or without a root: two cameras of the
+  // same model natively write the identical file name on the same day. Mirrors
+  // the rule in export/fcpxml.ts rather than restating it, so the preview
+  // cannot quietly promise a layout the exporter does not write.
+  const unitFolder = isMultiCam(project) ? 'A/' : '';
+  const preview = trimmed ? `${trimmed}/${unitFolder}${example}` : `${unitFolder}${example}`;
+
+  async function save() {
+    // Empty clears it back to undefined rather than storing "", the same way
+    // the other sections fall back out of a mode they are no longer in.
+    await props.onCommit({ mediaRoot: trimmed || undefined });
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1400);
+  }
+
+  return (
+    <section className="section">
+      <div className="section__head">
+        <span className="label">Footage folder</span>
+        <span className="section__note">{project.mediaRoot ? 'set' : 'optional'}</span>
+      </div>
+
+      <div className="clipwidget">
+        {/* NOT `.clipwidget__preview`, which the sibling sections use: that
+            renders its value at display size, and a 68-character volume path
+            set in bold 32px pushed the whole page sideways (measured: 464px of
+            content in a 390px viewport). A path is checked once, carefully, so
+            it wraps at secondary size instead of shouting off the edge. */}
+        <div className="formrow" style={{ marginBottom: 12 }}>
+          <span className="label">Links as</span>
+          <span
+            className="tnum"
+            style={{ fontSize: 'var(--t-secondary)', lineHeight: 1.45, overflowWrap: 'anywhere' }}
+          >
+            {preview}
+          </span>
+        </div>
+        <div className="formrow" style={{ margin: 0 }}>
+          <label className="label" htmlFor="media-root">
+            Path on the edit machine
+          </label>
+          <input
+            id="media-root"
+            className="field field--mono"
+            value={root}
+            placeholder="/Volumes/My Book/day 1/M4ROOT/CLIP"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            onChange={(e) => setRoot(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* `.section__note` is built for the short right-aligned tag beside a
+          section title: one line, nowrap, ellipsis. This is a sentence, so it
+          borrows the colour and size and gives back the truncation. */}
+      <p
+        className="section__note"
+        style={{
+          marginTop: 12,
+          marginBottom: 0,
+          textAlign: 'left',
+          whiteSpace: 'normal',
+          overflow: 'visible',
+          lineHeight: 1.45,
+        }}
+      >
+        Where the cards are copied to, on the machine that will cut this. Fill it in and Premiere
+        imports the whole timeline online. Leave it empty and the clips import offline, ready to
+        relink by hand.
+      </p>
+
+      <button type="button" className="btn btn--full" style={{ marginTop: 12 }} onClick={() => void save()}>
+        {saved ? 'Saved' : 'Set folder'}
       </button>
     </section>
   );
