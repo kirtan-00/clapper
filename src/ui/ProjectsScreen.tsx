@@ -5,7 +5,7 @@
 // here on purpose: the spec moves both to Home, which another agent owns, and
 // leaving them reachable beats making them unreachable in the meantime.
 
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import type { Fps, Project } from '../types';
 import { store } from '../store';
 import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
@@ -98,6 +98,22 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
     void refresh();
   }, []);
 
+  // One pass into four bands rather than filtering `rows` once per bucket.
+  // `now` is captured here (not read again per row below) so a card can never
+  // wander bands mid-scroll while the clock ticks under it.
+  const grouped = useMemo(() => {
+    if (!rows) return [];
+    const now = Date.now();
+    const byBucket = new Map<Bucket, Row[]>();
+    for (const row of rows) {
+      const bucket = bucketFor(now, row.project);
+      const list = byBucket.get(bucket);
+      if (list) list.push(row);
+      else byBucket.set(bucket, [row]);
+    }
+    return BUCKETS.filter((b) => byBucket.has(b)).map((bucket) => ({ bucket, rows: byBucket.get(bucket)! }));
+  }, [rows]);
+
   return (
     <div className="app">
       {/* Was an app icon, the wordmark and a tagline: a website header, on a tab
@@ -116,47 +132,38 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           Start one for your shoot day.
         </div>
       ) : (
-        (() => {
-          // Bucketed once per render off a single `now`, so a card can never
-          // wander bands mid-scroll while the clock ticks under it.
-          const now = Date.now();
-          return BUCKETS.map((bucket) => {
-            const inBucket = rows.filter((r) => bucketFor(now, r.project) === bucket);
-            if (inBucket.length === 0) return null;
-            return (
-              <section className="glist" key={bucket}>
-                <h2 className="glist-hdr">{bucket}</h2>
-                <div className="stack">
-                  {inBucket.map(({ project, takeCount }) => (
-                    <button
-                      key={project.id}
-                      type="button"
-                      className="card"
-                      onClick={() => props.onOpen(project)}
-                    >
-                      <div className="card__row">
-                        <span className="card__name">{project.name}</span>
-                        <span className="card__count">{takeCount}</span>
-                      </div>
-                      <div className="card__meta">
-                        <span>{fmtDate(lastActivity(project))}</span>
-                        <span>
-                          <b>{project.fps}</b> fps
-                        </span>
-                        <span>
-                          {takeCount === 1 ? '1 take' : `${takeCount} takes`}
-                        </span>
-                        {/* No Delete at rest. It is a destructive row at the
-                            bottom of the project's own screen now, which is
-                            where iOS puts one. */}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            );
-          });
-        })()
+        grouped.map(({ bucket, rows: bucketRows }) => (
+          <section className="glist" key={bucket}>
+            <h2 className="glist-hdr">{bucket}</h2>
+            <div className="stack">
+              {bucketRows.map(({ project, takeCount }) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  className="card"
+                  onClick={() => props.onOpen(project)}
+                >
+                  <div className="card__row">
+                    <span className="card__name">{project.name}</span>
+                    <span className="card__count">{takeCount}</span>
+                  </div>
+                  <div className="card__meta">
+                    <span>{fmtDate(lastActivity(project))}</span>
+                    <span>
+                      <b>{project.fps}</b> fps
+                    </span>
+                    <span>
+                      {takeCount === 1 ? '1 take' : `${takeCount} takes`}
+                    </span>
+                    {/* No Delete at rest. It is a destructive row at the
+                        bottom of the project's own screen now, which is
+                        where iOS puts one. */}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))
       )}
 
       <button
