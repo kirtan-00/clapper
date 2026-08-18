@@ -134,6 +134,21 @@ export interface Project {
   // Mirrors CameraUnit.clipStart for a single-cam project's own top-level
   // counter. ABSENT defaults to 1.
   clipStart?: number;
+  /**
+   * PODCAST MODE marker. ABSENT = a video project — every legacy project, and
+   * every one made through Director mode (shot list upload) or the Projects
+   * tab's own New project sheet. PRESENT ('podcast') only on a project made
+   * through Home's Podcast mode.
+   *
+   * Nothing about the Take/Moment/export model changes for a podcast project:
+   * it is a scene with no shot breakdown and a long take full of Moments,
+   * exactly the shape `Slate.shots` already supports for a hand-made scene —
+   * every exporter already walks that shape unchanged. This field exists
+   * ONLY so Home's Podcast mode resumes a podcast project rather than
+   * dropping the operator mid-scene into whichever project a video shoot
+   * last touched (see newRoll.ts's pickResumeProject).
+   */
+  mode?: 'podcast';
   createdAt: number;
   updatedAt: number;
 }
@@ -152,6 +167,13 @@ export function isMultiCam(p: Pick<Project, 'cameras'>): boolean {
 /** A project logs production sound only when it carries a Sound unit. */
 export function hasSound(p: Pick<Project, 'sound'>): boolean {
   return !!p.sound;
+}
+
+/** A project is in Podcast mode only when explicitly marked so. Every other
+ *  project — including every one saved before this field existed — is a
+ *  video project, unchanged. */
+export function isPodcastProject(p: Pick<Project, 'mode'>): boolean {
+  return p.mode === 'podcast';
 }
 
 /**

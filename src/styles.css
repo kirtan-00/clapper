@@ -3693,6 +3693,39 @@ select.field {
   margin: var(--sp-4) 0 var(--sp-6);
 }
 
+/* ---- New-roll mode picker -------------------------------------------
+   The hero opens a sheet with exactly two rows: Director mode and Podcast
+   mode. Reuses .sp-example's card shell (the shotlist sheet's "try an
+   example" buttons) rather than growing a second bordered-choice-card
+   component for the same job — only the layout direction changes, from
+   .sp-example's column (title over description) to a row with an icon,
+   because these two labels plus their one-line descriptions read as
+   sentences, not chip text, and a 1fr/1fr split would have wrapped them. */
+.modepick-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.modepick {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+}
+.modepick__icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: var(--text-dim);
+}
+.modepick__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+  text-align: left;
+}
+
 /* ---- the resume row -----------------------------------------------------
    A `.grow` whose label is two lines instead of one: the project on top, its
    day and counts under it. Numbers are tabular so the count does not jitter
