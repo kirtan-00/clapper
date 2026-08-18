@@ -387,12 +387,10 @@ function CreateProjectSheet(props: {
           (cameras, always present) and AUDIO (the recorder, optional). They
           stay separate streams with separate file counters, but always land
           on ONE shared shot - that marriage is the whole point of the tool. */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '20px 0 12px' }}>
-        <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-          Video
-        </span>
+      <div className="formsection">
+        <span className="label">Video</span>
         <span className="section__note">picture · camera clips</span>
-        <span style={{ height: 1, flex: 1, alignSelf: 'center', background: 'rgba(255, 255, 255, 0.18)' }} />
+        <span className="formsection__rule" />
       </div>
 
       {/* Cameras: 1 keeps the simple single-cam flow; 2-4 reveals per-unit setup. */}
@@ -597,21 +595,13 @@ function CreateProjectSheet(props: {
       {/* AUDIO department - co-equal with VIDEO above, but optional (a shoot
           may cut sound in-camera). A single recorder unit, independent of the
           camera count; when on it rolls as its own stream onto the same shot. */}
-      <div className="formrow" style={{ marginTop: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <span
-            style={{
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: 'var(--sound-text)',
-            }}
-          >
+      <div className="formrow">
+        <div className="formsection">
+          <span className="label" style={{ color: 'var(--sound-text)' }}>
             Audio
           </span>
           <span className="section__note">sound · recorder files</span>
-          <span style={{ height: 1, flex: 1, alignSelf: 'center', background: 'rgba(255, 255, 255, 0.18)' }} />
+          <span className="formsection__rule" />
           <div
             className="camcount"
             role="group"

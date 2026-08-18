@@ -1579,6 +1579,23 @@ select.field {
 .formrow { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-4); }
 .formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 
+/* A quiet in-form department header (VIDEO / AUDIO): a caps label, an
+   optional note, and a hairline that eats the remaining width. Was two
+   copy-pasted inline-style blocks with a raw white-at-18% rule that only
+   ever showed up on the night theme — see docs/specs/2026-08-15-premium-standard.md §1. */
+.formsection {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-6) 0 var(--sp-3);
+}
+.formsection__rule {
+  height: 1px;
+  flex: 1;
+  align-self: center;
+  background: var(--hairline);
+}
+
 .campreview {
   display: flex;
   align-items: center;
@@ -2764,6 +2781,16 @@ select.field {
 }
 .procta__btn:active { transform: scale(0.97); }
 .procta__btn:hover { border-color: var(--brass-edge); }
+/* Logged. This is the whole of the feedback that replaced the confetti burst
+   (2026-08-15-premium-standard.md §6): the outline fills solid brass and STAYS
+   there while the note is up, so the state reads as "counted" rather than as a
+   1200ms celebration of a wall you just hit. --brass-fill/-ink are defined on
+   both themes, so it lands on paper and on charcoal without a second rule. */
+.procta__btn[data-logged] {
+  background: var(--brass-fill);
+  border-color: var(--brass-fill);
+  color: var(--brass-fill-ink);
+}
 .procta__spark { font-size: var(--t-secondary); line-height: 1; }
 .procta__msg {
   margin: 0;
