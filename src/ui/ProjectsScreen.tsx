@@ -59,14 +59,29 @@ function fmtDate(ms: number): string {
 // ONE creation-order pile a director scrolling for a shoot from six weeks ago
 // has no landmark to stop at. Four bands mirror the Photos/Files idiom
 // everyone's phone already teaches — the smallest structure that turns a
-// scroll into a scan. Empty bands render nothing, so a phone with three
-// projects looks exactly as plain as it does today.
+// scroll into a scan. A single band renders no header at all (see `grouped`
+// below): a lone pile has nothing to be distinguished from, so a phone with a
+// handful of projects touched around the same time looks exactly as plain as
+// it does today.
 const BUCKETS = ['Today', 'This week', 'This month', 'Earlier'] as const;
 type Bucket = (typeof BUCKETS)[number];
+const DAY_MS = 86400000;
+
+/** Midnight, local time, for the day `ms` falls on — CALENDAR day, not a
+ *  rolling 24h window. A take logged at 11pm and one logged at 6am the next
+ *  morning are eight hours apart and both "yesterday" by the clock, but the
+ *  crew calls the second one a new day; a stopwatch boundary would still be
+ *  calling the first one TODAY at 5am the morning after. */
+function startOfDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 
 function bucketFor(now: number, p: Project): Bucket {
-  const days = (now - lastActivity(p)) / 86400000;
-  if (days < 1) return 'Today';
+  const touched = lastActivity(p);
+  if (startOfDay(touched) === startOfDay(now)) return 'Today';
+  const days = (now - touched) / DAY_MS;
   if (days < 7) return 'This week';
   if (days < 30) return 'This month';
   return 'Earlier';
@@ -84,7 +99,12 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
     // already uses to pick where New roll lands (src/ui/newRoll.ts), reused
     // rather than sorting by creation date, which stops answering "where was
     // I" the moment a director reopens an old project for a pickup shoot.
-    projects.sort((a, b) => lastActivity(b) - lastActivity(a));
+    // Tie-break on id, the same way ClipLogScreen's take sort does, so two
+    // projects that landed the same millisecond never swap places between
+    // renders.
+    projects.sort(
+      (a, b) => lastActivity(b) - lastActivity(a) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+    );
     const withCounts = await Promise.all(
       projects.map(async (project) => {
         const bundle = await store.getBundle(project.id);
@@ -111,7 +131,11 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
       if (list) list.push(row);
       else byBucket.set(bucket, [row]);
     }
-    return BUCKETS.filter((b) => byBucket.has(b)).map((bucket) => ({ bucket, rows: byBucket.get(bucket)! }));
+    const present = BUCKETS.filter((b) => byBucket.has(b));
+    // One band alone has nothing to be distinguished from, so its header adds
+    // a caption nobody asked for rather than a landmark to scan against.
+    const showHeaders = present.length > 1;
+    return present.map((bucket) => ({ bucket, rows: byBucket.get(bucket)!, showHeaders }));
   }, [rows]);
 
   return (
@@ -132,9 +156,9 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           Start one for your shoot day.
         </div>
       ) : (
-        grouped.map(({ bucket, rows: bucketRows }) => (
+        grouped.map(({ bucket, rows: bucketRows, showHeaders }) => (
           <section className="glist" key={bucket}>
-            <h2 className="glist-hdr">{bucket}</h2>
+            {showHeaders && <h2 className="glist-hdr">{bucket}</h2>}
             <div className="stack">
               {bucketRows.map(({ project, takeCount }) => (
                 <button
