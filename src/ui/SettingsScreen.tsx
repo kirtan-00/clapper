@@ -17,6 +17,7 @@ import { Sheet, SheetClose } from './common';
 import { Section, Row, LinkRow, ReadRow, ScreenHeader } from './glist';
 import { HowToScreen } from './HowToScreen';
 import { ThemeToggleRow } from './ThemeToggleRow';
+import { CutSizeRow } from './CutSizeRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
@@ -80,6 +81,7 @@ export function SettingsScreen(props: { nav: Nav }) {
           is - at the moment of need rather than on every visit. */}
       <Section title="Appearance">
         <ThemeToggleRow />
+        <CutSizeRow />
       </Section>
 
       <Section title="Help">

@@ -110,6 +110,27 @@
   --live-ink: var(--rec-text);
   --live-glow: none;
 
+  /* Full-screen ROLLING wash (.roll--live) - §7.8 and §9's "disciplined red
+     header over a neutral field". This was --rec (the BRIGHT fill token,
+     #ff3b30) at 14% over ivory paper, which is exactly the Bubblegum-not-ARRI
+     failure: a saturated red diluted heavily over a light, near-white ground
+     reads as pastel pink almost regardless of the percentage, because dilution
+     is what desaturates it toward white AND keeps the result's LIGHTNESS high
+     - candy is pale as much as it is pink. --rec-deep is dark to start with,
+     so the same dilution lands at a noticeably lower lightness: measured on
+     the rendered app, the old formula composited to rgb(252,223,219) (mean
+     231) over paper; this one measures rgb(233,218,215) at the same 14% (mean
+     222) and rgb(225,204,201) at 20% (mean 210) - a warm, dusty stain rather
+     than a pale wash, and still legible as "warm" rather than "grey" the way
+     a too-thin tint would read once ambient sunlight crushes it. Settled on
+     20%, one notch up from the original 14%, because outdoors is exactly the
+     condition this has to survive and a barely-there tint is the same failure
+     as a pink one - not unmistakably live. Night is untouched (moved to a
+     token for the no-raw-hex rule, not re-graded): §9 already calls night's
+     grade excellent, and --rec IS the legible value there (see the split note
+     at the top of this file), so it stays the bright token. */
+  --rec-wash: color-mix(in srgb, var(--rec-deep) 20%, transparent);
+
   /* Elevation. Light prefers a hairline to a shadow, so the hardware-key drop
      is a quarter of night's weight rather than a black slab on ivory. */
   --key-shadow: rgba(20, 21, 26, 0.16);
@@ -211,6 +232,18 @@
      --safe-bottom. 56 is the smallest height that fits a 22px icon over a
      0.58rem label and still leaves the whole 25%-wide cell over 44px tall. */
   --bar-h: 56px;
+
+  /* CUT/ROLL button scale (docs/specs/2026-08-15-premium-standard.md §9,
+     src/ui/cutsize.ts). Default here so the button is correctly sized even
+     before RollingScreen's own subscription runs a render; RollingScreen
+     overrides it inline with the operator's stored choice. One token feeding
+     one rule (`.bigbtn`) is the whole point - never hand-multiply a size in
+     JSX. --cut-base is `.bigbtn`'s pre-existing min-height, named rather than
+     left as a bare literal in the rule now that something multiplies it -
+     same treatment as --bar-h just above: a documented, deliberate exception
+     to the spacing ladder, not a value that belongs on it. */
+  --cut-scale: 1;
+  --cut-base: 104px;
 
   /* Clapper stick stripe (the signature motif). Deliberately NOT themed: a
      clapper stick is black and white on every set in the world. */
@@ -394,6 +427,10 @@
 
   --live-ink: #ffffff;
   --live-glow: 0 0 26px rgba(255, 59, 48, 0.35);
+  /* Same wash the app shipped with, moved onto a token - see the light value's
+     note. On near-black --rec is already the legible signal colour, so this
+     is the one place the wash still uses the BRIGHT token on purpose. */
+  --rec-wash: color-mix(in srgb, var(--rec) 14%, transparent);
 
   --key-shadow: rgba(0, 0, 0, 0.42);
   --lift-shadow: rgba(0, 0, 0, 0.45);
@@ -715,6 +752,50 @@ input, select, textarea {
   transform: translateX(20px);
 }
 
+/* ---- CUT size row (src/ui/CutSizeRow.tsx) --------------------------------
+   A `.grow` row is one line by contract; this one needs two, so it opts out
+   of the row's horizontal flex and stacks instead - label on top, the
+   segmented control full-width under it. Still one card entry, still 44px+
+   overall, just taller than --tap. */
+.growstack {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+  padding-bottom: var(--sp-4);
+}
+.growstack__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+}
+/* Three named stops, same visual language as .camcount (the camera-count
+   segmented control) so a segmented control reads as one idiom everywhere it
+   appears in the app, not as two competing controls that happen to look alike. */
+.cutsize {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+}
+.cutsize__opt {
+  /* --tap, not a smaller pick: §10 protects the 44px floor and this is a
+     three-way segmented control in Settings, not the dense 4-up .camcount
+     inside a New Project sheet. */
+  min-height: var(--tap);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--surface-raised);
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: var(--t-secondary);
+  transition: background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+.cutsize__opt:active { transform: scale(0.97); }
+.cutsize__opt--on {
+  color: var(--go-text);
+  background: var(--go-tint);
+  border-color: var(--go-edge);
+}
 
 /* The clapper stripe rail - identity mark + section divider */
 .rail {
@@ -1736,8 +1817,15 @@ select.field {
   margin: 0 auto;
 }
 .roll--live {
+  /* --rec-wash carries the theme split (§7.8) - see its definition. Pulled in
+     from the original (80%->70%, 60%->55% stop) so the red reads as a HEADER
+     the tally band anchors rather than a tint that reaches the very bottom of
+     the screen - "a disciplined red header over a neutral field" - while
+     still covering enough of the top third to do its actual job: peripheral-
+     vision state awareness (§10 protects this mechanism) without having to
+     look directly at the tally or the readout. */
   background:
-    radial-gradient(120% 80% at 50% -10%, rgba(255, 59, 48, 0.14), transparent 60%),
+    radial-gradient(120% 70% at 50% -10%, var(--rec-wash), transparent 55%),
     var(--ink-950);
 }
 .roll--live::after {
@@ -2021,12 +2109,31 @@ select.field {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-/* CUT is the one control that may never move or leave. Sticky to the bottom of
-   the deck's own scroll box: everything above it can scroll away, it cannot. */
+/* CUT is the one control that may never move or leave, AND it must sit in the
+   SAME place idle as live (docs/specs/2026-08-15-premium-standard.md §9 - the
+   one change Kirtan will feel in his hand). Two rules, two different kinds of
+   slack:
+     - `margin-top: auto` spends any LEFTOVER space in the deck by pushing the
+       button down before it, the flex auto-margin trick. Without it, an idle
+       deck (one camera, no sound, no pads/markbtn above) is far SHORTER than
+       the deck's own flex-grown box, and the button just sits in normal flow
+       right after its last sibling - mid-screen, not at the bottom. This was
+       the actual bug: idle ROLL measured 305px above where live CUT sat, on a
+       standard 390x844 phone, because `position: sticky` alone does nothing
+       when there is nothing to scroll - it only resists scrolling PAST a
+       point, it does not fill space. Confirmed both ways with
+       getBoundingClientRect() before adding this line.
+     - `position: sticky; bottom: 0` is the OTHER case: once the keypad grows
+       enough that the deck genuinely needs to scroll, the auto-margin no
+       longer has slack to spend, and sticky is what keeps the button pinned
+       to the bottom of the visible scrollport instead of scrolling away with
+       everything above it. Neither rule replaces the other; they cover the
+       two different ways this box can be too short or too tall. */
 .roll__deck > .bigbtn {
   position: sticky;
   bottom: 0;
   z-index: 2;
+  margin-top: auto;
 }
 /* No longer its own scroller: the deck above is. Two nested scrollers is what
    let the keypad collapse to 0px while the buttons below it slid off screen. */
@@ -2080,19 +2187,25 @@ select.field {
   font-weight: 600;
 }
 
-/* the big ROLL / CUT button */
+/* the big ROLL / CUT button.
+   Sizes off --cut-scale (Settings > Appearance > CUT button size) so the
+   whole button - height, type, internal gap - grows as ONE proportioned
+   object instead of a bigger box around the same small label. Press travel
+   and shadow depth (below) deliberately do NOT scale: they are the
+   hardware-key feel, tuned once, and §6 says keep it exactly as built
+   regardless of what else changes. */
 .bigbtn {
   width: 100%;
-  min-height: 104px;
+  min-height: calc(var(--cut-base) * var(--cut-scale, 1));
   border-radius: var(--radius-lg);
   /* ROLL and CUT. The last place 800+ is allowed to live. */
   font-weight: 800;
-  font-size: var(--t-large);
+  font-size: calc(var(--t-large) * var(--cut-scale, 1));
   letter-spacing: var(--track-caps);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-3);
+  gap: calc(var(--sp-3) * var(--cut-scale, 1));
   transition: transform var(--dur-press) var(--ease-out);
   box-shadow: 0 10px 0 0 var(--key-shadow);
 }

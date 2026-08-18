@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import type {
   CameraUnit,
   CameraUnitLetter,
@@ -38,6 +38,7 @@ import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
 import { ClipNum, Sheet, SheetClose, Rail, Toast, Confirm } from './common';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
+import { CUT_SCALE, getCutSize, subscribe as subscribeCutSize } from './cutsize';
 
 /**
  * Jump anywhere in the scene's shot list without leaving the rolling screen.
@@ -183,6 +184,11 @@ export function RollingScreen(props: {
   const { slate, shot } = props;
   const timer = useRollTimer();
   useWakeLock(true);
+  // The CUT/ROLL scale (Settings > Appearance > CUT button size), applied as
+  // ONE custom property on the screen's own root so `.bigbtn` stays one rule
+  // (see cutsize.ts for why this is read live here instead of stamped onto
+  // <html> the way the theme is — the roll screen is never first paint).
+  const cutSize = useSyncExternalStore(subscribeCutSize, getCutSize, () => 'standard' as const);
 
   const [project, setProject] = useState<Project>(props.project);
   const [nextTakeNumber, setNextTakeNumber] = useState(1);
@@ -760,7 +766,10 @@ export function RollingScreen(props: {
   const bigButtonCutMode = useEngine ? cameraActive : timer.rolling;
 
   return (
-    <div className={`roll${rolling ? ' roll--live' : ''}`}>
+    <div
+      className={`roll${rolling ? ' roll--live' : ''}`}
+      style={{ '--cut-scale': CUT_SCALE[cutSize] } as CSSProperties}
+    >
       {rolling && (
         // Tally band: the PRIMARY recording tell. A committed solid-red fill at
         // the very top, daylight-legible and readable even when a thumb covers
