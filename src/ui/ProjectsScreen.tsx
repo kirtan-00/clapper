@@ -16,6 +16,7 @@ import { parseShotlist, shotlistToPack } from './shotlist';
 import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
 import { ScreenHeader } from './glist';
+import { lastActivity } from './newRoll';
 import { PlusMark, ListMark, CloseMark } from './marks';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
@@ -54,6 +55,23 @@ function fmtDate(ms: number): string {
   });
 }
 
+// Recency buckets, seeded-and-measured against a real 25+ project list: with
+// ONE creation-order pile a director scrolling for a shoot from six weeks ago
+// has no landmark to stop at. Four bands mirror the Photos/Files idiom
+// everyone's phone already teaches — the smallest structure that turns a
+// scroll into a scan. Empty bands render nothing, so a phone with three
+// projects looks exactly as plain as it does today.
+const BUCKETS = ['Today', 'This week', 'This month', 'Earlier'] as const;
+type Bucket = (typeof BUCKETS)[number];
+
+function bucketFor(now: number, p: Project): Bucket {
+  const days = (now - lastActivity(p)) / 86400000;
+  if (days < 1) return 'Today';
+  if (days < 7) return 'This week';
+  if (days < 30) return 'This month';
+  return 'Earlier';
+}
+
 export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [creating, setCreating] = useState(false);
@@ -62,7 +80,11 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
 
   async function refresh() {
     const projects = await store.listProjects();
-    projects.sort((a, b) => b.createdAt - a.createdAt);
+    // The one you touched last is the one you want — same read `startNewRoll`
+    // already uses to pick where New roll lands (src/ui/newRoll.ts), reused
+    // rather than sorting by creation date, which stops answering "where was
+    // I" the moment a director reopens an old project for a pickup shoot.
+    projects.sort((a, b) => lastActivity(b) - lastActivity(a));
     const withCounts = await Promise.all(
       projects.map(async (project) => {
         const bundle = await store.getBundle(project.id);
@@ -94,32 +116,47 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           Start one for your shoot day.
         </div>
       ) : (
-        <div className="stack">
-          {rows.map(({ project, takeCount }) => (
-            <button
-              key={project.id}
-              type="button"
-              className="card"
-              onClick={() => props.onOpen(project)}
-            >
-              <div className="card__row">
-                <span className="card__name">{project.name}</span>
-                <span className="card__count">{takeCount}</span>
-              </div>
-              <div className="card__meta">
-                <span>{fmtDate(project.createdAt)}</span>
-                <span>
-                  <b>{project.fps}</b> fps
-                </span>
-                <span>
-                  {takeCount === 1 ? '1 take' : `${takeCount} takes`}
-                </span>
-                {/* No Delete at rest. It is a destructive row at the bottom of
-                    the project's own screen now, which is where iOS puts one. */}
-              </div>
-            </button>
-          ))}
-        </div>
+        (() => {
+          // Bucketed once per render off a single `now`, so a card can never
+          // wander bands mid-scroll while the clock ticks under it.
+          const now = Date.now();
+          return BUCKETS.map((bucket) => {
+            const inBucket = rows.filter((r) => bucketFor(now, r.project) === bucket);
+            if (inBucket.length === 0) return null;
+            return (
+              <section className="glist" key={bucket}>
+                <h2 className="glist-hdr">{bucket}</h2>
+                <div className="stack">
+                  {inBucket.map(({ project, takeCount }) => (
+                    <button
+                      key={project.id}
+                      type="button"
+                      className="card"
+                      onClick={() => props.onOpen(project)}
+                    >
+                      <div className="card__row">
+                        <span className="card__name">{project.name}</span>
+                        <span className="card__count">{takeCount}</span>
+                      </div>
+                      <div className="card__meta">
+                        <span>{fmtDate(lastActivity(project))}</span>
+                        <span>
+                          <b>{project.fps}</b> fps
+                        </span>
+                        <span>
+                          {takeCount === 1 ? '1 take' : `${takeCount} takes`}
+                        </span>
+                        {/* No Delete at rest. It is a destructive row at the
+                            bottom of the project's own screen now, which is
+                            where iOS puts one. */}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          });
+        })()
       )}
 
       <button
