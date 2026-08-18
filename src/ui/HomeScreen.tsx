@@ -1,16 +1,25 @@
 // HOME — the gateway tab, and the reason the shell exists.
 //
-// One job above all others: NEW ROLL. Cold app to a rolling screen in a single
-// tap, with no project-setup ceremony in between. Everything else on this
-// screen is quieter than that button on purpose — a grouped inset list under a
-// hero, the iOS shape, so the eye lands on the one thing worth landing on at
-// 5am with a slate in the other hand.
+// One job above all others: NEW ROLL. Cold app to a rolling screen in one or
+// two taps, with no project-setup ceremony in between. Everything else on
+// this screen is quieter than that button on purpose — a grouped inset list
+// under a hero, the iOS shape, so the eye lands on the one thing worth
+// landing on at 5am with a slate in the other hand.
 //
-// What is deliberately NOT here:
-//   PODCAST MODE renders nothing at all until it exists. A greyed-out row is a
-//     promise you have to keep; an absent row is a screen that tells the truth.
-//   NEW PROJECT stays on the Projects tab. Home is for getting rolling, not for
-//     configuring; the full setup sheet lives where the projects do.
+// The hero opens a picker sheet with the two ways a shoot starts:
+//
+//   DIRECTOR MODE — a shot list, uploaded as a PDF. Routes straight to
+//     ShotlistSheet, which already owns that entire flow end to end; nothing
+//     about it is rebuilt here.
+//   PODCAST MODE — no shot list, no scene list, no shot picker. One
+//     continuous take, tapped for what happens as it happens. It rides the
+//     exact same take/moment engine RollingScreen already runs for a
+//     hand-made scene with no breakdown — a podcast recording IS that scene,
+//     just resumed from its own pool of projects (see newRoll.ts).
+//
+// What is deliberately NOT here: NEW PROJECT stays on the Projects tab. Home
+// is for getting rolling, not for configuring; the full setup sheet lives
+// where the projects do.
 //
 // The tray unmounts itself on `rolling` (see AppShell), so pushing straight to
 // a roll from here needs no special handling.
@@ -18,11 +27,11 @@
 import { useEffect, useState } from 'react';
 import type { Project } from '../types';
 import type { Nav } from './nav';
-import { Rail } from './common';
+import { Rail, Sheet, SheetClose } from './common';
 import { useScrolled } from './glist';
 import InstallNudge from './InstallNudge';
 import { ShotlistSheet } from './ShotlistSheet';
-import { readResume, startNewRoll, type ResumeInfo } from './newRoll';
+import { readResume, startPodcastRoll, type ResumeInfo } from './newRoll';
 import * as haptics from './haptics';
 
 // One weight, one 24 grid, round caps and joins, currentColor: the same hand
@@ -55,6 +64,19 @@ function ListMark() {
       <path d="M6.5 3.5h8L19 8v12.5H6.5z" {...STROKE} />
       <path d="M14 3.5V8h5" {...STROKE} />
       <path d="M9.5 12h6M9.5 15.5h6" {...STROKE} />
+    </svg>
+  );
+}
+
+/** A microphone — closed capsule, stand and base, one weight with every other
+ *  mark in this file. Podcast mode's own icon, beside ListMark's page-of-rows
+ *  for Director mode, in the picker sheet. */
+function PodcastMark() {
+  return (
+    <svg {...SVG} className="home-mark">
+      <rect x="9" y="3.5" width="6" height="11" rx="3" {...STROKE} />
+      <path d="M6 11v1.5a6 6 0 0 0 12 0V11" {...STROKE} />
+      <path d="M12 18.5V21M9 21h6" {...STROKE} />
     </svg>
   );
 }
@@ -93,7 +115,11 @@ export function HomeScreen(props: { nav: Nav }) {
   const { nav } = props;
   // undefined = still reading the store, null = nothing on this phone yet.
   const [resume, setResume] = useState<ResumeInfo | null | undefined>(undefined);
-  const [rolling, setRolling] = useState(false);
+  // The picker sheet the hero opens — Director or Podcast. Podcast's own row
+  // does async work (it can CREATE a project) and gets its own busy guard;
+  // Director just hands off to ShotlistSheet, which owns its own busy state.
+  const [showPicker, setShowPicker] = useState(false);
+  const [startingPodcast, setStartingPodcast] = useState(false);
   const [shotlist, setShotlist] = useState(false);
   // The title bar is sticky material and the large title shrinks into it, the
   // same contract the Settings and Account headers run on.
@@ -113,22 +139,33 @@ export function HomeScreen(props: { nav: Nav }) {
     };
   }, []);
 
+  /** Director row: hand off to ShotlistSheet — same swap-in-place move the
+   *  sign-in gate already makes when ReadStep needs a different sheet
+   *  entirely (see ShotlistSheet.tsx), not a coordinated close-then-open. */
+  function pickDirector() {
+    haptics.tap();
+    setShowPicker(false);
+    setShotlist(true);
+  }
+
   /**
-   * The hero. Guarded against a double tap because it can CREATE — two taps
-   * racing would otherwise stand up two scratch projects for one shoot.
+   * Podcast row. Guarded against a double tap because it can CREATE — two
+   * taps racing would otherwise stand up two scratch podcast projects for one
+   * session.
    *
    * Pushes TWO screens, project then rolling, rather than jumping straight to
-   * the roll. The rolling screen's "next scene" move is a `popTo('project')`
+   * the roll — same contract Director mode's project lands on and the same
+   * reason: the rolling screen's "next scene" move is a `popTo('project')`
    * followed by a push (see App.tsx), which on a stack with no project screen
-   * under it would quietly grow sideways forever. Backing out of the roll
-   * landing on the project is also simply correct.
+   * under it would quietly grow sideways forever.
    */
-  async function onNewRoll() {
-    if (rolling) return;
-    setRolling(true);
+  async function pickPodcast() {
+    if (startingPodcast) return;
+    setStartingPodcast(true);
     haptics.tap();
     try {
-      const target = await startNewRoll();
+      const target = await startPodcastRoll();
+      setShowPicker(false);
       nav.push({ name: 'project', project: target.project });
       nav.push({
         name: 'rolling',
@@ -137,7 +174,7 @@ export function HomeScreen(props: { nav: Nav }) {
         shot: target.shot,
       });
     } catch {
-      setRolling(false);
+      setStartingPodcast(false);
     }
   }
 
@@ -145,12 +182,6 @@ export function HomeScreen(props: { nav: Nav }) {
     haptics.tap();
     nav.push({ name: 'project', project });
   }
-
-  const heroSub = rolling
-    ? 'Opening the slate…'
-    : resume
-      ? `Back into ${resume.project.name}`
-      : 'Makes a project for today and drops you on the slate';
 
   return (
     <div className="app home" data-scrolled={scrolled ? '' : undefined}>
@@ -168,13 +199,15 @@ export function HomeScreen(props: { nav: Nav }) {
       <button
         type="button"
         className="home-hero"
-        disabled={rolling}
-        onClick={() => void onNewRoll()}
+        onClick={() => {
+          haptics.tap();
+          setShowPicker(true);
+        }}
       >
         <RollMark />
         <span className="home-hero__text">
           <span className="home-hero__title">New roll</span>
-          <span className="home-hero__sub">{heroSub}</span>
+          <span className="home-hero__sub">A shot list, or a blank roll with markers</span>
         </span>
       </button>
 
@@ -221,39 +254,44 @@ export function HomeScreen(props: { nav: Nav }) {
         </section>
       )}
 
-      <section className="glist">
-        <h2 className="glist-hdr">Start from paper</h2>
-        <div className="glist-card">
-          <button
-            type="button"
-            className="grow"
-            data-icon=""
-            onClick={() => {
-              haptics.tap();
-              setShotlist(true);
-            }}
-          >
-            <span className="grow-icon">
-              <ListMark />
-            </span>
-            <span className="grow-label">Shotlist · from a PDF</span>
-            <span className="grow-chev">
-              <Chevron />
-            </span>
-          </button>
-        </div>
-        {/* The paragraph that used to sit here (what gets read, what stays on
-            the device, the two built-in examples) is in the guide, under
-            "Setting up a project". A row that says what it does does not need a
-            footnote saying it again. */}
-      </section>
-
-      {/* Podcast mode lands here in a later phase. Nothing is drawn for it on
-          purpose — see the note at the top of this file. */}
-
       {/* The first-run paragraph is gone. It explained what NEW ROLL does, which
           is what the hero's own sub-line already says, one line above it and in
           the button that does it. */}
+
+      {showPicker && (
+        <Sheet title="New roll" onClose={() => setShowPicker(false)}>
+          <div className="modepick-list">
+            <button type="button" className="btn sp-example modepick" onClick={pickDirector}>
+              <span className="modepick__icon">
+                <ListMark />
+              </span>
+              <span className="modepick__text">
+                <b>Director mode</b>
+                <span>Upload a shot list PDF</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="btn sp-example modepick"
+              disabled={startingPodcast}
+              onClick={() => void pickPodcast()}
+            >
+              <span className="modepick__icon">
+                <PodcastMark />
+              </span>
+              <span className="modepick__text">
+                <b>Podcast mode</b>
+                <span>{startingPodcast ? 'Opening the slate…' : 'Roll long, tap markers as it happens'}</span>
+              </span>
+            </button>
+          </div>
+          <div className="sheet__actions">
+            <SheetClose className="btn btn--ghost" onClose={() => setShowPicker(false)}>
+              Cancel
+            </SheetClose>
+          </div>
+        </Sheet>
+      )}
 
       {shotlist && (
         <ShotlistSheet

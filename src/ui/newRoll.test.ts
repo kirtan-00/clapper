@@ -74,6 +74,27 @@ describe('pickResumeProject', () => {
     const p = project({ id: 'p', updatedAt: 1, openShootDay: { index: 1, date: 'd', lastTakeAt: 77 } });
     expect(lastActivity(p)).toBe(77);
   });
+
+  // Podcast mode's own resume ladder must never land on a video/director
+  // project just because it was touched more recently — the two modes are
+  // resumed from separate pools (see the `mode` param).
+  it('scopes to one mode and ignores the other, even when the other is newer', () => {
+    const video = project({ id: 'video', updatedAt: 900 });
+    const podcast = project({ id: 'podcast', updatedAt: 100, mode: 'podcast' });
+    expect(pickResumeProject([video, podcast], 'podcast')?.id).toBe('podcast');
+    expect(pickResumeProject([video, podcast], 'video')?.id).toBe('video');
+  });
+
+  it('is null when the scoped pool is empty even though the other pool is not', () => {
+    const video = project({ id: 'video', updatedAt: 1 });
+    expect(pickResumeProject([video], 'podcast')).toBeNull();
+  });
+
+  it('stays unscoped (any mode) with no mode argument, same as before modes existed', () => {
+    const video = project({ id: 'video', updatedAt: 1 });
+    const podcast = project({ id: 'podcast', updatedAt: 900, mode: 'podcast' });
+    expect(pickResumeProject([video, podcast])?.id).toBe('podcast');
+  });
 });
 
 describe('pickSlate', () => {
@@ -145,5 +166,10 @@ describe('scratchName', () => {
     const name = scratchName(Date.UTC(2026, 7, 14, 12));
     expect(name).toBe('Shoot 14 Aug');
     expect(name).not.toMatch(/[/\\:·]/);
+  });
+
+  it('takes a custom label for a podcast scratch project', () => {
+    const name = scratchName(Date.UTC(2026, 7, 14, 12), 'Podcast');
+    expect(name).toBe('Podcast 14 Aug');
   });
 });
