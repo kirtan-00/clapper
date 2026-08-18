@@ -134,6 +134,12 @@
   /* Elevation. Light prefers a hairline to a shadow, so the hardware-key drop
      is a quarter of night's weight rather than a black slab on ivory. */
   --key-shadow: rgba(20, 21, 26, 0.16);
+  /* How far the hardware-key shadow falls BELOW the button's border box.
+     Named because two rules have to agree about it: .bigbtn draws it, and
+     .roll__deck has to leave room for it or the scrollport cuts it off.
+     Measured on a real phone: shadowRoom was exactly 0, so CUT's bottom
+     corners looked sheared off. */
+  --key-drop: 10px;
   --lift-shadow: rgba(20, 21, 26, 0.14);
 
   /* ---- Type: nine steps ---------------------------------------------------
@@ -1873,6 +1879,10 @@ select.field {
      because it reads the same --cut-scale the button does, it keeps its
      clearance at every size the operator picks. */
   --tray-lift: calc(var(--cut-base) * var(--cut-scale, 1) + var(--sp-4));
+  /* Everything below MARK IN: the deck's gap, CUT itself, and the strip its
+     key shadow falls into. One name because the sticky row that covers it
+     and the button that sits in it must agree, at every --cut-scale. */
+  --roll-footer-band: calc(var(--sp-3) + var(--cut-base) * var(--cut-scale, 1) + var(--key-drop));
   display: flex;
   flex-direction: column;
   background: var(--ink-950);
@@ -1934,6 +1944,17 @@ select.field {
   max-height: 42%;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+/* The action line is a flex item in the box above, so flexbox happily squeezed
+   it to ZERO while its own content still measured 43px - which is how "Cafe
+   ambience Match-cut landing frame" ended up sliced through the middle of a
+   line on a real phone. It is already clamped to 3 lines; that clamp cuts at a
+   line boundary, and this makes sure nothing downstream of it cuts anywhere
+   else. Same all-or-nothing principle .roll__stage already states: a sliver of
+   a glyph reads as a rendering bug, never as information. */
+.roll__summary,
+.roll__line {
+  flex: 0 0 auto;
 }
 
 /* -------------------------------------------------------------- tally ----
@@ -2176,6 +2197,30 @@ select.field {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Room for CUT's key shadow. A sticky element sticks to the scrollport's
+     PADDING edge, so this both keeps the shadow inside the clip and lifts the
+     button off the very bottom pixel of the screen, where iOS Safari's toolbar
+     sits. */
+  padding-bottom: var(--key-drop);
+}
+/* The ground behind the sticky footer. CUT is a rounded button sitting in a
+   transparent band: the deck's gap above it, its own corner radius, and the
+   strip its key shadow falls into. Chips scrolling underneath showed through
+   all three.
+
+   A ::before at z-index -1 was tried first and is WRONG: inside a stacking
+   context a negative-z child paints above the root's own background, so the
+   ivory rectangle covered CUT's red fill and the button vanished. A spread
+   shadow can only ever paint OUTSIDE the border box, which is exactly the
+   region that needed covering. Order matters: the key shadow is listed first
+   so it paints on top of the ground ring rather than under it. Shadows do not
+   hit test, so this widens the PAINT without widening the TAP - a thumb
+   landing beside CUT still must not fire CUT. */
+.roll__deck > .bigbtn {
+  box-shadow: 0 var(--key-drop) 0 0 var(--key-shadow), 0 0 0 var(--sp-4) var(--ink-950);
+}
+.roll__deck > .bigbtn:active {
+  box-shadow: 0 6px 0 0 var(--key-shadow), 0 0 0 var(--sp-4) var(--ink-950);
 }
 /* CUT is the one control that may never move or leave, AND it must sit in the
    SAME place idle as live (docs/specs/2026-08-15-premium-standard.md §9 - the
@@ -2213,11 +2258,16 @@ select.field {
      overflow the chips escaped the box and MARK IN was drawn over them. The
      floor keeps at least one row of chips tappable: collapsing to 0 hid the
      script beats entirely, which is the whole reason this pad exists. */
-  flex: 0 1 auto;
-  min-height: 48px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  /* NOT a scroller, and NOT shrinkable. It was both, and on a real phone
+     (Script Mode, 3 cameras, iOS Safari's toolbars eating ~145px) it shrank to
+     its 48px floor and clipped: measured 71.4px tall holding 318px of chips,
+     so five of the scene's six key moments were simply not on the screen, and
+     the floor is shorter than the 52px chip it is supposed to keep tappable.
+     The old comment above was written when .roll__pads was the only scroller;
+     the deck took that job later and this rule was never revisited.
+     Natural height here means the DECK scrolls, one gesture reaches every
+     chip, and CUT stays pinned by its own sticky rule below. */
+  flex: 0 0 auto;
 }
 .roll__deck > .camstack,
 .roll__deck > .soundsection,
@@ -2235,6 +2285,33 @@ select.field {
 .roll__markrow {
   display: flex;
   gap: var(--sp-2);
+  /* Sticky, directly above CUT, for the same reason CUT is sticky: it is a
+     control you reach for mid-take without looking. Once .roll__pads stopped
+     shrinking, a scene with nine chips pushed this row below the fold on a
+     600px-tall Safari window - measured markVisible:false - which traded one
+     invisible thing for another. Now the chips scroll BEHIND both controls and
+     both are always on screen.
+
+     The offset is CUT's own height plus the deck's gap, read from the same
+     --cut-scale CUT sizes off, so the two stay stacked at Standard, Large and
+     XL without a second number to keep in step. The background is the roll
+     screen's own ground: without it the chips scroll visibly through a
+     transparent row. */
+  position: sticky;
+  bottom: calc(var(--cut-base) * var(--cut-scale, 1) + var(--sp-3));
+  z-index: 2;
+  /* Ground behind the whole sticky footer, not just this row. The deck's gap,
+     CUT's rounded corners and the band its key shadow falls into are all
+     transparent, so chips scrolling underneath showed through around and below
+     the button: elementFromPoint returned `chip keycap` at four probes on and
+     beside CUT, which means a thumb aiming for CUT's corner could tap a tag
+     instead. A painted shadow would have hidden that without fixing it, since
+     a shadow does not hit test. Growing this row's box with padding and giving
+     the height back as negative margin was tried first and MEASURED: sticky
+     resolved its box to bottom 458 while CUT starts at 470, so it never
+     reached. The band is painted by .bigbtn's own backdrop instead (below);
+     this row only has to cover its own width. */
+  background: var(--ink-950);
 }
 
 /* MARK IN is a SUBORDINATE action sitting directly above CUT. It used to be
@@ -2319,7 +2396,7 @@ select.field {
   justify-content: center;
   gap: calc(var(--sp-3) * var(--cut-scale, 1));
   transition: transform var(--dur-press) var(--ease-out);
-  box-shadow: 0 10px 0 0 var(--key-shadow);
+  box-shadow: 0 var(--key-drop) 0 0 var(--key-shadow);
 }
 .bigbtn:active { transform: translateY(4px); box-shadow: 0 6px 0 0 var(--key-shadow); }
 .bigbtn--go {

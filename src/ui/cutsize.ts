@@ -20,11 +20,15 @@
 // property by whichever component renders the button (see RollingScreen.tsx),
 // not stamped onto <html> from here.
 
-export type CutSize = 'standard' | 'large' | 'xl';
+export type CutSize = 'small' | 'standard' | 'large' | 'xl';
 
 export const CUTSIZE_KEY = 'clapper.cutSize';
 
-const SIZES: CutSize[] = ['standard', 'large', 'xl'];
+/** Every stop, smallest first, and the ONLY list of them. CutSizeRow used to
+ *  keep a second copy; adding 'small' to this one left the row still rendering
+ *  three buttons, because the two had quietly drifted. Exported so there is
+ *  nothing left to drift from. */
+export const CUT_SIZES: readonly CutSize[] = ['small', 'standard', 'large', 'xl'];
 
 /**
  * The scale multiplier for `.bigbtn`'s min-height, font-size and internal
@@ -33,21 +37,28 @@ const SIZES: CutSize[] = ['standard', 'large', 'xl'];
  * scripts against 4 cameras, Script Mode's wide keypad, the range-label
  * keyboard open, on a 375x667 iPhone SE. Raise it only after re-measuring
  * that exact corner, never on the strength of the idle screen looking fine.
+ *
+ * `small` is the other end, added at Kirtan's request. It is bounded by the
+ * 44px tap floor, not by taste: 104px * 0.72 is 75px, still comfortably the
+ * largest target on the screen, and shrinking it further would start trading
+ * away the one control that has to be hit without looking.
  */
 export const CUT_SCALE: Record<CutSize, number> = {
+  small: 0.72,
   standard: 1,
   large: 1.12,
   xl: 1.22,
 };
 
 export const CUT_SIZE_LABEL: Record<CutSize, string> = {
+  small: 'S',
   standard: 'Standard',
   large: 'Large',
   xl: 'XL',
 };
 
 function isCutSize(v: unknown): v is CutSize {
-  return typeof v === 'string' && (SIZES as string[]).includes(v);
+  return typeof v === 'string' && (CUT_SIZES as readonly string[]).includes(v);
 }
 
 // Storage throws outright in Safari private mode and with cookies blocked. A

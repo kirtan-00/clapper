@@ -29,10 +29,9 @@
 // override that lets a `.grow` grow taller than --tap for this row only.
 
 import { useSyncExternalStore } from 'react';
-import { CUT_SIZE_LABEL, getCutSize, setCutSize, subscribe, type CutSize } from './cutsize';
+import { CUT_SIZE_LABEL, getCutSize, setCutSize, subscribe, type CutSize, CUT_SIZES } from './cutsize';
 import * as haptics from './haptics';
 
-const SIZES: CutSize[] = ['standard', 'large', 'xl'];
 
 // Same house rules as ThemeToggleRow's moon: 24 viewBox, 1.75 stroke, round
 // caps and joins, stroke="currentColor", no fill. A button glyph with a
@@ -58,7 +57,7 @@ export function CutSizeRow() {
         <span className="grow-label">CUT button size</span>
       </div>
       <div className="cutsize" role="radiogroup" aria-label="CUT button size">
-        {SIZES.map((s) => (
+        {CUT_SIZES.map((s) => (
           <button
             key={s}
             type="button"
