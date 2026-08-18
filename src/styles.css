@@ -1864,6 +1864,15 @@ select.field {
 .roll {
   position: fixed;
   inset: 0;
+  /* The toast reads --tray-lift to clear the tab tray, and the comment on
+     .toast used to say this was correctly ZERO here because the roll screen
+     unmounts the tray. That stopped being true the day ROLL/CUT got bottom
+     anchored: measured on an iPhone 14, the toast ran 597..642 straight across
+     a CUT button occupying 544..648, so "GOLD marked" landed on top of the one
+     control you press without looking. It climbs the button instead, and
+     because it reads the same --cut-scale the button does, it keeps its
+     clearance at every size the operator picks. */
+  --tray-lift: calc(var(--cut-base) * var(--cut-scale, 1) + var(--sp-4));
   display: flex;
   flex-direction: column;
   background: var(--ink-950);
