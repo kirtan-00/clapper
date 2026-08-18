@@ -34,6 +34,7 @@
 
 import type { Project, ProjectBundle, Shot, Slate, Take } from '../types';
 import { store } from '../store';
+import { getDefaultTags } from './tagdefaults';
 
 /** Which pool `pickResumeProject` draws from. Mirrors `Project.mode` —
  *  'video' is every project with no `mode` set, i.e. every legacy project and
@@ -43,21 +44,6 @@ export type ProjectMode = 'video' | 'podcast';
 function modeOf(p: Pick<Project, 'mode'>): ProjectMode {
   return p.mode === 'podcast' ? 'podcast' : 'video';
 }
-
-/** The quick-tag chips a scratch VIDEO project starts with — the same set the
- *  New project sheet offers, so a scratch shoot is not a lesser project. */
-export const SCRATCH_TAGS = ['WIDE', 'MID', 'CU', 'OTS', 'INSERT', 'GOLD', 'PICKUP', 'NOISE'];
-
-/**
- * The quick-tag chips a scratch PODCAST project starts with. Coverage-size
- * tags (WIDE/MCU/OTS…) describe a camera setup and mean nothing on a single
- * continuous take, so podcast mode gets its own vocabulary: the things worth
- * flagging live, by ear, while a conversation runs long. GOLD stays — it is
- * the one tag with its own brass grading button beside MARK IN (see
- * RollingScreen.tsx), and "best clip in the episode" is exactly as useful
- * here as "best take of the scene" is on a shoot.
- */
-export const PODCAST_TAGS = ['STORY', 'QUOTE', 'LAUGH', 'TANGENT', 'REDO', 'GOLD'];
 
 /** Newest thing that happened to a project, takes included. */
 export function lastActivity(p: Project): number {
@@ -221,7 +207,7 @@ export async function startNewRoll(): Promise<RollTarget> {
         clipExt: '.MP4',
         nextClipNumber: 1,
         clipPadding: 4,
-        tags: SCRATCH_TAGS,
+        tags: getDefaultTags('video'),
       }),
     'Scene 1',
   );
@@ -248,7 +234,7 @@ export async function startPodcastRoll(): Promise<RollTarget> {
         clipExt: '.MP4',
         nextClipNumber: 1,
         clipPadding: 4,
-        tags: PODCAST_TAGS,
+        tags: getDefaultTags('podcast'),
         mode: 'podcast',
       }),
     'Recording',

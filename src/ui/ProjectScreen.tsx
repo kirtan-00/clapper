@@ -20,6 +20,9 @@ import { track } from '../net/analytics';
 import * as haptics from './haptics';
 import { extractPdfText } from './pdftext';
 import { breakdownCallSheet, SignInRequiredError } from './breakdown';
+import { TagEditor } from './TagEditor';
+import { getDefaultTags } from './tagdefaults';
+import type { ProjectMode } from './newRoll';
 
 // Vertical gap between scene cards — must match `.stack`'s `gap` in
 // styles.css. Used to size the "make room" shift while dragging.
@@ -589,6 +592,8 @@ export function ProjectScreen(props: {
       <ClipCounterSection project={project} onCommit={commitProject} />
 
       <SoundSection project={project} onCommit={commitProject} />
+
+      <QuickTagsSection project={project} onCommit={commitProject} />
 
       <FootageFolderSection project={project} onCommit={commitProject} />
 
@@ -1276,6 +1281,68 @@ function SoundSection(props: {
 //
 // Stored verbatim. The exporters own the encoding, because xmeml and FCPXML
 // disagree about the scheme, and a path mangled here would be wrong in both.
+/**
+ * The quick-tag chips THIS shoot offers, editable after the fact.
+ *
+ * Kirtan's request (2026-08-15): "in the podcast mode we give them optoins to
+ * add other tags for thri shoot." It is not podcast-only in the end, because
+ * the gap was never mode-specific — until now the only moment you could choose
+ * a vocabulary was the New project sheet, and Podcast mode never shows one
+ * (startPodcastRoll goes straight to a slate, which is the point of it). A
+ * director who realises on day two that they want STUNT is in exactly the same
+ * bind. One section, both modes.
+ *
+ * NOT on the rolling screen, deliberately. Editing your own instrument panel
+ * while a camera runs is how you mis-tap the take you were trying to log; this
+ * is setup, and setup lives with the other setup, below the fold.
+ *
+ * Writes THROUGH on every change, no Save button — the sibling sections here
+ * have one because they hold a text field mid-edit, where a keystroke is not
+ * yet a decision. Adding or removing a chip is already the whole decision.
+ * Removing a tag never touches takes already logged with it: `Take.tag` is a
+ * plain string on the take, so the history keeps its word and only the keypad
+ * stops offering it.
+ */
+function QuickTagsSection(props: {
+  project: Project;
+  onCommit: (patch: Partial<Project>) => Promise<void>;
+}) {
+  const { project } = props;
+  const mode: ProjectMode = project.mode === 'podcast' ? 'podcast' : 'video';
+
+  return (
+    <section className="section">
+      <div className="section__head">
+        <span className="label">Quick tags</span>
+        <span className="section__note tnum">{project.tags.length}</span>
+      </div>
+
+      <div className="clipwidget">
+        <TagEditor
+          tags={project.tags}
+          onChange={(next) => {
+            void props.onCommit({ tags: next });
+          }}
+          note="What the roll screen offers under the take counter. Takes already logged keep the tags they were given."
+        />
+
+        {project.tags.length === 0 && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--full"
+            onClick={() => {
+              haptics.tap();
+              void props.onCommit({ tags: getDefaultTags(mode) });
+            }}
+          >
+            Put the standard set back
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function FootageFolderSection(props: {
   project: Project;
   onCommit: (patch: Partial<Project>) => Promise<void>;

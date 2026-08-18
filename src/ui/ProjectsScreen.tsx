@@ -17,19 +17,17 @@ import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
 import { ScreenHeader } from './glist';
 import { lastActivity } from './newRoll';
-import { PlusMark, ListMark, CloseMark } from './marks';
+import { PlusMark, ListMark } from './marks';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
 import { useSession, signInWithGoogle } from '../net/auth';
 import { getUsage, FREE_LIMIT, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
+import { TagEditor } from './TagEditor';
+import { getDefaultTags } from './tagdefaults';
 import * as haptics from './haptics';
 
 const FPS_OPTIONS: Fps[] = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
-// Normal-mode quick tags: the standard coverage a crew notes (WIDE/MID/CU/OTS/
-// INSERT) plus the usual take-quality flags. Script Mode overrides these per
-// scene with its own chips.
-const DEFAULT_TAGS = ['WIDE', 'MID', 'CU', 'OTS', 'INSERT', 'GOLD', 'PICKUP', 'NOISE'];
 
 // Production sound's badge accent - same cool blue RollingScreen uses for the
 // Sound roll control, applied inline on the shared .camunit__badge here too
@@ -266,8 +264,11 @@ function CreateProjectSheet(props: {
   const [startNumber, setStartNumber] = useState('1');
   const [padding, setPadding] = useState('4');
   const [ext, setExt] = useState('.MP4');
-  const [tags, setTags] = useState<string[]>(DEFAULT_TAGS);
-  const [tagDraft, setTagDraft] = useState('');
+  // Seeded from the operator's Settings default rather than a list hard-coded
+  // here, which is the whole point of the Settings row — a crew with a house
+  // vocabulary should never retype it. Still fully editable per project: this
+  // is a starting point, not a binding.
+  const [tags, setTags] = useState<string[]>(() => getDefaultTags('video'));
   const [busy, setBusy] = useState(false);
 
   // Multi-cam. Default 1 keeps the single-cam flow above completely unchanged.
@@ -309,12 +310,6 @@ function CreateProjectSheet(props: {
     setSuffix(p.suffix);
     setPadding(String(p.digits));
     setExt(p.ext);
-  }
-
-  function addTag() {
-    const t = tagDraft.trim().toUpperCase();
-    if (t && !tags.includes(t)) setTags([...tags, t]);
-    setTagDraft('');
   }
 
   async function create() {
@@ -712,41 +707,7 @@ function CreateProjectSheet(props: {
         )}
       </div>
 
-      <div className="formrow">
-        <span className="label">Quick tags</span>
-        <div className="chips">
-          {tags.map((t) => (
-            <span key={t} className={`chip chip--removable${t === 'GOLD' ? ' chip--gold' : ''}`}>
-              {t}
-              <button
-                type="button"
-                className="chip__x"
-                aria-label={`Remove tag ${t}`}
-                onClick={() => setTags(tags.filter((x) => x !== t))}
-              >
-                <CloseMark />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="addline">
-          <input
-            className="field field--mono"
-            value={tagDraft}
-            placeholder="Add tag"
-            onChange={(e) => setTagDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag();
-              }
-            }}
-          />
-          <button type="button" className="btn" onClick={addTag}>
-            Add
-          </button>
-        </div>
-      </div>
+      <TagEditor label="Quick tags" tags={tags} onChange={setTags} />
 
       <div className="sheet__actions">
         <SheetClose className="btn btn--ghost" onClose={props.onClose}>

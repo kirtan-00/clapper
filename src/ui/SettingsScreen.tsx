@@ -18,6 +18,7 @@ import { Section, Row, LinkRow, ReadRow, ScreenHeader } from './glist';
 import { HowToScreen } from './HowToScreen';
 import { ThemeToggleRow } from './ThemeToggleRow';
 import { CutSizeRow } from './CutSizeRow';
+import { DefaultTagsRows } from './DefaultTagsRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
@@ -82,6 +83,14 @@ export function SettingsScreen(props: { nav: Nav }) {
       <Section title="Appearance">
         <ThemeToggleRow />
         <CutSizeRow />
+      </Section>
+
+      {/* Under Appearance, above Help: like the CUT size this is set once and
+          then forgotten, but unlike the CUT size it is about the WORK rather
+          than the app, so it gets its own group rather than joining the two
+          rows about how things look. */}
+      <Section title="Quick tags">
+        <DefaultTagsRows />
       </Section>
 
       <Section title="Help">

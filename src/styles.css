@@ -1477,6 +1477,26 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .addline .field { flex: 1; }
 
+/* The tag editor's two bits of prose. `.section__note` was the obvious reuse
+   and is wrong for both: it is nowrap + ellipsis, which truncates a sentence
+   mid-word (the same trap the footage-folder note fell into). These wrap. */
+.tagedit__empty,
+.tagedit__note {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--t-caption);
+  line-height: 1.45;
+  color: var(--text-dim);
+  white-space: normal;
+}
+/* An empty set is a legitimate choice, but it leaves a blank where chips were.
+   The italic marks it as the app talking rather than as a tag named "No quick
+   tags", and it sits where the first chip would. */
+.tagedit__empty {
+  margin-top: 0;
+  font-style: italic;
+}
+
 /* new project affordance */
 .newproject {
   margin-top: var(--sp-4);
