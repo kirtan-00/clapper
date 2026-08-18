@@ -1648,19 +1648,38 @@ select.field {
 }
 .chip__x:active { background: var(--ink-950); color: var(--rec-text); }
 
+/* Tag logged. Three things were wrong with the version before this, and all
+   three showed up at once on a full-width key-moment row filmed off a real
+   phone:
+
+   1. It flooded the whole chip with --go-fill, which in the light theme is a
+      deep saturated green. That is the ROLL button's colour. Colour on this
+      screen is a signal and the list is short - rolling, GOLD, discarded,
+      sound - so spending the loudest one on the most frequent, lowest-stakes
+      event leaves nothing louder to say a take is running.
+   2. It ran for --dur-panel, 240ms, the token whose own comment reads "a
+      sheet rising, a screen pushing". A tag landing is a tint changing, which
+      is exactly what --dur-state is for. It now runs half as long.
+   3. scale(1.06) on a chip is a nudge; on a full-width row it is a 20px lurch
+      in peripheral vision while a camera is rolling. The keycap already has
+      hardware travel under the thumb, so the press is felt, not watched.
+
+   The label colour no longer moves either: flipping it to the fill's ink and
+   back made the word look like it blinked out. The real confirmation is the
+   persistent count badge; this only has to pull the eye to it. */
 @keyframes chipflash {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.06); background: var(--go-fill); color: var(--go-fill-ink); border-color: transparent; }
-  100% { transform: scale(1); }
+  0% { background: var(--go-tint); border-color: var(--go-edge); }
+  100% { background: none; }
 }
-.chip--flash { animation: chipflash var(--dur-panel) var(--ease-out); }
+.chip--flash { animation: chipflash var(--dur-state) var(--ease-out); }
 .chip--flash.chip--gold {
   animation-name: chipflashgold;
 }
+/* GOLD keeps brass because GOLD is genuinely on the signal list. Same
+   restraint though: a tint, not a flood. */
 @keyframes chipflashgold {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.06); background: var(--brass-fill); color: var(--brass-fill-ink); border-color: transparent; }
-  100% { transform: scale(1); }
+  0% { background: var(--brass-tint); border-color: var(--brass-edge); }
+  100% { background: none; }
 }
 
 /* --------------------------------------------------------- keypad -------
