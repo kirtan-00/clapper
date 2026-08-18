@@ -14,6 +14,7 @@ import { store } from '../store';
 import { formatClip, parseClipNumber, rebaseClipNumbers } from '../store/util';
 import { renderUnitClip, soundBadgeStyle } from './cameras';
 import { Sheet, SheetClose } from './common';
+import { SpeakerMark } from './marks';
 import * as haptics from './haptics';
 
 /**
@@ -448,7 +449,7 @@ export function TakeEditSheet(props: {
       {soundEditable && (
         <div className="camunit" style={{ marginTop: 12 }}>
           <div className="camunit__head">
-            <span className="camunit__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+            <span className="camunit__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
             <span className="camunit__eg tnum">
               {formatClip(
                 project.sound!.filePrefix,

@@ -99,6 +99,25 @@ export function DownMark() {
 }
 
 /**
+ * Sound — the recorder's own driver-and-cone glyph, replacing the 🔊 emoji
+ * that stood in for it. An emoji is the loudest "nobody designed this" tell
+ * there is: it renders differently per platform and carries a fixed colour no
+ * `currentColor` can touch, so a "live" sound row and a discarded one drew
+ * identically. This is closed (fill:none, stroked outline) rather than the
+ * usual filled speaker glyph, so it reads as ONE weight with every other mark
+ * in this file instead of a heavier borrowed icon dropped in beside them.
+ */
+export function SpeakerMark() {
+  return (
+    <svg {...SVG} className="mark mark--speaker">
+      <path d="M11 5 7 8.8H3v6.4h4l4 3.8z" {...STROKE} />
+      <path d="M14.5 9a4.2 4.2 0 0 1 0 6" {...STROKE} />
+      <path d="M17.5 6.5a8 8 0 0 1 0 11" {...STROKE} />
+    </svg>
+  );
+}
+
+/**
  * How many characters of previous-screen name fit beside a title before the
  * title starts losing words. Measured on an iPhone 14 viewport against the
  * longest real title in the app ("SC 1 · EXT. GIFT CITY — LATE NIGHT"): at 18

@@ -36,6 +36,7 @@ import { ClipNumberRows, TakeEditSheet } from './TakeEditSheet';
 import { sizeInWords } from './shotlist';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
 import { ClipNum, Sheet, SheetClose, Rail, Toast, Confirm } from './common';
+import { BackMark, ForwardMark, SpeakerMark } from './marks';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
@@ -855,7 +856,7 @@ export function RollingScreen(props: {
             disabled={!prevShot || rolling || postCut !== null}
             onClick={() => prevShot && props.onNavigateShot?.(prevShot)}
           >
-            &lsaquo;
+            <BackMark />
           </button>
           <button
             type="button"
@@ -879,7 +880,7 @@ export function RollingScreen(props: {
             disabled={!nextShot || rolling || postCut !== null}
             onClick={() => nextShot && props.onNavigateShot?.(nextShot)}
           >
-            &rsaquo;
+            <ForwardMark />
           </button>
         </div>
       )}
@@ -888,28 +889,41 @@ export function RollingScreen(props: {
       {shot?.dialogue && <div className="roll__line">&ldquo;{shot.dialogue}&rdquo;</div>}
       {!shot && slate.summary && <div className="roll__summary">{slate.summary}</div>}
 
-      {props.onNavigate && siblings.length > 1 && (
-        <div className="scenepager">
+      {/* Scene stepper — ONE pager on this screen, never two. A scene with a
+          shot breakdown already has its pager above (the shot strip); flipping
+          scenes from here would be a second, competing "step through a list"
+          control doing a coarser version of the same job, which read as
+          assembled rather than designed. This renders ONLY when there is no
+          shot breakdown, i.e. the shot strip above did not render — so it is
+          the one and only pager whenever it shows at all. Same idiom as the
+          shot strip (chevron / current / chevron) rather than a web "‹ Prev /
+          1/10 / Next ›" row, and it stays inside .roll__body for the same
+          reason the shot strip does — see that block's CSS comment. */}
+      {!shot && props.onNavigate && siblings.length > 1 && (
+        <div className="scenestrip">
           <button
             type="button"
-            className="scenepager__btn"
+            className="scenestrip__btn"
             aria-label="Previous scene"
             disabled={!prevScene || rolling || postCut !== null}
             onClick={() => prevScene && props.onNavigate?.(prevScene)}
           >
-            &lsaquo; Prev
+            <BackMark />
           </button>
-          <span className="scenepager__pos tnum">
-            {sceneIndex >= 0 ? sceneIndex + 1 : '-'}/{siblings.length}
-          </span>
+          <div className="scenestrip__now">
+            <span className="scenestrip__name">{slate.name}</span>
+            <span className="scenestrip__pos tnum">
+              {sceneIndex >= 0 ? sceneIndex + 1 : '-'}/{siblings.length}
+            </span>
+          </div>
           <button
             type="button"
-            className="scenepager__btn"
+            className="scenestrip__btn"
             aria-label="Next scene"
             disabled={!nextScene || rolling || postCut !== null}
             onClick={() => nextScene && props.onNavigate?.(nextScene)}
           >
-            Next &rsaquo;
+            <ForwardMark />
           </button>
         </div>
       )}
@@ -990,14 +1004,24 @@ export function RollingScreen(props: {
                       <span
                         className="clip"
                         style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 'var(--sp-1)',
                           minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
                           ...(t.status === 'discarded' ? {} : soundTextStyle),
                         }}
                       >
-                        🔊 {t.sound.fileName}
+                        <SpeakerMark />
+                        <span
+                          style={{
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t.sound.fileName}
+                        </span>
                       </span>
                     )}
                     <span className="dur tnum">{tc.msToClock(t.durationMs)}</span>
@@ -1120,17 +1144,9 @@ export function RollingScreen(props: {
           >
             {/* Its own labelled, tinted zone so the audio roll is unmistakable
                 and never reads as a fifth camera. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 2px 8px' }}>
-              <span
-                style={{
-                  fontSize: '0.64rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: SOUND_TEXT,
-                }}
-              >
-                🔊 Sound
+            <div className="soundsection__head">
+              <span className="soundsection__label" style={{ color: SOUND_TEXT }}>
+                <SpeakerMark /> Sound
               </span>
               <span className="section__note" style={{ marginLeft: 'auto' }}>
                 {soundRolling
@@ -1154,7 +1170,7 @@ export function RollingScreen(props: {
                 onClick={() => void soundSoloCut()}
               >
                 <span className="camslot__top">
-                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                   <span className="camslot__elapsed tnum">
                     <span className="recdot" aria-hidden="true" /> REC {tc.msToClock(elapsedForSound())}
@@ -1169,7 +1185,7 @@ export function RollingScreen(props: {
               // that would refuse the tap (see soundSoloRoll).
               <div className="camslot camslot--spent" aria-label={`Sound recorded ${renderSoundFile(soundUnit)} for this shot`}>
                 <span className="camslot__top">
-                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                   <span className="camslot__join" style={soundTextStyle}>DONE</span>
                 </span>
@@ -1185,7 +1201,7 @@ export function RollingScreen(props: {
                 onClick={soundSoloRoll}
               >
                 <span className="camslot__top">
-                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                   <span className="camslot__join" style={soundTextStyle}>JOIN</span>
                 </span>
@@ -1202,7 +1218,7 @@ export function RollingScreen(props: {
                   onClick={soundSoloRoll}
                 >
                   <span className="camslot__top">
-                    <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+                    <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
                     {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                   </span>
                   <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
@@ -1229,48 +1245,46 @@ export function RollingScreen(props: {
             <div className="roll__pads">
             {scriptMode ? (
               <>
-                {/* Coverage keypad: a FIXED 2-col grid so each key holds its
-                    position scene to scene (muscle memory), never reflowing
-                    like flex-wrap did. GOLD keeps a consistent trailing slot. */}
-                <div className="keypad keypad--wide" aria-label="Coverage">
-                  {coverageChips.map((tag) => {
-                    const n = flashes[tag] ?? 0;
-                    return (
-                      <button
-                        key={`${tag}:${n}`}
-                        type="button"
-                        className={`chip keycap keycap--coverage${n > 0 ? ' chip--flash' : ''}`}
-                        onClick={() => tapTag(tag)}
-                      >
-                        <span className="keycap__label">{tag}</span>
-                        {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
-                      </button>
-                    );
-                  })}
-                  {(() => {
-                    const n = flashes.GOLD ?? 0;
-                    return (
-                      <button
-                        key={`GOLD:${n}`}
-                        type="button"
-                        className={`chip keycap keycap--gold${n > 0 ? ' chip--flash' : ''}`}
-                        onClick={() => tapTag('GOLD')}
-                      >
-                        <span className="keycap__label">GOLD</span>
-                        {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
-                      </button>
-                    );
-                  })()}
-                </div>
+                {/* Tier 1: sizes, a compact segmented control - the highest-
+                    frequency, lowest-stakes tap, so it costs the least
+                    visual weight. Still a fixed single row so a key never
+                    changes position scene to scene. Guarded on length, same
+                    as tier 2 below it: GOLD used to sit in this grid and kept
+                    it non-empty even when a scene carried no coverage tags of
+                    its own, so an empty segmented strip never had to be a
+                    case. Now that GOLD lives by MARK IN, an ungated map()
+                    left a stray empty bar behind for exactly that scene. */}
+                {coverageChips.length > 0 && (
+                  <div className="keypad keypad--segmented" aria-label="Coverage">
+                    {coverageChips.map((tag) => {
+                      const n = flashes[tag] ?? 0;
+                      return (
+                        <button
+                          key={`${tag}:${n}`}
+                          type="button"
+                          className={`chip keycap keycap--coverage${n > 0 ? ' chip--flash' : ''}`}
+                          onClick={() => tapTag(tag)}
+                        >
+                          <span className="keycap__label">{tag}</span>
+                          {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {keyChips.length > 0 && (
-                  <div className="keypad keypad--wide" aria-label="Key moments">
+                  // Tier 2: moments, a scannable list. These are the actual
+                  // record of what happened in the take, so they keep the
+                  // keycap hardware-key travel; greyscale now, not brass -
+                  // brass is GOLD's alone (see .goldbtn by MARK IN below).
+                  <div className="keypad keypad--list" aria-label="Key moments">
                     {keyChips.map((tag) => {
                       const n = flashes[tag] ?? 0;
                       return (
                         <button
                           key={`${tag}:${n}`}
                           type="button"
-                          className={`chip keycap keycap--key${n > 0 ? ' chip--flash' : ''}`}
+                          className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
                           onClick={() => tapTag(tag)}
                         >
                           <span className="keycap__label">{tag}</span>
@@ -1282,14 +1296,17 @@ export function RollingScreen(props: {
                 )}
               </>
             ) : (
-              <div className="keypad" aria-label="Quick tags">
-                {project.tags.map((tag) => {
+              // No breakdown: the flat quick-tag set reads as the same tier 2
+              // list. GOLD is filtered out here too - it moved to its own
+              // grade action by MARK IN, see goldAvailable below.
+              <div className="keypad keypad--list" aria-label="Quick tags">
+                {project.tags.filter((tag) => tag !== 'GOLD').map((tag) => {
                   const n = flashes[tag] ?? 0;
                   return (
                     <button
                       key={`${tag}:${n}`}
                       type="button"
-                      className={`chip keycap${tag === 'GOLD' ? ' keycap--gold' : ''}${n > 0 ? ' chip--flash' : ''}`}
+                      className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
                       onClick={() => tapTag(tag)}
                     >
                       <span className="keycap__label">{tag}</span>
@@ -1301,20 +1318,48 @@ export function RollingScreen(props: {
             )}
             </div>
 
-            <button
-              type="button"
-              className={`markbtn${markInMs !== null ? ' markbtn--armed' : ''}`}
-              onClick={markInOut}
-            >
-              {markInMs !== null ? (
-                <>
-                  MARK OUT
-                  <span className="markbtn__badge tnum">{tc.msToClock(rangeArmedMs)}</span>
-                </>
-              ) : (
-                'MARK IN'
-              )}
-            </button>
+            {/* MARK IN sits beside GOLD rather than alone at full width -
+                the width and the neutral chrome are what used to make it
+                read as a second CUT stacked right above the real one. Tier 3
+                (GOLD) lives here too: a grade action beside the controls
+                that end a take, not buried in the tag grid above. Script
+                Mode always offers it; the flat quick-tag set only if the
+                project actually carries a GOLD tag (respects a project that
+                removed it, same as the grid used to). */}
+            <div className="roll__markrow">
+              <button
+                type="button"
+                className={`markbtn${markInMs !== null ? ' markbtn--armed' : ''}`}
+                onClick={markInOut}
+              >
+                {markInMs !== null ? (
+                  <>
+                    MARK OUT
+                    <span className="markbtn__badge tnum">{tc.msToClock(rangeArmedMs)}</span>
+                  </>
+                ) : (
+                  'MARK IN'
+                )}
+              </button>
+              {(scriptMode || project.tags.includes('GOLD')) &&
+                (() => {
+                  const n = flashes.GOLD ?? 0;
+                  return (
+                    <button
+                      key={`GOLD:${n}`}
+                      type="button"
+                      // chip--gold reuses the existing brass tap-flash
+                      // (chipflashgold) rather than the default green one -
+                      // GOLD is the one chip allowed to carry colour.
+                      className={`goldbtn chip--gold${n > 0 ? ' chip--flash' : ''}`}
+                      onClick={() => tapTag('GOLD')}
+                    >
+                      GOLD
+                      {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
+                    </button>
+                  );
+                })()}
+            </div>
 
             {rangeLabelTarget !== null && (
               <div className="addline" style={{ marginTop: 0 }}>
@@ -1723,7 +1768,7 @@ function PostCutSheet(props: {
           aria-label="Sound file recorded"
         >
           <div className="camslot">
-            <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true">🔊</span>
+            <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
             <span className="camslot__clip tnum" style={soundTextStyle}>{props.take.sound.fileName}</span>
           </div>
         </div>
