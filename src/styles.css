@@ -1658,17 +1658,36 @@ select.field {
 }
 
 /* --------------------------------------------------------- keypad -------
-   The rolling-deck tap chips rebuilt as a FIXED physical keypad. A grid (not
-   flex-wrap) so every key holds its position scene to scene - muscle memory
-   survives even when Script Mode swaps the labels. Long coverage labels
-   ("A · Wide dolly-in") ellipsis/wrap INSIDE their fixed cell; the grid never
-   reflows. Keys carry the .bigbtn hardware-key shadow and depress on tap. */
+   Three tiers, told apart by WEIGHT AND SHAPE rather than by decoration -
+   colour stays a signal, not a rank, so GOLD is the only chip below allowed
+   to carry one (the spec's signal list: rolling / GOLD / discarded / sound).
+   Tapping a flat wall of identical cards gave a 5am thumb no eye path; these
+   three read as three different kinds of control on sight, the way a real
+   keypad, a segmented switch and a grade button never get confused for
+   each other on a physical deck:
+
+     1. SIZES (coverage) - .keypad--segmented: one quiet strip, no travel.
+        The highest tap-frequency, lowest-stakes tier (tap it again if wrong),
+        so it costs the least visual weight.
+     2. MOMENTS (key beats, or the flat quick-tag set with no breakdown) -
+        .keypad--list: full-width rows, the keycap hardware-key travel kept
+        (see .bigbtn) because these ARE the record of what happened in the
+        take. Still greyscale - brass used to mean "key moment" AND "GOLD",
+        which spent the one colour that is supposed to say "this take".
+     3. GOLD - not in a keypad at all any more. See .goldbtn by the mark row:
+        a grade action belongs beside the controls that end a take, not
+        buried in a grid of tags competing with everything else on it.
+
+   Both surviving grids are still fixed, not flex-wrap: that is what stopped
+   keys reflowing scene to scene, so the muscle memory a 2-3 week shoot builds
+   up survives a script-mode label swap. Long coverage labels ("A · Wide
+   dolly-in") ellipsis/wrap INSIDE their fixed cell; the grid never reflows. */
 .keypad {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-2);
 }
-/* Wider 2-col grid for long, wordy labels (Script Mode coverage + key beats). */
+/* Wider 2-col grid: the flat quick-tag fallback, before tier 2 moved to rows. */
 .keypad--wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 .keycap {
@@ -1705,7 +1724,8 @@ select.field {
   text-overflow: ellipsis;
   overflow-wrap: anywhere;
 }
-/* Running per-chip tap count for THIS take, e.g. "CU ×3". */
+/* Running per-chip tap count for THIS take, e.g. "CU ×3" - the "progress" the
+   scannable list tier shows, per the spec's own wording for that tier. */
 .keycap__count {
   flex: none;
   font-size: var(--t-caption);
@@ -1714,18 +1734,57 @@ select.field {
   opacity: 0.95;
 }
 
-/* Coverage keys: solid, readable fill (real contrast, not a dim tint). */
-.keycap--coverage { color: var(--chalk); background: var(--ink-800); border-color: var(--line); }
-/* Key-moment + GOLD keys keep the brass register, on the same fixed grid. */
-.keycap--key,
-.keycap--gold {
-  text-transform: none;
-  color: var(--brass-text);
-  background: var(--brass-tint);
-  border-color: var(--brass-edge);
+/* ---- tier 1: sizes, as a compact segmented control ----------------------
+   One continuous strip instead of separate cards: hairline dividers via the
+   1px background gap, no keycap shadow, a lighter background-tint press (the
+   list-row press, not the hardware-key travel) because this tier is quiet by
+   design. Still a single row in a fixed left-to-right order, so it never
+   reflows any more than the grid it replaces did. */
+.keypad--segmented {
+  display: flex;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
-.keycap--key .keycap__count,
-.keycap--gold .keycap__count { color: var(--brass-text); }
+.keycap--coverage {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: var(--sp-1) var(--sp-2);
+  border: none;
+  border-radius: 0;
+  background: var(--ink-800);
+  color: var(--chalk);
+  font-weight: 600;
+  font-size: var(--t-caption);
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.2;
+  box-shadow: none;
+}
+.keycap--coverage.chip.keycap:active { transform: none; box-shadow: none; background: color-mix(in srgb, var(--text) 8%, transparent); }
+.keycap--coverage .keycap__label { -webkit-line-clamp: 1; line-clamp: 1; }
+.keycap--coverage .keycap__count { font-size: var(--t-caps); }
+
+/* ---- tier 2: moments, as a scannable list --------------------------------
+   Full-width rows (the fixed grid becomes a fixed single column) so a label
+   and its running count sit at opposite ends of one line rather than
+   competing for a square cell - "scannable" per the spec, and the keycap
+   hardware-key travel stays because these are the taps that matter. */
+.keypad--list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.keypad--list .keycap {
+  width: 100%;
+  min-height: var(--tap);
+  justify-content: space-between;
+  text-align: left;
+}
+.keypad--list .keycap__label { -webkit-line-clamp: 1; line-clamp: 1; text-align: left; }
 
 /* -------------------------------------------------------------- section -- */
 
@@ -2153,28 +2212,45 @@ select.field {
 }
 .roll__deck > .camstack,
 .roll__deck > .soundsection,
-.roll__deck > .markbtn,
+.roll__deck > .roll__markrow,
 .roll__deck > .bigbtn { flex: 0 0 auto; }
 
 /* rolling tools row: tags + mark */
 .tagbar { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: center; }
 
-/* MARK IN is a SUBORDINATE action sitting directly above CUT. It was 800 at
-   the same width and shape as the button it must not be confused with, so it
-   drops to the emphasis weight and lets CUT own the register. */
+/* The row directly above CUT: MARK IN plus, when there is one, the GOLD
+   grade action (tier 3 of the chip wall - see the keypad comment above).
+   Two DIFFERENT shapes sharing a row is itself part of the fix: CUT below is
+   a single full-width slab, so a row that is visibly not that shape reads as
+   "not the same kind of control" before a single pixel of colour is read. */
+.roll__markrow {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+/* MARK IN is a SUBORDINATE action sitting directly above CUT. It used to be
+   full width and nearly opaque - the same shape and weight as the slab
+   underneath it, just shorter, which is exactly what let it be mistaken for
+   a second CUT. Ghost chrome (transparent fill, a hairline border) is what
+   the app already uses for a secondary action next to a primary one (see
+   .btn--ghost); MARK IN borrows that language instead of inventing its own,
+   and it no longer claims the whole row - GOLD, when present, takes the
+   width back on purpose. */
 .markbtn {
-  width: 100%;
-  min-height: 56px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 52px;
   border-radius: var(--radius);
   border: 1.5px solid var(--line);
-  background: var(--ink-850);
-  color: var(--chalk);
+  background: transparent;
+  color: var(--text-dim);
   font-weight: 600;
   font-size: var(--t-row);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
+  transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
 }
 .markbtn:active { transform: scale(0.98); }
 .markbtn--armed { border-color: var(--go-text); color: var(--go-text); }
@@ -2186,6 +2262,33 @@ select.field {
   color: var(--go-text);
   font-weight: 600;
 }
+
+/* GOLD, tier 3 of the chip wall - a distinct grade action beside MARK IN,
+   not a tag buried in the grid above it. Brass is spent deliberately: the
+   spec's whole colour rule is "signal only", and GOLD naming the best take
+   of the day is one of the four things on this screen actually allowed to
+   spend it (with rolling, discarded and sound). Narrower than MARK IN - it
+   is reached far less often - and never the row's dominant shape. */
+.goldbtn {
+  flex: 0 1 84px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--brass-edge);
+  background: var(--brass-tint);
+  color: var(--brass-text);
+  font-weight: 600;
+  font-size: var(--t-secondary);
+  letter-spacing: var(--track-caps);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.goldbtn:active { transform: scale(0.98); }
+.goldbtn .keycap__count { color: var(--brass-text); }
 
 /* the big ROLL / CUT button.
    Sizes off --cut-scale (Settings > Appearance > CUT button size) so the
@@ -2502,34 +2605,11 @@ select.field {
   overflow: hidden;
 }
 
-/* Flip-don't-scroll scene pager. */
-.scenepager {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  margin-top: var(--sp-3);
-}
-.scenepager__btn {
-  flex: 1;
-  min-height: var(--tap);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: var(--ink-850);
-  color: var(--chalk);
-  font-weight: 600;
-  font-size: var(--t-row);
-}
-.scenepager__btn:active { transform: scale(0.98); }
-.scenepager__btn:disabled { opacity: 0.32; }
-.scenepager__pos {
-  min-width: 52px;
-  text-align: center;
-  color: var(--chalk-dim);
-  font-size: var(--t-secondary);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
+/* The old flip-don't-scroll scene pager (".scenepager", a web "‹ Prev / 1/10 /
+   Next ›" row) is gone — it stacked directly under the shot strip and read as
+   two pagers doing the same job. Its replacement, .scenestrip, shares rules
+   with .shotstrip below (search "the strip on the rolling screen") since it
+   is the same idiom, just one level up, and the two never render together. */
 
 /* Two-tier tap chips. Coverage = neutral, key moments = amber. */
 .tagbar--coverage { justify-content: flex-start; }
@@ -2903,17 +2983,21 @@ select.field {
 .camstack:has(.camslot:nth-child(3)) .camslot__penbtn { width: 30px; height: 30px; }
 
 
-/* A shot is running but this unit has not joined yet - dim and dashed, tap
-   to roll it in. */
+/* A shot is running but this unit has not joined yet - tap to roll it in.
+   Was dashed: dashed reads as a placeholder or a drop target, not a real
+   tappable control - a wireframe that shipped. "Not joined" now reads
+   through an unfilled slot (no background fill, unlike every other camslot
+   state) plus the JOIN text itself, both solid, both legible under red
+   set-lighting the way shape/text always has to be on this screen. */
 .camslot--join {
   width: 100%;
   min-height: var(--tap);
   text-align: left;
-  border-style: dashed;
+  background: transparent;
   opacity: 0.8;
-  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-state) var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-state) var(--ease-out), background var(--dur-state) var(--ease-out);
 }
-.camslot--join:active { transform: scale(0.98); opacity: 1; }
+.camslot--join:active { transform: scale(0.98); opacity: 1; background: color-mix(in srgb, var(--text) 8%, transparent); }
 
 /* Sound has already written its one file for this shot while a camera kept
    rolling. Not a button - there is nothing left to tap - so it reads as a
@@ -2932,6 +3016,25 @@ select.field {
   font-weight: 600;
   letter-spacing: var(--track-caps);
   color: var(--go-text);
+}
+
+/* The sound section's own header row - pulled out of inline styles so the
+   type follows the caps token like every other section label does, rather
+   than a one-off 0.64rem/800 pair invented for this one row. */
+.soundsection__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 var(--sp-1) var(--sp-2);
+}
+.soundsection__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
 }
 
 /* Tap the take row to edit it; the info spans become one big target. */
@@ -3178,31 +3281,39 @@ select.field {
   -webkit-box-orient: vertical;
 }
 
-/* ---- the strip on the rolling screen ---- */
-.shotstrip {
+/* ---- the strip on the rolling screen: shots, or (no breakdown) scenes ----
+   .scenestrip is the same idiom as .shotstrip one level up - see the "one
+   pager" comment where it renders in the JSX - so every rule here is shared
+   between the two rather than duplicated. They never render at once. */
+.shotstrip,
+.scenestrip {
   display: flex;
   align-items: stretch;
   gap: var(--sp-2);
   margin-top: var(--sp-3);
 }
-.shotstrip__btn {
+.shotstrip__btn,
+.scenestrip__btn {
   flex: none;
   width: var(--tap);
   min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   background: var(--ink-850);
   color: var(--chalk);
-  font-size: var(--t-title);
-  font-weight: 600;
-  line-height: 1;
 }
-.shotstrip__btn:active { transform: scale(0.96); }
-.shotstrip__btn:disabled { opacity: 0.3; }
+.shotstrip__btn:active,
+.scenestrip__btn:active { transform: scale(0.96); }
+.shotstrip__btn:disabled,
+.scenestrip__btn:disabled { opacity: 0.3; }
 
 /* The current setup. Brass-keyed so it reads as "this is what the slate says"
    rather than as another neutral control. */
-.shotstrip__now {
+.shotstrip__now,
+.scenestrip__now {
   flex: 1;
   min-width: 0;
   min-height: var(--tap);
@@ -3238,11 +3349,25 @@ select.field {
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }
-.shotstrip__pos {
+.shotstrip__pos,
+.scenestrip__pos {
   flex: none;
   color: var(--text-dim);
   font-size: var(--t-caption);
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+/* The scene name takes the .shotstrip__spec slot: no shot code exists yet to
+   anchor the row, so the name itself is the brass-keyed "what the slate
+   says" text. */
+.scenestrip__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--brass-text);
+  font-size: var(--t-row);
   font-weight: 600;
 }
 
@@ -3372,6 +3497,9 @@ select.field {
   overflow-wrap: anywhere;
 }
 .cliprow__snd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
   font-family: var(--font-mono);
   font-size: var(--t-caption);
   color: var(--sound-text);
@@ -3468,7 +3596,14 @@ select.field {
   color: var(--go-text);
   overflow-wrap: anywhere;
 }
-.movepreview__snd { font-family: var(--font-mono); font-size: var(--t-secondary); color: var(--sound-text); }
+.movepreview__snd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--t-secondary);
+  color: var(--sound-text);
+}
 
 /* The consequence, spelled out before you commit to it. */
 .movesay {
@@ -3710,6 +3845,9 @@ select.field {
 .mark--plus,
 .mark--list { width: 19px; height: 19px; }
 .mark--down { width: 15px; height: 15px; }
+/* Sits beside a 12-13px filename or inside a 19-30px badge circle - smaller
+   than the nav marks above it, because it is never the thing being tapped. */
+.mark--speaker { width: 14px; height: 14px; }
 
 /* ---- the labelled back button -------------------------------------------
    iOS names the screen you are going back to. A bare chevron makes the user

@@ -25,7 +25,7 @@ import { nextTakeNumber } from '../store/util';
 import { tc } from '../export/timecode';
 import { Sheet, SheetClose, Rail, Toast, Confirm } from './common';
 import { useScrolled } from './glist';
-import { BackButton } from './marks';
+import { BackButton, SpeakerMark } from './marks';
 import { TakeEditSheet } from './TakeEditSheet';
 import * as haptics from './haptics';
 
@@ -237,14 +237,20 @@ export function ClipLogScreen(props: {
                   <button
                     type="button"
                     className="cliprow__main"
-                    aria-label={`${takeClipLabel(take)}, ${slate.name}${
+                    aria-label={`${takeClipLabel(take)}${
+                      take.sound ? `, sound ${take.sound.fileName}` : ''
+                    }, ${slate.name}${
                       shot ? `, shot ${shot.code}` : ''
                     }, take ${take.number}. Tap to fix a clip number, status, tags or note.`}
                     onClick={() => setEditing(row)}
                   >
                     <span className="cliprow__names">
                       <span className="cliprow__clip">{takeClipLabel(take)}</span>
-                      {take.sound && <span className="cliprow__snd">🔊 {take.sound.fileName}</span>}
+                      {take.sound && (
+                        <span className="cliprow__snd">
+                          <SpeakerMark /> {take.sound.fileName}
+                        </span>
+                      )}
                     </span>
                     <span className="cliprow__where">
                       <span className="cliprow__scene">{slate.name}</span>
@@ -397,7 +403,11 @@ function MoveSheet(props: {
     >
       <div className="movepreview">
         <span className="movepreview__clip">{takeClipLabel(row.take)}</span>
-        {row.take.sound && <span className="movepreview__snd">🔊 {row.take.sound.fileName}</span>}
+        {row.take.sound && (
+          <span className="movepreview__snd">
+            <SpeakerMark /> {row.take.sound.fileName}
+          </span>
+        )}
       </div>
 
       <div className="formrow">
