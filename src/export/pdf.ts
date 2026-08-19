@@ -5,9 +5,13 @@
 //
 // Hierarchy is Scene > Shot > Take throughout. This file used to print
 // "Shot 3" for take 3, which stole the word from the real thing.
+//
+// A shot's description (from the shot division) prints ONCE, in the sub-heading
+// above that shot's take bands - never on the bands themselves, which would
+// repeat one sentence down every take of the setup.
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
-import type { Fps, Moment, Project, ProjectBundle, Take } from '../types';
+import type { Fps, Moment, Project, ProjectBundle, Shot, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
 import { buildShotIndex, compareTakesInStoryOrder, displayShootDay, shortDateLabel, shotCodeOf } from './order';
 
@@ -297,6 +301,59 @@ export function packLines(
   return lines.map((l) => truncate(l, font, size, maxWidth));
 }
 
+// The shot heading block: one bold code line, then the shot description under
+// it. 14 is the code line's own height, unchanged from when it was the whole
+// heading; 10 is the description's leading and 2 is the gap down to the first
+// take band, so the prose never touches the shaded band below it.
+const SHOT_LABEL_H = 14;
+const SHOT_DESC_SIZE = 8;
+const SHOT_DESC_LEAD = 10;
+const SHOT_DESC_GAP = 2;
+
+/** The heading block for one shot: its code line, and its wrapped description. */
+export interface ShotHeadingBlock {
+  label: string;
+  /** Wrapped description lines; EMPTY when the shot carries no description. */
+  desc: string[];
+}
+
+/**
+ * Compose a shot's heading block.
+ *
+ * The description is `Shot.action` - the prose the shotlist parser reads out of
+ * the shot division's ACTION cell, and the same string the roll screen and the
+ * shot list already show as this setup's one-line recogniser. NOT `note` (the
+ * shotlist path never populates it) and not `dialogue` (a spoken line, not a
+ * description of the setup).
+ *
+ * Sanitised BEFORE wrapping, not at draw time: packLines measures what it is
+ * given, so wrapping the raw string and drawing the sanitised one would size
+ * the lines against characters that never reach the page.
+ *
+ * Exported so the wrapping and the empty-description case can be unit-tested
+ * without rendering a document, the same way packLines is.
+ */
+export function shotHeadingBlock(shot: Shot, font: PDFFont): ShotHeadingBlock {
+  const label = [shot.code, shot.size ?? '', shot.move ?? ''].filter(Boolean).join('  ·  ');
+  const text = sanitize(shot.action ?? '').trim();
+  return {
+    label,
+    // Word wrap by handing packLines the words: it breaks only BETWEEN the
+    // parts it is given, so this splits at spaces and never mid-word, and a
+    // single unbreakable word still gets truncated rather than overflowing.
+    desc: text ? packLines(text.split(/\s+/), ' ', font, SHOT_DESC_SIZE, CONTENT_WIDTH - 8) : [],
+  };
+}
+
+/**
+ * How tall that block draws. A shot with no description measures exactly what
+ * the bare code line always did, so such a project's pagination is unchanged.
+ */
+export function shotHeadingHeight(block: ShotHeadingBlock): number {
+  if (!block.desc.length) return SHOT_LABEL_H;
+  return SHOT_LABEL_H + block.desc.length * SHOT_DESC_LEAD + SHOT_DESC_GAP;
+}
+
 function safeCameraTc(base: string | undefined, ms: number, fps: Fps): string | undefined {
   if (!base) return undefined;
   try {
@@ -435,25 +492,43 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
 
   /**
    * The light sub-heading naming the shot that owns the bands below it, e.g.
-   * "5.31 · MCU · PUSH IN". Deliberately NOT a filled band - the take bands are
+   * "5.31 · MCU · PUSH IN", with the shot's description from the shot division
+   * wrapped underneath. Deliberately NOT a filled band - the take bands are
    * already shaded, and a second shaded row would fight them.
+   *
+   * This heading is the ONLY place a shot's description is printed: it is a
+   * property of the setup, not of the roll, so repeating it on all four of a
+   * shot's take bands would be the same sentence four times.
    *
    * Does no ensure() of its own: the caller has to reserve heading + first band
    * together BEFORE adopting the label (see the scene loop), otherwise a break
    * fired from in here would redraw the heading through onBreak and we would
    * print it twice.
    */
-  const shotHeadingRow = (label: string) => {
-    const h = 14;
-    const bottom = y - h;
+  const shotHeadingRow = (label: string, desc: string[] = []) => {
+    const bottom = y - SHOT_LABEL_H;
     page.drawText(truncate(sanitize(label), bold, 8.5, CONTENT_WIDTH - 4), {
       x: MARGIN,
-      y: baselineOf(bottom, h, 8.5),
+      y: baselineOf(bottom, SHOT_LABEL_H, 8.5),
       size: 8.5,
       font: bold,
       color: GRAY,
     });
-    y -= h;
+    y -= SHOT_LABEL_H;
+    // Regular weight against the bold code line above, and indented to the take
+    // bands' own text inset so the prose hangs off the shot rather than off the
+    // page edge. Already sanitised and wrapped to width by shotHeadingBlock.
+    for (const line of desc) {
+      page.drawText(line, {
+        x: MARGIN + 4,
+        y: baselineOf(y - SHOT_DESC_LEAD, SHOT_DESC_LEAD, SHOT_DESC_SIZE),
+        size: SHOT_DESC_SIZE,
+        font: helv,
+        color: GRAY,
+      });
+      y -= SHOT_DESC_LEAD;
+    }
+    if (desc.length) y -= SHOT_DESC_GAP;
   };
 
   // ---- data prep ---------------------------------------------------------
@@ -573,20 +648,24 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   // table above still listed it: an internally inconsistent document. csv.ts
   // has always had this fallback; the PDF did not.
   const sceneSections = [
-    ...slatesOrdered.map((s) => ({ id: s.id, name: s.name, hasShots: (s.shots?.length ?? 0) > 0 })),
+    ...slatesOrdered.map((s) => ({ id: s.id, name: s.name })),
     ...[...takesBySlate.keys()]
       .filter((id) => !slateName.has(id))
-      .map((id) => ({ id, name: '(scene missing)', hasShots: false })),
+      .map((id) => ({ id, name: '(scene missing)' })),
   ];
 
   for (const section of sceneSections) {
     const sceneGood = (takesBySlate.get(section.id) ?? []).filter((t) => t.status === 'good');
     if (sceneGood.length === 0) continue;
 
-    // Keep scene heading + column header + first take band together. A scene
-    // that HAS shots also has a shot sub-heading to fit, so reserve for that
-    // too; a legacy scene reserves exactly what it always did.
-    ensure(20 + 15 + 16 + (section.hasShots ? 14 : 0));
+    // Keep scene heading + column header + first take band together, plus the
+    // first shot's heading block when there is one. Measured off THAT shot
+    // rather than assumed flat: a first shot whose description wraps to three
+    // lines needs three lines reserved, or the scene heading strands at the
+    // foot of a page with its table overleaf. A scene whose takes carry no shot
+    // reserves exactly what it always did.
+    const firstShot = shotIndex.of(sceneGood[0]);
+    ensure(20 + 15 + 16 + (firstShot ? shotHeadingHeight(shotHeadingBlock(firstShot, helv)) : 0));
     heading(`Scene: ${section.name}`, 12);
     onBreak = () => {
       // A scene spanning pages must re-announce BOTH levels or page 4 is a wall
@@ -595,6 +674,9 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
       // makes it unreadable, so both are repeated here.
       heading(`Scene: ${section.name}  (cont.)`, 12);
       columnHeader(TAKE_COLS);
+      // Code line only, no description: the brief is that the description
+      // appears once per shot, and a continuation is the same shot, not a
+      // second one. The code is what anyone looks the setup up by anyway.
       if (currentShotLabel) shotHeadingRow(`${currentShotLabel}  (cont.)`);
     };
     columnHeader(TAKE_COLS);
@@ -616,11 +698,14 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
         // one we are about to draw a line later.
         currentShotLabel = null;
         if (shot) {
-          ensure(14 + 16); // heading + the first band under it
-          currentShotLabel = [shot.code, shot.size ?? '', shot.move ?? '']
-            .filter(Boolean)
-            .join('  ·  ');
-          shotHeadingRow(currentShotLabel);
+          const block = shotHeadingBlock(shot, helv);
+          // Heading block (code line + however many lines its description
+          // wraps to) AND the first band under it, reserved together - a
+          // description sitting alone at the foot of a page, with the takes it
+          // describes overleaf, describes nothing.
+          ensure(shotHeadingHeight(block) + 16);
+          currentShotLabel = block.label;
+          shotHeadingRow(block.label, block.desc);
         }
       }
 
