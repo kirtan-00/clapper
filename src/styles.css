@@ -2415,6 +2415,65 @@ select.field {
 .roll__deck > .bigbtn:active {
   box-shadow: 0 6px 0 0 var(--key-shadow), 0 0 0 var(--sp-4) var(--ink-950);
 }
+/* --------------------------------------------------------- reach row ----
+   The roll screen's secondary controls, moved off the top of the screen and
+   down beside the thumb. Measured before the move, right thumb on a 430x932
+   phone: back 918px away, clip 863, voice 848 — every one of them a two-handed
+   reach on the screen an operator holds all day.
+
+   Sits INSIDE the deck, above CUT, and only while idle. Two consequences worth
+   stating: it inherits the deck's bottom anchoring so CUT does not move, and
+   while rolling this strip belongs to MARK IN — a "back to scenes" target next
+   to CUT during a take is how a take gets lost. */
+.roll__reach {
+  display: flex;
+  flex-wrap: wrap;
+  /* REVERSED, and the reason is the measurement rather than taste. A right
+     thumb rests at the bottom RIGHT, so the leftmost slot is the furthest
+     point in the row: leaving Scenes first left it at 341px, still a
+     two-handed reach after all this. Reversed it lands at ~126px.
+     Convention says a back control goes left, and this is not one — it is a
+     destination ("Scenes"), the same way the tab tray's rightmost tab is a
+     destination. The pager's own arrows still handle stepping. */
+  flex-direction: row-reverse;
+  gap: var(--sp-2);
+  /* Pushed away from CUT rather than merely spaced: this row and the one
+     control that must never be mis-hit are neighbours now, and the gap is the
+     only thing keeping a fumbled Scenes tap off the button that ends a take. */
+  margin-bottom: var(--sp-3);
+}
+.reachbtn {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* --tap, not a smaller custom height. These are thumb targets now and the
+     floor applies to them the way it applies to everything else. */
+  min-height: var(--tap);
+  padding: 0 var(--sp-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+  color: var(--text-dim);
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: transform var(--dur-press) var(--ease-out),
+    background var(--dur-state) var(--ease-out),
+    color var(--dur-state) var(--ease-out);
+}
+.reachbtn:active { transform: scale(0.96); }
+/* Voice, live. Same green the app already spends on "this is on". */
+.reachbtn--on {
+  color: var(--go-text);
+  border-color: var(--go-edge);
+  background: var(--go-tint);
+}
+.reachbtn__pen { color: var(--text-faint); }
+.reachbtn .tnum { color: var(--text); }
+
 /* CUT is the one control that may never move or leave, AND it must sit in the
    SAME place idle as live (docs/specs/2026-08-15-premium-standard.md §9 - the
    one change Kirtan will feel in his hand). Two rules, two different kinds of

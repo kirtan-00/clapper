@@ -837,67 +837,20 @@ export function RollingScreen(props: {
           See the .roll__panes rules in styles.css. */}
       <div className="roll__panes">
       <div className="roll__body">
+      {/* HEAD IS INFORMATION ONLY. Measured on a 430x932 phone, every control
+          that used to live up here sat 848-918px from a right thumb — the back
+          button worst at 918. On the one screen an operator holds all day,
+          nothing you have to TAP is at the top any more; it is all in
+          .roll__reach down by the thumb. What stays is what you READ. */}
       <div className="roll__head">
-        <button type="button" className="iconbtn" aria-label="Back to scenes" onClick={props.onExit}>
-          &lsaquo;
-        </button>
         <div className="roll__slate">
           <div className="name">{slate.name}</div>
           <div className="roll__nextline">
             <span>
               take <span className="tnum">{nextTakeNumber}</span>
             </span>
-            <span aria-hidden="true">&middot;</span>
-            {multi ? (
-              <button
-                type="button"
-                className="clipedit"
-                aria-label="Fix the camera clip numbers"
-                onClick={() => setEditingClip(true)}
-              >
-                {cameras.length} cams
-                <span className="clipedit__pen" aria-hidden="true">✎</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="clipedit"
-                aria-label={`Clip ${clipName(project)}, tap to fix the number`}
-                onClick={() => setEditingClip(true)}
-              >
-                clip <span className="tnum">{clipName(project)}</span>
-                <span className="clipedit__pen" aria-hidden="true">✎</span>
-              </button>
-            )}
-            {/* Recovery, one tap away - and only while stopped. */}
-            {props.onOpenClipLog && !rolling && (
-              <>
-                <span aria-hidden="true">&middot;</span>
-                <button
-                  type="button"
-                  className="clipedit"
-                  aria-label="Open the clip log for every take of this shoot"
-                  onClick={props.onOpenClipLog}
-                >
-                  log
-                  <span className="clipedit__pen" aria-hidden="true">&rsaquo;</span>
-                </button>
-              </>
-            )}
           </div>
         </div>
-        {listener.supported && (
-          <button
-            type="button"
-            className={`mictoggle${micOn ? ' mictoggle--on' : ''}`}
-            aria-label={micOn ? 'Turn voice commands off' : 'Turn voice commands on'}
-            aria-pressed={micOn}
-            onClick={toggleMic}
-          >
-            <span className="miclamp" aria-hidden="true" />
-            {micOn ? (listening ? 'listening' : 'mic on') : 'voice'}
-          </button>
-        )}
       </div>
 
       {/* The shot strip. This is where the operator lives between setups: step
@@ -1190,6 +1143,71 @@ export function RollingScreen(props: {
       </div>
 
       <div className="roll__deck">
+        {/* THE REACH ROW. Everything the head used to hold, moved to where the
+            thumb already is. IDLE ONLY, and that is a safety rule rather than a
+            layout one: while rolling, this strip is MARK IN's, and a "back to
+            scenes" target adjacent to CUT during a take is how you lose one.
+            The controls here are all things you do BETWEEN takes anyway. */}
+        {!rolling && (
+          <div className="roll__reach">
+            <button
+              type="button"
+              className="reachbtn"
+              aria-label="Back to scenes"
+              onClick={props.onExit}
+            >
+              <BackMark />
+              <span>Scenes</span>
+            </button>
+
+            {multi ? (
+              <button
+                type="button"
+                className="reachbtn"
+                aria-label="Fix the camera clip numbers"
+                onClick={() => setEditingClip(true)}
+              >
+                <span className="tnum">{cameras.length} cams</span>
+                <span className="reachbtn__pen" aria-hidden="true">✎</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="reachbtn"
+                aria-label={`Clip ${clipName(project)}, tap to fix the number`}
+                onClick={() => setEditingClip(true)}
+              >
+                <span className="tnum">{clipName(project)}</span>
+                <span className="reachbtn__pen" aria-hidden="true">✎</span>
+              </button>
+            )}
+
+            {props.onOpenClipLog && (
+              <button
+                type="button"
+                className="reachbtn"
+                aria-label="Open the clip log for every take of this shoot"
+                onClick={props.onOpenClipLog}
+              >
+                <span>Log</span>
+              </button>
+            )}
+
+            {listener.supported && (
+              <button
+                type="button"
+                className={`reachbtn${micOn ? ' reachbtn--on' : ''}`}
+                aria-label={micOn ? 'Turn voice commands off' : 'Turn voice commands on'}
+                aria-pressed={micOn}
+                onClick={toggleMic}
+              >
+                <span className="miclamp" aria-hidden="true" />
+                <span>{micOn ? (listening ? 'listening' : 'on') : 'voice'}</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Every camera's own roll/cut, ALWAYS reachable - idle or rolling.
             Lives in the deck (flex: 0 0 auto below), never in the stage, so
             the moment the keypad grows it is the stage that shrinks first,
