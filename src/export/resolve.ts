@@ -442,11 +442,19 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     // Built from the RAW name, not the XML-escaped one: this is a URL, so a
     // space or a "#" in a card name has to be percent-encoded, not entity-escaped.
     const rawFile = entry.clipName + entry.ext;
+    // The editor's own footage root sits ABOVE the unit folder, exactly as it
+    // does in fcpxml.ts. This exporter used to ignore project.mediaRoot
+    // outright: a project that had gone to the trouble of setting the root
+    // still handed Resolve "file:///A_20260731/C0001.MP4", which resolves to
+    // the boot volume, where nothing ever is - the same offline-import
+    // failure the field was added to fix, just in the other exporter. With
+    // no root set nothing changes: the paths below are what they always were.
+    const root = project.mediaRoot?.trim();
     const srcPath = multi
-      ? mediaPath(`${entry.unitLetter}${dateSuffix}`, rawFile)
+      ? mediaPath(root, `${entry.unitLetter}${dateSuffix}`, rawFile)
       : entry.shootDay
-        ? mediaPath(`A${dateSuffix}`, rawFile)
-        : mediaPath(rawFile);
+        ? mediaPath(root, `A${dateSuffix}`, rawFile)
+        : mediaPath(root, rawFile);
     resourceLines.push(
       `    <asset id="${entry.id}" name="${escapeXml(entry.clipName)}" start="0s" duration="${framesToRational(entry.durationFrames, fd)}" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" format="r1">
       <media-rep kind="original-media" src="file:///${srcPath}"/>
@@ -459,6 +467,12 @@ export function toResolveXml(bundle: ProjectBundle): Blob {
     // file that happens to share a name with a picture clip from colliding.
     // Same day-fold as the picture assets: absent for a legacy take (no
     // shootDay), so its path stays exactly "SND/...".
+    //
+    // Sound deliberately does NOT read mediaRoot, matching fcpxml.ts: a
+    // recorder writes to its own card, not into the camera's folder, so
+    // nesting SND under the picture root would point Resolve confidently at
+    // a directory that does not exist. Sound keeps its reel folder until it
+    // gets a root of its own.
     const dateSuffix = shootDaySuffix(entry);
     const srcPath = mediaPath(`SND${dateSuffix}`, entry.fileName + entry.ext);
     resourceLines.push(

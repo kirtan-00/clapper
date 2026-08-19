@@ -226,3 +226,91 @@ describe('resolve.ts multi-cam — a camera that cut and rejoined inside one tak
     expect(new Set(second.map((l) => l.offset))).toEqual(new Set(['120/24s']));
   });
 });
+
+// ---------------------------------------------------------------------------
+// This exporter used to ignore project.mediaRoot outright, which meant a
+// project that HAD told the app where its footage lives still imported into
+// Resolve fully offline — the exact failure the field exists to prevent, and
+// the one fcpxml.ts had already fixed for Premiere.
+
+describe('resolve.ts — the editor’s footage root reaches the asset src', () => {
+  // assetSrcs() above captures what follows "file:///", so an absolute root's
+  // own leading slash is the third one of the scheme and never appears in the
+  // capture. Asserting on the whole URL keeps that visible.
+  const srcUrls = (xml: string) => assetSrcs(xml).map((p) => `file:///${p}`);
+
+  it('single-cam: the root sits above the file, percent-encoded', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject({ mediaRoot: '/Volumes/My Book-02/HU kon Chu? day 1' }),
+      slates: [slate('s1', 0)],
+      takes: [take('t1', 's1', 1, 'crav_0054')],
+      moments: [],
+    };
+    expect(srcUrls(await xmlOf(bundle))).toEqual([
+      'file:///Volumes/My%20Book-02/HU%20kon%20Chu%3F%20day%201/crav_0054.MP4',
+    ]);
+  });
+
+  it('single-cam with a shoot day: the root sits above the day folder', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject({ mediaRoot: '/Volumes/SSD' }),
+      slates: [slate('s1', 0)],
+      takes: [take('t1', 's1', 1, 'C0001', '2026-01-01')],
+      moments: [],
+    };
+    expect(srcUrls(await xmlOf(bundle))).toEqual(['file:///Volumes/SSD/A_20260101/C0001.MP4']);
+  });
+
+  it('multi-cam: the root sits above the unit folder, which still disambiguates', async () => {
+    const cameras: CameraUnit[] = [
+      { letter: 'A', clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, clipExt: '.MP4' },
+      { letter: 'B', clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, clipExt: '.MP4' },
+    ];
+    const bundle: ProjectBundle = {
+      project: baseProject({ cameras, mediaRoot: '/Volumes/SSD/day 1' }),
+      slates: [slate('s1', 0)],
+      takes: [
+        {
+          ...take('t1', 's1', 1, 'C0001'),
+          clips: [
+            { unit: 'A', clipName: 'C0001' },
+            { unit: 'B', clipName: 'C0001' },
+          ],
+        },
+      ],
+      moments: [],
+    };
+    expect(srcUrls(await xmlOf(bundle))).toEqual([
+      'file:///Volumes/SSD/day%201/A/C0001.MP4',
+      'file:///Volumes/SSD/day%201/B/C0001.MP4',
+    ]);
+  });
+
+  it('with no root set, every path is exactly what it always was', async () => {
+    const bundle: ProjectBundle = {
+      project: baseProject(),
+      slates: [slate('s1', 0)],
+      takes: [take('t1', 's1', 1, 'C0001', '2026-01-01')],
+      moments: [],
+    };
+    expect(srcUrls(await xmlOf(bundle))).toEqual(['file:///A_20260101/C0001.MP4']);
+  });
+
+  it('sound stays out of the picture root, the same way Premiere’s export does', async () => {
+    // A recorder writes to its own card. Nesting SND under the camera root
+    // would point Resolve confidently at a directory that does not exist.
+    const bundle: ProjectBundle = {
+      project: baseProject({
+        mediaRoot: '/Volumes/SSD',
+        sound: { filePrefix: 'SND_', nextFileNumber: 1, filePadding: 4, fileExt: '.WAV' },
+      }),
+      slates: [slate('s1', 0)],
+      takes: [{ ...take('t1', 's1', 1, 'C0001'), sound: { fileName: 'SND_0001' } }],
+      moments: [],
+    };
+    expect(srcUrls(await xmlOf(bundle))).toEqual([
+      'file:///Volumes/SSD/C0001.MP4',
+      'file:///SND/SND_0001.WAV',
+    ]);
+  });
+});
