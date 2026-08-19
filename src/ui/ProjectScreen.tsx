@@ -1608,7 +1608,7 @@ function FootageFolderSection(props: {
                   className="tnum"
                   style={{ fontSize: 'var(--t-secondary)', lineHeight: 1.45, overflowWrap: 'anywhere' }}
                 >
-                  {walk.rootName} — {walk.fileCount} media {walk.fileCount === 1 ? 'file' : 'files'}
+                  {walk.rootName} · {walk.fileCount} media {walk.fileCount === 1 ? 'file' : 'files'}
                 </span>
               </div>
               {matched && (
