@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mediaPath } from './paths';
+import { joinPath, mediaPath } from './paths';
 
 describe('mediaPath', () => {
   it('leaves an ordinary camera file exactly as the card wrote it', () => {
@@ -40,5 +40,33 @@ describe('mediaPath', () => {
     // xmeml wants file://localhost/ and FCPXML wants file:///. Emitting our
     // own slash here would double one of them.
     expect(mediaPath('A', 'C0001.MP4').startsWith('/')).toBe(false);
+  });
+});
+
+describe('joinPath', () => {
+  it('gives a spreadsheet the path the disk actually spells', () => {
+    // The deliberate opposite of mediaPath. A CSV cell gets pasted into
+    // Finder's Go-to-Folder or handed to ffmpeg, and "/Volumes/My%20Book"
+    // resolves to nothing in both — so this one does not encode at all.
+    expect(joinPath('/Volumes/My Book', 'CARD_A/C0001.MP4')).toBe(
+      '/Volumes/My Book/CARD_A/C0001.MP4',
+    );
+    expect(joinPath('/Volumes/R&D', 'a b.MP4')).toBe('/Volumes/R&D/a b.MP4');
+  });
+
+  it('returns the relative path untouched when no root is confirmed', () => {
+    // A browser never hands out an absolute path, so with nothing typed in we
+    // write the half we genuinely received rather than inventing the other.
+    expect(joinPath(undefined, 'CARD_A/C0001.MP4')).toBe('CARD_A/C0001.MP4');
+    expect(joinPath('   ', 'CARD_A/C0001.MP4')).toBe('CARD_A/C0001.MP4');
+  });
+
+  it('never doubles the separator between the two halves', () => {
+    expect(joinPath('/Volumes/SSD/', 'C0001.MP4')).toBe('/Volumes/SSD/C0001.MP4');
+    expect(joinPath('/Volumes/SSD', '/C0001.MP4')).toBe('/Volumes/SSD/C0001.MP4');
+  });
+
+  it('stays in one separator when the DIT is on Windows', () => {
+    expect(joinPath('D:\\FOOTAGE', 'A/C1.MP4')).toBe('D:\\FOOTAGE\\A\\C1.MP4');
   });
 });
