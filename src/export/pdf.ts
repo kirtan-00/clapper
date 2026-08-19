@@ -531,6 +531,42 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
     if (desc.length) y -= SHOT_DESC_GAP;
   };
 
+  /**
+   * The take band's identity lines: "Take 3  -  A C0193  ·  B C0097  ·  ...".
+   *
+   * The identity runs free across the left and WRAPS rather than truncates when
+   * it will not fit on one line. A three-camera take with sound is already five
+   * names, and a camera that cut and rejoined adds one more per file - the old
+   * single truncated line silently dropped the tail, which on this page means a
+   * card nobody knows to look for. Only the SEPARATORS between clips are break
+   * candidates (packLines), so the take number can never be orphaned from its
+   * first clip and half a clip name never reaches the page.
+   */
+  const bandLines = (take: Take): string[] => {
+    const clipParts = clipLabelParts(take, project).map(sanitize);
+    const head = `Take ${take.number}`;
+    return packLines(
+      clipParts.length ? [`${head}  -  ${clipParts[0]}`, ...clipParts.slice(1)] : [head],
+      '  ·  ',
+      bold,
+      8.5,
+      C_TIME.x - (MARGIN + 4) - 6,
+    );
+  };
+
+  /** How tall those lines draw. Shared by the drawing and by every reservation
+   *  that has to keep a heading with the first band under it - a reservation
+   *  that assumed a flat one-line band stranded the heading whenever the band
+   *  wrapped. */
+  const bandHeight = (lines: string[]): number => 16 + (lines.length - 1) * 10;
+
+  // heading() advances y by `size + 2` and then another 8 for the gap beneath,
+  // so a scene heading occupies 22, not the 20 it used to reserve. Two points
+  // does not sound like a page break until the break lands in exactly that gap
+  // and the scene heading ends up alone at the foot of a page.
+  const SCENE_HEADING_SIZE = 12;
+  const SCENE_HEADING_H = SCENE_HEADING_SIZE + 2 + 8;
+
   // ---- data prep ---------------------------------------------------------
   const slatesOrdered = [...slates].sort((a, b) => a.order - b.order);
   const slateName = new Map(slates.map((s) => [s.id, s.name]));
@@ -665,8 +701,13 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
     // foot of a page with its table overleaf. A scene whose takes carry no shot
     // reserves exactly what it always did.
     const firstShot = shotIndex.of(sceneGood[0]);
-    ensure(20 + 15 + 16 + (firstShot ? shotHeadingHeight(shotHeadingBlock(firstShot, helv)) : 0));
-    heading(`Scene: ${section.name}`, 12);
+    ensure(
+      SCENE_HEADING_H +
+        15 +
+        (firstShot ? shotHeadingHeight(shotHeadingBlock(firstShot, helv)) : 0) +
+        bandHeight(bandLines(sceneGood[0])),
+    );
+    heading(`Scene: ${section.name}`, SCENE_HEADING_SIZE);
     onBreak = () => {
       // A scene spanning pages must re-announce BOTH levels or page 4 is a wall
       // of take bands with no scene and no setup attached to them. The scene
@@ -703,35 +744,15 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
           // wraps to) AND the first band under it, reserved together - a
           // description sitting alone at the foot of a page, with the takes it
           // describes overleaf, describes nothing.
-          ensure(shotHeadingHeight(block) + 16);
+          ensure(shotHeadingHeight(block) + bandHeight(bandLines(take)));
           currentShotLabel = block.label;
           shotHeadingRow(block.label, block.desc);
         }
       }
 
       // take header band (shaded, full width)
-      //
-      // The identity runs free across the left and WRAPS rather than truncates
-      // when it will not fit on one line. A three-camera take with sound is
-      // already five names, and a camera that cut and rejoined adds one more
-      // per file - the old single truncated line silently dropped the tail,
-      // which on this page means a card nobody knows to look for. Breaks only
-      // ever land between whole clip names (packLines).
-      const labelWidth = C_TIME.x - (MARGIN + 4) - 6;
-      // "Take 3  -  A C0193  ·  B C0097  ·  ..." - the dash still sets the take
-      // number apart from the clip list, and the list still joins on the middot
-      // it always did. Only the SEPARATORS between clips are break candidates,
-      // so the take number can never be orphaned from its first clip.
-      const clipParts = clipLabelParts(take, project).map(sanitize);
-      const head = `Take ${take.number}`;
-      const labelLines = packLines(
-        clipParts.length ? [`${head}  -  ${clipParts[0]}`, ...clipParts.slice(1)] : [head],
-        '  ·  ',
-        bold,
-        8.5,
-        labelWidth,
-      );
-      const bandH = 16 + (labelLines.length - 1) * 10;
+      const labelLines = bandLines(take);
+      const bandH = bandHeight(labelLines);
       ensure(bandH);
       const bandBottom = y - bandH;
       page.drawRectangle({ x: MARGIN, y: bandBottom, width: CONTENT_WIDTH, height: bandH, color: BAND });
