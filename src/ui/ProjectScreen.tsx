@@ -5,7 +5,10 @@ import { isMultiCam } from '../types';
 import { store } from '../store';
 import { formatClip, moveItem, sortForDisplay, undoWrapShootDay, wrapShootDay } from '../store/util';
 import { tc } from '../export/timecode';
-import { exporter, shareBlob, buildBackupBlob } from '../export';
+import { exporter, shareBlob, buildBackupBlob, buildMediaIndex, countMatched } from '../export';
+import type { MediaIndex } from '../export';
+import { clearMediaIndex, loadMediaIndex, saveMediaIndex } from '../store/medialink';
+import { pickerKind, pickFolderViaHandle, pickedFromFiles, type PickedFolder } from './folderpick';
 import { exportDateStamp, shortDateLabel } from '../export/order';
 import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
@@ -1343,6 +1346,16 @@ function QuickTagsSection(props: {
   );
 }
 
+/** Every clip name this project has logged, one per camera file — the list the
+ *  picked folder gets checked against. Multi-cam takes carry one name per
+ *  unit; single-cam takes carry theirs in `clipName`. */
+async function loggedClipNames(projectId: string): Promise<string[]> {
+  const bundle = await store.getBundle(projectId);
+  return bundle.takes.flatMap((t) =>
+    t.clips && t.clips.length ? t.clips.map((c) => c.clipName) : [t.clipName],
+  );
+}
+
 function FootageFolderSection(props: {
   project: Project;
   onCommit: (patch: Partial<Project>) => Promise<void>;
@@ -1350,10 +1363,104 @@ function FootageFolderSection(props: {
   const { project } = props;
   const [root, setRoot] = useState(project.mediaRoot ?? '');
   const [saved, setSaved] = useState(false);
+  // The walk of the folder picked ON THIS DEVICE, plus how much of the shoot
+  // it accounts for. `takeCount` is read alongside so the count reads "9 of
+  // 12", not a bare 9 — a number with no denominator cannot tell you whether
+  // you pointed at the right disk, which is the entire question being asked.
+  const [walk, setWalk] = useState<MediaIndex | undefined>(undefined);
+  const [matched, setMatched] = useState<{ hit: number; total: number } | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
+  const dirInput = useRef<HTMLInputElement | null>(null);
+  const kind = pickerKind();
 
   useEffect(() => {
     setRoot(project.mediaRoot ?? '');
   }, [project.id, project.mediaRoot]);
+
+  // Reload the remembered walk when the project changes, and re-count against
+  // it: takes logged since the pick are new rows the folder has never been
+  // measured against.
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const saved = await loadMediaIndex(project.id);
+      if (!live) return;
+      setWalk(saved);
+      if (!saved) {
+        setMatched(null);
+        return;
+      }
+      const names = await loggedClipNames(project.id);
+      if (!live) return;
+      setMatched({ hit: countMatched(saved, names), total: names.length });
+    })();
+    return () => {
+      live = false;
+    };
+  }, [project.id]);
+
+  /** Index a pick, count it against the shoot, and remember it. */
+  async function absorb(picked: PickedFolder): Promise<void> {
+    const index = buildMediaIndex(picked.relativePaths, picked.rootName);
+    if (index.fileCount === 0) {
+      // Distinguish the two ways this ends up empty, because the fixes are
+      // opposite: an empty folder is the user's problem, a browser that
+      // ignored `webkitdirectory` and ran a plain file picker is ours.
+      setPickError(
+        picked.relativePaths.length === 0
+          ? 'That folder handed over nothing. Either it is empty, or this browser will not give a whole folder up.'
+          : 'Nothing in there looks like footage. Pick the folder the cards were copied into, not the project folder.',
+      );
+      return;
+    }
+    setPickError(null);
+    setWalk(index);
+    const names = await loggedClipNames(project.id);
+    setMatched({ hit: countMatched(index, names), total: names.length });
+    await saveMediaIndex(project.id, index);
+  }
+
+  async function pick(): Promise<void> {
+    haptics.tap();
+    setPickError(null);
+    if (kind === 'handle') {
+      setScanning(true);
+      try {
+        const picked = await pickFolderViaHandle();
+        if (picked) await absorb(picked);
+      } catch {
+        setPickError('Could not read that folder.');
+      } finally {
+        setScanning(false);
+      }
+      return;
+    }
+    dirInput.current?.click();
+  }
+
+  async function onFiles(e: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const files = Array.from(e.target.files ?? []);
+    // Let the same folder be picked twice in a row (a card finished copying
+    // between attempts) — without this the input holds the old value and
+    // fires nothing.
+    e.target.value = '';
+    if (files.length === 0) return;
+    setScanning(true);
+    try {
+      await absorb(pickedFromFiles(files, 'Footage'));
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  async function forget(): Promise<void> {
+    haptics.tap();
+    await clearMediaIndex(project.id);
+    setWalk(undefined);
+    setMatched(null);
+    setPickError(null);
+  }
 
   const trimmed = root.trim().replace(/\/+$/, '');
   const example =
@@ -1435,6 +1542,107 @@ function FootageFolderSection(props: {
       <button type="button" className="btn btn--full" style={{ marginTop: 12 }} onClick={() => void save()}>
         {saved ? 'Saved' : 'Set folder'}
       </button>
+
+      {/* -------------------------------------------------------------- pick --
+          Typing the root above says where the footage lives. This says what is
+          IN there — Clapper walks the folder for real and checks every logged
+          clip against it, so a wrong disk, a card that never finished copying
+          or a mis-typed prefix shows up here at wrap instead of in the edit
+          suite on Monday. The walk feeds the CSV's file_path column.
+
+          A browser hands over a path RELATIVE to whatever gets picked and
+          nothing above it, on purpose — so the two halves stay separate: the
+          field above is the half only a person can supply, this is the half
+          only the disk can. */}
+      <div className="formrow" style={{ marginTop: 18, marginBottom: 0 }}>
+        <span className="label">What is actually on the disk</span>
+      </div>
+
+      {/* Hidden, and driven by the button below: a bare file input renders as
+          an OS control that cannot be styled and reads as a web form in the
+          middle of an app. `webkitdirectory` is not in React's DOM typings —
+          it is a real attribute on every browser that supports folder picking,
+          React just has no declaration for it. */}
+      <input
+        ref={dirInput}
+        type="file"
+        multiple
+        hidden
+        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+        onChange={(e) => void onFiles(e)}
+      />
+
+      {kind === 'none' ? (
+        <p
+          className="section__note"
+          style={{
+            marginTop: 10,
+            marginBottom: 0,
+            textAlign: 'left',
+            whiteSpace: 'normal',
+            overflow: 'visible',
+            lineHeight: 1.45,
+          }}
+        >
+          This browser will not hand over a whole folder, so there is nothing to walk. Set the path
+          above and the exports still link by name. Folder picking works in Chrome and Edge, and on
+          iPhone from iOS 18.4.
+        </p>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="btn btn--full"
+            style={{ marginTop: 10 }}
+            disabled={scanning}
+            onClick={() => void pick()}
+          >
+            {scanning ? 'Reading...' : walk ? 'Pick a different folder' : 'Find the footage'}
+          </button>
+
+          {walk && (
+            <div className="clipwidget" style={{ marginTop: 12 }}>
+              <div className="formrow" style={{ marginBottom: matched ? 12 : 0 }}>
+                <span className="label">Walked</span>
+                <span
+                  className="tnum"
+                  style={{ fontSize: 'var(--t-secondary)', lineHeight: 1.45, overflowWrap: 'anywhere' }}
+                >
+                  {walk.rootName} — {walk.fileCount} media {walk.fileCount === 1 ? 'file' : 'files'}
+                </span>
+              </div>
+              {matched && (
+                <div className="formrow" style={{ margin: 0 }}>
+                  <span className="label">Takes located</span>
+                  {/* `tnum--bad` when nothing matched at all: that is almost
+                      always the wrong folder (the project folder rather than
+                      the card dump), and it is worth looking like a problem. */}
+                  <span className={matched.hit === 0 && matched.total > 0 ? 'tnum tnum--bad' : 'tnum'}>
+                    {matched.hit} of {matched.total}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {walk && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--full"
+              style={{ marginTop: 10 }}
+              onClick={() => void forget()}
+            >
+              Forget this folder
+            </button>
+          )}
+        </>
+      )}
+
+      {pickError && (
+        <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 10 }}>
+          {pickError}
+        </span>
+      )}
     </section>
   );
 }
@@ -1607,7 +1815,12 @@ function ExportBar(props: { project: Project }) {
         const blob = exporter.toResolveXml(bundle);
         await shareBlob(blob, `${base}-log-${dateStamp}.fcpxml`, 'text/xml');
       } else {
-        const blob = exporter.toCsv(bundle);
+        // The folder walk is device-local (see store/medialink.ts), so it is
+        // read here rather than carried on the bundle. Absent — nobody picked
+        // a folder on this device — and the CSV is exactly what it always was,
+        // with three empty trailing columns.
+        const mediaIndex = await loadMediaIndex(props.project.id);
+        const blob = exporter.toCsv(bundle, mediaIndex);
         await shareBlob(blob, `${base}-log-${dateStamp}.csv`, 'text/csv');
       }
       track('export', { format: label });
