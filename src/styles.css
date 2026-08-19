@@ -2956,6 +2956,19 @@ select.field {
   color: var(--chalk-dim);
   animation: fade var(--dur-move) var(--ease-out);
 }
+/* The two plan buttons. Stacked, not side by side: at 375px two buttons in a
+   row leave each one too narrow to read its own label without ellipsis, and
+   this is the one control in the app where a misread costs money. */
+.procta__plans {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+/* Outcome copy. --good is the only place in the app green is used for prose,
+   and it is earned: it is the receipt. --bad borrows the same red the CUT
+   button and every destructive confirm already use. */
+.procta__msg--good { color: var(--go-text); }
+.procta__msg--bad { color: var(--rec-text); }
 
 /* ------------------------------------------------------- multi-camera ---- */
 

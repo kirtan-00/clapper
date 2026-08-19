@@ -10,3 +10,8 @@ dev-dist
 credentials.md
 supabase/.temp/
 dist-site
+
+# secrets - never committed
+.env
+.env.*
+!.env.example
