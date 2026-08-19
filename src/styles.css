@@ -2018,6 +2018,34 @@ select.field {
   flex: 0 0 auto;
 }
 
+/* IDLE vs LIVE is a different argument about who owns the screen, and until now
+   only one of them was made.
+     LIVE  - the deck wins. Its buttons are the whole job, and the reference
+             text above must shrink first and never take more than its share.
+             That is what `flex: 0 1 auto` + `max-height: 42%` above encode,
+             and nothing here changes them while rolling.
+     IDLE  - there is nothing to protect. The deck holds ONE button, and it
+             was taking 562px of a 664px screen to hold it: measured, the stage
+             came out 0px tall, which then tripped the @container rule below
+             into blanking itself, so the app's primary screen was 448px of
+             void that looked deliberate. The report is the reason to be on
+             this screen before you roll, so idle it gets the room and the deck
+             takes only what its button needs.
+   CUT does not move between the two: it is `position: sticky; bottom: 0` in a
+   deck that still reaches the bottom of the fixed .roll either way. */
+.roll:not(.roll--live) .roll__body {
+  flex: 1 1 auto;
+  max-height: none;
+}
+.roll:not(.roll--live) .roll__deck {
+  flex: 0 0 auto;
+}
+/* The idle stage is a document, and documents start at the top. `safe center`
+   above is right for a lone clock and wrong for a report — see .report. */
+.roll:not(.roll--live) .roll__stage {
+  justify-content: flex-start;
+}
+
 /* -------------------------------------------------------------- tally ----
    The PRIMARY recording tell: a committed solid-red fill across the very top
    of the rolling screen, not a tint. It is in-flow (pushes the head down, so
@@ -2177,6 +2205,110 @@ select.field {
 .recdot { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
 
 /* last-takes mini list (idle) */
+/* ------------------------------------------------------- idle report ----
+   The panel that fills the idle roll screen. It is a CAMERA REPORT, which is
+   the document this app replaces — small caps labels, ruled rows, tabular
+   numerals, and no card of its own. No new visual language: every value here
+   is a token already in use elsewhere on this screen, because the point is
+   that it reads as more of the same app, not as a widget bolted on. */
+.report {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  /* No auto margin. The first pass used `margin-bottom: auto` to top-align
+     this, which shoved the recent list to the bottom of the stage and left a
+     measured 340px hole THROUGH THE MIDDLE of the report — a worse void than
+     the one being fixed, because it now had content on both sides of it. The
+     whole idle stage top-aligns instead (below), so report and list stay one
+     continuous block and any leftover room falls where it is harmless: at the
+     bottom, above CUT. */
+  text-align: left;
+}
+.report__head { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* The headline: take number and how long it ran, on one baseline. These are
+   the two numbers someone asks for out loud ("what take are we on, how long
+   was it"), so they are the biggest thing on an idle screen. */
+.report__hero {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+.report__num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-display);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: var(--track-tighter);
+  color: var(--text);
+}
+/* The duration is the QUIETER of the two: it is a fact about the take, where
+   the number is the take's name. Same family so they sit on one baseline. */
+.report__dur {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.report__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+  font-size: var(--t-secondary);
+  color: var(--text-dim);
+  min-width: 0;
+}
+.report__note {
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.report__first {
+  margin: 0;
+  font-size: var(--t-secondary);
+  line-height: 1.5;
+  color: var(--text-dim);
+  max-width: 34ch;
+}
+
+/* The tallies. A ruled two-line table, the shape a call sheet uses: label
+   left, counts right, a hairline under each row. Not two "stat cards" — a
+   card per number is the tell that gives an app away as generated. */
+.report__tally { margin: 0; display: flex; flex-direction: column; }
+.report__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--hairline);
+}
+.report__row:last-child { border-bottom: 1px solid var(--hairline); }
+/* The first-run slate spec is a two-column row (label / value); the tally
+   above is three (label / count / time). Same rule, one fewer column. */
+.report__row--spec { grid-template-columns: 1fr auto; }
+.report__row--spec dd:last-child { color: var(--text); }
+.report__row dt {
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.report__row dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-secondary);
+  color: var(--text);
+}
+/* The take count is the number being reported; the running time is context. */
+.report__row dd:last-child { color: var(--text-dim); }
+
 .minitakes {
   width: 100%;
   max-width: 420px;

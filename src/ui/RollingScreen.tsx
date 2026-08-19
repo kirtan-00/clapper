@@ -194,6 +194,20 @@ export function RollingScreen(props: {
   const [project, setProject] = useState<Project>(props.project);
   const [nextTakeNumber, setNextTakeNumber] = useState(1);
   const [recentTakes, setRecentTakes] = useState<Take[]>([]);
+  /**
+   * The idle report's numbers. Kept as ONE object so the whole panel changes
+   * in a single render — three useStates would let the tally update a frame
+   * before the headline and flicker on a slow phone. Null until the first
+   * read; the panel renders its first-run copy while it is.
+   */
+  const [report, setReport] = useState<{
+    last?: Take;
+    setupCount: number;
+    setupMs: number;
+    dayCount: number;
+    dayMs: number;
+    dayIndex?: number;
+  } | null>(null);
   const [siblings, setSiblings] = useState<Slate[]>([]);
 
   const multi = isMultiCam(project);
@@ -608,7 +622,42 @@ export function RollingScreen(props: {
     // only what we show beforehand, and the two must agree.
     const takes = shot ? all.filter((t) => t.shotId === shot.id) : all.filter((t) => !t.shotId);
     setNextTakeNumber(takes.reduce((m, t) => Math.max(m, t.number), 0) + 1);
-    setRecentTakes(takes.slice(-4).reverse());
+    // 8, not 4. The list was capped for a stage that was 0px tall; it is the
+    // thing that fills a real shoot day's idle screen now, and a scroller in
+    // the stage is the correct overflow for a day with forty takes on it.
+    setRecentTakes(takes.slice(-8).reverse());
+
+    // The report's two tallies. SETUP comes free from the list already read
+    // above; the DAY total needs the whole project, because a shoot day runs
+    // across every scene in it and this screen only ever lists one slate's
+    // takes. One extra read, on a screen that is idle by definition when the
+    // panel is visible — never while rolling.
+    const good = takes.filter((t) => t.status !== 'discarded');
+    const sum = (list: Take[]) => list.reduce((n, t) => n + t.durationMs, 0);
+    const dayIndex = p?.openShootDay?.index;
+    let dayCount = 0;
+    let dayMs = 0;
+    if (dayIndex !== undefined) {
+      const bundle = await store.getBundle(project.id);
+      // shootDayIndex is stamped at CUT and is the only STABLE day identity —
+      // a night shoot that wraps after midnight can open two different days
+      // carrying the same date string (see types.ts). Takes logged before that
+      // field existed carry neither, and are simply not counted toward today
+      // rather than being guessed into it.
+      const today = bundle.takes.filter(
+        (t) => t.shootDayIndex === dayIndex && t.status !== 'discarded',
+      );
+      dayCount = today.length;
+      dayMs = sum(today);
+    }
+    setReport({
+      last: good.length ? good[good.length - 1] : undefined,
+      setupCount: good.length,
+      setupMs: sum(good),
+      dayCount,
+      dayMs,
+      dayIndex,
+    });
   }
 
   useEffect(() => {
@@ -942,9 +991,17 @@ export function RollingScreen(props: {
       </div>
 
       <div className="roll__stage">
-        <div className={`readout${rolling ? ' readout--live' : ' readout--idle'}`}>
-          {clockMMSS(elapsedMs)}
-        </div>
+        {/* The clock is the LIVE readout. Idle it always read 00:00, which is
+            the least informative thing this screen could put at its largest
+            size, and it sat on 448px of measured void. Idle now carries the
+            report instead (below); postCut keeps the clock, because the number
+            it is holding is the take you just finished. */}
+        {(rolling || postCut) && (
+          <div className={`readout${rolling ? ' readout--live' : ' readout--idle'}`}>
+            {clockMMSS(elapsedMs)}
+          </div>
+        )}
+        {(rolling || postCut) && (
         <div className="stage__hint">
           {rolling ? (
             <span className="stage__reclabel">
@@ -955,12 +1012,11 @@ export function RollingScreen(props: {
                   ? ' · SOUND'
                   : ''}
             </span>
-          ) : postCut ? (
-            'Take saved'
           ) : (
-            'Tap ROLL' + (listener.supported ? ' or say "roll camera"' : '')
+            'Take saved'
           )}
         </div>
+        )}
 
         {rolling ? (
           buffered.length > 0 && (
@@ -984,10 +1040,90 @@ export function RollingScreen(props: {
             </div>
           )
         ) : (
-          <div className="minitakes" aria-label="Recent takes">
-            {recentTakes.length === 0 ? (
-              <div className="minitake minitakes__empty">No takes yet</div>
+          <>
+          {/* THE IDLE REPORT — what a camera assistant writes down, in the
+              order they would read it back: what just happened, how the setup
+              and the day are running, then the list. It exists because this
+              screen is the one an operator stares at between takes and it had
+              nothing on it; see the .roll:not(.roll--live) rules in styles.css
+              for the space it now gets. Deliberately NOT rendered while
+              rolling — the rolling screen is the one his hands know. */}
+          <div className="report">
+            {report?.last ? (
+              <div className="report__head">
+                <span className="label">Last take</span>
+                <div className="report__hero">
+                  <span className="report__num tnum">{report.last.number}</span>
+                  <span className="report__dur tnum">{tc.msToClock(report.last.durationMs)}</span>
+                </div>
+                <div className="report__sub">
+                  <span className="tnum">{takeClipLabel(report.last)}</span>
+                  {report.last.sound && (
+                    <span className="tnum" style={soundTextStyle}>
+                      {report.last.sound.fileName}
+                    </span>
+                  )}
+                  {report.last.note && <span className="report__note">{report.last.note}</span>}
+                </div>
+              </div>
             ) : (
+              // First run. The old copy here was the words "No takes yet" in a
+              // 448px void, which reads as a screen that failed to load rather
+              // than a shoot that has not started. Say what the button does and
+              // what will appear, so the emptiness is an instruction.
+              <div className="report__head report__head--first">
+                <span className="label">Nothing rolled yet</span>
+                <p className="report__first">
+                  Hit ROLL, then CUT. Each take lands here with its clip name,
+                  how long it ran, and anything you tapped while it was running.
+                </p>
+              </div>
+            )}
+
+            {report?.last ? (
+              <dl className="report__tally">
+                <div className="report__row">
+                  <dt>This setup</dt>
+                  <dd className="tnum">{report.setupCount}</dd>
+                  <dd className="tnum">{tc.msToClock(report.setupMs)}</dd>
+                </div>
+                <div className="report__row">
+                  <dt>{report.dayIndex ? `Day ${report.dayIndex}` : 'Today'}</dt>
+                  <dd className="tnum">{report.dayCount}</dd>
+                  <dd className="tnum">{tc.msToClock(report.dayMs)}</dd>
+                </div>
+              </dl>
+            ) : (
+              // Two rows of zeroes are not a report, they are furniture. Before
+              // the first take the useful thing is the SLATE ITSELF — the
+              // settings a 1st AC checks against the camera before anyone
+              // rolls, which is exactly what the back of a clapperboard
+              // carries. It disappears the moment there is real work to show.
+              <dl className="report__tally">
+                <div className="report__row report__row--spec">
+                  <dt>Frame rate</dt>
+                  <dd className="tnum">{project.fps} fps</dd>
+                </div>
+                <div className="report__row report__row--spec">
+                  <dt>{multi ? 'Cameras' : 'Camera'}</dt>
+                  <dd className="tnum">
+                    {multi ? project.cameras?.map((c) => c.letter).join(' ') : 'A'}
+                  </dd>
+                </div>
+                <div className="report__row report__row--spec">
+                  <dt>Sound</dt>
+                  <dd className="tnum">{hasSoundUnit ? renderSoundFile(project.sound!) : 'not logged'}</dd>
+                </div>
+                <div className="report__row report__row--spec">
+                  <dt>First clip</dt>
+                  <dd className="tnum">{clipName(project)}</dd>
+                </div>
+              </dl>
+            )}
+          </div>
+
+          <div className="minitakes" aria-label="Recent takes">
+            {recentTakes.length === 0 ? null : (
               recentTakes.map((t) => (
                 <div
                   key={t.id}
@@ -1048,6 +1184,7 @@ export function RollingScreen(props: {
               ))
             )}
           </div>
+          </>
         )}
       </div>
       </div>
