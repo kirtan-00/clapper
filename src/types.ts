@@ -484,8 +484,12 @@ export interface Exporter {
   toFcpXml(bundle: ProjectBundle): Blob;
   /** FCPXML (Final Cut Pro X format) DaVinci Resolve imports natively. */
   toResolveXml(bundle: ProjectBundle): Blob;
-  /** Flat CSV of all moments/takes. */
-  toCsv(bundle: ProjectBundle): Blob;
+  /** Flat CSV of all moments/takes. `mediaIndex` is an optional walk of the
+   *  footage folder picked on THIS device — pass it and every row gains the
+   *  location of the file that take actually wrote. Typed loosely here so
+   *  types.ts stays free of an export/ import; the real shape is
+   *  export/medialink.ts's MediaIndex. */
+  toCsv(bundle: ProjectBundle, mediaIndex?: unknown): Blob;
 }
 
 // timecode.ts contract

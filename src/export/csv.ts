@@ -4,6 +4,7 @@
 import type { Moment, ProjectBundle, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
 import { buildShotIndex, compareTakesInStoryOrder, displayShootDay, shotCodeOf } from './order';
+import { matchClip, type MediaIndex, type MediaMatch } from './medialink';
 
 // `shot` is the SHOT CODE off the shotlist ("5.31"), empty for a take logged
 // straight against a scene. `take` is the take number - it is the column that
@@ -38,7 +39,33 @@ const HEADER = [
   'wall_out',
   'duration_ms',
   'note',
+  // Appended at the END, deliberately: anything already reading this file by
+  // column position keeps working, and a project that never picks a footage
+  // folder just gains three empty cells.
+  //
+  // THREE columns rather than one, because an empty `file_path` on its own
+  // is three different situations that need three different actions from an
+  // assistant editor: nobody has picked a folder yet, the clip is genuinely
+  // not on the disk, or two cards both claim the name. `file_status` says
+  // which. `file_alternatives` then hands over both candidates for the third
+  // case, so the person can go and look instead of re-walking the tree.
+  'file_path',
+  'file_status',
+  'file_alternatives',
 ];
+
+/** The three trailing cells for one clip name. `unindexed` writes three
+ *  blanks — the file this export produced before the footage folder existed,
+ *  byte for byte. A guessed path is never written: a blank cell is visibly
+ *  blank, a wrong path costs an afternoon to disprove. */
+function mediaCells(match: MediaMatch): [string, string, string] {
+  if (match.status === 'unindexed') return ['', '', ''];
+  return [
+    match.path,
+    match.status,
+    match.status === 'ambiguous' ? match.candidates.join('; ') : '',
+  ];
+}
 
 function csvField(value: string): string {
   if (/[",\r\n]/.test(value)) {
@@ -51,9 +78,17 @@ function row(fields: string[]): string {
   return fields.map(csvField).join(',');
 }
 
-export function toCsv(bundle: ProjectBundle): Blob {
+/**
+ * `mediaIndex` is the walk of the footage folder the user picked on THIS
+ * device (see medialink.ts, store/medialink.ts). Optional throughout: it is a
+ * property of the machine holding the cards, not of the project, so every
+ * caller that has not picked a folder passes nothing and gets the export it
+ * always got.
+ */
+export function toCsv(bundle: ProjectBundle, mediaIndex?: MediaIndex): Blob {
   const { project, slates, takes, moments } = bundle;
   const fps = project.fps;
+  const mediaRoot = project.mediaRoot?.trim();
 
   const operatorByUnit = new Map<string, string>(
     (project.cameras ?? []).map((u) => [u.letter, u.operator ?? '']),
@@ -140,6 +175,7 @@ export function toCsv(bundle: ProjectBundle): Blob {
             wallClockTC(take.startedAt + take.durationMs, fps),
             String(take.durationMs),
             take.note ?? '',
+            ...mediaCells(matchClip(mediaIndex, c.clipName, mediaRoot)),
           ]),
         );
       }
@@ -171,6 +207,10 @@ export function toCsv(bundle: ProjectBundle): Blob {
             isRange ? wallClockTC(take.startedAt + (m.endMs as number), fps) : '',
             isRange ? String((m.endMs as number) - m.atMs) : '0',
             '',
+            // A moment belongs to the take, and the take's `clip` cell above
+            // is unit A's file — so a moment row points at the same file its
+            // own `clip` column names, not at whichever camera row precedes it.
+            ...mediaCells(matchClip(mediaIndex, take.clipName, mediaRoot)),
           ]),
         );
       }
