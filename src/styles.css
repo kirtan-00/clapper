@@ -1297,7 +1297,10 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   to { opacity: 1; transform: none; }
 }
 
-.sl-lede { margin: 0 0 var(--sp-4); }
+/* Scoped to .sl on purpose: .camnote is declared further down this file and
+   would otherwise win the cascade on equal specificity and put its own top
+   margin back. */
+.sl .sl-lede { margin: 0 0 var(--sp-4); }
 
 /* ---- stage one: the document -------------------------------------------
    A target, not a button in a form. It is the only thing on the stage above
@@ -1330,7 +1333,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 [data-theme='night'] .sl-drop--over { background: color-mix(in srgb, var(--m-accent) 20%, transparent); }
 
-.sl-quota { text-align: center; margin-top: var(--sp-3); }
+.sl .sl-quota { text-align: center; margin: var(--sp-3) 0 0; }
 .sl-signin { margin-top: var(--sp-2); }
 .sl-examples { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 
@@ -1439,6 +1442,13 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-size: var(--t-secondary);
   font-weight: 600;
   color: var(--text-dim);
+}
+/* The tail of a long list, said rather than scrolled. */
+.sl-scene--more {
+  justify-content: center;
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+  gap: var(--sp-1);
 }
 
 .sl-wrong {
@@ -1555,7 +1565,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 [data-theme='night'] .sl-cam[data-on] .sl-cam__head b,
 [data-theme='night'] .sl-cam[data-on] .sl-cam__eg { color: var(--m-accent); }
 
-.sl-camnote { margin-top: var(--sp-3); }
+.sl .sl-camnote { margin: var(--sp-3) 0 0; }
 
 /* ---- stage five: name and go ------------------------------------------- */
 .sl-receipt {
@@ -1582,8 +1592,25 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   text-align: right;
 }
 
-/* Back is a backout and Continue is the sequence carrying on, so they are not
+/* THE ACTIONS STICK. The camera stage is twelve cards and the scenes list can
+   be six rows plus a tally; on a 390px phone that pushes the way forward off
+   the bottom, and a stage sequence whose Continue has to be hunted for is a
+   form again. Sticky against the sheet's own scroller, bled to the sheet's
+   edges and painted in the sheet's own surface so cards pass cleanly under it.
+   `bottom` is the negative of the body's bottom padding, so this bar OWNS that
+   padding rather than floating above it.
+
+   Back is a backout and Continue is the sequence carrying on, so they are not
    the same size. Same move .sheet__actions--weighted already makes. */
+.sl-actions {
+  position: sticky;
+  bottom: calc(-1 * (var(--safe-bottom) + var(--sp-6)));
+  z-index: 1;
+  margin: var(--sp-5) calc(-1 * var(--sp-4)) 0;
+  padding: var(--sp-3) var(--sp-4) calc(var(--safe-bottom) + var(--sp-6));
+  background: var(--surface);
+  box-shadow: 0 -1px 0 var(--hairline-soft);
+}
 .sl-actions .btn--ghost { flex: 0 1 34%; }
 
 /* ------------------------------------------------------------- guide ---

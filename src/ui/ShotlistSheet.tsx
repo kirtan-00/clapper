@@ -95,6 +95,13 @@ interface DocOverride {
   signedIn?: boolean;
   left?: number;
   capped?: boolean;
+  /** Freeze the parse tally at a given moment. The counts move too fast to
+   *  photograph and the server half needs a real account to be slow at all. */
+  tally?: {
+    phase: 'reading' | 'thinking';
+    pages: { done: number; total: number } | null;
+    found: { scenes: number; shots: number } | null;
+  };
 }
 let devDoc: DocOverride | null = null;
 const devDocListeners = new Set<() => void>();
@@ -378,7 +385,9 @@ function DocumentStage(props: {
 
   return (
     <>
-      {loading ? (
+      {dev?.tally ? (
+        <Tally {...dev.tally} />
+      ) : loading ? (
         <div className="empty">Checking your account</div>
       ) : busy ? (
         <Tally phase={phase} pages={pages} found={found} />
@@ -427,7 +436,7 @@ function DocumentStage(props: {
       {error && <span className="tnum tnum--bad sp-error">{error}</span>}
       {showCap && <ProCta gate="script" />}
 
-      {!busy && (
+      {!busy && !dev?.tally && (
         <>
           <div className="sp-or">
             <span>or try an example</span>
@@ -508,6 +517,25 @@ function Tally(props: {
 // ================================================================ two ======
 // WHAT WE READ.
 
+/**
+ * "SC 1 · INT. THE MANSION · NIGHT" -> "INT. THE MANSION · NIGHT".
+ *
+ * Both example packs and every parsed PDF put the scene number at the front of
+ * the scene NAME, and the row already carries it as its own left column. On a
+ * 390px phone the duplicate costs the end of the location, which is the part
+ * an operator actually recognises. Falls back to the whole name if stripping
+ * it would leave nothing — a scene called only "SC 5" is still called that.
+ */
+function sceneName(name: string): string {
+  return name.replace(/^\s*(?:SCENE|SC|S)\s*\d+[a-z]?\s*[·:.–—-]?\s*/i, '').trim() || name;
+}
+
+// How many scene rows stage two shows before it stops and says how many more
+// there are. The stage's job is "does this look like your document" — six rows
+// answers that, and a 40-scene feature would otherwise push "Looks right" so
+// far down the scroll that the stage has no visible way forward.
+const SCENES_SHOWN = 6;
+
 function ReadStage(props: {
   pack: ScriptPack;
   onBack: () => void;
@@ -516,6 +544,8 @@ function ReadStage(props: {
 }) {
   const { pack } = props;
   const shots = pack.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0);
+  const shown = pack.scenes.slice(0, SCENES_SHOWN);
+  const rest = pack.scenes.length - shown.length;
 
   return (
     <>
@@ -531,16 +561,21 @@ function ReadStage(props: {
       </div>
 
       <ol className="sl-scenes">
-        {pack.scenes.map((s) => (
+        {shown.map((s) => (
           <li key={s.scriptRef} className="sl-scene">
             <span className="sl-scene__ref tnum">{s.scriptRef}</span>
             <span className="sl-scene__say">
-              <b>{s.name}</b>
+              <b>{sceneName(s.name)}</b>
               {s.summary && <span>{s.summary}</span>}
             </span>
             <span className="sl-scene__n tnum">{s.shots?.length ?? 0}</span>
           </li>
         ))}
+        {rest > 0 && (
+          <li className="sl-scene sl-scene--more">
+            and <span className="tnum">{rest}</span> more {rest === 1 ? 'scene' : 'scenes'}
+          </li>
+        )}
       </ol>
 
       {/* The honest way out. It is a full-width control and it says what it
@@ -643,9 +678,16 @@ function CameraStage(props: {
             >
               <span className="sl-cam__head">
                 <b>{presetName(p.label)}</b>
-                <span className={`cambadge${p.exact ? '' : ' cambadge--approx'}`}>
-                  {p.exact ? 'exact' : 'approximate'}
-                </span>
+                {/* The badge rides the CHOSEN card only. Twelve pills at rest
+                    was a wall of brass, and exact-vs-approximate is not how
+                    anyone picks: you pick by recognising the filename under
+                    the name. How literally we can promise that filename is
+                    what you want to know once you have. */}
+                {on && (
+                  <span className={`cambadge${p.exact ? '' : ' cambadge--approx'}`}>
+                    {p.exact ? 'exact' : 'approximate'}
+                  </span>
+                )}
               </span>
               <span className="sl-cam__eg tnum">
                 {renderClip(p.prefix, 1, p.digits, p.suffix)}

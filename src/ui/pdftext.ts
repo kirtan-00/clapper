@@ -20,7 +20,21 @@ export async function extractPdfText(file: File, onProgress?: PdfProgress): Prom
     import('pdfjs-dist'),
     import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
   ]);
-  pdfjs.GlobalWorkerOptions.workerSrc = (workerMod as { default: string }).default;
+  // In a BUILD this is the hashed asset URL, which is the whole point of `?url`.
+  // On the DEV SERVER it is not: Vite pre-bundles pdfjs-dist, `?url` is dropped
+  // on the way through, and the import hands back the worker MODULE — so
+  // `default` is undefined and pdf.js throws "Invalid `workerSrc` type" before
+  // it has read a single page. Uploading a PDF has therefore never worked
+  // against `vite dev`, only against a build, which is a rotten thing to
+  // discover while trying to test an upload. The dev server serves node_modules
+  // verbatim, so point at the file there and only there.
+  const src = (workerMod as { default?: unknown }).default;
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    typeof src === 'string' && src
+      ? src
+      : import.meta.env.DEV
+        ? '/node_modules/pdfjs-dist/build/pdf.worker.min.mjs'
+        : (src as string);
 
   const buf = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: buf }).promise;
