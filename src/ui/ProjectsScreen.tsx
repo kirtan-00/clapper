@@ -3,7 +3,11 @@
 // to the bottom of it (the guide, Restore, Feedback, the account row) now live
 // on the Settings and Account tabs. Shotlist import and InstallNudge are still
 // here on purpose: the spec moves both to Home, which another agent owns, and
-// leaving them reachable beats making them unreachable in the meantime.
+// leaving them reachable beats making them unreachable in the meantime. The
+// shotlist flow itself is no longer written here: this file carried a private
+// near-copy of it that handed its pack to the fourteen-field New project
+// sheet, so the same job looked like two different products depending on which
+// tab you started from. It mounts <ShotlistSheet> now, same as Home.
 //
 // THE SHAPE, since the repaint: one dark mass for the shoot that is happening,
 // quiet ivory rows for everything else, and a real filing system underneath.
@@ -18,7 +22,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -26,18 +29,11 @@ import type { Fps, Project } from '../types';
 import { store } from '../store';
 import { CAMERA_PRESETS, findPreset, renderClip, makeCameraUnit, UNIT_LETTERS } from './cameras';
 import { Sheet, SheetClose, Confirm, Rail } from './common';
-import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
-import { extractPdfText } from './pdftext';
-import { parseShotlist, shotlistToPack } from './shotlist';
-import { enrichShotMoments, SignInRequiredError } from './breakdown';
-import { SignInSheet } from './SignInSheet';
+import { ShotlistSheet } from './ShotlistSheet';
 import { ScreenHeader } from './glist';
 import { lastActivity } from './newRoll';
 import { PlusMark, ListMark } from './marks';
-import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
-import { useSession, signInWithGoogle } from '../net/auth';
-import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
 import { TagEditor } from './TagEditor';
 import { getDefaultTags } from './tagdefaults';
@@ -338,7 +334,6 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [loadingScript, setLoadingScript] = useState(false);
-  const [pendingPack, setPendingPack] = useState<ScriptPack | null>(null);
   const [filing, setFiling] = useState<Filing>(() => readFiling());
   // Which folders are open. Absent = closed; a folder opens on tap and stays
   // open for the session, which is short enough that persisting it would be
@@ -893,23 +888,17 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         />
       )}
 
+      {/* ONE shotlist flow, and it is not written here. This screen used to
+          carry a private near-copy of the read half and then hand its pack to
+          the fourteen-field New project sheet, which meant the same job wore
+          two different faces depending on which tab you started from. See the
+          header of ShotlistSheet.tsx for why the setup half is deliberately
+          three values. */}
       {loadingScript && (
-        <ScriptPackSheet
+        <ShotlistSheet
           onClose={() => setLoadingScript(false)}
-          onPack={(pack) => {
+          onImported={(project) => {
             setLoadingScript(false);
-            setPendingPack(pack);
-          }}
-        />
-      )}
-
-      {pendingPack && (
-        <CreateProjectSheet
-          pack={pendingPack}
-          initialName={pendingPack.project.name}
-          onClose={() => setPendingPack(null)}
-          onCreated={(project) => {
-            setPendingPack(null);
             props.onOpen(project);
           }}
         />
@@ -1130,10 +1119,8 @@ function FileUnderSheet(props: {
 function CreateProjectSheet(props: {
   onClose: () => void;
   onCreated: (project: Project) => void;
-  pack?: ScriptPack; // when set, create + import this script pack instead of a blank project
-  initialName?: string;
 }) {
-  const [name, setName] = useState(props.initialName ?? '');
+  const [name, setName] = useState('');
   const [fps, setFps] = useState<Fps>(24);
   const [camera, setCamera] = useState('custom');
   const [prefix, setPrefix] = useState('C');
@@ -1239,20 +1226,13 @@ function CreateProjectSheet(props: {
         : {}),
       tags,
     };
-    const project = props.pack
-      ? await importScriptPack(props.pack, config)
-      : await store.createProject(config);
-    track('project_created', { mode: props.pack ? 'script' : 'normal', cameras: camCount, sound: soundOn });
+    const project = await store.createProject(config);
+    track('project_created', { mode: 'normal', cameras: camCount, sound: soundOn });
     props.onCreated(project);
   }
 
   return (
-    <Sheet title={props.pack ? 'Set up the shoot' : 'New project'} onClose={props.onClose}>
-      {props.pack && (
-        <p className="camnote" style={{ marginTop: 0 }}>
-          <span className="tnum">{props.pack.scenes.length}</span> scenes ready
-        </p>
-      )}
+    <Sheet title="New project" onClose={props.onClose}>
       <div className="formrow">
         <label className="label" htmlFor="np-name">
           Project name
@@ -1630,198 +1610,10 @@ function CreateProjectSheet(props: {
           Cancel
         </SheetClose>
         <button type="button" className="btn btn--go" disabled={!canCreate} onClick={create}>
-          {props.pack ? 'Start shoot' : 'Create project'}
+          Create project
         </button>
       </div>
     </Sheet>
   );
 }
 
-// Shotlist import, in two halves that play to different strengths.
-//
-// STRUCTURE is read on the device. A shotlist is a TABLE — numbered setups with
-// size, move, action and dialogue columns — so the scene and shot breakdown is
-// parsed here, exactly, offline, instantly, with nothing that could truncate a
-// long list or invent a row that was never printed.
-//
-// JUDGEMENT comes from the model, and only judgement. It never sees the script;
-// it sees the parsed shot division and writes the tappable key-moment chips for
-// each shot — the beats an operator marks mid-take. That is a small structured
-// payload rather than 17k characters of raw text, and it is the one part of
-// this that isn't transcription. It's also the server call, so it needs an
-// account.
-function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack) => void }) {
-  const { session, loading } = useSession();
-  const [phase, setPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
-  const [usage, setUsage] = useState<Usage | null>(null);
-  // True once the breakdown is refused for being out of free uses — shows "go Pro".
-  const [capped, setCapped] = useState(false);
-
-  const busy = phase !== 'idle';
-  const signedIn = !!session;
-
-  useEffect(() => {
-    if (!signedIn) {
-      setUsage(null);
-      return;
-    }
-    let active = true;
-    void getUsage().then((u) => {
-      if (active) setUsage(u);
-    });
-    return () => {
-      active = false;
-    };
-  }, [signedIn]);
-
-  async function onPickPdf(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // let the same file be picked again after an error
-    if (!file) return;
-    setError(null);
-    setCapped(false);
-    try {
-      setPhase('reading');
-      const text = await extractPdfText(file);
-      if (text.trim().length < 40) {
-        throw new Error('That PDF had no readable text. A scan or photo will not work. Use a text PDF.');
-      }
-
-      const shotlist = parseShotlist(text);
-      if (!shotlist) {
-        throw new Error(
-          "That doesn't look like a shotlist. Upload one with numbered shots — rows like 1.1, 1.2 with a size column (WS, MCU, CU).",
-        );
-      }
-      const parsed = shotlistToPack(shotlist, file.name);
-      const shotCount = parsed.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0);
-      track('shotlist_parsed', { scenes: parsed.scenes.length, shots: shotCount });
-
-      // The structure is already correct and already ours. Enriching it with
-      // key moments is the only thing that can fail from here, so if the server
-      // says no we still import the shotlist rather than throwing the whole
-      // parse away — the operator gets their shots, just without the chips.
-      setPhase('thinking');
-      const pack = await enrichShotMoments(parsed, file.name);
-      haptics.tap();
-      props.onPack(pack); // hand to the camera-setup step
-    } catch (err) {
-      setPhase('idle');
-      if (err instanceof SignInRequiredError) {
-        setShowSignIn(true);
-        return;
-      }
-      if (err instanceof Error && err.message === 'CAP') {
-        track('cap_hit', { which: 'script' });
-        setError('Free limit reached. More coming soon.');
-        setCapped(true);
-        return;
-      }
-      setError(err instanceof Error ? err.message : 'Could not read that PDF.');
-    }
-  }
-
-  function loadExample(pack: ScriptPack, which: string) {
-    track('example_loaded', { which });
-    haptics.tap();
-    props.onPack(pack); // examples are bundled — no server, no account needed
-  }
-
-  async function startSignIn() {
-    setSigningIn(true);
-    setError(null);
-    try {
-      await signInWithGoogle(); // redirects to Google; nothing after this runs
-    } catch {
-      setError('Could not start sign-in. Check your connection and try again.');
-      setSigningIn(false);
-    }
-  }
-
-  // A gated (401) upload swaps the whole sheet for the dedicated sign-in sheet.
-  if (showSignIn) return <SignInSheet onClose={props.onClose} />;
-
-  return (
-    <Sheet title="Shotlist" onClose={props.onClose}>
-      <p className="camnote">
-        Upload your shotlist as a PDF. We read every scene and every numbered shot
-        off it — 1.1, 1.2, 1.3 — with the size and move each one is marked with, then
-        work out the key moments inside each shot. On set you pick the shot and roll.
-      </p>
-
-      {loading ? (
-        <div className="empty">Checking your account</div>
-      ) : signedIn ? (
-        <>
-          <label className={`btn btn--go btn--full sp-upload${busy ? ' btn--disabled' : ''}`}>
-            {phase === 'reading'
-              ? 'Reading shotlist…'
-              : phase === 'thinking'
-                ? 'Finding key moments…'
-                : 'Upload shotlist PDF'}
-            <input type="file" accept="application/pdf,.pdf" hidden disabled={busy} onChange={onPickPdf} />
-          </label>
-          {usage && (
-            <p className="camnote" style={{ textAlign: 'center', marginBottom: 0 }}>
-              {/* Script Mode's free allowance is 1, not the CSV/PDF count — it calls
-                  Groq and is the thing Pro exists to sell. See FREE_LIMITS in
-                  net/quota.ts. */}
-              {usage.script.left} of {FREE_LIMITS.script} breakdowns left
-            </p>
-          )}
-        </>
-      ) : (
-        <>
-          <button
-            type="button"
-            className="btn btn--go btn--full"
-            disabled={signingIn}
-            onClick={() => void startSignIn()}
-          >
-            {signingIn ? 'Opening Google…' : 'Sign in with Google to upload'}
-          </button>
-          <p className="camnote" style={{ marginBottom: 0 }}>
-            Reading your shotlist needs a free account. The examples below work without one.
-          </p>
-        </>
-      )}
-
-      {error && (
-        <span className="tnum tnum--bad sp-error">
-          {error}
-        </span>
-      )}
-      {capped && <ProCta gate="script" />}
-
-      <>
-        <div className="sp-or">
-          <span>or try an example</span>
-        </div>
-
-        <div className="formgrid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          {EXAMPLE_PACKS.map((ex) => (
-            <button
-              key={ex.key}
-              type="button"
-              className="btn sp-example"
-              disabled={busy}
-              onClick={() => loadExample(ex.pack, ex.key)}
-            >
-              <b>{ex.label}</b>
-              <span>{ex.blurb}</span>
-            </button>
-          ))}
-        </div>
-      </>
-
-      <div className="sheet__actions">
-        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
-          Close
-        </SheetClose>
-      </div>
-    </Sheet>
-  );
-}
