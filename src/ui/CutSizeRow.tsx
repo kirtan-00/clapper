@@ -126,6 +126,18 @@ function TypeIcon() {
  * A radiogroup, not a set of buttons: three mutually exclusive stops is what
  * `role="radio"` means, and it is what gets a screen reader "2 of 3" instead
  * of three unrelated presses.
+ *
+ * BELOW THE CARDS: a live preview of the shot pill and ROLL, the two controls
+ * that matter most while a take is actually being shot. It needs no scale of
+ * its own to demonstrate one - `data-uiscale` lands on <html>, and
+ * `.shotstrip`/`.bigbtn.hw` already read `--ui-scale` through it (see
+ * shell.css), so tapping a card resizes this preview the same instant it
+ * resizes the row above it. That is the whole point: judge the choice without
+ * leaving Settings, on the exact controls the choice is about, not a
+ * fabricated stand-in. Sample data, because Settings has no shot in progress
+ * to show; `aria-hidden` because it repeats what the three cards already say
+ * to a screen reader and adds nothing a live shot pill would not also need a
+ * real destination for.
  */
 export function UiSizeRow() {
   const size = useSyncExternalStore(subscribeUiSize, getUiSize, () => 'standard' as const);
@@ -170,6 +182,23 @@ export function UiSizeRow() {
             </button>
           );
         })}
+      </div>
+
+      <div className="mprev">
+        <span className="mprev__cap">Preview · live</span>
+        <div className="mprev__demo" aria-hidden="true">
+          <div className="shotstrip">
+            <div className="shotstrip__now">
+              <span className="shotstrip__code tnum">5.31</span>
+              <span className="shotstrip__spec">MCU · push-in</span>
+              <span className="shotstrip__pos tnum">3/7</span>
+            </div>
+          </div>
+          <div className="bigbtn hw">
+            <span className="hw__well" />
+            <span className="hw__face">Roll</span>
+          </div>
+        </div>
       </div>
     </div>
   );
