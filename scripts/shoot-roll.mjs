@@ -370,6 +370,10 @@ const MEASURE = `
         .map((s) => { const e = q(s); return e ? s.replace('.roll__', '').replace('.roll__deck > ', '') + ':' + Math.round(e.getBoundingClientRect().height) : null; })
         .filter(Boolean).join(' '),
       cut: box(q('.roll__deck > .bigbtn') || q('.bigbtn')),
+      // The unit pill carries the clip number an operator reads aloud, and it
+      // is sticky to the deck's top edge - so it is measured before and after
+      // the scroll attempt like CUT is.
+      units: box(q('.camstack')),
       pill: box(pill),
       pillSeen,
       takebar: box(q('.takebar')),
@@ -399,6 +403,145 @@ async function tryToScroll(cdp, h) {
 
 const sameBox = (a, b) => !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 const fmt = (b) => (b ? `x${b.x} y${b.y} ${b.w}x${b.h}` : 'none');
+
+/** The four the owner reported from the set, checked the same way as the
+ *  geometry: by reading the DOM, not by looking at a picture and hoping.
+ *  Run at 390x844 in both themes, and each one leaves a screenshot. */
+async function behaviourChecks(cdp, rows, fails) {
+  const tap = async (sel, index = 0) => {
+    // Reports what is actually AT the centre it is about to press, not just
+    // what it meant to press: a key half-scrolled under the sticky mark row
+    // hands the tap to whatever is painted over it, and a harness that does
+    // not check that blames the app for its own mis-aim.
+    const p = await cdp.evaluate(`
+      (() => {
+        const el = [...document.querySelectorAll(${JSON.stringify(sel)})][${index}];
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+        const hit = document.elementFromPoint(x, y);
+        return { x, y, want: (el.textContent || '').trim().slice(0, 18),
+                 got: hit ? (hit.className + ' ' + (hit.textContent || '').trim().slice(0, 18)) : 'nothing',
+                 ours: !!hit && (el === hit || el.contains(hit)) };
+      })()
+    `);
+    if (!p) return false;
+    if (!p.ours) {
+      rows.push(`note  tap on "${p.want}" at ${p.x},${p.y} would land on ${p.got} - skipped`);
+      return false;
+    }
+    await cdp.mouseDown(p.x, p.y);
+    await sleep(60);          // short: a 600ms hold opens the tag editor instead
+    await cdp.mouseUp(p.x, p.y);
+    await sleep(140);
+    return true;
+  };
+  const rollNow = async () => {
+    const p = await cdp.centreOf('.bigbtn');
+    await cdp.mouseDown(p.x, p.y);
+    await cdp.mouseUp(p.x, p.y);
+    await cdp.waitForExpr(`document.querySelector('.roll--live')`, { desc: 'live' });
+    await sleep(600);
+  };
+  const note = (ok, text) => {
+    rows.push(`${ok ? ' ok ' : 'FAIL'} ${text}`);
+    if (!ok) fails.push(text);
+  };
+
+  await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
+
+  for (const theme of ['day', 'night']) {
+    // ---- A. single camera, rolling: the clip number is ON SCREEN ----------
+    await seed(cdp, { cameraCount: 1, soundOn: false, scriptMode: true, shots: false });
+    await openRoll(cdp, theme);
+    await rollNow();
+    const clip = await cdp.evaluate(`
+      (() => {
+        const el = document.querySelector('.camslot__clip');
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return {
+          text: (el.textContent || '').trim(),
+          onGlass: r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight,
+          rec: (document.querySelector('.camslot__elapsed')?.textContent || '').trim(),
+        };
+      })()
+    `);
+    await cdp.shot(join(OUT_DIR, `bug1.singlecam-clip.${theme}.png`));
+    note(!!clip && clip.onGlass && clip.text.length > 0,
+      `bug1 ${theme}  single-cam rolling clip on screen: ${clip ? `"${clip.text}" (${clip.rec}) onGlass=${clip.onGlass}` : 'NO .camslot__clip AT ALL'}`);
+
+    // ---- B. a tag tapped three times: a count, and no toast ---------------
+    for (let i = 0; i < 3; i++) await tap('.keypad .keycap', 0);
+    const tagState = await cdp.evaluate(`
+      (() => {
+        const key = document.querySelector('.keypad .keycap');
+        return {
+          toast: !!document.querySelector('.toast'),
+          count: (key?.querySelector('.keycap__count')?.textContent || '').trim(),
+          label: (key?.textContent || '').trim(),
+        };
+      })()
+    `);
+    await cdp.shot(join(OUT_DIR, `bug2.tag-count-no-toast.${theme}.png`));
+    note(tagState.toast === false && tagState.count.replace(/\D/g, '') === '3',
+      `bug2 ${theme}  three taps: toast=${tagState.toast} count="${tagState.count}" key="${tagState.label}"`);
+
+    // ---- C. four different tags: the deck does not move ------------------
+    const deckBefore = await cdp.evaluate(`
+      (() => {
+        const d = document.querySelector('.roll__deck');
+        const c = document.querySelector('.roll__deck > .bigbtn');
+        const box = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; };
+        const h = (sel) => { const e = document.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().height) : null; };
+        const st = document.querySelector('.roll__stage');
+        return { deck: box(d), cut: box(c), rows: document.querySelectorAll('.momentrow').length,
+                 body: h('.roll__body'), stage: h('.roll__stage'), log: h('.momentlog'), now: h('.stage__now'),
+                 basis: st ? getComputedStyle(st).flexBasis + '/' + getComputedStyle(st).minHeight + '/' + getComputedStyle(st).display : '-' };
+      })()
+    `);
+    for (const i of [1, 2, 3, 4]) await tap('.keypad .keycap', i);
+    const deckAfter = await cdp.evaluate(`
+      (() => {
+        const d = document.querySelector('.roll__deck');
+        const c = document.querySelector('.roll__deck > .bigbtn');
+        const box = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; };
+        const h = (sel) => { const e = document.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().height) : null; };
+        const st = document.querySelector('.roll__stage');
+        return { deck: box(d), cut: box(c), rows: document.querySelectorAll('.momentrow').length,
+                 body: h('.roll__body'), stage: h('.roll__stage'), log: h('.momentlog'), now: h('.stage__now'),
+                 basis: st ? getComputedStyle(st).flexBasis + '/' + getComputedStyle(st).minHeight + '/' + getComputedStyle(st).display : '-' };
+      })()
+    `);
+    await cdp.shot(join(OUT_DIR, `bug3.tags-do-not-stack.${theme}.png`));
+    note(sameBox(deckBefore.cut, deckAfter.cut) && sameBox(deckBefore.deck, deckAfter.deck),
+      `bug3 ${theme}  after ${deckAfter.rows} marks: CUT ${fmt(deckBefore.cut)} -> ${fmt(deckAfter.cut)}  deck ${fmt(deckBefore.deck)} -> ${fmt(deckAfter.deck)}\n` +
+      `        body ${deckBefore.body}->${deckAfter.body}  stage ${deckBefore.stage}->${deckAfter.stage}  now ${deckBefore.now}->${deckAfter.now}  log ${deckBefore.log}->${deckAfter.log}  stage-css ${deckAfter.basis}`);
+
+    // ---- D. a blank roll: the way out says where it goes ------------------
+    await seed(cdp, { cameraCount: 1, soundOn: false, scriptMode: false, shots: false });
+    await openRoll(cdp, theme);
+    const back = await cdp.evaluate(`
+      (() => {
+        const b = document.querySelector('.roll__reach .reachbtn');
+        const r = b?.getBoundingClientRect();
+        return b ? { label: (b.textContent || '').trim(), aria: b.getAttribute('aria-label'), onGlass: r.top >= 0 && r.bottom <= window.innerHeight } : null;
+      })()
+    `);
+    await cdp.shot(join(OUT_DIR, `bug4.backout.${theme}.png`));
+    await tap('.roll__reach .reachbtn', 0);
+    const landed = await cdp.evaluate(`
+      (() => ({
+        roll: !!document.querySelector('.roll'),
+        title: (document.querySelector('.topbar__title') || document.querySelector('h1'))?.textContent || '',
+        body: (document.body.textContent || '').slice(0, 60),
+      }))()
+    `);
+    await cdp.shot(join(OUT_DIR, `bug4.backout-landed.${theme}.png`));
+    note(!!back && back.onGlass && !landed.roll,
+      `bug4 ${theme}  backout "${back?.label}" (${back?.aria}) -> left the roll screen: ${!landed.roll}, landed on "${landed.title || landed.body.trim()}"`);
+  }
+}
 
 async function assertMain(cdp) {
   mkdirSync(OUT_DIR, { recursive: true });
@@ -467,7 +610,7 @@ async function assertMain(cdp) {
               `4:${mark(a4)} cut ${fmt(before.cut)} -> ${fmt(afterPage.cut)}  ` +
               `4w:${mark(a4w)} -> ${fmt(afterWheel.cut)}  ` +
               `5:${mark(a5)} 5w:${mark(a5w)} pill ${fmt(before.pill)} -> ${fmt(afterWheel.pill)}  ` +
-              `6: takebar ${fmt(before.takebar)}  ` +
+              `6: takebar ${fmt(before.takebar)}  units ${fmt(before.units)} -> ${fmt(afterWheel.units)}  ` +
               `7:${mark(a7)}  ` +
               `shotdeck ${fmt(before.shotdeck)}  scrollY ${afterPage.scrollY}\n` +
               `${' '.repeat(27)}inner  ${before.innerScroll}\n` +
@@ -494,6 +637,8 @@ async function assertMain(cdp) {
     bar.push(`6: ${same ? ' ok ' : 'FAIL'} ${k}  takebar heights by viewport ${list.map((e) => `${e.h}:${e.box ? e.box.h : 'none'}`).join(' ')}`);
     if (!same) fails.push(`${k} assertion 6 (take bar height varies: ${hs.join(',')})`);
   }
+
+  await behaviourChecks(cdp, rows, fails);
 
   console.log(rows.join('\n'));
   console.log('\n' + bar.join('\n'));

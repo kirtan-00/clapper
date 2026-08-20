@@ -2525,7 +2525,14 @@ select.field {
    inside itself; live it is the clock, the state line and the take bar, and it
    scrolls not at all - see the .roll--live grid below. */
 .roll__stage {
-  flex: 1 1 auto;
+  /* BASIS ZERO, deliberately (this is what the bare `flex: 1` it was written
+     as always meant). The height comes from the flex algorithm and never from
+     the contents, which is the only thing that keeps the zone stable while its
+     contents change: with `auto` the moments list tapped during a take grew
+     the band's own intrinsic height, the body pushed down on the deck, and the
+     deck shrank 87px while four tags were tapped. The floor that protects the
+     clock is a min-height on the live form below, not a basis. */
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2615,6 +2622,15 @@ select.field {
   align-self: stretch;
   min-height: 0;
   overflow: hidden;
+  /* SIZE CONTAINMENT, and it is the load-bearing line in this block. A `1fr`
+     row asked for its intrinsic size resolves to the ITEM'S MAX-CONTENT, so
+     the moments list still inflated the zone's own intrinsic height even
+     though the row is `minmax(0, 1fr)`: measured, four tags tapped grew the
+     band 87px and shrank the deck by the same 87, which is the exact defect
+     the containment was meant to stop ("the tapped tags are stacking too much
+     space"). Contained, the box's height is the row's and never its rows':
+     marks fill the space that exists and are clipped when it runs out. */
+  contain: size;
 }
 /* THE CLOCK IS THIN, and that is the whole difference between a number and a
    clock. 700-weight mono was a COUNTER: heavy, boxy, the same voice the clip

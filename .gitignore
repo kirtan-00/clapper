@@ -29,3 +29,7 @@ _archive/
 # Agent worktrees and session scratch. Worktrees are checkouts of this same
 # repo; committing the directory would nest a repo inside itself.
 .claude/
+
+# Harness output. `scripts/shoot-roll.mjs` writes a few hundred PNGs per run;
+# they are evidence for one session, not source, and they stay on disk.
+.shots/

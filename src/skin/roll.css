@@ -999,6 +999,21 @@
   font-size: var(--t-caption);
 }
 
+/* THE UNIT ROW STICKS TO THE TOP OF THE DECK, for the same reason CUT sticks
+   to its bottom. The deck is not a scroller in any state this app was measured
+   in but one - a 667px phone, Script Mode, a shot breakdown and a camera pill
+   - and in that one it is 51px short and scrolls. What was at the top of it,
+   and therefore first to go, is the clip number: the string an operator reads
+   aloud to the loader, and the thing that was missing from single-cam in the
+   first place. It is pinned instead. Painted on the ground, so chips scrolling
+   under it stay behind it rather than through it. */
+.roll .roll__deck > .camstack {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--roll-ground);
+}
+
 /* SOUND IS A PILL AMONG THE PILLS. What tells it from a camera is the speaker
    mark where a camera carries its letter - a SHAPE, which is the one thing
    that survives red set-lighting and a red/green-blind operator. The blue it
