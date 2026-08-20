@@ -26,21 +26,25 @@ const RIGHT = A4[0] - MARGIN;
 // the TEXT colour here (chalk on ink), not the darkest thing on the page:
 // every name kept its role so the whole file did not have to be re-read.
 //
-// Chalk is deliberately warm off-white, never pure #fff, exactly as on screen.
-const PAPER = rgb(0.047, 0.051, 0.063); // --ink-950, the page itself
-const INK = rgb(0.925, 0.914, 0.882); // --chalk, primary text
-const GRAY = rgb(0.604, 0.616, 0.655); // --chalk-dim, secondary text
-// --chalk-faint lifted: on a backlit phone #61646e reads fine as tertiary, but
-// printed as toner on a black field it sits at 3.2:1 and disappears. This is
-// the same role, pulled up to ~4.9:1.
-const LIGHT = rgb(0.49, 0.502, 0.545);
-const RULE = rgb(0.137, 0.149, 0.184); // --line-soft, hairlines inside tables
-const GOLD = rgb(0.89, 0.698, 0.29); // --brass, GOLD tags
-const BAND = rgb(0.122, 0.133, 0.169); // --ink-800, take header band
-const HEADBAND = rgb(0.094, 0.102, 0.129); // --ink-850, column header row
-const ALT = rgb(0.071, 0.075, 0.098); // --ink-900, alternating detail row
-const STICK_DARK = rgb(0.078, 0.082, 0.102); // the dark teeth of the clapper stick
-const GO = rgb(0.22, 0.82, 0.47); // --go, the mark's lens dot
+// Retuned for the client's approved green (docs/specs/2026-08-20-brand-
+// palette.md): #E2F0CC pale, #8BC53D vibrant, #012F13 deep, #011207 near-
+// black. PAPER is night's --paper, INK is night's --ink (the pale green,
+// used flat - never pure white, exactly as on screen).
+const PAPER = rgb(0.004, 0.071, 0.027); // --paper (night), the page itself
+const INK = rgb(0.886, 0.941, 0.8); // --ink (night), primary text
+const GRAY = rgb(0.616, 0.71, 0.604); // --ink-dim (night), secondary text
+// --ink-faint (night) measures 4.83:1 on the new PAPER on its own - the old
+// lift this token needed (toner on black prints darker than a backlit phone
+// shows it) is mostly already spent by the new value being lighter to start
+// with, so LIGHT is the faint token unlifted rather than a separate mix.
+const LIGHT = rgb(0.435, 0.522, 0.439);
+const RULE = rgb(0.031, 0.173, 0.078); // --rule-soft (night), hairlines inside tables
+const GOLD = rgb(0.89, 0.698, 0.29); // --brass, GOLD tags - unchanged, not a palette colour
+const BAND = rgb(0.004, 0.184, 0.075); // the deep green, take header band
+const HEADBAND = rgb(0.004, 0.145, 0.059); // deep green mixed 65% toward paper, column header row
+const ALT = rgb(0.004, 0.11, 0.043); // deep green mixed 35% toward paper, alternating detail row
+const STICK_DARK = rgb(0.078, 0.082, 0.102); // the dark teeth of the clapper stick - deliberately NOT themed, see styles.css
+const GO = rgb(0.161, 0.788, 0.729); // --go, the mark's lens dot - the state teal, not the brand green (see styles.css)
 
 type Color = ReturnType<typeof rgb>;
 type Align = 'left' | 'right';
