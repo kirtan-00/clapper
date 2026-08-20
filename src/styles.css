@@ -2853,10 +2853,10 @@ select.field {
    hit test, so this widens the PAINT without widening the TAP - a thumb
    landing beside CUT still must not fire CUT. */
 .roll__deck > .bigbtn {
-  box-shadow: 0 var(--key-drop) 0 0 var(--key-shadow), 0 0 0 var(--sp-4) var(--ink-950);
-}
-.roll__deck > .bigbtn:active {
-  box-shadow: 0 6px 0 0 var(--key-shadow), 0 0 0 var(--sp-4) var(--ink-950);
+  /* Ground ring only. The key drop is gone with the rest of the 3D; this
+     spread is not decoration - it paints the page's ground out from behind the
+     button, and without it CUT sits on an ivory rectangle. */
+  box-shadow: 0 0 0 var(--sp-4) var(--ink-950);
 }
 /* --------------------------------------------------------- reach row ----
    The roll screen's secondary controls, moved off the top of the screen and
@@ -3089,10 +3089,14 @@ select.field {
   align-items: center;
   justify-content: center;
   gap: calc(var(--sp-3) * var(--cut-scale, 1));
-  transition: transform var(--dur-press) var(--ease-out);
-  box-shadow: 0 var(--key-drop) 0 0 var(--key-shadow);
+  /* NO KEY DROP AND NO TRAVEL. This carried `0 var(--key-drop) 0 0
+     var(--key-shadow)` and sank 4px under the thumb - a hardware-key
+     impression, which is exactly the raised-3D look the design now refuses.
+     The press is answered by the face and the lamp, the same two things every
+     other button in the app answers with, so CUT stops being the one control
+     that behaves differently. */
+  transition: background var(--dur-press) var(--ease-out);
 }
-.bigbtn:active { transform: translateY(4px); box-shadow: 0 6px 0 0 var(--key-shadow); }
 .bigbtn--go {
   background: var(--go-fill);
   color: var(--go-fill-ink);
@@ -4821,6 +4825,27 @@ select.field {
 }
 
 .ltop[data-scrolled] { border-bottom-color: var(--material-hairline); }
+
+/* THE MARK. Right side of the large title, which is the one piece of header
+   that was empty on every screen that has one. Small, faint, and not a link:
+   it is a notice, not a control, so it must never look tappable or compete
+   with the title it shares a line with. */
+.ltop { display: flex; align-items: baseline; justify-content: space-between; }
+.lmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-right: var(--inset);
+  font-size: var(--t-caption);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  user-select: none;
+}
+.lmark__icon { width: 15px; height: 15px; border-radius: 4px; display: block; }
+/* The © itself, one step down again: the wordmark is the thing being read. */
+.lmark__c { font-size: 11px; opacity: 0.75; }
 
 
 /* The Pro CTA sits between two cards on the Account tab, so it keeps the same
