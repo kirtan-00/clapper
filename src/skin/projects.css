@@ -539,9 +539,21 @@
 /* Lifted: tilted off the grid, thrown up on a shadow, edged in the accent.
    Three signals rather than one because this state has to survive being read
    past a thumb that is sitting on top of the card. */
+/* Specificity has to beat `.pj-band .pj-row:first-of-type`, which sets
+   `border-top: none` and takes the whole edge off the top of the first quiet
+   row in a band — so the very first card in a list lifted with three sides of
+   accent and a gap where the fourth should be.
+   `.pj-band .pj-key--lifted` alone is still only two classes deep — the same
+   weight as `.pj-band .pj-row:first-of-type` LOOKS, but `:first-of-type`
+   counts as a class in the specificity algorithm, so that selector is three
+   deep and was still winning. The row carries both `.pj-row` and
+   `.pj-key--lifted` while lifted, so matching `:first-of-type.pj-key--lifted`
+   directly gets to four and wins outright, independent of source order. */
+.pj-band .pj-row:first-of-type.pj-key--lifted,
+.pj-band .pj-key--lifted,
 .pj-key--lifted {
   background: var(--pj-key-lift);
-  border-color: var(--pj-accent);
+  border: 1px solid var(--pj-accent);
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.5);
   z-index: 5;
   /* The finger owns the position; the tilt is composited on top of it. */
@@ -798,7 +810,13 @@
    `transition-property: opacity`; these rules only stop the transforms. */
 @media (prefers-reduced-motion: reduce) {
   .pj-hero:active { transform: none; }
-  .pj-key--lifted { will-change: auto; }
+  .pj-key--lifted {
+    will-change: auto;
+    /* The tilt is the decorative half of the lift and it goes. The accent
+       edge, the shadow and the dashed hole the card came out of are three
+       signals that do not move, which is what has to carry the state here. */
+    --pj-tilt: 0deg;
+  }
 }
 
 /* ================================================== THE TWO LIST ACTIONS ===
