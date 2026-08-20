@@ -7,10 +7,15 @@
     <!-- Was "black-translucent", which draws WHITE status-bar glyphs over the
          page. That was right when the app was near-black and is unreadable now
          that the default ground is ivory, and it cannot be switched at runtime.
-         "default" gives dark glyphs on a bar iOS paints itself, which is legible
-         on paper; night pays for it with a light bar above a dark app. NOT yet
-         confirmed on a real iPhone in standalone mode. -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+         WAS "default", which has iOS paint the bar ITSELF. That was confirmed
+         on a real iPhone and it is wrong: on a true-black app you get a white
+         band across the top of the screen that no CSS can reach, and the
+         rolling red ring stops short of it. "black-translucent" hands the whole
+         screen to the page, status bar included, so the ground and the ring
+         both run to the physical edge. The layout cost is that content would
+         slide under the clock: --safe-top / env(safe-area-inset-top) is already
+         load-bearing throughout the app and is what pays it. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <!-- Kept in sync with the theme by the script below and by src/ui/theme.ts.
          Without that the iOS status bar and the PWA splash stay the other
          theme's colour. -->
@@ -33,7 +38,7 @@
           if (t !== 'night') return; // absent, 'light', or anything unexpected
           document.documentElement.setAttribute('data-theme', 'night');
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', '#0c0d10');
+          if (m) m.setAttribute('content', '#000000');
         } catch (e) {
           /* light is the default and is already in the markup */
         }
