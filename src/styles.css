@@ -1219,9 +1219,12 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background: var(--lamp-on, var(--lamp-off));
   box-shadow: var(--lamp-glow) var(--lamp-on, transparent);
 }
-/* NOTHING MOVES - the 0.97 squish is gone with the rest of the travel. A
-   neutral button has no lamp to light, so the press has to land somewhere:
-   the surface sinks one step, which is a colour change and not a motion. */
+/* NOTHING MOVES - the 0.97 squish is gone with the rest of the travel. The
+   surface sinks one step instead, which is a colour change and not a motion.
+   It applies to every button rather than only the unlamped ones, and that is
+   deliberate: a neutral button has nothing else to answer a press with, and on
+   a lamped one the sink and the ignition are the same gesture read at two
+   distances - the lamp from across the room, the sunk face under the thumb. */
 .btn:active {
   transform: none;
   background: var(--paper-sunk-deep);
@@ -3601,17 +3604,22 @@ select.field {
   grid-template-columns: repeat(2, 1fr);
   gap: var(--sp-2);
 }
-/* Live rolling view only (not the edit sheet below): 1-2 cams get one
-   full-width row each; 3-4 stay on the two-column base above.
+/* Live rolling view only (not the edit sheet below): a LONE unit gets the full
+   width, everything else stays on the two-column base above.
    Written as a :not(:has()) narrowing of that base, never as "1 column, widen
-   to 2 when :has() finds a third slot" - a browser without :has() drops the
+   to 2 when :has() finds a second slot" - a browser without :has() drops the
    rule either way, and this direction leaves it on 2 columns. The other
    direction would leave it stacking 4 full-width rows in the deck, which is
-   the exact bug this screen was rebuilt to kill. */
-.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) {
+   the exact bug this screen was rebuilt to kill.
+
+   THE THRESHOLD MOVED FROM THREE SLOTS TO TWO. Two units used to mean two
+   full-width bars, which is 128px of deck spent saying two things - and the
+   pill says them side by side in 46. One unit still widens, because half a row
+   of pill beside half a row of nothing is not compact, it is unfinished. */
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(2))) {
   grid-template-columns: 1fr;
 }
-.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip {
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(2))) .camslot__clip {
   font-size: var(--t-display);
 }
 .camstack--sheet { max-width: none; margin-top: 0; margin-bottom: var(--sp-4); }
@@ -3652,6 +3660,18 @@ select.field {
   background: var(--ink-800);
   border-color: var(--line);
   flex: none;
+}
+/* The sound badge, as a class rather than the inline object it used to be.
+   Everywhere OUTSIDE the live deck - the post-cut sheet, where a sound file
+   name sits in a list beside camera clip names - the recorder blue is doing
+   real work telling one string from another, so it stays exactly as it was.
+   The live deck overrides it to ink (see skin/roll.css): there the speaker
+   MARK is what distinguishes the unit, and a colour a set light can eat is
+   not asked to do a job a shape already does. */
+.camslot__badge--sound {
+  color: var(--sound-text);
+  border-color: var(--sound-edge);
+  background: var(--sound-tint);
 }
 .camslot__body {
   display: flex;

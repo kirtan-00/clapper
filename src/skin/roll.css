@@ -934,44 +934,55 @@
    badge, the operator, the running clock - is allowed to truncate, because
    none of it is read aloud to a loader. The pill got shorter by losing
    PADDING and type size, never by putting anything back beside the number. */
-.roll .camstack {
+.roll .roll__deck .camstack {
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
-.roll .camstack .camslot {
+.roll .roll__deck .camstack .camslot {
   gap: 1px;
   padding: 6px 10px;
   border-radius: 14px;
 }
-.roll .camstack .camslot--edit {
+.roll .roll__deck .camstack .camslot--edit {
   padding: 6px 4px 6px 10px;
 }
-.roll .camstack .camslot__main {
+.roll .roll__deck .camstack .camslot__main {
   gap: 1px;
   /* Was --tap. The PILL is the target and it clears 44px on its own with the
      padding above; holding the inner button at 44 too made every pill 56. */
   min-height: 32px;
 }
-.roll .camstack .camslot__top {
+.roll .roll__deck .camstack .camslot__top {
   gap: 6px;
 }
-.roll .camstack .camslot__badge {
+.roll .roll__deck .camstack .camslot__badge {
   width: 16px;
   height: 16px;
 }
-.roll .camstack .camslot__clip {
+.roll .roll__deck .camstack .camslot__clip {
   font-size: var(--t-row);
 }
-.roll .camstack .camslot--edit .camslot__top {
+.roll .roll__deck .camstack .camslot--edit .camslot__top {
   padding-right: 30px;
 }
-.roll .camstack .camslot__penbtn {
+/* The pencil was the one part of a unit slot this file never recoloured, so it
+   stayed on the app-wide ramp and painted a WHITE disc on a block of dark
+   metal - a light keycap on a dark object, which is the only thing on this
+   screen that was neither sheet nor mass. It went unnoticed at 34px on a
+   full-width slab; on a 46px pill it is most of the pill. Same material as
+   every other key standing on the mass. */
+.roll .roll__deck .camstack .camslot__penbtn {
   top: 3px;
   right: 4px;
   width: 28px;
   height: 28px;
+  background: var(--roll-mass-raised);
+  border-color: var(--roll-mass-rule);
 }
-.roll .camstack .camslot__elapsed {
+.roll .roll__deck .camstack .camslot__penbtn:active {
+  background: var(--roll-mass-pressed);
+}
+.roll .roll__deck .camstack .camslot__elapsed {
   font-size: var(--t-caption);
 }
 
@@ -979,8 +990,10 @@
    mark where a camera carries its letter - a SHAPE, which is the one thing
    that survives red set-lighting and a red/green-blind operator. The blue it
    used to be edged in did neither, and it cost a whole panel to apply. */
-.roll .camslot__badge--sound {
+.roll .roll__deck .camstack .camslot__badge--sound {
   color: var(--roll-mass-ink);
+  border-color: var(--roll-mass-rule);
+  background: var(--roll-mass-raised);
 }
 
 /* ==========================================================================
