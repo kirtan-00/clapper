@@ -409,6 +409,15 @@ export function ProjectScreen(props: {
                 </span>
               </div>
             )}
+            {/* One mass, every scene a raised key standing on it — the same
+                idiom a folder on the projects list already draws for the
+                shoots filed inside it. `.pj-mass` is reused verbatim from
+                skin/projects.css; `.scenemass` (skin/detail.css) only trims
+                its padding down to the tighter rhythm a stack of keys wants.
+                The drag math (ROW_GAP, centers, shiftFor) never looked at the
+                DOM depth outside `.stack`, so wrapping it here changes
+                nothing about how a row measures or moves. */}
+            <div className="pj-mass scenemass">
             <div className="stack">
             {slates.map(({ slate, takeCount, goodCount, totalMs, covered }, i) => {
               const isDragging = drag?.id === slate.id;
@@ -518,6 +527,7 @@ export function ProjectScreen(props: {
                 </div>
               );
             })}
+            </div>
             </div>
           </>
         )}

@@ -1,0 +1,299 @@
+/* detail — machined skin, for the screens one level IN from the ones already
+ * ported: the scene list, the shot list, the four sheets that interrupt them
+ * (Shotlist import, take correction, sign-in, the install nudge), and the two
+ * lowest-traffic roots (Home, How Clapper works).
+ *
+ * Own lane, same contract as skin/projects.css and skin/shell.css: this file
+ * CONSUMES the `--m-*` namespace from styles.css and the additive `--m-card` /
+ * `--m-ground` / `--m-accent` family shell.css already made global. It never
+ * redefines a token, only reads one.
+ *
+ * Load order is App.tsx: styles.css, then roll.css, projects.css, shell.css,
+ * then this file last — so a rule here outranks a same-specificity rule in
+ * any of them, which is what lets a screen opt in without a fight.
+ *
+ * TWO SCOPES, because the screens in this lane do not all sit under the same
+ * ancestor:
+ *
+ *   `.pj` for ProjectScreen and ShotsScreen. Both already carry the class
+ *   (ProjectScreen took it in e62e821, ShotsScreen alongside it, "so a ground
+ *   that shifts hue between two taps of the same tab bar" never happens) so
+ *   their `--pj-*` tokens are already live and this file leans on them the
+ *   same way projects.css's own `.pj-units` block does.
+ *
+ *   `.dt-sheet` for the four sheets, defined here and applied by this file's
+ *   own TSX. TakeEditSheet mounts under RollingScreen and ClipLogScreen —
+ *   neither carries `.pj` — so anything scoped to `--pj-*` would resolve to
+ *   nothing there, silently, and most likely only be caught at night. The
+ *   sheets consume the GLOBAL `--m-*` family instead, which shell.css already
+ *   made theme-aware on bare `:root` / `[data-theme='night']`, so it resolves
+ *   correctly regardless of which screen opened the sheet.
+ *
+ * Nothing here redefines a shared element selector used off this lane's own
+ * screens (`.sheet`, `.field`, `.btn`, `.camunit`, `.camcount`, `.chip` and
+ * friends all render elsewhere too) — every override is nested under `.pj` or
+ * `.dt-sheet` so it only fires where this lane put the scope class.
+ */
+
+/* ============================================================ THE SCENE MASS
+   `.cardrow` / `.card` used to be a bordered, theme-neutral box — the last
+   place in the app still rendering the pre-redesign material. ProjectScreen
+   and ShotsScreen share these classes exclusively (nothing else in the app
+   renders them), so the override lives here at full strength rather than
+   guarded behind a second class.
+
+   THE SHAPE: one dark mass per screen (`.pj-mass`, already defined in
+   projects.css and reused verbatim — a folder open on the projects list and a
+   scene list open on a project are the same idiom, a place holding the things
+   filed in it), and every scene or shot is a raised key standing on it,
+   exactly the material `.pj-key` already draws for a shoot filed in a folder.
+   Dragging one lifts it the same way: tilt, shadow, the accent edge. */
+.pj .scenemass {
+  padding: var(--sp-3) var(--sp-2);
+}
+
+.pj .card {
+  width: 100%;
+  text-align: left;
+  background: var(--pj-key);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  display: block;
+  color: var(--pj-mass-ink);
+  transition:
+    background var(--dur-state) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+.pj button.card:active {
+  transform: scale(0.99);
+  background: var(--pj-key-lift);
+}
+.pj button.card:active .card__chevron {
+  color: var(--pj-mass-dim);
+}
+
+.pj .card__chevron {
+  color: var(--pj-mass-faint);
+}
+
+/* The one-time "tap a scene to roll" nudge sits above the mass, on the ivory
+ * ground, so it reads as an instruction about the mass rather than a row
+ * inside it. The arrow was --go-text; a hint pointing at a tappable scene is
+ * not a rolling-ready signal, it is the thumb's own accent. */
+.pj .rollhint {
+  color: var(--pj-ink-dim);
+}
+.pj .rollhint__arrow {
+  color: var(--pj-accent-edge);
+}
+
+.pj .card__name {
+  color: var(--pj-mass-ink);
+}
+.pj .card__summary {
+  color: var(--pj-mass-dim);
+}
+.pj .card__meta {
+  color: var(--pj-mass-dim);
+}
+.pj .card__meta b {
+  color: var(--pj-mass-ink);
+}
+.pj .card__storyhint {
+  color: var(--pj-mass-faint);
+}
+
+/* Coverage dot. Round 1 drew "shot" as a bright green fill in a deep ring;
+ * green here was never about rolling-readiness, it was reusing the app's only
+ * saturated colour because nothing else was on hand. The accent already
+ * carries "the thing that changed" everywhere else in this lane (the folder
+ * key's LIVE word, the size picker's chosen stop), so a covered scene gets
+ * the same fill instead, and a scene still to shoot keeps the quiet ring. */
+.pj .scene-dot {
+  border-color: var(--pj-mass-faint);
+}
+.pj .scene-dot--done {
+  background: var(--pj-accent);
+  border-color: var(--pj-accent-edge);
+}
+/* The left edge that used to repeat the same message in --go-text. One
+ * accent bar, not two signals fighting for the word "done". */
+.pj .card--done {
+  border-left: 3px solid var(--pj-accent-edge);
+}
+
+/* Take / shot count. It is a NUMBER on the card, not a selection — the same
+ * distinction `.pj-stat__v` already draws on the hero mass (plain ink, full
+ * weight, no colour spent on arithmetic). Green here read as "this counts as
+ * good", which a raw take count never claimed to mean. */
+.pj .card__count {
+  color: var(--pj-mass-ink);
+}
+
+/* EDIT. Still the quiet text link the round-3 rewrite made it (no box, no
+ * border — the destructive half moved into the sheet behind it), just tuned
+ * for ink on the key instead of ink on the old neutral card. */
+.pj .rowedit {
+  color: var(--pj-mass-faint);
+}
+.pj .rowedit:active {
+  color: var(--pj-mass-ink);
+}
+
+/* -------------------------------------------------------------- the handle -
+ * Grip dots read exactly as `.pj-grip`'s do — six dots, low-opacity idle, so
+ * the affordance needs no caption. Lives outside `.card` in its own 40px
+ * column (unchanged from the pre-redesign layout: a swipe starting on the
+ * card body must still scroll the page, only the grip starts a drag), so it
+ * is styled on the ivory ground rather than the key. */
+.pj .scenehandle__grip {
+  color: var(--pj-ink-faint);
+}
+.pj .scenehandle__grip:active {
+  background: var(--pj-rule);
+  color: var(--pj-ink);
+}
+/* The focus ring was --go — the app's rolling-ready colour landing on a
+ * keyboard affordance that has nothing to do with the camera. */
+.pj .scenehandle__grip:focus-visible {
+  outline: 2px solid var(--pj-accent-edge);
+  outline-offset: 2px;
+}
+
+/* The row being dragged lifts off the mass exactly like a folder's `.pj-key`
+ * does: tilt stays in the component's own inline transform (untouched —
+ * ProjectScreen computes it from the pointer, this file never overrides
+ * `transform` on a dragging row), the accent edge and shadow are what this
+ * file adds. */
+.pj .cardrow--dragging .card {
+  background: var(--pj-key-lift);
+  border-color: var(--pj-accent);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.5);
+}
+
+/* Reduced motion: the lift's edge, shadow and colour are not animation, they
+ * survive as-is. Only the press scale-down and the background crossfade are
+ * transitions, and the app's own reduce-motion block (styles.css's media
+ * query, shell.css's `[data-motion='reduce']` twin) already forces every
+ * transition to `opacity` only — nothing further is owed here. */
+
+/* ============================================================== THE SHEETS =
+ * `.dt-sheet` wraps the content each of these four sheets renders inside the
+ * shared <Sheet>. The grabber, the scrim, the rise and the exit all stay the
+ * shared component's — this only re-materials what is INSIDE: the primary
+ * button, the camera-unit badge, the status pills, the tag chips. All four
+ * read `--m-*` globals, never `--pj-*`, because none of them can rely on a
+ * `.pj` ancestor (TakeEditSheet is reachable from RollingScreen and
+ * ClipLogScreen, neither of which carries it). */
+.dt-sheet {
+  color: inherit;
+}
+
+/* The camera-unit badge (the lettered "A" / "B" chip) and the take-status
+ * segmented control both shipped this lane green by default — `--go-tint` /
+ * `--go-edge` on a badge that just names which camera wrote the clip, and on
+ * a Good/No good toggle that is a record of what already happened, not a
+ * statement that the camera can roll. ProjectScreen's own camera setup fixed
+ * this for itself via `.pj-units .camunit__badge`; TakeEditSheet needed the
+ * same fix and had no `.pj` to inherit it from. */
+.dt-sheet .camunit__badge {
+  color: var(--m-accent-ink);
+  background: var(--m-accent);
+  border-color: var(--m-accent);
+}
+[data-theme='night'] .dt-sheet .camunit__badge {
+  color: var(--m-legend);
+  background: var(--m-keycap);
+  border-color: var(--m-legend);
+}
+.dt-sheet .camcount__opt--on {
+  background: var(--m-card);
+  border-color: var(--m-card);
+  color: var(--m-card-ink);
+}
+[data-theme='night'] .dt-sheet .camcount__opt--on {
+  background: var(--m-keycap);
+  border-color: var(--m-legend);
+  color: var(--m-legend);
+}
+
+/* Tag chips. GOLD keeps its brass — that register is untouched everywhere in
+ * the app — but a plain "on" tag was reading in the same --go the coverage
+ * dot used to, and a tag toggled on mid-take is not a rolling-ready signal
+ * either. */
+.dt-sheet .chip--on {
+  border-color: var(--m-accent-deep);
+  color: var(--m-accent-ink);
+  background: color-mix(in srgb, var(--m-accent) 22%, transparent);
+}
+[data-theme='night'] .dt-sheet .chip--on {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 14%, transparent);
+}
+.dt-sheet .chip--on.chip--gold {
+  border-color: var(--brass-edge);
+  color: var(--brass-text);
+  background: var(--brass-tint);
+}
+
+/* -------------------------------------------------------------- Shotlist ---
+ * The two example cards and the upload button are shared `.sp-example` /
+ * `.btn--go` — house-wide classes untouched here, so this sheet needed no
+ * further work beyond the wrapper's inherited tone. */
+
+/* -------------------------------------------------------------- Sign in ----
+ * Same story: `.btn--go` is the standing "primary action" colour across the
+ * whole app (Settings, Rolling, ProjectsScreen's own Create-project all still
+ * use it, unretouched), not a leftover this lane is responsible for chasing
+ * down. Nothing to override. */
+
+/* ================================================================ HOME =====
+ * HomeScreen already carries `.pj` (see the comment on its own root div) —
+ * everything below leans on that the same way ProjectScreen and ShotsScreen
+ * do. What is left after the ground unification is the hero and the mode
+ * picker, neither of which had a green problem; this section exists mainly
+ * to keep the picker's icon and text on the mass's own ink rather than the
+ * app-wide default, so it reads as part of the same machined screen. */
+.pj .home-hero {
+  background: var(--pj-mass);
+  color: var(--pj-mass-ink);
+  box-shadow: 0 10px 24px var(--m-cast);
+}
+.pj .home-hero__sub {
+  color: var(--pj-mass-dim);
+}
+.pj .home-hero__mark {
+  color: var(--pj-accent);
+}
+
+/* ============================================================= HOW TO ======
+ * The guide already sat on the app's own theme-aware ground and ink (--ink-950
+ * / --chalk) — the OLD flat dark surface, never the pre-redesign white cards
+ * the rest of this lane had. What it still carried was the same green three
+ * other screens did: a nav chip's active border, the "shot" example dot, and
+ * a definition list's rule colour, all --go by default with no rolling state
+ * anywhere near them. Everything else (the discipline callout in --rec, the
+ * discard/delete split in brass and rec) is a deliberate second colour this
+ * file leaves alone. */
+.guide__navchip:active {
+  border-color: var(--m-accent-deep);
+  color: var(--chalk);
+}
+[data-theme='night'] .guide__navchip:active {
+  border-color: var(--m-accent);
+}
+.gdot--done {
+  background: var(--m-accent);
+  border-color: var(--m-accent-deep);
+}
+[data-theme='night'] .gdot--done {
+  border-color: var(--m-accent);
+}
+.gsay dd {
+  border-left-color: var(--m-accent-deep);
+}
+[data-theme='night'] .gsay dd {
+  border-left-color: var(--m-accent);
+}
