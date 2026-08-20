@@ -20,3 +20,8 @@ dist-site
 # Business planning that names the owner, his agency and his pricing strategy.
 # Stays on disk, never in a public repo.
 docs/validation-and-willingness-to-pay-plan.md
+
+# Desktop cleanup landing zone: deliverables, screenshots, reports, and scripts
+# filed off the owner's Desktop. Can run into the hundreds of MB, so it stays
+# local and untracked rather than bloating the repo.
+_archive/
