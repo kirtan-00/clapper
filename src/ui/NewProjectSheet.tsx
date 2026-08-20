@@ -636,7 +636,10 @@ function ReadyStage(props: { draft: ProjectDraft; busy: boolean; onBack: () => v
           disabled={props.busy || !isReady(draft)}
           onClick={props.onGo}
         >
-          {props.busy ? 'Creating…' : `Create ${draft.units.length > 1 ? `${draft.units.length}-camera ` : ''}project`}
+          {/* The receipt directly above says how many cameras and whether sound
+              is on. Saying it again on the button only made the label wrap to
+              two lines on a 390px phone. */}
+          {props.busy ? 'Creating…' : 'Create project'}
         </button>
       </StageActions>
     </>

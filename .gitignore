@@ -34,3 +34,4 @@ _archive/
 # measured in megabytes; the harness is tracked, the pictures are not.
 .shots/
 .shots-onboarding/
+.shots-newproject/
