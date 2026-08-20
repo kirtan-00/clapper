@@ -34,7 +34,12 @@ const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DEV_PORT = Number(process.env.PORT ?? 5200);
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9334);
 const BASE_URL = `http://localhost:${DEV_PORT}/`;
-const OUT_DIR = process.argv[2] ?? join(REPO_ROOT, '.shots');
+// argv[2] is the out dir, but only if it is a PATH: `--assert` is a flag and
+// naming a directory after it is how a run ends up writing into `./--assert`.
+const ASSERT = process.argv.includes('--assert');
+const OUT_DIR =
+  process.argv.slice(2).find((a) => !a.startsWith('--')) ??
+  join(REPO_ROOT, ASSERT ? '.shots/rollfix' : '.shots');
 
 // A 390x844 phone is the calibration device for .bigbtn's box; every shot is
 // taken there so the measured rect means something.
@@ -200,7 +205,22 @@ const SCRIPT_TAGS = [
   { id: 't5', label: 'Door slams shut', tier: 'keyMoment', order: 1 },
 ];
 
-async function seed(cdp, { cameraCount, soundOn, scriptMode }) {
+/** A shot breakdown, i.e. Script Mode's tallest case: the ShotDeck wheel only
+ *  renders when the scene carries `shots`, and the wheel is the single biggest
+ *  block on the screen (172px card + a 128px peek). The action line is
+ *  deliberately far longer than fits, because "long content must never change
+ *  the geometry of a control surface" is the thing being tested. */
+const SCRIPT_SHOTS = [
+  {
+    id: 's1', code: 'S1−01', order: 0, size: 'MCU', move: 'Slow PUSH IN',
+    action: 'She crosses the kitchen, stops at the window, and watches the street for a long beat before she finally turns back to the table and picks the letter up again.',
+    dialogue: 'You were never going to tell me, were you.',
+  },
+  { id: 's2', code: 'S1−02', order: 1, size: 'OTS (over Dev)', move: 'STATIC, low', action: 'His reply, flat.' },
+  { id: 's3', code: 'S1−03', order: 2, size: 'XWS', move: 'HANDHELD', action: 'The street, empty.' },
+];
+
+async function seed(cdp, { cameraCount, soundOn, scriptMode, shots }) {
   const cameras = cameraCount >= 2
     ? Array.from({ length: cameraCount }, (_, i) => ({
         letter: ['A', 'B', 'C', 'D'][i], clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, operator: undefined,
@@ -219,6 +239,7 @@ async function seed(cdp, { cameraCount, soundOn, scriptMode }) {
       });
       const slate = await store.createSlate(project.id, 'Scene 1');
       ${scriptMode ? `await store.updateSlate(slate.id, { tags: ${JSON.stringify(SCRIPT_TAGS)} });` : ''}
+      ${shots ? `await store.updateSlate(slate.id, { shots: ${JSON.stringify(SCRIPT_SHOTS)}, summary: 'Kitchen, night. She reads the letter and he does not look up from the table, which is the whole scene and also the reason it runs long enough to wrap.' });` : ''}
       return true;
     })()
   `);
@@ -245,6 +266,17 @@ async function openRoll(cdp, theme) {
   await cdp.waitForExpr(CLICK_BY_TEXT('Shoot Test'), { desc: 'project row clickable' });
   await cdp.waitForExpr(`document.body.textContent.includes('Scene 1')`, { desc: 'project screen' });
   await cdp.waitForExpr(CLICK_BY_TEXT('Scene 1'), { desc: 'scene row clickable' });
+  // A scene WITH a breakdown opens its shot list first (App.tsx routes
+  // scene -> ShotsScreen -> rolling), so one more tap is needed to reach the
+  // screen this script is about. Clicked by CLASS, never by text: shot codes
+  // carry U+2212 MINUS SIGN and a hyphen typed here would match nothing.
+  await cdp.waitForExpr(
+    // Only TRUE once a card was really clicked: the shot list renders its
+    // header ("Loading shots") before the rows exist, and a wait that returns
+    // true for a click that never landed just moves the timeout one line down.
+    `(!!document.querySelector('.roll') || (document.querySelector('.stack .card') ? (document.querySelector('.stack .card').click(), true) : false))`,
+    { desc: 'rolling screen, or the shot list on the way to it' },
+  );
   await cdp.waitForExpr(`document.querySelector('.roll') && document.querySelector('.bigbtn')`, { desc: 'rolling screen' });
   // The toggle is re-applied after the route change: theme lives on <html> and
   // survives, but a fresh navigate resets it, so state it once more and settle.
@@ -262,6 +294,212 @@ async function bigbtnBox(cdp) {
       return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
     })()
   `);
+}
+
+// -------------------------------------------------------------- assertions --
+// `node scripts/shoot-roll.mjs --assert` — the geometry half of this harness.
+//
+// WHY IT EXISTS: screenshots have missed this class of bug on this screen
+// twice. A page that scrolls by 40px under a thumb looks identical in a still;
+// what tells you is a NUMBER — scrollHeight against clientHeight, and the same
+// rect measured before and after a scroll that must do nothing. So this mode
+// prints numbers and nothing else, at five phone heights, in both themes,
+// idle and rolling, single-cam / multi-cam+sound / a Script Mode breakdown.
+//
+// The seven, from the brief:
+//   1  documentElement.scrollHeight === clientHeight
+//   2  body.scrollHeight === body.clientHeight
+//   3  the roll root's scrollHeight === its clientHeight
+//   4  CUT's box is identical before and after a 400px page scroll
+//   5  the REC pill is still visible after that scroll
+//   6  the take bar's height is the SAME at every viewport height
+//   7  .bigbtn measures x16 y714 358x104 at 390x844
+//
+// One caveat stated rather than buried: desktop Chrome resolves svh, lvh and
+// dvh IDENTICALLY, so no harness on a Mac can reproduce the "100vh is taller
+// than the visible area" half of this bug. Assertions 1-3 are still the right
+// tripwire — they catch any layout that genuinely overflows — but the unit
+// choice has to be argued in the CSS, not proved here.
+
+const HEIGHTS = [932, 844, 780, 740, 667];
+const RIGS = [
+  { key: 'single', cameraCount: 1, soundOn: false, scriptMode: false, shots: false },
+  { key: 'multi', cameraCount: 3, soundOn: true, scriptMode: true, shots: false },
+  { key: 'script', cameraCount: 1, soundOn: false, scriptMode: true, shots: true },
+];
+
+const MEASURE = `
+  (() => {
+    const doc = document.documentElement;
+    const body = document.body;
+    const q = (s) => document.querySelector(s);
+    const box = (el) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+    };
+    const roll = q('.roll');
+    const pill = q('.recpill');
+    let pillSeen = false;
+    if (pill) {
+      const r = pill.getBoundingClientRect();
+      const onGlass = r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
+      // Not merely in the box - actually the topmost thing at its own centre,
+      // so a pill scrolled under the ring or covered by the deck fails too.
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      pillSeen = onGlass && !!hit && (pill === hit || pill.contains(hit));
+    }
+    return {
+      innerH: window.innerHeight,
+      scrollY: Math.round(window.scrollY),
+      docScroll: doc.scrollHeight, docClient: doc.clientHeight,
+      bodyScroll: body.scrollHeight, bodyClient: body.clientHeight,
+      rollScroll: roll ? roll.scrollHeight : null,
+      rollClient: roll ? roll.clientHeight : null,
+      // Every inner scroller, named, because "the page moved" on a phone is
+      // usually one of these three and not the page at all.
+      innerScroll: ['.roll__body', '.roll__stage', '.roll__deck', '.roll__pads']
+        .map((s) => { const e = q(s); return e ? s + ' ' + e.scrollHeight + '/' + e.clientHeight + ' top' + Math.round(e.scrollTop) : s + ' -'; })
+        .join('  '),
+      // The height budget, band by band. When a layout does not fit, the
+      // question is never "does it overflow" (assertion 3 answers that) but
+      // "by how much, and which band is spending it".
+      zones: ['.roll__head', '.roll__line', '.roll__summary', '.scenestrip', '.roll__rail',
+        '.roll__stage', '.shotdeck', '.roll__reach', '.camstack', '.roll__pads',
+        '.roll__markrow', '.roll__deck > .bigbtn']
+        .map((s) => { const e = q(s); return e ? s.replace('.roll__', '').replace('.roll__deck > ', '') + ':' + Math.round(e.getBoundingClientRect().height) : null; })
+        .filter(Boolean).join(' '),
+      cut: box(q('.roll__deck > .bigbtn') || q('.bigbtn')),
+      pill: box(pill),
+      pillSeen,
+      takebar: box(q('.takebar')),
+      shotdeck: box(q('.shotdeck')),
+      live: !!q('.roll--live'),
+    };
+  })()
+`;
+
+/** Try, hard, to move the screen. The literal assertion is a 400px page
+ *  scroll; the wheel gestures are the honest version of the same question,
+ *  because on a phone the thumb lands on whatever is under it and an inner
+ *  scroller moving the pill out of view is exactly the reported bug. */
+async function tryToScroll(cdp, h) {
+  await cdp.evaluate(`window.scrollTo(0, 400); true`);
+  await sleep(80);
+  const afterPage = await cdp.evaluate(MEASURE);
+  for (const y of [Math.round(h * 0.16), Math.round(h * 0.5), Math.round(h * 0.8)]) {
+    await cdp.send('Input.dispatchMouseEvent', {
+      type: 'mouseWheel', x: 195, y, deltaX: 0, deltaY: 400, pointerType: 'mouse',
+    });
+    await sleep(90);
+  }
+  const afterWheel = await cdp.evaluate(MEASURE);
+  return { afterPage, afterWheel };
+}
+
+const sameBox = (a, b) => !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+const fmt = (b) => (b ? `x${b.x} y${b.y} ${b.w}x${b.h}` : 'none');
+
+async function assertMain(cdp) {
+  mkdirSync(OUT_DIR, { recursive: true });
+  const rows = [];
+  const fails = [];
+  const takebarByState = new Map();
+
+  // `--only=night/script/667` narrows the sweep while iterating on the CSS.
+  // The full run is 60 states and takes minutes; a single one takes seconds.
+  const only = (process.argv.find((a) => a.startsWith('--only=')) ?? '').slice(7);
+  const wanted = (parts) => !only || only.split('/').every((p) => parts.includes(p));
+
+  for (const theme of ['day', 'night']) {
+    for (const rig of RIGS) {
+      for (const h of HEIGHTS) {
+        if (!wanted([theme, rig.key, String(h)])) continue;
+        await cdp.setViewport(VIEWPORT.width, h);
+        await seed(cdp, rig);
+        try {
+          await openRoll(cdp, theme);
+        } catch (err) {
+          // A navigation that stalls is worth a page dump, not a bare stack:
+          // this harness clicks through three screens and the useful question
+          // is always "which one is it stuck on".
+          const where = await cdp.evaluate(
+            `location.href + ' :: ' + (document.body.textContent || '').slice(0, 400)`,
+          );
+          throw new Error(`${err.message}\n  at ${theme}/${rig.key}/${h}\n  page: ${where}`);
+        }
+
+        for (const mode of ['idle', 'rolling']) {
+          if (mode === 'rolling') {
+            const p = await cdp.centreOf('.bigbtn');
+            await cdp.mouseDown(p.x, p.y);
+            await cdp.mouseUp(p.x, p.y);
+            await cdp.waitForExpr(`document.querySelector('.roll--live')`, { desc: `live ${theme}/${rig.key}/${h}` });
+            await sleep(1200);
+          }
+          const before = await cdp.evaluate(MEASURE);
+          const { afterPage, afterWheel } = await tryToScroll(cdp, h);
+          await cdp.evaluate(`window.scrollTo(0, 0); true`);
+
+          const id = `${theme}/${rig.key}/${mode}/${h}`;
+          const a1 = before.docScroll === before.docClient;
+          const a2 = before.bodyScroll === before.bodyClient;
+          const a3 = before.rollScroll === before.rollClient;
+          const a4 = sameBox(before.cut, afterPage.cut);
+          const a4w = sameBox(before.cut, afterWheel.cut);
+          const a5 = mode === 'rolling' ? afterPage.pillSeen : null;
+          const a5w = mode === 'rolling' ? afterWheel.pillSeen : null;
+          if (mode === 'rolling') {
+            const k = `${theme}/${rig.key}`;
+            if (!takebarByState.has(k)) takebarByState.set(k, []);
+            takebarByState.get(k).push({ h, box: before.takebar });
+          }
+          const a7 = h === 844
+            ? sameBox(before.cut, { x: 16, y: 714, w: 358, h: 104 })
+            : null;
+
+          const mark = (v) => (v === null ? ' -- ' : v ? ' ok ' : 'FAIL');
+          rows.push(
+            `${id.padEnd(26)} ` +
+              `1:${mark(a1)} doc ${before.docScroll}/${before.docClient}  ` +
+              `2:${mark(a2)} body ${before.bodyScroll}/${before.bodyClient}  ` +
+              `3:${mark(a3)} roll ${before.rollScroll}/${before.rollClient}  ` +
+              `4:${mark(a4)} cut ${fmt(before.cut)} -> ${fmt(afterPage.cut)}  ` +
+              `4w:${mark(a4w)} -> ${fmt(afterWheel.cut)}  ` +
+              `5:${mark(a5)} 5w:${mark(a5w)} pill ${fmt(before.pill)} -> ${fmt(afterWheel.pill)}  ` +
+              `6: takebar ${fmt(before.takebar)}  ` +
+              `7:${mark(a7)}  ` +
+              `shotdeck ${fmt(before.shotdeck)}  scrollY ${afterPage.scrollY}\n` +
+              `${' '.repeat(27)}inner  ${before.innerScroll}\n` +
+              `${' '.repeat(27)}wheel  ${afterWheel.innerScroll}\n` +
+              `${' '.repeat(27)}bands  ${before.zones}`,
+          );
+          for (const [n, v] of [['1', a1], ['2', a2], ['3', a3], ['4', a4], ['4w', a4w], ['5', a5], ['5w', a5w], ['7', a7]]) {
+            if (v === false) fails.push(`${id} assertion ${n}`);
+          }
+          // A picture of every state that was measured, so the numbers and the
+          // image are of the same frame - and so headless Chrome keeps
+          // painting (see the drum note above).
+          await cdp.shot(join(OUT_DIR, `assert.${theme}.${rig.key}.${mode}.${h}.png`));
+        }
+      }
+    }
+  }
+
+  // 6 is a cross-viewport assertion: one number, five heights.
+  const bar = [];
+  for (const [k, list] of takebarByState) {
+    const hs = list.map((e) => (e.box ? e.box.h : null));
+    const same = hs.every((v) => v !== null && v === hs[0]);
+    bar.push(`6: ${same ? ' ok ' : 'FAIL'} ${k}  takebar heights by viewport ${list.map((e) => `${e.h}:${e.box ? e.box.h : 'none'}`).join(' ')}`);
+    if (!same) fails.push(`${k} assertion 6 (take bar height varies: ${hs.join(',')})`);
+  }
+
+  console.log(rows.join('\n'));
+  console.log('\n' + bar.join('\n'));
+  console.log(`\nPNGs in ${OUT_DIR}`);
+  console.log(fails.length === 0 ? '\nALL SEVEN PASS, every state.' : `\n${fails.length} FAILURES:\n  ${fails.join('\n  ')}`);
+  if (fails.length) process.exitCode = 1;
 }
 
 // ------------------------------------------------------------------ main ----
@@ -294,6 +532,11 @@ async function main() {
     await cdp.send('Runtime.enable');
     await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
     await cdp.navigate(BASE_URL);
+
+    if (ASSERT) {
+      await assertMain(cdp);
+      return;
+    }
 
     for (const theme of ['day', 'night']) {
       const tag = theme === 'night' ? 'night' : 'day';
