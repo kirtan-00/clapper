@@ -2038,15 +2038,62 @@ select.field {
     radial-gradient(120% 70% at 50% -10%, var(--rec-wash), transparent 55%),
     var(--ink-950);
 }
+/* -------------------------------------------------------- the TALLY RING --
+   The broadcast convention: a red frame around the whole screen that means
+   one thing and exists only while that thing is true. It is the third
+   redundant statement of "rolling", at the third distance - the ring reads
+   across the set, the REC band reads at arm's length, the unit dots read in
+   the data.
+
+   IT IS AN OVERLAY, NEVER A BORDER ON A LAYOUT ELEMENT. A pseudo-element,
+   out of flow, `position: fixed` and `pointer-events: none`, so a four-minute
+   take costs zero reflow and no pixel of it can eat a tap meant for a chip.
+   Bordering the real .roll box instead would push every control inward the
+   moment the operator hit ROLL, which is the one moment nothing may move.
+
+   INSET PAST THE SAFE AREA, not to the glass. env() clears the Dynamic Island
+   at the top and the home indicator at the bottom; the extra standoff keeps
+   it in the gutter BETWEEN the screen edge and --inset, so it never crosses
+   the clock, the chips or CUT. Radius follows the device corner.
+
+   Breathing is opacity only - no size, nothing that could read as movement in
+   the corner of an eye that is supposed to be on the actors - and slow, at
+   3.2s, precisely so it is not confused with the tally dot's 550ms heartbeat.
+   Two pulses at the same rate would be one pulse; two decades apart, they are
+   a heartbeat and a horizon. Under reduced motion the global block above
+   stops the animation and the ring simply holds, which is the correct still
+   form: the state is the ring's existence, not its rhythm. */
 .roll--live::after {
-  /* recording border tell */
   content: "";
   position: fixed;
-  inset: 0;
+  inset:
+    calc(var(--safe-top) + var(--m-ring-standoff))
+    calc(var(--safe-right) + var(--m-ring-standoff))
+    calc(var(--safe-bottom) + var(--m-ring-standoff))
+    calc(var(--safe-left) + var(--m-ring-standoff));
+  border: var(--m-ring-weight) solid var(--m-rec);
+  border-radius: var(--m-ring-radius);
   pointer-events: none;
-  box-shadow: inset 0 0 0 2.5px var(--rec);
-  /* static: the border states the frame is hot, the tally dot does the blinking */
-  opacity: 0.55;
+  /* Between the tab tray (30) and the scrim (40) on the ladder documented at
+     .tabtray: over every control on the rolling screen, under a sheet - a
+     take being saved is a modal moment and the ring must not draw across it. */
+  z-index: 35;
+  animation: recbreathe 3.2s ease-in-out 0.4s infinite;
+}
+@keyframes recbreathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+/* The REC band is full-bleed to the glass and the ring is not, so the band's
+   square corners came out THROUGH the ring's arc: two different reds meeting
+   at the one place the eye is least able to separate them, which read as the
+   ring being painted onto the band rather than around the screen. Tucking the
+   band inside the ring's inner curve is the whole fix, and it is scoped to
+   .roll--live because there is nothing to tuck inside when nothing is rolling.
+   Derived from the ring's own tokens so the two cannot drift apart. */
+.roll--live .tally {
+  border-top-left-radius: calc(var(--m-ring-radius) - var(--m-ring-weight));
+  border-top-right-radius: calc(var(--m-ring-radius) - var(--m-ring-weight));
 }
 
 /* Two-pane wrappers. On phone/portrait they are `display: contents` — they
