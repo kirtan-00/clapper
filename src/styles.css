@@ -2009,6 +2009,19 @@ select.field {
 .roll {
   position: fixed;
   inset: 0;
+  /* ROLL AND CUT MUST NOT MOVE. `inset: 0` sizes this screen to the DYNAMIC
+     viewport, and on a phone that viewport grows the moment the browser's
+     toolbar collapses on scroll. Measured at 390 wide: the button held its 26px
+     gap from the bottom of the visible area the whole time, but its position on
+     the actual glass slid 714 -> 760 -> 714 as the bar came and went. 46px,
+     under the one control a 2nd AC presses without looking.
+     `svh` is the SMALL viewport - the height with the toolbar still showing -
+     so the layout stops resizing and the button is nailed to one physical spot.
+     The strip the collapsing bar reveals is just ground, which is what was
+     under the toolbar anyway. `dvh` would be wrong here: it tracks the bar
+     continuously, which is a smoother version of the same movement. */
+  bottom: auto;
+  height: 100svh;
   /* The toast reads --tray-lift to clear the tab tray, and the comment on
      .toast used to say this was correctly ZERO here because the roll screen
      unmounts the tray. That stopped being true the day ROLL/CUT got bottom
