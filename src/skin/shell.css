@@ -576,12 +576,19 @@ html[data-uiscale='fine'] textarea {
 /* The pitch draws this switch's ON track in the one accent
    (`.switch{ background:var(--lav); }`), not the iOS-stock green .tswitch
    otherwise carries - a default-green switch is the loudest "nobody designed
-   this" signal on a screen this deliberate. --go-fill/--go-text stay exactly
-   what they are (rolling-ready, read elsewhere as a state); this overrides
-   what THESE THREE rows reference, scoped to `.mprow` so `.tswitch` itself,
-   and every other row still drawing it correctly as go/rolling-ready
-   elsewhere in the app, is untouched. */
-.mprow .tswitch--on {
+   this" signal on a screen this deliberate.
+
+   THIS WAS SCOPED TO `.mprow` and is no longer. The scoping was written to
+   protect switches elsewhere that draw green meaning "rolling-ready", and
+   there are none: `.tswitch` has exactly two mounts in the whole app,
+   PreferenceRows.tsx and ThemeToggleRow.tsx, and both are settings rows. All
+   the scope bought was Night mode sitting green among three lavender
+   switches, 200px apart, on the one screen where you see them together.
+
+   --go, --go-text and --go-fill are untouched and still mean rolling-ready
+   wherever a control actually says so. What changed is what a SWITCH
+   references, which was never that. */
+.tswitch--on {
   background: var(--m-accent);
 }
 
