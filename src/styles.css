@@ -3395,10 +3395,24 @@ select.field {
 }
 
 /* What each button's lamp is FOR. One declaration each, and it is the entire
-   difference between them. */
-.bigbtn.hw--go { --lamp-on: var(--go); }
+   difference between them.
+
+   ROLL ALSO BURNS AT REST, and this is the fix `.btn--go` already got and this
+   rule never did. The argument is written out at `.btn--go` and applies here
+   with more force, not less: a lamp that only lights under the thumb tells you
+   which button you are touching at the one moment you no longer need telling.
+   Left unlit, ROLL — the control this entire app exists to put under a thumb —
+   was a grey slab with a grey strip, quieter at rest than the `Log` button
+   sitting above it. Deep at rest, bright under the thumb, so the press still
+   answers. NOT a fill: a solid brass face means the take was a keeper and
+   nothing else in the app is allowed to say that.
+
+   CUT keeps an unlit lamp deliberately. It only exists while something is
+   rolling, `.roll--live` lights it red the whole time, and an idle CUT is not a
+   thing you can press. */
+.bigbtn.hw--go { --lamp-on: var(--go); --lamp-off: var(--go-deep); }
 .bigbtn.hw--cut { --lamp-on: var(--m-rec); }
-.bigbtn.hw--done { --lamp-on: var(--m-accent); }
+.bigbtn.hw--done { --lamp-on: var(--m-accent); --lamp-off: var(--m-accent-deep); }
 
 /* Rolling: the tally is ON, thumb or no thumb. No glow - a glow is the press,
    and a button that glowed for four minutes would stop meaning anything. */

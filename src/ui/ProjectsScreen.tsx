@@ -990,9 +990,13 @@ function HeroMass(props: { row: Row; folderName?: string; onOpen: () => void }) 
           <span className="pj-stat__k">Takes</span>
           <span className="pj-stat__v tnum">{row.takeCount}</span>
         </span>
-        {/* The joint. Aria-hidden and pointer-inert: it is material, not a
-            control, and nothing about it is readable aloud. */}
-        <span className="pj-notch" aria-hidden="true" />
+        {/* The joint used to be a `.pj-notch` here — a slot of ground cut up
+            into the mass. It never read as one. With the mass and the ground
+            both near-black it came out as a black drip hanging off the card,
+            which is the same artifact that was already pulled off the rolling
+            screen's stat pair. That screen replaced it with a hairline between
+            the cells and the hairline was right, so this uses the hairline too:
+            one way of separating two numbers in the app, not two. */}
         <span className="pj-stat">
           <span className="pj-stat__k">Shoot day</span>
           <span className="pj-stat__v tnum">{day || '—'}</span>

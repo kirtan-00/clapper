@@ -1554,13 +1554,27 @@ export function RollingScreen(props: {
               // 448px void, which reads as a screen that failed to load rather
               // than a shoot that has not started. Say what the button does and
               // what will appear, so the emptiness is an instruction.
+              //
+              // AND IT HAS TO FIT. That 448px void is gone: on a scene with a
+              // breakdown the shot wheel takes ~300px of the middle zone and
+              // leaves this box ~206px, so the second sentence — the one
+              // itemising clip name, duration and tags — was being sliced
+              // through its own last line. An empty state that cannot finish
+              // its sentence reads as a crash, which is the exact impression
+              // the longer copy was written to avoid.
+              //
+              // So it says the one thing that is useful BEFORE a take exists:
+              // which two buttons, in which order, and where the result shows
+              // up. The itemising was describing a table that appears, fully
+              // labelled, the instant the first CUT lands — explaining it in
+              // advance was telling someone what a receipt looks like while
+              // they are still holding the money.
               <div className="lasttake">
                 <div className="lasttake__k">
                   <span>Nothing rolled yet</span>
                 </div>
                 <p className="lasttake__first">
-                  Hit ROLL, then CUT. Each take lands here with its clip name,
-                  how long it ran, and anything you tapped while it was running.
+                  Hit ROLL, then CUT. Your first take lands here.
                 </p>
               </div>
             )}

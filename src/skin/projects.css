@@ -306,11 +306,11 @@
   flex: 1;
   min-width: 0;
 }
-/* Room for the joint. The slot is 14px wide and each flare tile is another
-   16px, so 30px of clearance either side of centre is the minimum before a
-   four-digit take count starts touching milled metal. */
-.pj-stat:first-child { padding-right: 34px; }
-.pj-stat + .pj-stat { padding-left: 34px; }
+/* Room either side of the joint. This was 34px because the old slot's flare
+   tiles reached 30px out from centre; a hairline reaches nowhere, so the gap is
+   now just breathing room and reads as one measure rather than a clearance. */
+.pj-stat:first-child { padding-right: var(--sp-5); }
+.pj-stat + .pj-stat { padding-left: var(--sp-5); }
 .pj-stat__k {
   display: block;
   color: var(--pj-mass-dim);
@@ -327,10 +327,13 @@
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
-/* The slot's closed end sits just under the two labels rather than beside
-   them: a joint that runs the full height of the block stops reading as a cut
-   between two numbers and starts reading as a column rule. */
-.pj-stats > .pj-notch { height: calc(100% - 20px); }
+/* THE JOINT, as a hairline. Same rule the rolling screen's stat pair settled
+   on. A cut slot needs the mass and the ground to be far enough apart in value
+   to read as depth; on true black they are not, and the slot came out as a
+   black drip. A hairline needs no such luck and says the same thing. */
+.pj-stat + .pj-stat {
+  border-left: 1px solid var(--pj-mass-rule);
+}
 
 /* ======================================================== THE QUIET ROW ====
    Every project that is not today. A rule, a name, a line of facts and a date

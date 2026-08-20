@@ -168,6 +168,25 @@ async function seed(cdp) {
       const s1 = await store.createSlate(a.id, 'Scene 1');
       await store.updateSlate(s1.id, { shots: ${JSON.stringify(SHOTS)}, summary: 'Kitchen, night. She reads the letter and he does not look up from the table.' });
       await store.createSlate(a.id, 'Scene 2');
+      // Real takes, so the clip log is a log of something. Mixed on purpose:
+      // gold, discarded, tagged, across two scenes and both cameras.
+      // startedAt is REQUIRED on TakeInput — omit it and every wall clock in the
+      // log renders NaN:NaN:NaN, which looks exactly like an app bug and is not.
+      // Staggered off a fixed base so the shots are deterministic and the times
+      // read like a real morning rather than six identical stamps.
+      let clock = new Date(2026, 7, 21, 9, 12, 0).getTime();
+      const mk = async (slateId, shotId, tags, status, dur) => {
+        clock += dur + 240000;
+        const t = await store.createTake({ projectId: a.id, slateId, shotId, durationMs: dur, startedAt: clock });
+        if (tags || status) await store.updateTake(t.id, { ...(tags?{tags}:{}) , ...(status?{status}:{}) });
+        return t;
+      };
+      await mk(s1.id, 's1', ['WIDE'], undefined, 42000);
+      await mk(s1.id, 's1', ['WIDE','GOLD'], undefined, 61000);
+      await mk(s1.id, 's1', ['NOISE'], 'discarded', 8000);
+      await mk(s1.id, 's2', ['OTS'], undefined, 37000);
+      await mk(s1.id, 's2', ['OTS','GOLD'], undefined, 55000);
+      await mk(s1.id, undefined, ['CU'], undefined, 29000);
       await store.createProject({ name: 'Okkai Hero Film', fps: 25, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU','GOLD'] });
       await store.createProject({ name: 'Palladium Spot', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
       return true;
@@ -239,6 +258,26 @@ async function main() {
     await setTheme(cdp, theme);
     await sleep(500);
     await take('04-roll-idle', theme);
+
+    // CLIP LOG — reached from the project screen. Navigate home first: the tab
+    // tray is UNMOUNTED on the rolling screen, so there is no tab to tap.
+    await cdp.navigate(BASE_URL);
+    await setTheme(cdp, theme);
+    await sleep(600);
+    await cdp.waitForExpr(TAB('Projects'), { desc: 'projects tab' });
+    await cdp.waitForExpr(CLICK_BY_TEXT("No Mans Hero"), { desc: 'project row' });
+    await cdp.waitForExpr(`document.body.textContent.includes('Scene 1')`, { desc: 'project screen' });
+    await setTheme(cdp, theme);
+    if (await cdp.evaluate(CLICK_BY_TEXT('Every clip rolled'))) {
+      await cdp.waitForExpr(`!!document.querySelector('.mclip')`, { desc: 'clip log' });
+      await sleep(700);
+      await take('07-cliplog', theme);
+      // and the fix-a-clip sheet, which is the whole point of the screen
+      if (await cdp.evaluate(`(()=>{const t=document.querySelector('.mclip__tool--fix')||document.querySelector('.mclip__face');if(!t)return false;t.click();return true;})()`)) {
+        await sleep(800);
+        await take('08-clipfix', theme);
+      }
+    }
 
     // SETTINGS
     await cdp.navigate(BASE_URL);
