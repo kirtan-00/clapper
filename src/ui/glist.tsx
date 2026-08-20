@@ -77,12 +77,42 @@ export function useScrolled(threshold = 12) {
  * The hairline under the bar appears only once there is content behind it, so
  * a screen at rest is a title on paper rather than a title in a box.
  */
+
+/**
+ * THE MARK — the wordmark and a copyright notice, right side of the large
+ * title. It is a NOTICE, not a control: no href, no tap target, no hover. The
+ * title it shares a line with is the thing being read, so the mark sits a
+ * weight and a size below it and takes --ink-faint, which is the one colour in
+ * the ramp reserved for text nobody needs.
+ *
+ * The icon is inline SVG rather than an <img> of the favicon, because the
+ * favicon is a 1024px app tile with a rounded-square ground and it would read
+ * as a button at 15px. This is the slate alone.
+ */
+export function ScreenMark() {
+  return (
+    <span className="lmark" aria-label="Clapper, copyright 2026">
+      <svg className="lmark__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="2" y="9" width="20" height="13" rx="2.5" fill="currentColor" opacity="0.32" />
+        <path
+          d="M2.6 3.9 21 2l.5 4.4L3.1 8.3z"
+          fill="currentColor"
+        />
+        <path d="M7.4 3.4 5.9 7.9M12.6 2.9l-1.5 4.5M17.8 2.4l-1.5 4.5" stroke="var(--paper)" strokeWidth="1.5" />
+      </svg>
+      <span aria-hidden="true">CLAPPER</span>
+      <span className="lmark__c" aria-hidden="true">\u00a9</span>
+    </span>
+  );
+}
+
 export function ScreenHeader(props: { title: string }) {
   const scrolled = useScrolled();
 
   return (
     <header className="ltop" data-scrolled={scrolled ? '' : undefined}>
       <h1 className="ltitle">{props.title}</h1>
+      <ScreenMark />
     </header>
   );
 }

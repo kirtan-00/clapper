@@ -17,7 +17,7 @@ import keepTheTake from './packs/keep-the-take.json';
 // Hand-built from a revised breakdown PDF in a Claude session, not parsed: the
 // source table carries no shot-size or camera-move column, so those stay absent
 // rather than being guessed at on the crew's behalf.
-import aRoomThatRemembers from './packs/a-room-that-remembers.json';
+import aRoomThatRemembers from './packs/no-mans-hero.json';
 
 /**
  * One setup inside a pack scene. Present when the source document was a
@@ -422,7 +422,7 @@ export const EXAMPLE_PACKS: { key: string; label: string; blurb: string; pack: S
   // not an ad's handful of setups.
   {
     key: 'roomremembers',
-    label: 'A Room That Remembers',
+    label: "No Man's Hero",
     blurb: 'Short film · 10 scenes · 76 shots',
     pack: A_ROOM_THAT_REMEMBERS,
   },

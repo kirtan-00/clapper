@@ -28,7 +28,7 @@ import { useEffect, useState } from 'react';
 import type { Project } from '../types';
 import type { Nav } from './nav';
 import { Rail, Sheet, SheetClose } from './common';
-import { useScrolled } from './glist';
+import { useScrolled, ScreenMark } from './glist';
 import InstallNudge from './InstallNudge';
 import { ShotlistSheet } from './ShotlistSheet';
 import { readResume, startPodcastRoll, type ResumeInfo } from './newRoll';
@@ -197,6 +197,7 @@ export function HomeScreen(props: { nav: Nav }) {
           as one stack rather than one branded page and three app screens. */}
       <header className="ltop" data-scrolled={scrolled ? '' : undefined}>
         <h1 className="ltitle">Home</h1>
+        <ScreenMark />
       </header>
 
       <InstallNudge />
