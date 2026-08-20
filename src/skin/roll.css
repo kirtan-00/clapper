@@ -1208,6 +1208,103 @@
 }
 
 /* ==========================================================================
+   THE TAG-EDIT DECK — long-press a key, the pad becomes editable
+   Fills the exact box the tag pad (.roll__pads) occupies while rolling; see
+   TagEditor.tsx's `deck` variant for the grid itself and why GOLD has no x.
+   Named `.rolltagsdeck`, deliberately not `.shotdeck` or `.roll__deck` -
+   three different objects on one screen, three different names.
+   ========================================================================== */
+.rolltagsdeck__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 0 2px 12px;
+}
+.rolltagsdeck__title {
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--roll-mass-dim);
+}
+.rolltagsdeck__hint {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--roll-mass-faint);
+  white-space: nowrap;
+}
+
+.rolltags__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+/* `.roll--live .keycap` (above) and `.rolltags__key` land on the same
+   element with equal specificity by class count alone - prefixed with
+   `.roll--live` here so this one wins regardless of source order, the same
+   way every other roll-screen override in this file earns its priority. */
+.roll--live .rolltags__key {
+  position: relative;
+  /* Chips arrive from the `form` variant styled as pills (.chip's own radius,
+     inline padding); the deck grid wants the same square cell the live tag
+     pad already uses, so the keycap radius/padding win over the chip's. */
+  border-radius: 14px;
+  padding: 13px 10px 12px;
+}
+/* GOLD's corner is empty rather than an x - see TagEditor.tsx for why it
+   cannot be removed from here. */
+.rolltags__x {
+  position: absolute;
+  top: -9px;
+  left: -7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--roll-mass-raised);
+  border: 1.5px solid var(--roll-mass-rule);
+  color: var(--roll-mass-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rolltags__x:active {
+  background: var(--roll-mass-pressed);
+  color: var(--roll-mass-ink);
+}
+/* GOLD's own brass, not the global chip's - same reasoning as .goldbtn a few
+   screens up: the mass ground needs its own contrast-tuned brass, and the
+   two tokens must never be allowed to drift apart from what .goldbtn uses,
+   or GOLD would read as two different judgements depending which control
+   drew it. */
+.roll--live .rolltags__key.chip--gold {
+  border-color: var(--roll-brass-edge);
+  color: var(--roll-brass);
+  background: var(--roll-mass-raised);
+}
+.roll--live .rolltags__add {
+  border-style: dashed;
+  background: transparent;
+  color: var(--roll-mass-dim);
+  box-shadow: none;
+}
+.roll--live .rolltags__add:active {
+  background: var(--roll-mass-raised);
+}
+.rolltags__addline {
+  margin-top: var(--sp-2);
+}
+.rolltags__note {
+  display: block;
+  margin-top: 12px;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--roll-mass-faint);
+}
+
+/* ==========================================================================
    REDUCED MOTION
    Every animation above has a deliberate still form. The global block in
    styles.css already forces `transition-property: opacity` and kills every

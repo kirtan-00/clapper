@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import type {
   CameraUnit,
   CameraUnitLetter,
@@ -35,6 +42,7 @@ import {
 import { ClipNumberRows, TakeEditSheet } from './TakeEditSheet';
 import { sizeInWords } from './shotlist';
 import { ShotDeck } from './ShotDeck';
+import { TagEditor } from './TagEditor';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
 import { ClipNum, Sheet, SheetClose, Rail, Toast, Confirm } from './common';
 import { BackMark, ForwardMark, SpeakerMark } from './marks';
@@ -335,6 +343,21 @@ export function RollingScreen(props: {
   const nextShot =
     shotIndex >= 0 && shotIndex < shotList.length - 1 ? shotList[shotIndex + 1] : null;
   const [showShotJump, setShowShotJump] = useState(false);
+  /**
+   * The tag-edit deck (see TagEditor.tsx's `deck` variant): long-press any
+   * quick-tag key while rolling and the pad swaps in place for an editable
+   * grid, CUT's own slot holding DONE instead - same element, same box, so
+   * there is never a frame where both CUT and a delete control are on
+   * screen. Reset effect lives below `rolling`'s own definition - see there.
+   */
+  const [editingTags, setEditingTags] = useState(false);
+  // Long-press-to-edit bookkeeping. Refs, not state: a 450ms timer and a
+  // "did it fire" flag are read and cleared within one gesture and must
+  // never cost a render, the same reasoning as `firedByPointer` on the big
+  // button above.
+  const tagHoldTimer = useRef<number | null>(null);
+  const tagHoldFired = useRef(false);
+  const tagHoldOrigin = useRef<{ x: number; y: number } | null>(null);
   // Kept takes per shot, for the deck's "N takes" line — same "not discarded"
   // rule refreshMeta already applies to report.setupCount, so the two numbers
   // never disagree about what counts as a take.
@@ -1095,6 +1118,54 @@ export function RollingScreen(props: {
   const cameraActive = anyCamRolling || finishedRolls.length > 0;
   const bigButtonCutMode = useEngine ? cameraActive : timer.rolling;
 
+  // Every path that ends a take (voice, a solo-cut that closes the last
+  // camera, the big CUT) converges on `rolling` going false - one effect
+  // here covers all of them, rather than remembering to clear editingTags
+  // inside each. A stale DONE left standing over the next take's CUT would
+  // be exactly the mis-tap this whole feature exists to prevent.
+  useEffect(() => {
+    if (!rolling) setEditingTags(false);
+  }, [rolling]);
+
+  /** 450ms is the pitch's own threshold - long enough that a frantic
+   *  mid-take tap can never land in edit mode by accident, short enough
+   *  that a deliberate hold does not feel ignored. Cancelled by any
+   *  movement past a small slop (a real long-press does not travel) or by
+   *  lifting early, same shape as a native context-menu gesture. */
+  function beginTagHold(e: ReactPointerEvent) {
+    if (!e.isPrimary || e.button !== 0 || !rolling || editingTags) return;
+    tagHoldOrigin.current = { x: e.clientX, y: e.clientY };
+    tagHoldFired.current = false;
+    if (tagHoldTimer.current !== null) window.clearTimeout(tagHoldTimer.current);
+    tagHoldTimer.current = window.setTimeout(() => {
+      tagHoldFired.current = true;
+      haptics.tap();
+      setEditingTags(true);
+    }, 450);
+  }
+  function moveTagHold(e: ReactPointerEvent) {
+    const origin = tagHoldOrigin.current;
+    if (!origin) return;
+    if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) > 8) cancelTagHold();
+  }
+  function cancelTagHold() {
+    if (tagHoldTimer.current !== null) {
+      window.clearTimeout(tagHoldTimer.current);
+      tagHoldTimer.current = null;
+    }
+    tagHoldOrigin.current = null;
+  }
+  /** Wraps every keycap's own tap handler: swallows the click the browser
+   *  still synthesises after the pointerup that follows a fired long-press,
+   *  same swallow-one-click shape as `firedByPointer` on the big button. */
+  function tagKeyClick(tag: string) {
+    if (tagHoldFired.current) {
+      tagHoldFired.current = false;
+      return;
+    }
+    tapTag(tag);
+  }
+
   function fireBigButton() {
     if (bigButtonCutMode) void (useEngine ? bigCutMulti() : doCut());
     else if (useEngine) bigRollMulti();
@@ -1763,7 +1834,28 @@ export function RollingScreen(props: {
                 and the big CUT sit outside this box, so a scene with a tall
                 keypad can never push CUT off the bottom of a phone. */}
             <div className="roll__pads">
-            {scriptMode ? (
+            {editingTags ? (
+              // Long-press landed. Same box, same scroll region, a different
+              // job: this project's live vocabulary instead of the keys that
+              // tap it. TagEditor owns add/remove/GOLD-lock; this screen only
+              // owns persistence ("saves as you go" - every change commits,
+              // DONE below only closes) and the heading the mockup asks for.
+              <div className="rolltagsdeck">
+                <div className="rolltagsdeck__head">
+                  <span className="rolltagsdeck__title">Edit tags · this project</span>
+                  <span className="rolltagsdeck__hint">Saves as you go</span>
+                </div>
+                <TagEditor
+                  variant="deck"
+                  tags={project.tags}
+                  onChange={(next) => {
+                    void store.updateProject(project.id, { tags: next }).then((updated) => {
+                      setProject(updated);
+                    });
+                  }}
+                />
+              </div>
+            ) : scriptMode ? (
               <>
                 {/* Tier 1: sizes, a compact segmented control - the highest-
                     frequency, lowest-stakes tap, so it costs the least
@@ -1783,7 +1875,11 @@ export function RollingScreen(props: {
                           key={`${tag}:${n}`}
                           type="button"
                           className={`chip keycap keycap--coverage${n > 0 ? ' chip--flash' : ''}`}
-                          onClick={() => tapTag(tag)}
+                          onPointerDown={beginTagHold}
+                          onPointerMove={moveTagHold}
+                          onPointerUp={cancelTagHold}
+                          onPointerCancel={cancelTagHold}
+                          onClick={() => tagKeyClick(tag)}
                         >
                           <span className="keycap__label">{tag}</span>
                           {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
@@ -1805,7 +1901,11 @@ export function RollingScreen(props: {
                           key={`${tag}:${n}`}
                           type="button"
                           className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
-                          onClick={() => tapTag(tag)}
+                          onPointerDown={beginTagHold}
+                          onPointerMove={moveTagHold}
+                          onPointerUp={cancelTagHold}
+                          onPointerCancel={cancelTagHold}
+                          onClick={() => tagKeyClick(tag)}
                         >
                           <span className="keycap__label">{tag}</span>
                           {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
@@ -1827,7 +1927,11 @@ export function RollingScreen(props: {
                       key={`${tag}:${n}`}
                       type="button"
                       className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
-                      onClick={() => tapTag(tag)}
+                      onPointerDown={beginTagHold}
+                      onPointerMove={moveTagHold}
+                      onPointerUp={cancelTagHold}
+                      onPointerCancel={cancelTagHold}
+                      onClick={() => tagKeyClick(tag)}
                     >
                       <span className="keycap__label">{tag}</span>
                       {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
@@ -1845,45 +1949,57 @@ export function RollingScreen(props: {
                 that end a take, not buried in the tag grid above. Script
                 Mode always offers it; the flat quick-tag set only if the
                 project actually carries a GOLD tag (respects a project that
-                removed it, same as the grid used to). */}
+                removed it, same as the grid used to).
+
+                While editing tags, this row holds only the notch - MARK IN
+                and GOLD are both take-logging actions and neither belongs
+                next to a control that is currently rewriting the vocabulary,
+                so the mockup drops them for the duration rather than risk a
+                mis-tap between "grade this take" and "delete this tag". */}
             <div className="roll__markrow">
-              <button
-                type="button"
-                className={`markbtn${markInMs !== null ? ' markbtn--armed' : ''}`}
-                onClick={markInOut}
-              >
-                {markInMs !== null ? (
-                  <>
-                    MARK OUT
-                    <span className="markbtn__badge tnum">{tc.msToClock(rangeArmedMs)}</span>
-                  </>
-                ) : (
-                  'MARK IN'
-                )}
-              </button>
-              {(scriptMode || project.tags.includes('GOLD')) &&
-                (() => {
-                  const n = flashes.GOLD ?? 0;
-                  return (
-                    <button
-                      key={`GOLD:${n}`}
-                      type="button"
-                      // chip--gold reuses the existing brass tap-flash
-                      // (chipflashgold) rather than the default green one -
-                      // GOLD is the one chip allowed to carry colour.
-                      className={`goldbtn chip--gold${n > 0 ? ' chip--flash' : ''}`}
-                      onClick={() => tapTag('GOLD')}
-                    >
-                      GOLD
-                      {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
-                    </button>
-                  );
-                })()}
+              {!editingTags && (
+                <>
+                  <button
+                    type="button"
+                    className={`markbtn${markInMs !== null ? ' markbtn--armed' : ''}`}
+                    onClick={markInOut}
+                  >
+                    {markInMs !== null ? (
+                      <>
+                        MARK OUT
+                        <span className="markbtn__badge tnum">{tc.msToClock(rangeArmedMs)}</span>
+                      </>
+                    ) : (
+                      'MARK IN'
+                    )}
+                  </button>
+                  {(scriptMode || project.tags.includes('GOLD')) &&
+                    (() => {
+                      const n = flashes.GOLD ?? 0;
+                      return (
+                        <button
+                          key={`GOLD:${n}`}
+                          type="button"
+                          // chip--gold reuses the existing brass tap-flash
+                          // (chipflashgold) rather than the default green one -
+                          // GOLD is the one chip allowed to carry colour.
+                          className={`goldbtn chip--gold${n > 0 ? ' chip--flash' : ''}`}
+                          onClick={() => tapTag('GOLD')}
+                        >
+                          GOLD
+                          {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
+                        </button>
+                      );
+                    })()}
+                </>
+              )}
               {/* Where the deck's mass ends and CUT begins, the same cut turned
                   ninety degrees. It is decoration doing structural work: the
                   bite is what says the slab below is a DIFFERENT part, not more
                   of the deck - which is exactly the distinction a thumb needs
-                  to make without looking. */}
+                  to make without looking. Always present, editing or not - the
+                  edit-mode DONE button sits in CUT's exact slot, so the joint
+                  that says "a different part starts here" still has to be true. */}
               <span className="notch notch--h" aria-hidden="true" />
             </div>
 
@@ -1914,19 +2030,25 @@ export function RollingScreen(props: {
 
         <button
           type="button"
-          className={`bigbtn hw${bigButtonCutMode ? ' hw--cut' : ' hw--go'}`}
+          // DONE takes CUT's exact slot - same element, same class base, same
+          // box - while tags are being edited. That is the whole mis-tap
+          // defence: there is never a frame where both CUT and a delete
+          // control are on screen, because CUT simply is not rendered.
+          className={`bigbtn hw${editingTags ? ' hw--done' : bigButtonCutMode ? ' hw--cut' : ' hw--go'}`}
           aria-label={
-            bigButtonCutMode
-              ? multi
-                ? 'Cut every camera still rolling and save the take'
-                : hasSoundUnit
-                  ? 'Cut the camera and sound and save the take'
-                  : 'Cut and save take'
-              : multi
-                ? 'Roll every camera together'
-                : hasSoundUnit
-                  ? 'Roll the camera and sound together'
-                  : 'Roll, start rolling'
+            editingTags
+              ? 'Done editing tags - the take keeps rolling'
+              : bigButtonCutMode
+                ? multi
+                  ? 'Cut every camera still rolling and save the take'
+                  : hasSoundUnit
+                    ? 'Cut the camera and sound and save the take'
+                    : 'Cut and save take'
+                : multi
+                  ? 'Roll every camera together'
+                  : hasSoundUnit
+                    ? 'Roll the camera and sound together'
+                    : 'Roll, start rolling'
           }
           // FIRES ON POINTER-DOWN, not on click. The button's 3px of travel is
           // there to confirm a press the operator cannot look at; it is not
@@ -1934,9 +2056,19 @@ export function RollingScreen(props: {
           // pointerup is ~100ms of a good take away and CUT is pressed under
           // exactly the pressure where that is felt. The travel now trails the
           // action instead of gating it.
+          //
+          // THE GATE: editingTags is checked and returned on BEFORE
+          // fireBigButton can be reached, in both handlers below. That one
+          // branch is the entire safety property this feature promises - CUT
+          // (and therefore doCut/bigCutMulti) is structurally unreachable
+          // while the tag editor owns this slot, not just visually hidden.
           onPointerDown={(e) => {
             if (!e.isPrimary || e.button !== 0) return;
             firedByPointer.current = true;
+            if (editingTags) {
+              setEditingTags(false);
+              return;
+            }
             fireBigButton();
           }}
           // Keyboard only. A pointer press synthesises a click after its
@@ -1947,13 +2079,17 @@ export function RollingScreen(props: {
               firedByPointer.current = false;
               return;
             }
+            if (editingTags) {
+              setEditingTags(false);
+              return;
+            }
             fireBigButton();
           }}
         >
           <span className="hw__well" aria-hidden="true" />
           <span className="hw__face">
-            {bigButtonCutMode && <span className="hw__dot" aria-hidden="true" />}
-            {bigButtonCutMode ? 'CUT' : 'ROLL'}
+            {!editingTags && bigButtonCutMode && <span className="hw__dot" aria-hidden="true" />}
+            {editingTags ? 'DONE' : bigButtonCutMode ? 'CUT' : 'ROLL'}
           </span>
         </button>
       </div>
