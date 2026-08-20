@@ -2125,15 +2125,34 @@ export function RollingScreen(props: {
         // would just fail again in front of an operator mid-shoot.
         <Sheet title="Voice needs the microphone" onClose={() => setShowVoiceHelp(false)}>
           <p className="voicehelp">
-            The mic is switched off for this site. Open your browser&rsquo;s site
-            settings (the icon beside the address bar), allow the microphone, then
-            reload. ROLL and CUT keep working by thumb either way &mdash; voice is
-            an extra path, never the only one.
+            The mic looks switched off for this site. Open your browser&rsquo;s site
+            settings (the icon beside the address bar) and allow the microphone.
+            ROLL and CUT keep working by thumb either way &mdash; voice is an extra
+            path, never the only one.
           </p>
           <div className="sheet__actions">
             <SheetClose className="btn btn--ghost" onClose={() => setShowVoiceHelp(false)}>
               Close
             </SheetClose>
+            {/* THE WAY OUT, and it is not optional. Blocked is inferred: the
+                Permissions API is absent on Safari, so the fallback is "armed
+                but never started listening", and a permission PROMPT sitting
+                open while the operator decides looks exactly like a denial. An
+                inferred state with no exit is a bug - on a browser with no
+                permission events, a wrong amber would otherwise last until a
+                reload. One tap re-arms and lets the engine answer for itself. */}
+            <button
+              type="button"
+              className="btn btn--go"
+              onClick={() => {
+                setShowVoiceHelp(false);
+                setMicBlocked(false);
+                listener.start();
+                setMicOn(true);
+              }}
+            >
+              Try voice again
+            </button>
           </div>
         </Sheet>
       )}
