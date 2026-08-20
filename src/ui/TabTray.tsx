@@ -1,5 +1,19 @@
-// The bottom tab tray. Four cells, always there, except where it is not:
+// The bottom nav. Four sections, always there, except where it is not:
 // see AppShell for the two screens that unmount it outright.
+//
+// ROUND 1/2 SHAPE: a FLOATING POD, not a full-width bar. One filled accent
+// pill carries the section you are in; the other three are circular icon
+// buttons beside it. The block is `.mnav` (skin/shell.css) rather than the old
+// `.tabtray`, so the shipped bar's rules in styles.css - a four-column grid, a
+// material blur, a 3px mark on a hairline - are not being fought with
+// overrides. Nothing outside this file ever referenced those class names.
+//
+// WHY A POD RATHER THAN A BAR - THE REACH. A bar spreads four cells across the
+// full 390, which puts the leftmost cell ~337px from a right thumb's pivot:
+// two-handed, on a phone held one-handed in the other hand's glove. The pod is
+// only as wide as its contents and centred, so every target moves inboard by
+// the width of the margins. The measured before/after is in the lane report;
+// the levers are --m-nav-pad and --m-nav-item-gap in shell.css.
 //
 // Icons are hand-drawn inline SVG in the SF Symbols IDIOM, not SF Symbols
 // themselves: Apple's licence covers Apple-platform UI, not a web PWA
@@ -44,7 +58,7 @@ const STROKE = {
 
 function Icon(props: { tab: Tab }) {
   const common = {
-    className: 'tabtray__icon',
+    className: 'mnav__icon',
     viewBox: '0 0 24 24',
     'aria-hidden': true,
     focusable: 'false' as const,
@@ -92,27 +106,37 @@ function Icon(props: { tab: Tab }) {
 export function TabTray(props: { nav: Nav }) {
   const { nav } = props;
   return (
-    <nav className="tabtray" aria-label="Sections">
-      {TABS.map((tab) => {
-        const on = nav.tab === tab;
-        return (
-          <button
-            key={tab}
-            type="button"
-            className={`tabtray__tab${on ? ' tabtray__tab--on' : ''}`}
-            aria-current={on ? 'page' : undefined}
-            onClick={() => {
-              haptics.tap();
-              // Tapping the tab you are already in pops it back to its root,
-              // the way every iPhone tab bar behaves. switchTab handles it.
-              nav.switchTab(tab);
-            }}
-          >
-            <Icon tab={tab} />
-            <span className="tabtray__label">{LABEL[tab]}</span>
-          </button>
-        );
-      })}
+    // The <nav> spans the window so the pod can centre in it, but only the pod
+    // takes pointer events - the gutter beside it belongs to whatever is
+    // scrolling underneath, which is how a floating control has to behave.
+    <nav className="mnav" aria-label="Sections">
+      <div className="mnav__pod">
+        {TABS.map((tab) => {
+          const on = nav.tab === tab;
+          return (
+            <button
+              key={tab}
+              type="button"
+              className={`mnav__tab${on ? ' mnav__tab--on' : ''}`}
+              aria-current={on ? 'page' : undefined}
+              onClick={() => {
+                haptics.tap();
+                // Tapping the tab you are already in pops it back to its root,
+                // the way every iPhone tab bar behaves. switchTab handles it.
+                nav.switchTab(tab);
+              }}
+            >
+              <Icon tab={tab} />
+              {/* ALWAYS RENDERED, hidden by CSS on the three that are not
+                  active. An icon-only button still needs a name, and the name
+                  a screen reader gets is then the same string a sighted user
+                  reads on the pill - one source, so they can never disagree
+                  the way a hand-written aria-label eventually does. */}
+              <span className="mnav__label">{LABEL[tab]}</span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }

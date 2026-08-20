@@ -2,10 +2,282 @@
  *
  * Own lane. This file exists so the redesign can be built screen-by-screen
  * without three parallel edits colliding in styles.css. Everything here resolves
- * through the additive `--m-*` namespace defined in styles.css; nothing in this
- * file may redefine a token, only consume one.
+ * through the additive `--m-*` namespace defined in styles.css.
  *
  * Load order is App.tsx: styles.css first, then these. So a rule here outranks
  * the same-specificity rule there, which is the point — adoption is opt-in per
  * screen and reverting is deleting a block, never untangling a merge.
+ *
+ * THE ONE AMENDMENT TO THE HEADER THIS FILE SHIPPED WITH: it now DEFINES four
+ * things as well as consuming them, because two of the approved features are
+ * global by nature and styles.css is not this lane's to edit.
+ *
+ *   --ui-scale      the interface-size multiplier (Fine / Standard / Glove).
+ *                   Under a non-standard scale it restates the type ramp and
+ *                   the tap floor, which is the whole point of the control.
+ *   --bar-h         redefined to the FLOATING nav's occupied height, so
+ *                   `.app`'s bottom padding and the toast's --tray-lift track
+ *                   the new shape for free (both already read this token).
+ *   --m-ground      the machined page ground, and
+ *   --m-card /      the mass card that sits ON it, with their night values.
+ *   --m-card-*      Additive names, NOT overrides of --m-mass / --m-sheet:
+ *                   those dress the rolling screen's CUT key in another lane
+ *                   and must not move underneath it.
+ *
+ * Everything else here is scoped to a class this lane owns (.mnav, .mclip,
+ * .msize, .mpill, .mheld, .mnudge, .mpro). Nothing restyles a shared element
+ * selector — no bare `.sheet`, `.btn`, `.field`, `.grow` — because those are
+ * rendered by screens two other agents are editing right now.
  */
+
+/* ===================================================== interface size =====
+   Fine 0.9x / Standard 1.0x / Glove 1.25x. ONE MULTIPLIER, and it has to move
+   the hit targets as well as the type or it is a zoom control with a nicer
+   name: a 2nd AC in gloves at 3am needs a bigger button, not bigger words on
+   the same button.
+
+   The default costs nothing. `standard` never enters a branch below, so the
+   shipped ramp is byte-for-byte what it always was and the two other lanes'
+   screens cannot be affected by a control nobody has touched.
+
+   THE RAMP IS RESTATED, NOT DERIVED, because CSS cannot multiply a custom
+   property by itself (`--t-body: calc(var(--t-body) * n)` is a cycle and
+   resolves to nothing). The nine values below mirror styles.css's type block;
+   if that ramp is ever retuned, this list is the second place to change. It is
+   here rather than there only because styles.css is out of this lane.
+
+   TWO FLOORS, both deliberate readings of "multiplies both", both documented
+   because they look like bugs otherwise:
+
+     1. --tap NEVER SHRINKS. 44px is an accessibility floor, not a preference,
+        so Fine buys density in the type and keeps every target legal. Glove
+        scales it up as asked.
+     2. --t-caps AND --t-caption DO NOT SHRINK either. styles.css calls the
+        11px floor a sunlight rule and spends a paragraph on it: at midday the
+        small type is the first casualty, and these two steps are the labels
+        you navigate and read the slate by. Fine shrinks the eight steps above
+        them, which is where the density actually is.
+
+   Inputs get their own guard further down: 16px is what stops iOS zooming the
+   whole page on focus, and 16 * 0.9 is 14.4. */
+:root {
+  --ui-scale: 1;
+}
+
+html[data-uiscale='fine'] {
+  --ui-scale: 0.9;
+}
+
+html[data-uiscale='glove'] {
+  --ui-scale: 1.25;
+}
+
+html[data-uiscale='fine'],
+html[data-uiscale='glove'] {
+  --t-secondary: calc(13px * var(--ui-scale));
+  --t-body: calc(16px * var(--ui-scale));
+  --t-row: calc(17px * var(--ui-scale));
+  --t-title: calc(20px * var(--ui-scale));
+  --t-display: calc(28px * var(--ui-scale));
+  --t-large: calc(34px * var(--ui-scale));
+  --t-timecode: clamp(calc(44px * var(--ui-scale)), 13vw, calc(96px * var(--ui-scale)));
+
+  /* Controls. --tap is every hit target's floor; --cut-base is the ROLL/CUT
+     key's own, which the operator can already scale a second time from the
+     CUT-size row — the two multiply, which is correct: one is "how big is this
+     app", the other is "how big is THAT button". */
+  --tap: max(44px, calc(44px * var(--ui-scale)));
+  --cut-base: calc(104px * var(--ui-scale));
+}
+
+/* The iOS zoom-on-focus guard. `--t-body` is what the shipped rule sets on
+   these three, so Fine would take them to 14.4px and every tap into the clip
+   log's search box would zoom the page. Scoped to the elements that have the
+   behaviour rather than clamped in the token, because prose at 14.4px is the
+   whole point of Fine and only the CONTROLS have to hold 16. */
+html[data-uiscale='fine'] input,
+html[data-uiscale='fine'] select,
+html[data-uiscale='fine'] textarea {
+  font-size: max(16px, var(--t-body));
+}
+
+/* ======================================================= night ground =====
+   Round 3's measured palette, as additive names. The mass sits a STEP ABOVE
+   the ground rather than below it, so a card still reads as an object you
+   could pick up rather than a hole cut in the page — which is the whole
+   difference between a night form and an inverted one. Ink is chalk and
+   capped at #D6D4C8; white on near-black glows almost as hard as the ivory
+   sheet it is replacing.
+
+     ground  #0A0D0B
+     mass    #151B17   13.1:1 chalk on ground, 11.8:1 on mass
+     chalk   #D6D4C8
+     dim     #8B928A   6.1:1 / 5.5:1 */
+:root {
+  /* Day: the ivory the rest of the machined layer is milled from, and the
+     dark block set into it. Both already exist as --m-sheet / --m-mass; these
+     are the SURFACE-role aliases, so night can move the surfaces without
+     moving the rolling screen's key. */
+  --m-ground: var(--m-sheet);
+  --m-ground-ink: var(--ink);
+  --m-card: var(--m-mass);
+  --m-card-ink: var(--m-mass-ink);
+  --m-card-dim: #9aa39c;
+  --m-card-line: rgba(241, 240, 234, 0.14);
+}
+
+[data-theme='night'] {
+  --m-ground: #0a0d0b;
+  --m-ground-ink: #d6d4c8;
+  --m-card: #151b17;
+  --m-card-ink: #d6d4c8;
+  --m-card-dim: #8b928a;
+  --m-card-line: rgba(214, 212, 200, 0.13);
+}
+
+/* The ground is painted only under the screens this lane has repainted, so a
+   screen still wearing the shipped ivory is not left sitting on a different
+   white. `.shell` carries it rather than `.app`, because `.app` is width-
+   capped at 560 and would leave a band down either side on a tablet. */
+.shell:has(.mscreen) {
+  background: var(--m-ground);
+}
+.mscreen {
+  color: var(--m-ground-ink);
+}
+
+/* ========================================================= floating nav ===
+   A pod, not a bar. See the long note in ui/TabTray.tsx for why (reach), and
+   the lane report for the measured before/after.
+
+   --bar-h IS REDEFINED HERE, to the pod's total occupied height. Two rules in
+   styles.css already read it — `.app`'s bottom padding and `.shell--tray`'s
+   --tray-lift, which is what keeps the toast off the nav — so redefining the
+   token is how the new shape propagates without editing either of them. It
+   tracks --tap, so Glove grows the nav and everything that clears it in one
+   move. */
+:root {
+  --m-nav-pad: 5px;       /* the pod's own wall around its keys */
+  --m-nav-item-gap: 4px;
+  --m-nav-float: 10px;    /* how far the pod floats off the safe area */
+  --bar-h: calc(var(--tap) + var(--m-nav-pad) * 2 + var(--m-nav-float));
+}
+
+.mnav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30; /* the ladder: rows 5, sticky heads 20, nav 30, scrim 40 */
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--sp-4) calc(var(--safe-bottom) + var(--m-nav-float));
+  /* The gutter beside the pod belongs to the list scrolling underneath. A
+     full-width invisible bar eating taps either side of a floating control is
+     the classic version of this bug. */
+  pointer-events: none;
+  /* Same keyboard contract the shipped tray had: main.tsx publishes --kb off
+     visualViewport, min() clamps the slide to this element's own height, and
+     that height now includes the float gap and the safe area, so any keyboard
+     drops the whole pod clean off the bottom edge. */
+  transform: translateY(min(var(--kb, 0px), 100%));
+  transition: transform var(--dur-kb) var(--ease-out);
+}
+
+.mnav__pod {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--m-nav-item-gap);
+  padding: var(--m-nav-pad);
+  border-radius: var(--radius-pill);
+  background: var(--m-card);
+  /* The pod is an object resting on the sheet, so it casts. Light keeps this
+     soft for the same reason --key-shadow does: a black slab on ivory is
+     wrong. Night gets the inner lip instead, because a shadow on near-black
+     is invisible and the edge is what separates the two darks. */
+  box-shadow: 0 8px 24px var(--m-cast), 0 1px 0 var(--m-card-line) inset;
+  max-width: 100%;
+}
+
+.mnav__tab {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--tap);
+  height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  border-radius: var(--radius-pill);
+  color: var(--m-card-dim);
+  /* Instant, by the same standing decision the shipped tray recorded: tab
+     switching is the most frequent action in the app and the content has to
+     be there before the thumb lifts. Only the fill is allowed to move, and
+     only as a crossfade. */
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    color var(--dur-state) var(--ease-out);
+}
+
+.mnav__tab:active {
+  background: color-mix(in srgb, var(--m-card-ink) 12%, transparent);
+}
+
+/* THE ONE FILLED PILL. Accent ground, dark ink — the pair is a closed system
+   at 8.6:1 (see --m-accent-ink in styles.css) and does not care what is
+   behind the pod, which is what lets one rule serve both themes. */
+.mnav__tab--on {
+  width: auto;
+  padding: 0 var(--sp-4);
+  background: var(--m-accent);
+  color: var(--m-accent-ink);
+}
+
+.mnav__icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+/* Hidden, not absent: the button keeps its accessible name (see TabTray.tsx).
+   `clip-path` rather than `display:none` so the name is still announced. */
+.mnav__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.mnav__tab--on .mnav__label {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* The active tab drops its icon: the word IS the mark, and an icon beside it
+   costs 30px of the width the reach fix just bought back. */
+.mnav__tab--on .mnav__icon {
+  display: none;
+}
+
+/* The global focus ring is --go-text, which measures ~2:1 against the pod's
+   mass and would be a ring you cannot see. Lavender on the mass, and the
+   ivory sheet on the lavender pill, so both land above 3:1 in both themes. */
+.mnav__tab:focus-visible {
+  outline: 2px solid var(--m-accent);
+  outline-offset: 2px;
+}
+.mnav__tab--on:focus-visible {
+  outline-color: var(--m-sheet);
+}
