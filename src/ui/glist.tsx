@@ -101,7 +101,7 @@ export function ScreenMark() {
         <path d="M7.4 3.4 5.9 7.9M12.6 2.9l-1.5 4.5M17.8 2.4l-1.5 4.5" stroke="var(--paper)" strokeWidth="1.5" />
       </svg>
       <span aria-hidden="true">CLAPPER</span>
-      <span className="lmark__c" aria-hidden="true">\u00a9</span>
+      <span className="lmark__c" aria-hidden="true">©</span>
     </span>
   );
 }
