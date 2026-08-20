@@ -397,6 +397,11 @@
   --m-accent-press: #afabe8;
   --m-accent-ink: #22204a;    /* type on the accent, 8.6:1 */
   --m-accent-deep: #8d89cf;   /* the accent's machined under-edge */
+  --m-accent-text: #5a55a8;   /* the accent AS TYPE. Same split --go-text
+                                 makes: #c9c6f7 is a fill, and as type on
+                                 paper it is unreadable. This is the pitch's
+                                 own deep lavender, and night collapses it
+                                 back to --m-accent the way --go-text does. */
   --m-mass-ink: #f1f0ea;      /* type on the mass. NOT themed, for the same
                                  reason the clapper stripe is not: the mass is
                                  dark at 2pm and at 5am, so its ink is light at
@@ -465,6 +470,7 @@
   --rule-soft: #23262f;
 
   /* The split collapses: bright IS the type colour here. */
+  --m-accent-text: var(--m-accent);
   --go-text: var(--go);
   --rec-text: var(--rec);
   --brass-text: var(--brass);
@@ -1159,7 +1165,20 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .btn:active { transform: scale(0.97); }
 .btn--ghost { background: transparent; }
-.btn--go { background: var(--go-fill); color: var(--go-fill-ink); border-color: transparent; }
+/* THE PRIMARY BUTTON IS THE ONE ACCENT, NOT GREEN.
+   This class is named --go but it has never been the go control: the thing
+   that rolls a camera is `.bigbtn.hw--go`, and all 25 mounts of this one are
+   confirms - Start shoot, Create project, Sign in, Back to settings, Discard
+   take. It was drawing --go-fill, which on paper is #0e7a43.
+   The approved pitch has no saturated green anywhere in it. Its greens are all
+   desaturated sage used as NEUTRALS (#96A099 and its family); the one accent
+   is #c9c6f7, and it is what ROLL and DONE are already drawn in. So a filled
+   green confirm sitting a thumb's width from a lavender ROLL was two accents
+   arguing about which one the eye should obey.
+   --go, --go-text and --go-fill are untouched and still mean rolling-ready
+   wherever a control genuinely says so. What changed is what the CONFIRM
+   button references, which was never that. */
+.btn--go { background: var(--m-accent); color: var(--m-accent-ink); border-color: transparent; }
 .btn--danger { color: var(--rec-text); border-color: var(--rec-deep); background: transparent; }
 .btn--full { width: 100%; }
 .btn:disabled { opacity: 0.4; }
@@ -4472,12 +4491,14 @@ select.field {
 .grow:disabled:active { background: none; }
 
 /* The one row on a screen that is the reason you opened it — sign-in on the
-   Account tab. It takes the signal colour because that IS the signal, and it
-   takes it as TYPE, so it reads --go-text and never --go: the bright green
-   measures 1.91:1 on paper and would be unreadable the moment the light theme
-   lands. Weight and colour only; no fill, no border, no glow. */
+   Account tab. It takes the accent because that IS the signal, and it takes it
+   as TYPE, so it reads --m-accent-text and never --m-accent: a fill colour used
+   as type on paper is unreadable, which is the whole reason that split exists.
+   Weight and colour only; no fill, no border, no glow.
+   It used to read --go-text, and green is no longer what this app says
+   "this one" in. */
 .grow[data-primary] .grow-label {
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 600;
 }
 .grow[data-primary]:disabled .grow-label { color: var(--text-faint); }
