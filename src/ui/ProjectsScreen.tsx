@@ -1,9 +1,11 @@
 // The projects list. Since the shell landed, this screen is the list and its
 // stack, and nothing else — the settings-shaped things that used to be welded
 // to the bottom of it (the guide, Restore, Feedback, the account row) now live
-// on the Settings and Account tabs. Shotlist import and InstallNudge are still
-// here on purpose: the spec moves both to Home, which another agent owns, and
-// leaving them reachable beats making them unreachable in the meantime. The
+// on the Settings and Account tabs. Shotlist import is still here on purpose:
+// the spec moves it to Home, which another agent owns, and leaving it
+// reachable beats making it unreachable in the meantime. (The install nudge
+// used to sit here too. It is gone — the first-open flow in ui/Onboarding.tsx
+// asks that question once, from the shell, instead of twice from two tabs.) The
 // shotlist flow itself is no longer written here: this file carried a private
 // near-copy of it that handed its pack to the fourteen-field New project
 // sheet, so the same job looked like two different products depending on which
@@ -33,7 +35,6 @@ import { ShotlistSheet } from './ShotlistSheet';
 import { ScreenHeader } from './glist';
 import { lastActivity } from './newRoll';
 import { PlusMark, ListMark } from './marks';
-import InstallNudge from './InstallNudge';
 import { track } from '../net/analytics';
 import { TagEditor } from './TagEditor';
 import { getDefaultTags } from './tagdefaults';
@@ -704,8 +705,6 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           other three roots carry, from the same component, so all four shrink
           into the material bar on the same beat. */}
       <ScreenHeader title="Projects" />
-
-      <InstallNudge />
 
       <div className="visually-hidden" role="status" aria-live="polite">
         {liveMsg}
