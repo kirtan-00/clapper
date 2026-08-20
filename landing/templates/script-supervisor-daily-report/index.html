@@ -427,6 +427,15 @@
        Records this page's path so the report counts each template page separately. */
     (function () {
       try {
+        /* THE LIVE SITE AND NOWHERE ELSE. Opening this page off disk, or from a
+           dev server, used to fire a real beacon at the production table: ten
+           rows currently carry a `file://` path because somebody previewed the
+           page locally. A hostname check, not a build flag, because a flag is a
+           thing somebody forgets and the failure is silent for a month. */
+        var h = location.hostname;
+        if (location.protocol === 'file:') return;
+        if (h !== 'clapboard.duckdns.org' && h !== 'kirtan-00.github.io') return;
+
         var URL_ = 'https://sqqdivfgdfaztfzrzkhu.supabase.co/rest/v1/events';
         var KEY_ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxcWRpdmZnZGZhenRmenJ6a2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTA2NTYsImV4cCI6MjA5OTU4NjY1Nn0.MUhO3nmPg4gmQI5vLK5LGpOMIzrcA_j9ZDj8sp8ftH4';
         var ref = null;

@@ -7,11 +7,45 @@ import { supabase } from './supabase';
 import { pixel } from './pixel';
 
 /**
+ * The hosts the real product is served from. Everything else - a dev server, a
+ * LAN address on someone's phone, a preview build, an HTML file opened straight
+ * off disk - is NOT the product and must not write to the product's numbers.
+ */
+const LIVE_HOSTS = new Set(['clapboard.duckdns.org', 'kirtan-00.github.io']);
+
+/**
+ * ANALYTICS FIRE FROM THE LIVE SITE AND NOWHERE ELSE.
+ *
+ * They did not, and it cost us the ability to read our own data. On
+ * 2026-08-20, 452 of 465 `app_open` rows came from automated browser sessions
+ * against a dev server; 18 Aug was 422 of 425, and 15 Aug 268 of 268. Roughly
+ * 79 percent of every event ever recorded is development traffic. Ten
+ * `landing_view` rows even carry a `file://` path, because opening the landing
+ * page off disk to look at it fired a beacon at production.
+ *
+ * A number nobody trusts is worse than no number: you cannot tell a quiet week
+ * from a busy one, and you cannot tell whether a change worked. The gate is a
+ * hostname check rather than an env flag deliberately - a flag is a thing
+ * somebody forgets to set, and the failure is silent and invisible for a month.
+ */
+function isLiveSite(): boolean {
+  if (typeof window === 'undefined' || !window.location) return false;
+  // A file:// page has no meaningful hostname; it is somebody looking at a
+  // build on their own disk.
+  if (window.location.protocol === 'file:') return false;
+  return LIVE_HOSTS.has(window.location.hostname);
+}
+
+/**
  * Record an analytics event. Attaches the current user's id when signed in,
  * otherwise inserts a null-user row. Uses `return=minimal` (no `.select()`) so
  * the client never needs read access to `events`. Swallows every error.
  */
 export function track(name: string, props?: Record<string, unknown>): void {
+  // Off the live site this is a no-op, including the ad pixel: a dev session
+  // must not appear in the product's numbers OR in Meta's attribution.
+  if (!isLiveSite()) return;
+
   // Ad attribution rides along here rather than at each call site, so there's
   // exactly one list of what we send Meta and no way to forget it. It's
   // synchronous, silent, and can't throw, so the insert below is unaffected —
