@@ -713,8 +713,12 @@
 .pj-units .camunit__operator,
 .pj-units .camunit__also { color: var(--pj-mass-dim); }
 .pj-units .label { color: var(--pj-mass-dim); }
+/* background-COLOR, never the shorthand: `background` resets background-size
+   and background-position, and styles.css draws the select's chevron as two
+   5px gradients positioned against the right edge. The shorthand blew both up
+   to fill the control — a grey slab with a black triangle across it. */
 .pj-units .field {
-  background: rgba(0, 0, 0, 0.28);
+  background-color: rgba(0, 0, 0, 0.28);
   border-color: var(--pj-mass-rule);
   color: var(--pj-mass-ink);
 }
@@ -850,13 +854,22 @@
   background: color-mix(in srgb, var(--pj-mass) 82%, transparent);
 }
 
-/* A sheet is an object ABOVE the ground, so night keeps it a step lighter —
-   it just stops being a different hue from the page it is covering. */
+/* A SHEET IS ITS OWN GROUND. The notch paints `--pj-ground`, and inside a
+   bottom sheet the surface the units are set into is the sheet, not the page
+   underneath it — left on the page value the joint between camera A and B was
+   a stripe of the wrong colour laid across the sheet.
+
+   Night needs a third step for this, not a reuse of one of the two it has: the
+   sheet has to sit ABOVE the page ground so it reads as covering it, and BELOW
+   the mass so the units on it still read as objects. #0F1310 is that step, on
+   the same green bias as both. */
+.pj .sheet { --pj-ground: var(--surface); }
 [data-theme='night'] .pj .sheet,
 [data-theme='night'] .pj .sheet__head {
-  background: var(--pj-mass);
+  --pj-ground: #0F1310;
+  background: #0F1310;
 }
-[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, var(--pj-mass) 86%, transparent); }
+[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, #0F1310 86%, transparent); }
 
 /* -------------------------------------------------- the unit badge --------
    A is the master unit: it is the one whose clip fields the project also
@@ -876,4 +889,24 @@
   background: var(--pj-accent);
   border-color: var(--pj-accent);
   color: var(--pj-accent-ink);
+}
+
+/* ------------------------------------------------ the segmented control ---
+   Selected is the MASS, not green. The approved design draws the camera count
+   and the frame rate as a row of ivory keys with the chosen one cut from the
+   dark block — which is the same "a control is either a well in the sheet or a
+   block of metal set into it" rule the roll button already runs on.
+
+   Green had to go regardless: it means "the camera can roll" in the tally, in
+   the roll button and on every live badge in this app, and "2 cameras" is not
+   that. Four meanings is no meaning. */
+.pj .camcount__opt {
+  background: transparent;
+  border-color: var(--pj-rule);
+  color: var(--pj-ink-dim);
+}
+.pj .camcount__opt--on {
+  background: var(--pj-mass);
+  border-color: transparent;
+  color: var(--pj-mass-ink);
 }
