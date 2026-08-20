@@ -29,8 +29,8 @@
   --pj-ground: var(--m-sheet);
   --pj-mass: var(--m-mass);
   /* A key standing ON the mass — a filed shoot inside its folder. */
-  --pj-key: #18201C;
-  --pj-key-lift: #202A25;
+  --pj-key: #1A1A1A;
+  --pj-key-lift: #232323;
   --pj-mass-ink: var(--m-mass-ink);
   --pj-mass-dim: #97A19A;
   --pj-mass-faint: #6E7A72;
@@ -50,21 +50,22 @@
   --pj-accent-edge: var(--m-accent-deep);
 }
 
+/* TRUE BLACK, NEUTRAL - same move as the shell and the roll deck. */
 [data-theme='night'] .pj {
-  --pj-ground: #0A0D0B;
-  --pj-mass: #151B17;
-  --pj-key: #1B221D;
-  --pj-key-lift: #232B26;
+  --pj-ground: #000000;
+  --pj-mass: #131313;
+  --pj-key: #1A1A1A;
+  --pj-key-lift: #232323;
   --pj-mass-ink: #D6D4C8;
-  --pj-mass-dim: #8E978F;
-  --pj-mass-faint: #6E7870;
+  --pj-mass-dim: #8F8D87;
+  --pj-mass-faint: #6E6C67;
   --pj-mass-rule: rgba(214, 212, 200, 0.10);
 
   --pj-ink: #D6D4C8;
-  --pj-ink-dim: #8E978F;
-  --pj-ink-faint: #6E7870;
+  --pj-ink-dim: #8F8D87;
+  --pj-ink-faint: #6E6C67;
   --pj-rule: rgba(214, 212, 200, 0.12);
-  --pj-tile: #1F2721;
+  --pj-tile: #1E1E1E;
   /* On near-black the fill value IS the legible edge; the deep one vanishes. */
   --pj-accent-edge: var(--m-accent);
 }
@@ -261,8 +262,11 @@
   background: rgba(241, 240, 234, 0.07);
 }
 .pj-cov__seg--on { background: var(--pj-accent); }
-[data-theme='night'] .pj-cov__seg { background: #1B211C; }
-[data-theme='night'] .pj-cov__seg--on { background: #8A86D8; }
+[data-theme='night'] .pj-cov__seg { background: #1C1C1C; }
+/* The coverage segment was a hardcoded LAVENDER, which is both the retired
+   accent and a literal nobody could find by grepping the token. It is a
+   SEGMENT, which the accent is allowed to fill, so it reads the accent. */
+[data-theme='night'] .pj-cov__seg--on { background: var(--m-accent); }
 .pj-cov__cap {
   margin-top: var(--sp-2);
   color: var(--pj-mass-faint);
@@ -879,15 +883,15 @@
 
    Night needs a third step for this, not a reuse of one of the two it has: the
    sheet has to sit ABOVE the page ground so it reads as covering it, and BELOW
-   the mass so the units on it still read as objects. #0F1310 is that step, on
+   the mass so the units on it still read as objects. #0D0D0D is that step, on
    the same green bias as both. */
 .pj .sheet { --pj-ground: var(--surface); }
 [data-theme='night'] .pj .sheet,
 [data-theme='night'] .pj .sheet__head {
-  --pj-ground: #0F1310;
-  background: #0F1310;
+  --pj-ground: #0D0D0D;
+  background: #0D0D0D;
 }
-[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, #0F1310 86%, transparent); }
+[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, #0D0D0D 86%, transparent); }
 
 /* -------------------------------------------------- the unit badge --------
    A is the master unit: it is the one whose clip fields the project also

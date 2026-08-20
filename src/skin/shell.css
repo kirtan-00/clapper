@@ -137,7 +137,7 @@ html[data-uiscale='fine'] textarea {
   --m-ground: var(--bg);
   --m-card: var(--m-mass);
   --m-card-ink: var(--m-mass-ink);
-  --m-card-dim: #9aa39c;
+  --m-card-dim: #8e8c86;
   --m-card-line: rgba(241, 240, 234, 0.14);
   /* The raised keycap, and the legend a backlit control emits rather than
      reflects. Only night uses these; day's selected object is the mass. */
@@ -145,13 +145,17 @@ html[data-uiscale='fine'] textarea {
   --m-legend: var(--m-accent);
 }
 
+/* TRUE BLACK, NEUTRAL. Was a green-biased charcoal, and the green went with
+   every other hue on this theme - the only colour left on a night screen is a
+   signal. The mass still sits a STEP ABOVE the ground, which is the whole
+   difference between a night form and an inverted one. */
 [data-theme='night'] {
-  --m-ground: #0a0d0b;
-  --m-card: #151b17;
+  --m-ground: #000000;
+  --m-card: #131313;
   --m-card-ink: #d6d4c8;
-  --m-card-dim: #8b928a;
+  --m-card-dim: #8f8d87;
   --m-card-line: rgba(214, 212, 200, 0.13);
-  --m-keycap: #1f2721;
+  --m-keycap: #1e1e1e;
 }
 
 /* The ground is painted only under the screens this lane has repainted.
@@ -178,15 +182,15 @@ html[data-uiscale='fine'] textarea {
    shipped card is #121319 on #0c0d10 — barely a step — and a card whose edge
    you cannot find stops being an object and becomes a region. */
 [data-theme='night'] .mscreen {
-  --paper: #0a0d0b;
-  --paper-raised: #151b17;  /* mass: 11.8:1 for chalk */
-  --paper-sunk: #1f2721;    /* the raised keycap */
-  --paper-sunk-deep: #26302a;
+  --paper: #000000;
+  --paper-raised: #131313;  /* mass: 11.9:1 for chalk */
+  --paper-sunk: #1e1e1e;    /* the raised keycap */
+  --paper-sunk-deep: #272727;
   --ink: #d6d4c8;           /* chalk. NEVER #fff — see round 3 */
-  --ink-dim: #8b928a;       /* 6.1:1 ground / 5.5:1 mass */
-  --ink-faint: #6d746c;
-  --rule: #2c352f;
-  --rule-soft: #222a24;
+  --ink-dim: #8f8d87;       /* 6.2:1 ground / 5.6:1 mass */
+  --ink-faint: #6d6b66;
+  --rule: #2c2c2c;
+  --rule-soft: #222222;
 
   --bg: var(--paper);
   --surface: var(--paper-raised);
@@ -213,7 +217,7 @@ html[data-uiscale='fine'] textarea {
   /* The material chrome mixes from the ground it sits on, or the large-title
      bar arrives in the old blue-charcoal and the screen carries two night
      ramps at once. */
-  --material-bg: rgba(21, 27, 23, 0.82);
+  --material-bg: rgba(28, 28, 28, 0.82);
   --material-solid: var(--paper);
   --material-hairline: var(--hairline);
 
@@ -298,14 +302,19 @@ html[data-uiscale='fine'] textarea {
   background: color-mix(in srgb, var(--m-card-ink) 12%, transparent);
 }
 
-/* THE ONE FILLED PILL. Accent ground, dark ink — the pair is a closed system
-   at 8.6:1 (see --m-accent-ink in styles.css) and does not care what is
-   behind the pod, which is what lets one rule serve both themes. */
+/* IT WAS THE ONE FILLED PILL, and it cannot be any more. The accent is brass
+   now, and a solid brass fill is GOLD's one reserved shape across the whole
+   app - a filled brass tab in the nav would put the loudest "this take is a
+   keeper" object on every screen, permanently, saying nothing. So the current
+   tab is a RING in the accent with the accent as its type: the same amount of
+   emphasis, none of the collision. See --m-accent in styles.css for the rule
+   this obeys. */
 .mnav__tab--on {
   width: auto;
   padding: 0 var(--sp-4);
-  background: var(--m-accent);
-  color: var(--m-accent-ink);
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--m-accent-text);
+  color: var(--m-accent-text);
 }
 
 .mnav__icon {
@@ -588,8 +597,11 @@ html[data-uiscale='fine'] textarea {
    --go, --go-text and --go-fill are untouched and still mean rolling-ready
    wherever a control actually says so. What changed is what a SWITCH
    references, which was never that. */
+/* A switch TRACK is a rail, not a badge, and it is drawn in the deep end of
+   the accent rather than the bright one - so it is unmistakably not the solid
+   #D8B23C that means GOLD, while still reading as on at a glance. */
 .tswitch--on {
-  background: var(--m-accent);
+  background: var(--m-accent-deep);
 }
 
 /* The Haptics segmented control. Same "chosen stop is the mass" idiom as
@@ -668,8 +680,17 @@ html[data-uiscale='fine'] textarea {
   transition-property: opacity !important;
   transition-duration: var(--dur-state) !important;
 }
-/* The two travel-transform exceptions styles.css's own media block carries,
-   restated the same way for the same reason. */
+/* The tally lamp, under the app's own reduce switch. The `*` rule above
+   already forces `transition-property: opacity`, so ignition lands as an
+   instant colour change with no glow transition, which is exactly what this
+   mode asks of it - the lamp was never carrying motion, only light. These
+   restate the still form rather than inherit it, same as styles.css's own
+   media block does, and they keep holding if any of those rules ever regrow a
+   transform. */
+[data-motion='reduce'] .hw__well,
+[data-motion='reduce'] .btn::before {
+  transition: none;
+}
 [data-motion='reduce'] .bigbtn.hw:active .hw__face,
 [data-motion='reduce'] .bigbtn.hw.is-pressed .hw__face,
 [data-motion='reduce'] .bigbtn.hw--cut:active .hw__face,

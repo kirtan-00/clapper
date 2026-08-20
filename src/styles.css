@@ -390,18 +390,43 @@
      Those are different materials, so they get different wells and different
      travel, not one button with two fills. */
   --m-sheet: #f7f6f2;         /* the ivory a well is milled into */
-  --m-mass: #101714;          /* the dark block CUT is cut from */
-  --m-raised: #1c2420;        /* a key standing on the mass */
-  --m-pressed: #242d28;       /* that key, bottomed out */
-  --m-accent: #c9c6f7;        /* the ONE accent, where the thumb lands */
-  --m-accent-press: #afabe8;
-  --m-accent-ink: #22204a;    /* type on the accent, 8.6:1 */
-  --m-accent-deep: #8d89cf;   /* the accent's machined under-edge */
-  --m-accent-text: #5a55a8;   /* the accent AS TYPE. Same split --go-text
-                                 makes: #c9c6f7 is a fill, and as type on
-                                 paper it is unreadable. This is the pitch's
-                                 own deep lavender, and night collapses it
-                                 back to --m-accent the way --go-text does. */
+  /* THE MASS IS NEUTRAL, AND IT IS THE SAME MATERIAL IN BOTH THEMES. It was a
+     green-black (#101714 / #1C2420 / #242D28) and the green went with every
+     other hue on the dark side - a tinted black is the tint you notice first,
+     and this one sat under a brass accent. It no longer needs a night value
+     either: the mass is dark at 2pm and at 5am, which is the same sentence
+     that already explains why its ink is light at 2pm and at 5am. */
+  --m-mass: #131313;          /* the dark block CUT is cut from */
+  --m-raised: #1e1e1e;        /* a key standing on the mass */
+  --m-pressed: #272727;       /* that key, bottomed out */
+  /* THE ACCENT IS BRASS. It was lavender, and green before that, and both
+     were rejected as an identity rather than as a shade - so this is the last
+     hue this app introduces, because it is not a new one. #d8b23c is already
+     in the palette: it is --brass, the colour GOLD has always been written
+     in, and the reason it survives where two invented accents did not is that
+     it is the colour of the hardware this app sits next to.
+
+     WHICH MEANS ONE RULE HAS TO HOLD, EVERYWHERE, OR "GOLD" STOPS MEANING
+     ANYTHING:
+
+         A SOLID BRASS FILL IS GOLD. Nothing else in the app gets one.
+         Brass as a LAMP STRIP, an OUTLINE, a SEGMENT or TYPE is emphasis.
+
+     Fill means gold, line means emphasis. A tag badge that used to be a
+     filled lavender pill is an outlined brass one now, not a filled brass
+     one, and that is why.
+
+     RED IS NOT THE ACCENT and does not move into any of this. It means
+     rolling, cut and destructive, and it means only that. */
+  --m-accent: #d8b23c;        /* the ONE accent. NEVER a full fill except GOLD */
+  --m-accent-press: #bf9a2c;
+  --m-accent-ink: #241a02;    /* type on a brass fill, 8.46:1 */
+  --m-accent-deep: #7a5f0e;   /* the deep end: an edge, or type on ivory */
+  --m-accent-text: #7a5f0e;   /* the accent AS TYPE, 5.80:1 on paper. Same
+                                 split --go-text makes: #d8b23c is a fill, and
+                                 as type on ivory it measures 1.94:1. Night
+                                 collapses it back to --m-accent the way
+                                 --go-text does. */
   --m-mass-ink: #f1f0ea;      /* type on the mass. NOT themed, for the same
                                  reason the clapper stripe is not: the mass is
                                  dark at 2pm and at 5am, so its ink is light at
@@ -424,6 +449,57 @@
      the existing --key-shadow note applies, a black slab on ivory is wrong. */
   --m-cast: rgba(20, 22, 40, 0.16);
   --m-cast-mass: rgba(0, 0, 0, 0.50);
+
+  /* ---- The tally lamp ----------------------------------------------------
+     The strip that runs down a button's leading edge. See "THE TALLY LAMP"
+     lower in this file for what it is and why.
+
+     UNLIT IS A COLOUR IN ITS OWN RIGHT, and it is not the hairline. An unlit
+     bulb is a dark object you can SEE - that is the whole reason the button
+     reads as something waiting to light rather than a plain slab. On ivory
+     that means near-black; on the night ground the same near-black would
+     vanish into the button and leave nothing there to ignite, so it lifts. A
+     pair, stated in both themes, defined in neither alone - same rule as
+     --go/--go-text. */
+  /* ---- THE ONE DECORATIVE ACCENT, ROUTED THROUGH ONE NAME ---------------
+     Lavender is out. Green was out before it. Rather than pick a third colour
+     and be told the same thing again, every decorative accent on the screens
+     this lane owns now reads ONE token trio, and the trio currently points at
+     the app's own ink. So the accent is a NEUTRAL until the replacement hue
+     is decided, and deciding it is re-pointing three declarations here rather
+     than hunting a hue through four stylesheets.
+
+     Three names, not one, because a bright value cannot be type and a deep
+     value cannot be a fill - the same split --go/--go-text/--go-fill-ink
+     already makes and for the same measured reason:
+
+       --lamp-accent       The bright value. A lit lamp strip, a segment, a
+                           pip, and GOLD's own fill - which is the only full
+                           fill it is ever allowed to be.
+       --lamp-accent-ink   The type that sits ON that one fill.
+       --lamp-accent-text  The accent AS TYPE, AN ICON OR AN EDGE.
+
+     SEMANTIC COLOUR IS NOT AN ACCENT AND IS NOT IN HERE. Red still means
+     rolling, cut and destructive; brass still means GOLD. Those carry meaning
+     rather than identity and nothing about them moves. */
+  --lamp-accent: var(--m-accent);
+  --lamp-accent-ink: var(--m-accent-ink);
+  --lamp-accent-text: var(--m-accent-text);
+
+  /* THE UNLIT LAMP. Dark on ivory and dark on black - an unlit bulb is a dark
+     object you can SEE, which is what makes the button read as something
+     waiting to light rather than a plain slab. Each lit state clears it by a
+     wide margin: brass 6.1:1 against this value, the record red 3.9:1, the
+     rolling green 6.5:1. */
+  --lamp-off: #23262c;
+  /* 7px. Wide enough to be a LAMP read across a room rather than a border
+     detail read at arm's length; the reference the user picked measured it at
+     exactly this, against a 74px button, and it scales by staying put. */
+  --lamp-width: 7px;
+  /* How far ignition throws. Clipped by the button's own overflow, so it
+     spills INWARD across the face instead of out onto the ground: the lamp
+     lighting the object it is mounted on, which is what a tally does. */
+  --lamp-glow: 0 0 22px 3px;
 
   /* The tally ring's corner. Follows the DEVICE, not the radius family above:
      it traces the phone's own corner, so it is geometry like the grabber pill
@@ -459,15 +535,31 @@
    this ground against 1.91:1 on paper. Nothing downstream of these names
    needs a night rule of its own. */
 [data-theme="night"] {
-  --paper: #0c0d10;
-  --paper-raised: #121319;
-  --paper-sunk: #181a21;
-  --paper-sunk-deep: #1f222b;
+  /* NEAR-PITCH-BLACK, AND NEUTRAL. This ramp used to be blue-black (#0C0D10
+     and its family) and the roll screen's was green-black; both are a HUE on
+     the one theme whose job is the absence of one, and at 5am a tinted black
+     is the tint you notice first. The ground goes to near-nothing and every
+     step above it is a grey, so the only colour left anywhere on a night
+     screen is a signal: red for rolling, brass for GOLD.
+     The ink is unchanged - warm chalk, never pure white, for the reason its
+     own comment gives. */
+  --paper: #000000;
+  --paper-raised: #161616;
+  --paper-sunk: #0e0e0e;
+  --paper-sunk-deep: #1c1c1c;
   --ink: #ece9e1;       /* chalk: warm off-white, never pure #fff */
-  --ink-dim: #9a9da7;
-  --ink-faint: #61646e;
-  --rule: #2b2e39;
-  --rule-soft: #23262f;
+  /* WARMED, AT THE SAME MEASURED CONTRAST. The old pair was blue-leaning
+     (#9A9DA7 and #61646E) and blue is the one bias that actively fights
+     brass. These are warm neutrals solved to land on the ratio each one
+     already had, against the new ground rather than the old one:
+       --ink-dim    7.18:1 on #0C0D10  ->  7.20:1 on #000
+       --ink-faint  3.29:1 on #0C0D10  ->  3.30:1 on #000
+     Not eyeballed. --ink-faint stays under 4.5 by design and its own rule
+     above still forbids it carrying a number or a meaningful label. */
+  --ink-dim: #999793;
+  --ink-faint: #615f5b;
+  --rule: #262626;
+  --rule-soft: #1c1c1c;
 
   /* The split collapses: bright IS the type colour here. */
   --m-accent-text: var(--m-accent);
@@ -508,9 +600,14 @@
   --key-shadow: rgba(0, 0, 0, 0.42);
   --lift-shadow: rgba(0, 0, 0, 0.45);
 
-  --material-bg: rgba(18, 19, 25, 0.80);
+  /* NEUTRAL, AND ABOVE TRUE BLACK. These were the last two hardcoded tints on
+     the dark side - a blue-charcoal frosted bar, which on a green-black page
+     used to read as a rendering fault and on a true-black one read as a bar
+     that had been left behind by the repaint. A dark iOS material sits
+     LIGHTER than its ground, which on #000 is the whole job. */
+  --material-bg: rgba(26, 26, 26, 0.80);
   --material-solid: var(--surface);
-  --material-cap-bg: rgba(18, 19, 25, 0.80);
+  --material-cap-bg: rgba(26, 26, 26, 0.80);
   --material-cap-solid: var(--surface);
   /* Half of light's saturation lift, and a hair of brightness rather than
      light's none. See the long note beside the light value; the short version
@@ -528,12 +625,31 @@
 
      The MASS side needs nothing: #030605 is already below night's ground, so
      CUT reads recessed in both themes for free. The accent needs nothing
-     either - #c9c6f7 was picked to carry --m-accent-ink on it, and that pair
+     either - the accent was picked to carry --m-accent-ink on it, and that pair
      is a closed system that does not care what is behind the button. */
   --m-well-sheet: #06070a;
   --m-well-sheet-shade: rgba(0, 0, 0, 0.80);
   --m-well-sheet-lip: rgba(236, 233, 225, 0.10);
   --m-cast: rgba(0, 0, 0, 0.45);
+
+  /* The unlit lamp lifts off the ground rather than sinking into it. Near-
+     black on near-black is not a dark object, it is a hole, and a hole cannot
+     light up. */
+  /* The unlit lamp lifts off the ground rather than sinking into it. On true
+     black a near-black strip is not a dark object, it is a hole, and a hole
+     cannot light up. Warm, like everything else here.
+
+     IT MEASURES 1.66:1 AGAINST THE NIGHT FACE AND THAT IS THE CHOSEN TRADE,
+     stated rather than missed. A value that cleared the 3:1 non-text bar at
+     rest was tried (#676561, 3.19:1) and it breaks the thing the lamp is for:
+     from there, ignition to the record red measures 1.71:1 and to brass
+     2.87:1 - the lamp comes on and almost nothing happens. THE INFORMATION IS
+     THE LIT STATE, and against the face that state measures 9.16:1 for brass,
+     5.1:1 for red and 10.4:1 for the rolling green, plus a glow across the
+     whole button. A lamp bright enough to pass at rest cannot then read as
+     having been switched on. Day has no such trade and takes the strong
+     value: 15.2:1 at rest on the ivory face. */
+  --lamp-off: #3d3b37;
 }
 
 * { box-sizing: border-box; }
@@ -577,7 +693,7 @@ input, select, textarea {
 /* The focus ring is a functional indicator, so it takes the deep token: the
    bright --go on paper is 1.91:1 and would be a ring you cannot see. */
 :focus-visible {
-  outline: 2px solid var(--go-text);
+  outline: 2px solid var(--m-accent-text);
   outline-offset: 2px;
 }
 
@@ -742,7 +858,7 @@ input, select, textarea {
    read on a translucent material in either theme. */
 .tabtray__tab:active { background: color-mix(in srgb, var(--text) 10%, transparent); }
 /* Icon + label are TYPE, so they take the deep signal, not the fill one. */
-.tabtray__tab--on { color: var(--go-text); }
+.tabtray__tab--on { color: var(--m-accent-text); }
 
 /* The active mark sits ON the hairline, a short rule rather than a pill —
    pills read as someone else's design system. It is a fill, but it is also the
@@ -758,7 +874,7 @@ input, select, textarea {
   height: 3px;
   margin-left: -13px;
   border-radius: 0 0 2px 2px;
-  background: var(--go-text);
+  background: var(--m-accent-text);
 }
 
 .tabtray__icon {
@@ -836,7 +952,7 @@ input, select, textarea {
   transition: transform var(--dur-move) var(--ease-out);
 }
 .tswitch--on {
-  background: var(--go-fill);
+  background: var(--m-accent-deep);
 }
 .tswitch--on .tswitch__knob {
   transform: translateX(20px);
@@ -882,9 +998,9 @@ input, select, textarea {
 }
 .cutsize__opt:active { transform: scale(0.97); }
 .cutsize__opt--on {
-  color: var(--go-text);
-  background: var(--go-tint);
-  border-color: var(--go-edge);
+  color: var(--m-accent-text);
+  background: var(--brass-tint);
+  border-color: var(--brass-edge);
 }
 
 /* The clapper stripe rail - identity mark + section divider */
@@ -1024,7 +1140,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   color: var(--chalk-dim);
 }
 .rollhint__arrow {
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 600;
 }
 .card__namewrap {
@@ -1053,13 +1169,13 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    glow this used to have is gone - a coloured halo is decoration, and on ivory
    it just smears the edge it needs. */
 .scene-dot--done {
-  background: var(--go);
-  border-color: var(--go-text);
+  background: var(--m-accent);
+  border-color: var(--m-accent-text);
 }
 /* A shot scene gets a green left edge so the "done" read is instant. It is the
  * only mark saying "in the can", so it takes the deep token: as bright --go it
  * measured 1.91:1 on paper, which is the opposite of surviving daylight. */
-.card--done { border-left: 3px solid var(--go-text); }
+.card--done { border-left: 3px solid var(--m-accent-text); }
 .card__meta {
   margin-top: var(--sp-2);
   display: flex;
@@ -1075,7 +1191,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
   font-size: var(--t-row);
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 600;
 }
 /* Subtle "9th in script" hint: shown only once a drag has made shooting order
@@ -1101,7 +1217,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   z-index: 5;
 }
 .cardrow--dragging .card {
-  border-color: var(--go-text);
+  border-color: var(--m-accent-text);
   box-shadow: 0 10px 28px var(--lift-shadow);
   background: var(--ink-850);
 }
@@ -1132,7 +1248,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   user-select: none;
 }
 .scenehandle__grip:active { background: var(--ink-850); color: var(--chalk); }
-.scenehandle__grip:focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
+.scenehandle__grip:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 
 .visually-hidden {
   position: absolute;
@@ -1148,7 +1264,15 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 
 /* --------------------------------------------------------------- buttons - */
 
+/* EVERY BUTTON IN THE APP IS A TALLY LAMP. The mechanism is documented once,
+   beside `.bigbtn.hw` further down: quiet surface, 1.5px inset hairline, a 7px
+   strip down the leading edge that is dark at rest and ignites on press.
+   Nothing moves. This is the general-purpose button; `.bigbtn.hw` is ROLL and
+   CUT. Same idiom, two sizes, one system - the point is that a crew member
+   learns it once. */
 .btn {
+  position: relative;
+  overflow: hidden;
   min-height: var(--tap);
   padding: 0 var(--sp-5);
   border-radius: var(--radius-sm);
@@ -1158,12 +1282,43 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
-  border: 1px solid var(--line);
-  background: var(--ink-850);
-  color: var(--chalk);
-  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out);
+  /* Inset rather than a real border: the hairline stops eating the content
+     box, so a button's inner width no longer depends on whether it has one. */
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  background: var(--surface);
+  color: var(--text);
+  transition: background var(--dur-state) var(--ease-out);
 }
-.btn:active { transform: scale(0.97); }
+/* The lamp. A pseudo-element here rather than a span, because these 60-odd
+   buttons are plain <button>s all over the app and none of them is going to
+   grow a child for this. */
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--lamp-width);
+  background: var(--lamp-off);
+  pointer-events: none;
+  transition:
+    background var(--dur-press) linear,
+    box-shadow var(--dur-press) linear;
+}
+.btn:active::before,
+.btn.is-pressed::before {
+  background: var(--lamp-on, var(--lamp-off));
+  box-shadow: var(--lamp-glow) var(--lamp-on, transparent);
+}
+/* NOTHING MOVES - the 0.97 squish is gone with the rest of the travel. The
+   surface sinks one step instead, which is a colour change and not a motion.
+   It applies to every button rather than only the unlamped ones, and that is
+   deliberate: a neutral button has nothing else to answer a press with, and on
+   a lamped one the sink and the ignition are the same gesture read at two
+   distances - the lamp from across the room, the sunk face under the thumb. */
+.btn:active {
+  transform: none;
+  background: var(--paper-sunk-deep);
+}
 .btn--ghost { background: transparent; }
 /* THE PRIMARY BUTTON IS THE ONE ACCENT, NOT GREEN.
    This class is named --go but it has never been the go control: the thing
@@ -1172,14 +1327,24 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    take. It was drawing --go-fill, which on paper is #0e7a43.
    The approved pitch has no saturated green anywhere in it. Its greens are all
    desaturated sage used as NEUTRALS (#96A099 and its family); the one accent
-   is #c9c6f7, and it is what ROLL and DONE are already drawn in. So a filled
+   is brass, and it is what ROLL and DONE are already lamped in. So a filled
    green confirm sitting a thumb's width from a lavender ROLL was two accents
    arguing about which one the eye should obey.
    --go, --go-text and --go-fill are untouched and still mean rolling-ready
    wherever a control genuinely says so. What changed is what the CONFIRM
-   button references, which was never that. */
-.btn--go { background: var(--m-accent); color: var(--m-accent-ink); border-color: transparent; }
-.btn--danger { color: var(--rec-text); border-color: var(--rec-deep); background: transparent; }
+   button references, which was never that.
+
+   AND NOW IT REFERENCES IT AS A LAMP. The accent stopped being the fill and
+   became the strip: a confirm is quiet until a thumb is on it, and then it
+   lights lavender. That also settles an argument this rule had with itself -
+   a filled lavender slab a thumb's width from ROLL was two objects claiming
+   to be the primary action. Now the ONLY difference between them is which
+   colour their lamp comes up, which is the difference that is actually true. */
+.btn--go { --lamp-on: var(--m-accent); }
+/* Destructive keeps its red TYPE - the lamp says which button, the type says
+   what it costs, and losing a take is worth saying twice. The red border is
+   gone because the lamp is now the edge. */
+.btn--danger { --lamp-on: var(--m-rec); color: var(--rec-text); }
 .btn--full { width: 100%; }
 .btn:disabled { opacity: 0.4; }
 
@@ -1692,7 +1857,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-weight: 600;
   white-space: nowrap;
 }
-.guide__navchip:active { border-color: var(--go-text); color: var(--chalk); }
+.guide__navchip:active { border-color: var(--m-accent-text); color: var(--chalk); }
 
 .guide__scroll {
   flex: 1;
@@ -1875,7 +2040,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-size: var(--t-body);
   line-height: 1.45;
   color: var(--chalk);
-  border-left: 2px solid var(--go-deep);
+  border-left: 2px solid var(--m-accent-text);
   padding-left: var(--sp-3);
 }
 .gsay dd:last-child { margin-bottom: 0; }
@@ -1892,7 +2057,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   vertical-align: middle;
   margin: 0 1px;
 }
-.gdot--done { background: var(--go); border-color: var(--go-text); }
+.gdot--done { background: var(--m-accent); border-color: var(--m-accent-text); }
 
 @media (min-width: 520px) {
   .gsplit { grid-template-columns: 1fr 1fr; }
@@ -1948,7 +2113,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .clipset__preview .tnum {
   font-size: var(--t-display);
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 700;
 }
 
@@ -2011,19 +2176,24 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    compressed shadow and a hair of scale, which is how a real key behaves.
    ROLL and CUT keep their own physics; they are the roll screen's, not this
    screen's, and they are the one place the hardware metaphor is load-bearing. */
+/* NOT A BRASS FILL, and not a raised key either. It was a filled green slab
+   that pressed 2px into a shadow; the green sweep would have made it a filled
+   BRASS slab, which is GOLD's one reserved shape, and the travel was the last
+   3D press left on this screen. It is the mass now - loud because it is the
+   only solid object on a page of paper, which is a cheaper way to be loud and
+   survives a repaint - and the press is a colour. */
 .newproject--primary {
   border: none;
-  background: var(--go-fill);
-  color: var(--go-fill-ink);
-  box-shadow: 0 4px 12px var(--lift-shadow);
-  transition: transform var(--dur-press) var(--ease-out),
-    box-shadow var(--dur-press) var(--ease-out);
+  background: var(--m-mass);
+  color: var(--m-mass-ink);
+  box-shadow: none;
+  transition: background var(--dur-state) var(--ease-out);
 }
 .newproject--primary:active {
-  transform: translateY(2px) scale(0.99);
-  background: var(--go-fill);
-  color: var(--go-fill-ink);
-  box-shadow: 0 1px 4px var(--lift-shadow);
+  transform: none;
+  background: var(--m-pressed);
+  color: var(--m-mass-ink);
+  box-shadow: none;
 }
 
 /* `.rowdel` is GONE. A bounded, boxed, 44px DELETE rendered at rest inside
@@ -2066,7 +2236,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 textarea.field { padding: var(--sp-3) var(--sp-3); min-height: 60px; resize: none; line-height: 1.4; }
 .field::placeholder { color: var(--chalk-faint); }
 .field--mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.field:focus { border-color: var(--go-text); outline: none; }
+.field:focus { border-color: var(--m-accent-text); outline: none; }
 select.field {
   appearance: none;
   -webkit-appearance: none;
@@ -2126,9 +2296,9 @@ select.field {
   font-weight: 600;
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
-  color: var(--go-text);
-  border: 1px solid var(--go-edge);
-  background: var(--go-tint);
+  color: var(--m-accent-text);
+  border: 1px solid var(--brass-edge);
+  background: var(--brass-tint);
 }
 .cambadge--approx {
   color: var(--brass-text);
@@ -2192,7 +2362,7 @@ select.field {
    back made the word look like it blinked out. The real confirmation is the
    persistent count badge; this only has to pull the eye to it. */
 @keyframes chipflash {
-  0% { background: var(--go-tint); border-color: var(--go-edge); }
+  0% { background: var(--brass-tint); border-color: var(--brass-edge); }
   100% { background: none; }
 }
 .chip--flash { animation: chipflash var(--dur-state) var(--ease-out); }
@@ -2255,12 +2425,15 @@ select.field {
   gap: var(--sp-2);
   text-align: center;
   line-height: 1.15;
-  /* hardware key: sits proud, then depresses on press (same language as .bigbtn) */
-  box-shadow: 0 4px 0 0 var(--key-shadow);
-  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
+  /* FLAT. This carried `box-shadow: 0 4px 0 0` and travelled 3px into it - a
+     key sitting proud of the deck, the same language .bigbtn used before the
+     tally lamp replaced it. Both are gone for the same reason: the press is
+     confirmed by what the control LOOKS like, not by where it sits, and a
+     screen full of raised keys is the thing that made this read as a game pad
+     rather than an instrument. The press is a colour now. */
+  transition: background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
 }
-/* Wins over the base .chip:active scale - a key travels DOWN onto its shadow. */
-.chip.keycap:active { transform: translateY(3px); box-shadow: 0 1px 0 0 var(--key-shadow); }
+.chip.keycap:active { transform: none; box-shadow: none; }
 
 /* Label clamps to 2 lines inside the fixed cell rather than widening it. */
 .keycap__label {
@@ -2279,7 +2452,7 @@ select.field {
   flex: none;
   font-size: var(--t-caption);
   font-weight: 600;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   opacity: 0.95;
 }
 
@@ -2725,11 +2898,23 @@ select.field {
 @container stage (max-height: 88px) {
   .roll__stage > * { display: none; }
 }
+/* THE CLOCK IS THIN, and that is the whole difference between a number and a
+   clock. 700-weight mono was a COUNTER: heavy, boxy, the same voice the clip
+   name and the take number are written in, so at a glance the biggest thing on
+   the screen said "a figure" rather than "time passing". A hairline face says
+   time passing, which is the one fact this screen exists to hold.
+
+   The mono drops with the weight - the same move .lasttake__hero already made
+   on this screen and for the same reason. Mono is slate language, and its
+   400-weight-only availability is exactly why the old rule could not be thin.
+   `tabular-nums` on the system face keeps every digit the same width, which
+   is all the mono was ever load-bearing for: the drums step by 1em and the
+   line cannot reflow under them. */
 .readout {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  letter-spacing: var(--track-tighter);
+  font-weight: 200;
+  letter-spacing: -0.02em;
   line-height: 0.95;
   /* Smaller floor + gentler vw than before so the clock fits a short/narrow
      phone without needing the stage to scroll — the tally band already mirrors
@@ -2742,6 +2927,38 @@ select.field {
    a halo behind type on ivory only softens the edge it needs. */
 .readout--live { color: var(--live-ink); text-shadow: var(--live-glow); }
 .readout--idle { color: var(--chalk-dim); }
+
+/* ============================================================ THE TAKE BAR ==
+   Sixty ticks, one per second of the current minute, filling left to right and
+   starting again on the next. See the TakeBar comment in RollingScreen for why
+   it is a sweep and not a percentage: a take has no end until somebody presses
+   CUT, so a progress bar to a known finish would be a lie drawn precisely.
+
+   One tick lights per second, which is what makes it readable from the corner
+   of an eye that is on the actors rather than on the phone - the thing an
+   operator is checking is not a number, it is whether this is still moving. */
+.takebar {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  width: 100%;
+  max-width: 420px;
+  height: 14px;
+  margin: var(--sp-3) auto 0;
+}
+.takebar__tick {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 1px;
+  /* Unlit is a real mark, not empty space: the strip has to read as sixty
+     places whether or not any of them is lit yet, or the first second of a
+     take looks like a rendering failure. */
+  background: var(--hairline);
+  transition: background var(--dur-state) linear;
+}
+.takebar__tick.is-on {
+  background: var(--text);
+}
 
 .stage__hint {
   min-height: 24px;
@@ -2759,6 +2976,13 @@ select.field {
   font-weight: 800;
   letter-spacing: var(--track-caps);
   font-size: var(--t-caps);
+}
+/* WHICH units, and it opens the line. "A + SOUND ROLLING · 24 FPS" reads in
+   the order the question is asked: the state was already answered by the ring,
+   the pill and the dots before the eye got here. Full ink against the line's
+   own dimmed grey, because this is the part being read. */
+.stage__units {
+  color: var(--text);
 }
 /* Static. It used to run its own 1.2s loop against the tally dot's 1.1s, which
    is two red dots blinking slightly out of step - the least premium thing a
@@ -2892,7 +3116,7 @@ select.field {
   font-size: var(--t-secondary);
 }
 .minitake .tnum { color: var(--chalk); font-weight: 600; }
-.minitake .clip { color: var(--go-text); font-family: var(--font-mono); font-size: var(--t-secondary); }
+.minitake .clip { color: var(--m-accent-text); font-family: var(--font-mono); font-size: var(--t-secondary); }
 .minitake .dur { margin-left: auto; color: var(--chalk-dim); font-family: var(--font-mono); }
 .minitake--discarded { color: var(--chalk-faint); }
 .minitake--discarded .tnum,
@@ -2922,7 +3146,7 @@ select.field {
   font-size: var(--t-secondary);
 }
 .momentrow--gold { border-left-color: var(--brass-text); }
-.momentrow--range { border-left-color: var(--go-text); }
+.momentrow--range { border-left-color: var(--m-accent-text); }
 .momentrow .at { font-family: var(--font-mono); color: var(--chalk); font-weight: 600; }
 .momentrow .tag { font-weight: 600; letter-spacing: var(--track-caps); font-size: var(--t-caps); color: var(--chalk-dim); }
 .momentrow .lbl { color: var(--chalk-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3028,9 +3252,9 @@ select.field {
 .reachbtn:active { transform: scale(0.96); }
 /* Voice, live. Same green the app already spends on "this is on". */
 .reachbtn--on {
-  color: var(--go-text);
-  border-color: var(--go-edge);
-  background: var(--go-tint);
+  color: var(--m-accent-text);
+  border-color: var(--brass-edge);
+  background: var(--brass-tint);
 }
 .reachbtn__pen { color: var(--text-faint); }
 .reachbtn .tnum { color: var(--text); }
@@ -3083,7 +3307,6 @@ select.field {
   flex: 0 0 auto;
 }
 .roll__deck > .camstack,
-.roll__deck > .soundsection,
 .roll__deck > .roll__markrow,
 .roll__deck > .bigbtn { flex: 0 0 auto; }
 
@@ -3152,13 +3375,13 @@ select.field {
   transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
 }
 .markbtn:active { transform: scale(0.98); }
-.markbtn--armed { border-color: var(--go-text); color: var(--go-text); }
+.markbtn--armed { border-color: var(--m-accent-text); color: var(--m-accent-text); }
 /* "MARK IN 2" counts marks; a count is not slate language, so it is UI face
    with tabular figures rather than a costume monospace. */
 .markbtn__badge {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 600;
 }
 
@@ -3225,65 +3448,108 @@ select.field {
 }
 .bigbtn--cut:active { box-shadow: 0 6px 0 0 var(--rec-deep); }
 
-/* ================================================== THE MACHINED PRESS ====
-   TWO PARTS, NOT ONE ELEMENT. A camera button is a face sitting proud of a
-   well; it does not squish, it breaks over a detent, bottoms out, and pops
-   back as the finger leaves. So the well never moves and the face descends
-   INTO it, and the shadow BETWEEN them collapses. That collapsing shadow is
-   the whole tell - a single div that just changes colour reads as a web
-   button no matter what curve it is on.
+/* ==================================================== THE TALLY LAMP ======
+   A camera does not announce that it is recording by changing colour. It
+   lights a tally lamp, and every crew on earth already reads that one gesture
+   from the far side of a room without ever being taught it. So the button
+   borrows it, and stops inventing.
 
-   WHY THIS LAYERS ONTO `.bigbtn` RATHER THAN REPLACING IT. `.bigbtn` is not
-   a look, it is a contract: --cut-scale sizes it, --tray-lift lifts the toast
-   off it, --roll-footer-band reserves its band, and `position: sticky` keeps
-   it on screen when the deck scrolls. All four measure the OUTER box. So the
-   outer box stays exactly what it was and the hardware is built inside it -
-   which is also why the face is `flex: 1` and never a fixed height. Take the
-   `hw` class off the element and the old button comes back intact.
+   AT REST the button is quiet: the surface the rest of the screen is made of,
+   a 1.5px inset hairline, its own type. It is not shouting before it has
+   anything to say. Down its LEADING EDGE runs a 7px strip, dark - an unlit
+   bulb. An object visibly waiting, which is a different thing from a flat
+   rectangle.
 
-   Fires on POINTER-DOWN (see RollingScreen). The travel confirms the press;
-   it never gates it. Stopping a take at 4:57 into a good one is the moment
-   this app exists for and it does not get to wait 3px for anything. */
+   ON PRESS the strip IGNITES and throws its glow inward across the face.
+   NOTHING MOVES. No lift, no scale, no 3D, no travel, no squish. That is the
+   whole point rather than a simplification of it: the confirmation is LIGHT,
+   not geometry, and light is what survives a gloved thumb at 3am belonging to
+   someone whose eyes are on the actors and not on the phone. A press you have
+   to look at to feel is not a confirmation.
+
+   THE LAMP COLOUR IS SEMANTIC, and it is the only colour on the button:
+
+     ROLL     --go        rolling-ready
+     CUT      --m-rec     the record red, the same red as the tally ring
+     DONE     --m-accent  the one accent, where a confirm lands
+     neutral  stays dark, and never ignites at all
+
+   Nothing else differs between the three - same surface, same hairline, same
+   type. The lamp IS the difference, which is exactly what makes it legible at
+   a glance instead of something you have to read.
+
+   CUT CARRIES ITS LAMP LIT FOR THE WHOLE TAKE, not only under the thumb. A
+   tally is on while the camera runs; that is what the object means, and a
+   button labelled CUT sitting dark while three cameras roll would be the one
+   place this metaphor lied. Press then adds the glow on top.
+
+   WHY THIS LAYERS ONTO `.bigbtn` RATHER THAN REPLACING IT - unchanged from
+   the machined press this supersedes, and still the load-bearing part.
+   `.bigbtn` is not a look, it is a contract: --cut-scale sizes it,
+   --tray-lift lifts the toast off it, --roll-footer-band reserves its band,
+   and `position: sticky` keeps it on screen when the deck scrolls. All four
+   measure the OUTER box, and that box is thumb-calibrated at x16 y714
+   358x104 on a 390x844 phone. So the outer box stays exactly what it was and
+   the lamp is built inside it. The two children it already had are reused
+   rather than restructured - `.hw__well` is now the lamp, `.hw__face` is the
+   quiet surface - so not a line of JSX moved and the pointer-down gate that
+   keeps CUT unreachable during a tag edit is untouched.
+
+   Fires on POINTER-DOWN (see RollingScreen). Ignition trails the action and
+   never gates it.
+   ========================================================================= */
 .bigbtn.hw {
   position: relative;
+  /* The lamp is a square strip inside a rounded box, so the box does the
+     rounding. This clips the ignition glow too, which is the intent: it
+     spills across the FACE rather than out onto the ground. */
+  overflow: hidden;
+  border-radius: var(--radius-lg);
   background: transparent;
   border: none;
   padding: 0;
   /* The face fills the box, so the operator's CUT-size choice still lands. */
   align-items: stretch;
-  /* The old flat under-key drop is now drawn by the face's own under-edge. */
   box-shadow: none;
   transform: none;
   transition: none;
 }
-/* .bigbtn:active moved the whole button. The well is the one thing on this
-   screen that must never move - it is the hole, not the key. */
-.bigbtn.hw:active {
+/* Nothing moves, and both states have to say so. `.is-pressed` sits beside
+   `:active` everywhere because that is how the press gets screenshotted, and
+   how a held key survives a finger that slides off without lifting. */
+.bigbtn.hw:active,
+.bigbtn.hw.is-pressed {
   transform: none;
   box-shadow: none;
 }
 /* The ground ring is load-bearing and survives the repaint: chips scrolling
    under the sticky footer were hit-testable beside CUT until this painted an
-   opaque band around it (see the .roll__deck note above). The key drop is
-   dropped from both states because the face carries its own now. */
+   opaque band around it (see the .roll__deck note above). `overflow: hidden`
+   clips this element's DESCENDANTS, never its own outset shadow, so the ring
+   is unaffected by the clip that contains the glow. */
 .roll__deck > .bigbtn.hw,
 .roll__deck > .bigbtn.hw:active {
   box-shadow: 0 0 0 var(--sp-4) var(--ink-950);
 }
 
+/* THE LAMP. Was the well; the DOM is the same span. */
 .hw__well {
   position: absolute;
-  /* Outside the border box on every side, so the face is genuinely INSIDE
-     something rather than sitting on a mat. The 6px bottom overhang lives in
-     the room --key-drop (10px) already reserves below the button. */
-  inset: -5px;
-  border-radius: calc(var(--radius-lg) + 5px);
-  background: var(--m-well-sheet);
-  box-shadow:
-    inset 0 2px 4px var(--m-well-sheet-shade),
-    inset 0 -1px 0 var(--m-well-sheet-lip);
+  inset: 0 auto 0 0;
+  width: var(--lamp-width);
+  border-radius: 0;
+  background: var(--lamp-off);
+  /* Above the face, so the glow washes over it rather than under it. */
+  z-index: 1;
   pointer-events: none;
+  transition:
+    background var(--dur-press) linear,
+    box-shadow var(--dur-press) linear;
 }
+
+/* THE FACE. Quiet: the app's own surface, its own ink, a 1.5px inset
+   hairline. Inset rather than a border because a border would eat into the
+   content box, and this box is measured. */
 .hw__face {
   position: relative;
   flex: 1 1 auto;
@@ -3291,83 +3557,40 @@ select.field {
   align-items: center;
   justify-content: center;
   gap: inherit;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(color-mix(in srgb, var(--m-accent) 94%, #fff) 0%, var(--m-accent) 55%);
-  color: var(--m-accent-ink);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--hairline);
   /* Wider than --track-caps on purpose: this is the one control read at arm's
      length in the dark, and the approved design tracks it as signage. Size and
      weight are inherited so --cut-scale keeps governing the whole object. */
   letter-spacing: 0.28em;
   text-indent: 0.28em; /* centres against the trailing letter-space */
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.10),
-    0 3px 0 var(--m-accent-deep),
-    0 12px 20px var(--m-cast);
-  transition:
-    transform 170ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 170ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  will-change: transform;
-}
-/* 3px down in 80ms, back in 170ms with a hair of overshoot. `.is-pressed` sits
-   beside `:active` everywhere so the state can be driven from script - which
-   is how it gets screenshotted, and how a held key survives a finger that
-   slides off the button without lifting. */
-.bigbtn.hw:active .hw__face,
-.bigbtn.hw.is-pressed .hw__face {
-  transform: translateY(3px);
-  background: var(--m-accent-press);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 2px 3px rgba(0, 0, 0, 0.14),
-    0 0 0 var(--m-accent-deep),
-    0 3px 6px var(--m-cast);
-  transition:
-    transform 80ms cubic-bezier(0.3, 0.7, 0.4, 1),
-    box-shadow 80ms cubic-bezier(0.3, 0.7, 0.4, 1);
+  /* Centre the label in the LIT ROOM, not under the lamp. */
+  padding-inline-start: var(--lamp-width);
+  transform: none;
+  transition: background var(--dur-state) linear;
 }
 
-/* CUT is the heavier part, and it says so: a deeper well, 4px of travel, a
-   sharper 70ms break and a 200ms recovery. Ending a take is the consequential
-   press, so it gets the bigger switch - the same hand learns two weights and
-   can tell them apart without looking. */
-.bigbtn.hw--cut .hw__well {
-  inset: -6px;
-  border-radius: calc(var(--radius-lg) + 6px);
-  background: var(--m-well-mass);
-  box-shadow:
-    inset 0 3px 6px var(--m-well-mass-shade),
-    inset 0 -1.5px 0 var(--m-well-mass-lip);
+/* What each button's lamp is FOR. One declaration each, and it is the entire
+   difference between them. */
+.bigbtn.hw--go { --lamp-on: var(--go); }
+.bigbtn.hw--cut { --lamp-on: var(--m-rec); }
+.bigbtn.hw--done { --lamp-on: var(--m-accent); }
+
+/* Rolling: the tally is ON, thumb or no thumb. No glow - a glow is the press,
+   and a button that glowed for four minutes would stop meaning anything. */
+.roll--live .bigbtn.hw--cut .hw__well {
+  background: var(--m-rec);
 }
-.bigbtn.hw--cut .hw__face {
-  background: linear-gradient(var(--m-raised) 0%, var(--m-mass) 70%);
-  color: var(--m-mass-ink);
-  box-shadow:
-    inset 0 1.5px 0 rgba(241, 240, 234, 0.14),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.50),
-    0 4px 0 #000,
-    0 14px 22px var(--m-cast-mass);
-  transition:
-    transform 200ms cubic-bezier(0.3, 1.4, 0.5, 1),
-    box-shadow 200ms cubic-bezier(0.3, 1.4, 0.5, 1),
-    background 200ms cubic-bezier(0.3, 1.4, 0.5, 1);
+
+/* Ignition. */
+.bigbtn.hw:active .hw__well,
+.bigbtn.hw.is-pressed .hw__well {
+  background: var(--lamp-on, var(--lamp-off));
+  box-shadow: var(--lamp-glow) var(--lamp-on, transparent);
 }
-/* Bottomed out: one step up the mass ramp, and the inner shadow arrives - the
-   face is now BELOW the lip, so the well casts onto it. */
-.bigbtn.hw--cut:active .hw__face,
-.bigbtn.hw--cut.is-pressed .hw__face {
-  transform: translateY(4px);
-  background: linear-gradient(var(--m-pressed) 0%, var(--m-raised) 70%);
-  box-shadow:
-    inset 0 1px 0 rgba(241, 240, 234, 0.06),
-    inset 0 3px 6px rgba(0, 0, 0, 0.55),
-    0 0 0 #000,
-    0 2px 5px var(--m-cast-mass);
-  transition:
-    transform 70ms cubic-bezier(0.3, 0.7, 0.4, 1),
-    box-shadow 70ms cubic-bezier(0.3, 0.7, 0.4, 1),
-    background 70ms cubic-bezier(0.3, 0.7, 0.4, 1);
-}
+
 /* Red is recording, never an action. CUT names the state it is about to end,
    so the dot rides the label rather than filling the button. */
 .hw__dot {
@@ -3378,17 +3601,15 @@ select.field {
   flex: 0 0 auto;
 }
 
-/* Travel is the confirmation, so with travel switched off the confirmation
-   has to be carried entirely by colour. The global reduce block above already
-   forces `transition-property: opacity`, so both states land instantly; all
-   that is left is to stop the face moving. Same specificity as the rules it
-   overrides, placed after them. */
+/* Ignition is already instant - 80ms is the press, not an animation - but
+   reduced motion asks for a colour change with no transition at all, so the
+   lamp arrives lit and the glow arrives with it. The global reduce block
+   above forces `transition-property: opacity`; this states the still form
+   rather than inheriting it, same as the drum in skin/roll.css. */
 @media (prefers-reduced-motion: reduce) {
-  .bigbtn.hw:active .hw__face,
-  .bigbtn.hw.is-pressed .hw__face,
-  .bigbtn.hw--cut:active .hw__face,
-  .bigbtn.hw--cut.is-pressed .hw__face {
-    transform: none;
+  .hw__well,
+  .btn::before {
+    transition: none;
   }
 }
 
@@ -3415,15 +3636,15 @@ select.field {
 }
 .mictoggle:active { transform: scale(0.97); }
 .mictoggle--on {
-  color: var(--go-text);
-  border-color: var(--go-edge);
-  background: var(--go-tint);
+  color: var(--m-accent-text);
+  border-color: var(--brass-edge);
+  background: var(--brass-tint);
 }
 .miclamp { width: 9px; height: 9px; border-radius: 50%; background: var(--chalk-faint); }
 /* The lamp is 9px on a pale wash, so it takes the deep token: the bright fill
    on the light tint is 1.7:1 and the lamp simply is not there. */
 /* Static: the lamp being lit is the state. It does not need to breathe about it. */
-.mictoggle--on .miclamp { background: var(--go-text); }
+.mictoggle--on .miclamp { background: var(--m-accent-text); }
 
 /* ============================================================ SHEET ======= */
 
@@ -3566,7 +3787,7 @@ select.field {
   font-size: var(--t-display);
   font-weight: 700;
 }
-.takesummary__cell .val--clip { color: var(--go-text); }
+.takesummary__cell .val--clip { color: var(--m-accent-text); }
 
 /* toast confirm */
 .toast {
@@ -3754,7 +3975,7 @@ select.field {
 /* Outcome copy. --good is the only place in the app green is used for prose,
    and it is earned: it is the receipt. --bad borrows the same red the CUT
    button and every destructive confirm already use. */
-.procta__msg--good { color: var(--go-text); }
+.procta__msg--good { color: var(--m-accent-text); }
 .procta__msg--bad { color: var(--rec-text); }
 
 /* ------------------------------------------------------- multi-camera ---- */
@@ -3780,9 +4001,9 @@ select.field {
 }
 .camcount__opt:active { transform: scale(0.97); }
 .camcount__opt--on {
-  color: var(--go-text);
-  background: var(--go-tint);
-  border-color: var(--go-edge);
+  color: var(--m-accent-text);
+  background: var(--brass-tint);
+  border-color: var(--brass-edge);
 }
 
 /* Per-camera setup / counter card (New project + project settings). */
@@ -3811,9 +4032,9 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   font-size: var(--t-row);
-  color: var(--go-text);
-  background: var(--go-tint);
-  border: 1px solid var(--go-edge);
+  color: var(--m-accent-text);
+  background: var(--brass-tint);
+  border: 1px solid var(--brass-edge);
 }
 .camunit__eg {
   color: var(--chalk);
@@ -3866,17 +4087,22 @@ select.field {
   grid-template-columns: repeat(2, 1fr);
   gap: var(--sp-2);
 }
-/* Live rolling view only (not the edit sheet below): 1-2 cams get one
-   full-width row each; 3-4 stay on the two-column base above.
+/* Live rolling view only (not the edit sheet below): a LONE unit gets the full
+   width, everything else stays on the two-column base above.
    Written as a :not(:has()) narrowing of that base, never as "1 column, widen
-   to 2 when :has() finds a third slot" - a browser without :has() drops the
+   to 2 when :has() finds a second slot" - a browser without :has() drops the
    rule either way, and this direction leaves it on 2 columns. The other
    direction would leave it stacking 4 full-width rows in the deck, which is
-   the exact bug this screen was rebuilt to kill. */
-.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) {
+   the exact bug this screen was rebuilt to kill.
+
+   THE THRESHOLD MOVED FROM THREE SLOTS TO TWO. Two units used to mean two
+   full-width bars, which is 128px of deck spent saying two things - and the
+   pill says them side by side in 46. One unit still widens, because half a row
+   of pill beside half a row of nothing is not compact, it is unfinished. */
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(2))) {
   grid-template-columns: 1fr;
 }
-.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(3))) .camslot__clip {
+.camstack:not(.camstack--sheet):not(:has(.camslot:nth-child(2))) .camslot__clip {
   font-size: var(--t-display);
 }
 .camstack--sheet { max-width: none; margin-top: 0; margin-bottom: var(--sp-4); }
@@ -3918,6 +4144,18 @@ select.field {
   border-color: var(--line);
   flex: none;
 }
+/* The sound badge, as a class rather than the inline object it used to be.
+   Everywhere OUTSIDE the live deck - the post-cut sheet, where a sound file
+   name sits in a list beside camera clip names - the recorder blue is doing
+   real work telling one string from another, so it stays exactly as it was.
+   The live deck overrides it to ink (see skin/roll.css): there the speaker
+   MARK is what distinguishes the unit, and a colour a set light can eat is
+   not asked to do a job a shape already does. */
+.camslot__badge--sound {
+  color: var(--sound-text);
+  border-color: var(--sound-edge);
+  background: var(--sound-tint);
+}
 .camslot__body {
   display: flex;
   flex-direction: column;
@@ -3927,7 +4165,7 @@ select.field {
 .camslot__clip {
   display: block;
   width: 100%;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 700;
   font-size: var(--t-title);
   letter-spacing: var(--track-tight);
@@ -4104,27 +4342,15 @@ select.field {
   font-size: var(--t-caps);
   font-weight: 600;
   letter-spacing: var(--track-caps);
-  color: var(--go-text);
+  color: var(--m-accent-text);
 }
 
-/* The sound section's own header row - pulled out of inline styles so the
-   type follows the caps token like every other section label does, rather
-   than a one-off 0.64rem/800 pair invented for this one row. */
-.soundsection__head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin: 0 var(--sp-1) var(--sp-2);
-}
-.soundsection__label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  font-size: var(--t-caps);
-  font-weight: 600;
-  letter-spacing: var(--track-caps);
-  text-transform: uppercase;
-}
+/* The sound section's header row is GONE along with the section. It took a
+   title, a hint line and a tinted border to say "this is also a unit", which
+   is a lot of furniture to spend on a claim the object could just make by
+   being one. Sound is a pill in .camstack now; what tells it from a camera is
+   the speaker mark on its badge, a shape, which survives red set-lighting and
+   a red/green-blind operator in a way the recorder blue never did. */
 
 /* Tap the take row to edit it; the info spans become one big target. */
 .minitake__open {
@@ -4145,7 +4371,7 @@ select.field {
 
 /* Selectable tag chips in the take editor (on = kept, off = dimmed). */
 .chip--off { opacity: 0.42; }
-.chip--on { border-color: var(--go-edge); color: var(--go-text); }
+.chip--on { border-color: var(--brass-edge); color: var(--m-accent-text); }
 .chip--on.chip--gold { border-color: var(--brass-edge); color: var(--brass-text); }
 
 /* Delete-shot control on a recent-take row. */
@@ -4176,7 +4402,7 @@ select.field {
   margin: 0 0 var(--sp-4);
   padding: var(--sp-4);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--go);
+  border-left: 3px solid var(--m-accent);
   border-radius: var(--radius);
   background: var(--ink-900);
   animation: installnudge-in var(--dur-move) var(--ease-out);
@@ -4199,7 +4425,7 @@ select.field {
 .installnudge__glyph {
   display: inline-block;
   vertical-align: -2px;
-  color: var(--go-text);
+  color: var(--m-accent-text);
 }
 .installnudge__actions {
   display: flex;
@@ -4582,7 +4808,7 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-size: var(--t-secondary);
   font-weight: 600;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   overflow-wrap: anywhere;
 }
 .cliprow__snd {
@@ -4682,7 +4908,7 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-size: var(--t-row);
   font-weight: 600;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   overflow-wrap: anywhere;
 }
 .movepreview__snd {
@@ -4741,13 +4967,17 @@ select.field {
   padding: var(--sp-4) var(--sp-5);
   margin: var(--sp-1) 0 0;
   border-radius: var(--radius);
-  background: var(--go-text);
-  color: var(--surface);
+  /* The mass, not the accent: a hero this size filled with brass is a
+     screen-sized GOLD chip, and GOLD's fill is reserved. Same reasoning as
+     .newproject--primary directly above. */
+  background: var(--m-mass);
+  color: var(--m-mass-ink);
   text-align: left;
-  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-move) var(--ease-out);
+  transition: background var(--dur-state) var(--ease-out), opacity var(--dur-move) var(--ease-out);
 }
 .home-hero:active {
-  transform: scale(0.985);
+  transform: none;
+  background: var(--m-pressed);
 }
 .home-hero:disabled {
   opacity: 0.62;

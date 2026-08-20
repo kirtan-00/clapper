@@ -33,6 +33,15 @@ if [ -d landing/templates ]; then
   cp -R landing/templates/. "$STAGE/templates/"
 fi
 
+# Relink: the standalone XML path-rewriter at /relink/. Self-contained, no build
+# step, and deliberately no analytics beacon - it is handed to editors who load a
+# client's shot log into it, and the page's own promise is that nothing leaves the
+# machine. A tracking pixel would make that sentence a lie.
+if [ -d landing/relink ]; then
+  mkdir -p "$STAGE/relink"
+  cp -R landing/relink/. "$STAGE/relink/"
+fi
+
 # Legal: Privacy Policy + Terms + cookie/storage notice at /legal/,
 # with /privacy and /terms as canonical redirect entry points.
 for d in legal privacy terms; do
