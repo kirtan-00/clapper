@@ -7,9 +7,12 @@
 // used to sit here too. It is gone — the first-open flow in ui/Onboarding.tsx
 // asks that question once, from the shell, instead of twice from two tabs.) The
 // shotlist flow itself is no longer written here: this file carried a private
-// near-copy of it that handed its pack to the fourteen-field New project
-// sheet, so the same job looked like two different products depending on which
-// tab you started from. It mounts <ShotlistSheet> now, same as Home.
+// near-copy of it that handed its pack to what was then a fourteen-field New
+// project sheet, so the same job looked like two different products depending
+// on which tab you started from. It mounts <ShotlistSheet> now, same as Home —
+// and the blank-project path is <NewProjectSheet>, five stages on the same
+// shared rail, rather than the form that used to be written at the bottom of
+// this file.
 //
 // THE SHAPE, since the repaint: one dark mass for the shoot that is happening,
 // quiet ivory rows for everything else, and a real filing system underneath.

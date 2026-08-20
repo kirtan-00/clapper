@@ -30,20 +30,28 @@
 //
 // THIS IS NOW THE ONLY COPY. ProjectsScreen.tsx used to carry a private
 // near-duplicate of the read half (ScriptPackSheet) that handed its pack to
-// the fourteen-field New project sheet; it is gone, and the projects list
-// mounts this component instead. Two flows that looked different for the same
-// job was the whole problem.
+// what was then a fourteen-field New project sheet; it is gone, and the
+// projects list mounts this component instead. Two flows that looked different
+// for the same job was the whole problem.
 //
-// The setup stages are deliberately three values, not the fourteen of the New
-// project sheet. Name, frame rate, camera — the ones that are painful to
-// correct after the fact. Clip prefix, padding, multi-cam and sound are all
-// editable on the project screen the moment this closes, so asking for them
-// here would be ceremony.
+// The setup stages are deliberately three values. Name, frame rate, camera —
+// the ones that are painful to correct after the fact. Clip prefix, padding,
+// multi-cam and sound are all editable on the project screen the moment this
+// closes, so asking for them here would be ceremony. The blank-project flow
+// (ui/NewProjectSheet.tsx) is five stages for the same reason and asks two
+// more questions, because a rig set up before the shoot starts is one of the
+// things that IS painful to correct later.
+//
+// THE CHROME IS SHARED. StageRail, StagePanel and StageActions were written
+// here first and now live in ui/stages.tsx, imported by all three staged flows
+// — this one, first-open and New project. The .sl-* classes keep their name.
 
-import { useEffect, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useState, type ChangeEvent, type DragEvent } from 'react';
 import type { Fps, Project } from '../types';
 import { Sheet, SheetClose } from './common';
+import { StageRail, StagePanel, StageActions } from './stages';
 import { CAMERA_PRESETS, findPreset, renderClip } from './cameras';
+import { FPS_OPTIONS, FPS_WARNING } from './fps';
 import { importScriptPack, EXAMPLE_PACKS, type ScriptPack } from './scriptpack';
 import { extractPdfText } from './pdftext';
 import { parseShotlist, shotlistToPack } from './shotlist';
@@ -54,20 +62,6 @@ import { useSession, signInWithGoogle } from '../net/auth';
 import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
-
-// Every stop on the frame-rate stage, and the second line each one carries.
-// The label is what a camera menu calls it; nobody on set says "29.97" without
-// meaning NTSC, and a bare column of decimals is the dropdown this replaces.
-const FPS_OPTIONS: { fps: Fps; note: string }[] = [
-  { fps: 23.976, note: 'NTSC film' },
-  { fps: 24, note: 'Film' },
-  { fps: 25, note: 'PAL' },
-  { fps: 29.97, note: 'NTSC video' },
-  { fps: 30, note: 'Video' },
-  { fps: 50, note: 'PAL, high' },
-  { fps: 59.94, note: 'NTSC, high' },
-  { fps: 60, note: 'High frame rate' },
-];
 
 type Stage = 'document' | 'read' | 'fps' | 'camera' | 'name';
 
@@ -194,13 +188,13 @@ export function ShotlistSheet(props: { onClose: () => void; onImported: (project
       {/* `.dt-sheet` re-materials the camera-preset badge (see skin/detail.css);
           the sheet's grabber, title and slide stay the shared <Sheet> chrome. */}
       <div className="dt-sheet sl">
-        <StageRail index={index} title={STAGE_TITLE[stage]} />
+        <StageRail index={index} total={STAGES.length} title={STAGE_TITLE[stage]} />
 
         {/* Keyed on the stage so React remounts the panel and the enter
             animation replays. One <Sheet> for the whole sequence: a sheet that
             tore itself down between stages would slide out and back in five
             times for what is one continuous decision. */}
-        <div className="sl-panel" key={stage} data-dir={dir}>
+        <StagePanel dir={dir} key={stage}>
           {stage === 'document' && (
             <DocumentStage onPack={onPack} onGated={() => setShowSignIn(true)} onClose={props.onClose} />
           )}
@@ -229,42 +223,10 @@ export function ShotlistSheet(props: { onClose: () => void; onImported: (project
               onGo={() => void create()}
             />
           )}
-        </div>
+        </StagePanel>
       </div>
     </Sheet>
   );
-}
-
-// ---------------------------------------------------------------- chrome ---
-
-/**
- * Where you are, and how much is left.
- *
- * Five segments, filled up to and including the one you are standing on. It is
- * `aria-hidden` and the sentence beside it is not: "Step 3 of 5, Frame rate"
- * is the thing a screen reader should say, and five div elements are not it.
- */
-function StageRail(props: { index: number; title: string }) {
-  return (
-    <div className="sl-rail">
-      <div className="sl-rail__bars" aria-hidden="true">
-        {STAGES.map((s, i) => (
-          <span key={s} className="sl-rail__bar" data-on={i <= props.index ? '' : undefined} />
-        ))}
-      </div>
-      <span className="sl-rail__step" aria-hidden="true">
-        {props.index + 1} of {STAGES.length}
-      </span>
-      <p className="visually-hidden" role="status">
-        Step {props.index + 1} of {STAGES.length}: {props.title}
-      </p>
-    </div>
-  );
-}
-
-/** The footer every stage ends with: back out on the left, go on the right. */
-function StageActions(props: { children: ReactNode }) {
-  return <div className="sheet__actions sl-actions">{props.children}</div>;
 }
 
 // ================================================================ one ======
@@ -618,9 +580,7 @@ function FpsStage(props: { fps: Fps; onPick: (fps: Fps) => void; onBack: () => v
   return (
     <>
       {/* Said once, quietly, and never again. */}
-      <p className="camnote sl-lede">
-        This lands in every timecode you export. It is the one value that hurts to change later.
-      </p>
+      <p className="camnote sl-lede">{FPS_WARNING}</p>
 
       <div className="sl-grid" role="group" aria-label="Frame rate">
         {FPS_OPTIONS.map(({ fps, note }) => (
