@@ -668,8 +668,17 @@ html[data-uiscale='fine'] textarea {
   transition-property: opacity !important;
   transition-duration: var(--dur-state) !important;
 }
-/* The two travel-transform exceptions styles.css's own media block carries,
-   restated the same way for the same reason. */
+/* The tally lamp, under the app's own reduce switch. The `*` rule above
+   already forces `transition-property: opacity`, so ignition lands as an
+   instant colour change with no glow transition, which is exactly what this
+   mode asks of it - the lamp was never carrying motion, only light. These
+   restate the still form rather than inherit it, same as styles.css's own
+   media block does, and they keep holding if any of those rules ever regrow a
+   transform. */
+[data-motion='reduce'] .hw__well,
+[data-motion='reduce'] .btn::before {
+  transition: none;
+}
 [data-motion='reduce'] .bigbtn.hw:active .hw__face,
 [data-motion='reduce'] .bigbtn.hw.is-pressed .hw__face,
 [data-motion='reduce'] .bigbtn.hw--cut:active .hw__face,

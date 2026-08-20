@@ -425,6 +425,27 @@
   --m-cast: rgba(20, 22, 40, 0.16);
   --m-cast-mass: rgba(0, 0, 0, 0.50);
 
+  /* ---- The tally lamp ----------------------------------------------------
+     The strip that runs down a button's leading edge. See "THE TALLY LAMP"
+     lower in this file for what it is and why.
+
+     UNLIT IS A COLOUR IN ITS OWN RIGHT, and it is not the hairline. An unlit
+     bulb is a dark object you can SEE - that is the whole reason the button
+     reads as something waiting to light rather than a plain slab. On ivory
+     that means near-black; on the night ground the same near-black would
+     vanish into the button and leave nothing there to ignite, so it lifts. A
+     pair, stated in both themes, defined in neither alone - same rule as
+     --go/--go-text. */
+  --lamp-off: #23262c;
+  /* 7px. Wide enough to be a LAMP read across a room rather than a border
+     detail read at arm's length; the reference the user picked measured it at
+     exactly this, against a 74px button, and it scales by staying put. */
+  --lamp-width: 7px;
+  /* How far ignition throws. Clipped by the button's own overflow, so it
+     spills INWARD across the face instead of out onto the ground: the lamp
+     lighting the object it is mounted on, which is what a tally does. */
+  --lamp-glow: 0 0 22px 3px;
+
   /* The tally ring's corner. Follows the DEVICE, not the radius family above:
      it traces the phone's own corner, so it is geometry like the grabber pill
      and the stripe rail, not a member of the 10/14/20 ramp. */
@@ -534,6 +555,11 @@
   --m-well-sheet-shade: rgba(0, 0, 0, 0.80);
   --m-well-sheet-lip: rgba(236, 233, 225, 0.10);
   --m-cast: rgba(0, 0, 0, 0.45);
+
+  /* The unlit lamp lifts off the ground rather than sinking into it. Near-
+     black on near-black is not a dark object, it is a hole, and a hole cannot
+     light up. */
+  --lamp-off: #3a3f47;
 }
 
 * { box-sizing: border-box; }
@@ -1148,7 +1174,15 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 
 /* --------------------------------------------------------------- buttons - */
 
+/* EVERY BUTTON IN THE APP IS A TALLY LAMP. The mechanism is documented once,
+   beside `.bigbtn.hw` further down: quiet surface, 1.5px inset hairline, a 7px
+   strip down the leading edge that is dark at rest and ignites on press.
+   Nothing moves. This is the general-purpose button; `.bigbtn.hw` is ROLL and
+   CUT. Same idiom, two sizes, one system - the point is that a crew member
+   learns it once. */
 .btn {
+  position: relative;
+  overflow: hidden;
   min-height: var(--tap);
   padding: 0 var(--sp-5);
   border-radius: var(--radius-sm);
@@ -1158,12 +1192,40 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
-  border: 1px solid var(--line);
-  background: var(--ink-850);
-  color: var(--chalk);
-  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out);
+  /* Inset rather than a real border: the hairline stops eating the content
+     box, so a button's inner width no longer depends on whether it has one. */
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  background: var(--surface);
+  color: var(--text);
+  transition: background var(--dur-state) var(--ease-out);
 }
-.btn:active { transform: scale(0.97); }
+/* The lamp. A pseudo-element here rather than a span, because these 60-odd
+   buttons are plain <button>s all over the app and none of them is going to
+   grow a child for this. */
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--lamp-width);
+  background: var(--lamp-off);
+  pointer-events: none;
+  transition:
+    background var(--dur-press) linear,
+    box-shadow var(--dur-press) linear;
+}
+.btn:active::before,
+.btn.is-pressed::before {
+  background: var(--lamp-on, var(--lamp-off));
+  box-shadow: var(--lamp-glow) var(--lamp-on, transparent);
+}
+/* NOTHING MOVES - the 0.97 squish is gone with the rest of the travel. A
+   neutral button has no lamp to light, so the press has to land somewhere:
+   the surface sinks one step, which is a colour change and not a motion. */
+.btn:active {
+  transform: none;
+  background: var(--paper-sunk-deep);
+}
 .btn--ghost { background: transparent; }
 /* THE PRIMARY BUTTON IS THE ONE ACCENT, NOT GREEN.
    This class is named --go but it has never been the go control: the thing
@@ -1177,9 +1239,19 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    arguing about which one the eye should obey.
    --go, --go-text and --go-fill are untouched and still mean rolling-ready
    wherever a control genuinely says so. What changed is what the CONFIRM
-   button references, which was never that. */
-.btn--go { background: var(--m-accent); color: var(--m-accent-ink); border-color: transparent; }
-.btn--danger { color: var(--rec-text); border-color: var(--rec-deep); background: transparent; }
+   button references, which was never that.
+
+   AND NOW IT REFERENCES IT AS A LAMP. The accent stopped being the fill and
+   became the strip: a confirm is quiet until a thumb is on it, and then it
+   lights lavender. That also settles an argument this rule had with itself -
+   a filled lavender slab a thumb's width from ROLL was two objects claiming
+   to be the primary action. Now the ONLY difference between them is which
+   colour their lamp comes up, which is the difference that is actually true. */
+.btn--go { --lamp-on: var(--m-accent); }
+/* Destructive keeps its red TYPE - the lamp says which button, the type says
+   what it costs, and losing a take is worth saying twice. The red border is
+   gone because the lamp is now the edge. */
+.btn--danger { --lamp-on: var(--m-rec); color: var(--rec-text); }
 .btn--full { width: 100%; }
 .btn:disabled { opacity: 0.4; }
 
@@ -2840,65 +2912,108 @@ select.field {
 }
 .bigbtn--cut:active { box-shadow: 0 6px 0 0 var(--rec-deep); }
 
-/* ================================================== THE MACHINED PRESS ====
-   TWO PARTS, NOT ONE ELEMENT. A camera button is a face sitting proud of a
-   well; it does not squish, it breaks over a detent, bottoms out, and pops
-   back as the finger leaves. So the well never moves and the face descends
-   INTO it, and the shadow BETWEEN them collapses. That collapsing shadow is
-   the whole tell - a single div that just changes colour reads as a web
-   button no matter what curve it is on.
+/* ==================================================== THE TALLY LAMP ======
+   A camera does not announce that it is recording by changing colour. It
+   lights a tally lamp, and every crew on earth already reads that one gesture
+   from the far side of a room without ever being taught it. So the button
+   borrows it, and stops inventing.
 
-   WHY THIS LAYERS ONTO `.bigbtn` RATHER THAN REPLACING IT. `.bigbtn` is not
-   a look, it is a contract: --cut-scale sizes it, --tray-lift lifts the toast
-   off it, --roll-footer-band reserves its band, and `position: sticky` keeps
-   it on screen when the deck scrolls. All four measure the OUTER box. So the
-   outer box stays exactly what it was and the hardware is built inside it -
-   which is also why the face is `flex: 1` and never a fixed height. Take the
-   `hw` class off the element and the old button comes back intact.
+   AT REST the button is quiet: the surface the rest of the screen is made of,
+   a 1.5px inset hairline, its own type. It is not shouting before it has
+   anything to say. Down its LEADING EDGE runs a 7px strip, dark - an unlit
+   bulb. An object visibly waiting, which is a different thing from a flat
+   rectangle.
 
-   Fires on POINTER-DOWN (see RollingScreen). The travel confirms the press;
-   it never gates it. Stopping a take at 4:57 into a good one is the moment
-   this app exists for and it does not get to wait 3px for anything. */
+   ON PRESS the strip IGNITES and throws its glow inward across the face.
+   NOTHING MOVES. No lift, no scale, no 3D, no travel, no squish. That is the
+   whole point rather than a simplification of it: the confirmation is LIGHT,
+   not geometry, and light is what survives a gloved thumb at 3am belonging to
+   someone whose eyes are on the actors and not on the phone. A press you have
+   to look at to feel is not a confirmation.
+
+   THE LAMP COLOUR IS SEMANTIC, and it is the only colour on the button:
+
+     ROLL     --go        rolling-ready
+     CUT      --m-rec     the record red, the same red as the tally ring
+     DONE     --m-accent  the one accent, where a confirm lands
+     neutral  stays dark, and never ignites at all
+
+   Nothing else differs between the three - same surface, same hairline, same
+   type. The lamp IS the difference, which is exactly what makes it legible at
+   a glance instead of something you have to read.
+
+   CUT CARRIES ITS LAMP LIT FOR THE WHOLE TAKE, not only under the thumb. A
+   tally is on while the camera runs; that is what the object means, and a
+   button labelled CUT sitting dark while three cameras roll would be the one
+   place this metaphor lied. Press then adds the glow on top.
+
+   WHY THIS LAYERS ONTO `.bigbtn` RATHER THAN REPLACING IT - unchanged from
+   the machined press this supersedes, and still the load-bearing part.
+   `.bigbtn` is not a look, it is a contract: --cut-scale sizes it,
+   --tray-lift lifts the toast off it, --roll-footer-band reserves its band,
+   and `position: sticky` keeps it on screen when the deck scrolls. All four
+   measure the OUTER box, and that box is thumb-calibrated at x16 y714
+   358x104 on a 390x844 phone. So the outer box stays exactly what it was and
+   the lamp is built inside it. The two children it already had are reused
+   rather than restructured - `.hw__well` is now the lamp, `.hw__face` is the
+   quiet surface - so not a line of JSX moved and the pointer-down gate that
+   keeps CUT unreachable during a tag edit is untouched.
+
+   Fires on POINTER-DOWN (see RollingScreen). Ignition trails the action and
+   never gates it.
+   ========================================================================= */
 .bigbtn.hw {
   position: relative;
+  /* The lamp is a square strip inside a rounded box, so the box does the
+     rounding. This clips the ignition glow too, which is the intent: it
+     spills across the FACE rather than out onto the ground. */
+  overflow: hidden;
+  border-radius: var(--radius-lg);
   background: transparent;
   border: none;
   padding: 0;
   /* The face fills the box, so the operator's CUT-size choice still lands. */
   align-items: stretch;
-  /* The old flat under-key drop is now drawn by the face's own under-edge. */
   box-shadow: none;
   transform: none;
   transition: none;
 }
-/* .bigbtn:active moved the whole button. The well is the one thing on this
-   screen that must never move - it is the hole, not the key. */
-.bigbtn.hw:active {
+/* Nothing moves, and both states have to say so. `.is-pressed` sits beside
+   `:active` everywhere because that is how the press gets screenshotted, and
+   how a held key survives a finger that slides off without lifting. */
+.bigbtn.hw:active,
+.bigbtn.hw.is-pressed {
   transform: none;
   box-shadow: none;
 }
 /* The ground ring is load-bearing and survives the repaint: chips scrolling
    under the sticky footer were hit-testable beside CUT until this painted an
-   opaque band around it (see the .roll__deck note above). The key drop is
-   dropped from both states because the face carries its own now. */
+   opaque band around it (see the .roll__deck note above). `overflow: hidden`
+   clips this element's DESCENDANTS, never its own outset shadow, so the ring
+   is unaffected by the clip that contains the glow. */
 .roll__deck > .bigbtn.hw,
 .roll__deck > .bigbtn.hw:active {
   box-shadow: 0 0 0 var(--sp-4) var(--ink-950);
 }
 
+/* THE LAMP. Was the well; the DOM is the same span. */
 .hw__well {
   position: absolute;
-  /* Outside the border box on every side, so the face is genuinely INSIDE
-     something rather than sitting on a mat. The 6px bottom overhang lives in
-     the room --key-drop (10px) already reserves below the button. */
-  inset: -5px;
-  border-radius: calc(var(--radius-lg) + 5px);
-  background: var(--m-well-sheet);
-  box-shadow:
-    inset 0 2px 4px var(--m-well-sheet-shade),
-    inset 0 -1px 0 var(--m-well-sheet-lip);
+  inset: 0 auto 0 0;
+  width: var(--lamp-width);
+  border-radius: 0;
+  background: var(--lamp-off);
+  /* Above the face, so the glow washes over it rather than under it. */
+  z-index: 1;
   pointer-events: none;
+  transition:
+    background var(--dur-press) linear,
+    box-shadow var(--dur-press) linear;
 }
+
+/* THE FACE. Quiet: the app's own surface, its own ink, a 1.5px inset
+   hairline. Inset rather than a border because a border would eat into the
+   content box, and this box is measured. */
 .hw__face {
   position: relative;
   flex: 1 1 auto;
@@ -2906,83 +3021,40 @@ select.field {
   align-items: center;
   justify-content: center;
   gap: inherit;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(color-mix(in srgb, var(--m-accent) 94%, #fff) 0%, var(--m-accent) 55%);
-  color: var(--m-accent-ink);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--hairline);
   /* Wider than --track-caps on purpose: this is the one control read at arm's
      length in the dark, and the approved design tracks it as signage. Size and
      weight are inherited so --cut-scale keeps governing the whole object. */
   letter-spacing: 0.28em;
   text-indent: 0.28em; /* centres against the trailing letter-space */
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.10),
-    0 3px 0 var(--m-accent-deep),
-    0 12px 20px var(--m-cast);
-  transition:
-    transform 170ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 170ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  will-change: transform;
-}
-/* 3px down in 80ms, back in 170ms with a hair of overshoot. `.is-pressed` sits
-   beside `:active` everywhere so the state can be driven from script - which
-   is how it gets screenshotted, and how a held key survives a finger that
-   slides off the button without lifting. */
-.bigbtn.hw:active .hw__face,
-.bigbtn.hw.is-pressed .hw__face {
-  transform: translateY(3px);
-  background: var(--m-accent-press);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 2px 3px rgba(0, 0, 0, 0.14),
-    0 0 0 var(--m-accent-deep),
-    0 3px 6px var(--m-cast);
-  transition:
-    transform 80ms cubic-bezier(0.3, 0.7, 0.4, 1),
-    box-shadow 80ms cubic-bezier(0.3, 0.7, 0.4, 1);
+  /* Centre the label in the LIT ROOM, not under the lamp. */
+  padding-inline-start: var(--lamp-width);
+  transform: none;
+  transition: background var(--dur-state) linear;
 }
 
-/* CUT is the heavier part, and it says so: a deeper well, 4px of travel, a
-   sharper 70ms break and a 200ms recovery. Ending a take is the consequential
-   press, so it gets the bigger switch - the same hand learns two weights and
-   can tell them apart without looking. */
-.bigbtn.hw--cut .hw__well {
-  inset: -6px;
-  border-radius: calc(var(--radius-lg) + 6px);
-  background: var(--m-well-mass);
-  box-shadow:
-    inset 0 3px 6px var(--m-well-mass-shade),
-    inset 0 -1.5px 0 var(--m-well-mass-lip);
+/* What each button's lamp is FOR. One declaration each, and it is the entire
+   difference between them. */
+.bigbtn.hw--go { --lamp-on: var(--go); }
+.bigbtn.hw--cut { --lamp-on: var(--m-rec); }
+.bigbtn.hw--done { --lamp-on: var(--m-accent); }
+
+/* Rolling: the tally is ON, thumb or no thumb. No glow - a glow is the press,
+   and a button that glowed for four minutes would stop meaning anything. */
+.roll--live .bigbtn.hw--cut .hw__well {
+  background: var(--m-rec);
 }
-.bigbtn.hw--cut .hw__face {
-  background: linear-gradient(var(--m-raised) 0%, var(--m-mass) 70%);
-  color: var(--m-mass-ink);
-  box-shadow:
-    inset 0 1.5px 0 rgba(241, 240, 234, 0.14),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.50),
-    0 4px 0 #000,
-    0 14px 22px var(--m-cast-mass);
-  transition:
-    transform 200ms cubic-bezier(0.3, 1.4, 0.5, 1),
-    box-shadow 200ms cubic-bezier(0.3, 1.4, 0.5, 1),
-    background 200ms cubic-bezier(0.3, 1.4, 0.5, 1);
+
+/* Ignition. */
+.bigbtn.hw:active .hw__well,
+.bigbtn.hw.is-pressed .hw__well {
+  background: var(--lamp-on, var(--lamp-off));
+  box-shadow: var(--lamp-glow) var(--lamp-on, transparent);
 }
-/* Bottomed out: one step up the mass ramp, and the inner shadow arrives - the
-   face is now BELOW the lip, so the well casts onto it. */
-.bigbtn.hw--cut:active .hw__face,
-.bigbtn.hw--cut.is-pressed .hw__face {
-  transform: translateY(4px);
-  background: linear-gradient(var(--m-pressed) 0%, var(--m-raised) 70%);
-  box-shadow:
-    inset 0 1px 0 rgba(241, 240, 234, 0.06),
-    inset 0 3px 6px rgba(0, 0, 0, 0.55),
-    0 0 0 #000,
-    0 2px 5px var(--m-cast-mass);
-  transition:
-    transform 70ms cubic-bezier(0.3, 0.7, 0.4, 1),
-    box-shadow 70ms cubic-bezier(0.3, 0.7, 0.4, 1),
-    background 70ms cubic-bezier(0.3, 0.7, 0.4, 1);
-}
+
 /* Red is recording, never an action. CUT names the state it is about to end,
    so the dot rides the label rather than filling the button. */
 .hw__dot {
@@ -2993,17 +3065,15 @@ select.field {
   flex: 0 0 auto;
 }
 
-/* Travel is the confirmation, so with travel switched off the confirmation
-   has to be carried entirely by colour. The global reduce block above already
-   forces `transition-property: opacity`, so both states land instantly; all
-   that is left is to stop the face moving. Same specificity as the rules it
-   overrides, placed after them. */
+/* Ignition is already instant - 80ms is the press, not an animation - but
+   reduced motion asks for a colour change with no transition at all, so the
+   lamp arrives lit and the glow arrives with it. The global reduce block
+   above forces `transition-property: opacity`; this states the still form
+   rather than inheriting it, same as the drum in skin/roll.css. */
 @media (prefers-reduced-motion: reduce) {
-  .bigbtn.hw:active .hw__face,
-  .bigbtn.hw.is-pressed .hw__face,
-  .bigbtn.hw--cut:active .hw__face,
-  .bigbtn.hw--cut.is-pressed .hw__face {
-    transform: none;
+  .hw__well,
+  .btn::before {
+    transition: none;
   }
 }
 

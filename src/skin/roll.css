@@ -826,55 +826,18 @@
 }
 
 /* ---------------------------------------------------- ROLL / CUT at night --
-   Same well, same travel, same overshoot. What changes is the material: the
-   face stops reflecting light and the LEGEND lights, because a lavender fill
-   at 3am out-glows the tally ring it is supposed to sit under. The press
-   acknowledges by brightening the legend rather than darkening the face — a
-   backlit key answers with light. */
-[data-theme="night"] .roll .bigbtn.hw .hw__face {
-  background: linear-gradient(#262534 0%, #201f2c 60%);
-  color: var(--m-accent);
-  text-shadow: 0 0 16px rgba(201, 198, 247, 0.32);
-  box-shadow:
-    inset 0 1px 0 rgba(201, 198, 247, 0.14),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-    0 3px 0 #3b3878,
-    0 10px 18px rgba(0, 0, 0, 0.5);
-}
-[data-theme="night"] .roll .bigbtn.hw:active .hw__face,
-[data-theme="night"] .roll .bigbtn.hw.is-pressed .hw__face {
-  background: linear-gradient(#2c2b3c 0%, #262534 60%);
-  color: #dddbfa;
-  box-shadow:
-    inset 0 1px 0 rgba(201, 198, 247, 0.08),
-    inset 0 2px 4px rgba(0, 0, 0, 0.5),
-    0 0 0 #3b3878,
-    0 2px 5px rgba(0, 0, 0, 0.4);
-}
-/* CUT is a different part and keeps its own metal: anodised black, a chalk
-   legend, and the red dot at full value doing the flagging. Its box-shadow has
-   to be restated because the night ROLL rule above outranks styles.css's
-   `.bigbtn.hw--cut .hw__face` - without this, CUT inherits ROLL's violet
-   under-edge and grows a lavender line along its bottom at 3am. */
-[data-theme="night"] .roll .bigbtn.hw--cut .hw__face {
-  background: linear-gradient(#20261f 0%, #171d17 70%);
-  color: var(--roll-mass-ink);
-  text-shadow: 0 0 14px rgba(214, 212, 200, 0.2);
-  box-shadow:
-    inset 0 1.5px 0 rgba(214, 212, 200, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-    0 4px 0 #000,
-    0 14px 22px rgba(0, 0, 0, 0.55);
-}
-[data-theme="night"] .roll .bigbtn.hw--cut:active .hw__face,
-[data-theme="night"] .roll .bigbtn.hw--cut.is-pressed .hw__face {
-  background: linear-gradient(#2a322a 0%, #20261f 70%);
-  box-shadow:
-    inset 0 1px 0 rgba(214, 212, 200, 0.05),
-    inset 0 3px 6px rgba(0, 0, 0, 0.6),
-    0 0 0 #000,
-    0 2px 5px rgba(0, 0, 0, 0.45);
-}
+   NOTHING TO DO, and that is the point. The tally lamp reads --surface,
+   --hairline and --text, and this file already restates all three for night a
+   few rules up (#151B17 / #232A25 / #D6D4C8, the capped chalk). So the button
+   picks up the roll screen's own night material for free and the lamp is the
+   only thing that is ever coloured, in either theme.
+
+   What used to live here was a full second skin: a violet gradient face, a lit
+   legend, a lavender under-edge, and then a fourth rule to stop CUT inheriting
+   all of it. Four rules existed because the DAY button was made of colour, so
+   night had to be made of a different colour. A button made of light instead
+   needs one lamp and no theme fork.
+   ========================================================================== */
 
 /* ==========================================================================
    THE UNIT SLOTS — every camera, and sound
