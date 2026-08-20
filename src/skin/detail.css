@@ -104,6 +104,28 @@
   color: var(--pj-mass-faint);
 }
 
+/* ShotsScreen's shot code and its spec ("MCU · push-in") reuse `.card__name`
+ * for layout but are their own two-tier read: the code in brass (the same
+ * register the PDF gives it), the spec quieter than a name would be. The
+ * shot code's base rule reaches for `--brass-text`, which styles.css tunes
+ * dark for legibility on the ivory sheet — on the key's own dark ground that
+ * is a dark mark on a dark ground. `--brass` is the bright half of the same
+ * pair (the one InstallNudge already puts directly on `--m-card`), so this is
+ * the read the key actually needs; at night the two tokens are already the
+ * same value; so this only changes anything for day. */
+.pj .shotcode {
+  color: var(--brass);
+}
+.pj .card__name.shotspec {
+  color: var(--pj-mass-dim);
+}
+/* Same day-only contrast problem as the shot code: `.shotline`'s dialogue
+ * quote reaches for `--text-dim`, tuned against the ivory page, not the key
+ * it now sits on. */
+.pj .shotline {
+  color: var(--pj-mass-dim);
+}
+
 /* Coverage dot. Round 1 drew "shot" as a bright green fill in a deep ring;
  * green here was never about rolling-readiness, it was reusing the app's only
  * saturated colour because nothing else was on hand. The accent already

@@ -123,6 +123,10 @@ export function ShotsScreen(props: {
             <span>This scene rolls as one setup. Import a shotlist to split it up.</span>
           </div>
         ) : (
+          /* Same mass/key idiom as the scene list one level up (see
+             ProjectScreen's own comment) — a shot list open on a scene is the
+             same kind of place as a scene list open on a project. */
+          <div className="pj-mass scenemass">
           <div className="stack">
             {stats.map(({ shot, takeCount, goodCount, totalMs }) => (
               <div key={shot.id} className="cardrow">
@@ -162,6 +166,7 @@ export function ShotsScreen(props: {
                 </button>
               </div>
             ))}
+          </div>
           </div>
         )}
 
