@@ -1,9 +1,14 @@
 /* ==========================================================================
    Clapper - on-set take logger
-   Design language: camera-department hardware. One signal green (GO), record
-   red (ROLLING), brass for GOLD. All numerals are tabular monospace, like a
-   real timecode readout. The clapper stick stripe is the recurring signature.
-   System fonts only (offline PWA, no network). No em dashes in copy.
+   Design language: camera-department hardware, now carrying the client's
+   brand green (pale #E2F0CC, vibrant #8BC53D, deep #012F13, near-black
+   #011207 - docs/specs/2026-08-20-brand-palette.md). One signal teal (GO,
+   deliberately NOT the brand green - see the note beside --go), record red
+   (ROLLING), brass for GOLD. All numerals are tabular monospace, like a real
+   timecode readout. The clapper stick stripe is the recurring signature and
+   is the one thing in the app that stays black and white regardless of
+   theme or brand. System fonts only (offline PWA, no network). No em dashes
+   in copy.
 
    THE CLEAR THEME IS THE DEFAULT (docs/specs/2026-08-14-light-theme.md).
    A phone at midday holds ~1,000 nits against ~10,000 lux; a dark UI outdoors
@@ -26,17 +31,37 @@
      charcoal slate and the "ink" is chalk. Only this block and the signal
      aliases below are redefined by [data-theme="night"]; everything downstream
      of them follows for free. */
-  --paper: #fbfaf7;        /* page ground. Warm ivory, not #fff: ties to the
-                              landing page and stops the screen reading clinical */
-  --paper-raised: #ffffff; /* cards, grouped inset rows */
-  --paper-sunk: #f2f0ea;   /* wells, inputs, the scrubbed track */
-  --paper-sunk-deep: #edeae2; /* 4th step: chips, keycaps, badges. Held this
-                              light on purpose - every signal *-text token
-                              measures exactly >=4.50:1 on it, and one step
-                              darker drops --go-text to 4.33 */
-  --ink: #14151a;          /* primary type        17.47:1 on paper */
-  --ink-dim: #5a5e68;      /* secondary            6.22:1 */
-  --ink-faint: #7c808a;    /* non-essential ONLY   3.79:1 - never for a number,
+  /* CLIENT PALETTE, approved for both themes (docs/specs/2026-08-20-brand-
+     palette.md): #E2F0CC pale green, #8BC53D vibrant green, #012F13 deep
+     green, #011207 near-black green. The four are fixed; everything below is
+     a tint or shade mixed between them, never a fifth hue. --paper is now a
+     wash LIGHTER than the pale green rather than the pale green itself - the
+     approved light specimen treats #E2F0CC as a SURFACE (a card, a well) that
+     sits on top of the ground, not the ground's own colour, because painting
+     the whole screen in #E2F0CC reads as a tinted photo instead of a material
+     stack. See the accent block below for why #8BC53D never appears as type. */
+  --paper: #F2F8E6;        /* page ground: the wash, lighter than the pale
+                              green surface it carries */
+  --paper-raised: #ffffff; /* cards, grouped inset rows - unchanged from the
+                              ivory theme; a card was already the brightest
+                              thing on the page and stays that way */
+  --paper-sunk: #E2F0CC;   /* wells, inputs, the scrubbed track - the palette's
+                              own pale green, spent exactly where the brief's
+                              reference image shows it: as a surface */
+  --paper-sunk-deep: #dbeac3; /* 4th step: chips, keycaps, badges. One step
+                              past the pale-green surface toward the hairline,
+                              not an independent pick - keeps the ladder inside
+                              the four-colour family instead of inventing a
+                              fifth tone. Held this light on purpose, same
+                              reason as the ivory theme: every signal *-text
+                              token measures >=4.5:1 on it (rec-text is the
+                              tightest at 4.69:1; one step darker drops it
+                              under 4.5). */
+  --ink: #011207;          /* primary type. Near-black green, not the deep
+                              green - measured 17.73:1 on the wash, and the
+                              approved specimen calls this pairing out by name */
+  --ink-dim: #3D5442;      /* secondary            7.60:1 on the wash */
+  --ink-faint: #6B7F6A;    /* non-essential ONLY   3.97:1 - never for a number,
                               never for a label that carries meaning.
                               Auditing the rendered app against this rule moved
                               19 rules off it and onto --text-dim: warning copy,
@@ -47,34 +72,51 @@
                               legitimately stays faint: chevrons, placeholders,
                               the un-shot dot, and takes already struck through
                               as discarded, where the strike is the message. */
-  --rule: #ddd9d0;
-  --rule-soft: #ebe8e1;
+  --rule: #C9DDAE;
+  --rule-soft: #d9e9c2;
 
   /* ---- Signals -----------------------------------------------------------
      Every signal splits in two, because NONE of the bright values survives as
-     type on paper: --go 1.91:1, --brass 1.94:1, --sound 2.79:1, --rec 3.40:1.
+     type on paper: --go 1.90:1, --brass 1.94:1, --sound 2.79:1, --rec 3.40:1.
 
        BRIGHT (--go)       FILLS ONLY. Filled buttons via --go-fill, the
                            rolling pulse, tag chips, decorative dots.
        DEEP   (--go-text)  TYPE, ICONS, AND FUNCTIONAL INDICATORS. Labels, the
                            active tab, an inline number, and any border or dot
                            that is the only thing saying which state you are in
-                           - bright --go as a 1px edge on paper is 1.91:1 and
+                           - bright --go as a 1px edge on paper is 1.90:1 and
                            fails even the 3:1 non-text bar.
 
      On night the bright value IS the legible one, so --go-text aliases back to
-     --go and nothing about the dark theme moves. */
-  --go: #38d178;         /* action / go / rolling-ready */
-  --go-text: #0e7a43;    /* 5.18:1 on paper */
+     --go and nothing about the dark theme moves.
+
+     --GO IS NOT ONE OF THE FOUR BRAND COLOURS, and stays that way on purpose.
+     The brand identity now runs on green (--m-accent #8BC53D, --ink #011207,
+     the machined mass), and rolling-ready used to be spring green (#38d178,
+     hue 145) sitting almost on top of the identity's own deep green (#012F13,
+     hue 143.5) - the exact collision the brief warned about, and the reason a
+     project's clip filename was rendering in the same rgb(56,209,120) as the
+     brand mark before this pass. A state token and a brand token that share a
+     hue stop being two facts; the identity wins the ground on every screen
+     it's held, and "rolling ready" quietly stops meaning anything. --go moves
+     to a teal (hue ~174, #29c9ba) - far enough from both #8BC53D (hue 86) and
+     #012F13 (hue 143.5) to read as its own signal in both themes, and far
+     enough from --sound (hue 203) that the two don't merge either. Swept every
+     rule that painted a filename, a clip number or a plain count in --go-text
+     and moved it to ink: a value is not a state just because it is on the
+     screen the state also lives on. */
+  --go: #29c9ba;          /* action / go / rolling-ready. Deliberately NOT one
+                              of the four brand colours - see above */
+  --go-text: #176f66;    /* 5.45:1 on paper */
   --rec: #ff3b30;        /* cut / rolling / destructive */
-  --rec-text: #c0261d;   /* 5.69:1 */
+  --rec-text: #c0261d;   /* 5.40:1 */
   --brass: #d8b23c;      /* GOLD tag, highlights */
-  --brass-text: #7a5f0e; /* 5.80:1 */
+  --brass-text: #7a5f0e; /* 5.57:1 */
   --sound: #4f9fd1;      /* production-sound accent, never a fifth camera */
-  --sound-text: #1f6187; /* 6.45:1 */
+  --sound-text: #1f6187; /* 6.20:1 */
 
   /* A filled control and the ink that sits on it. White on --go-text is
-     5.41:1 and on --rec-text 5.94:1; white on the BRIGHT values is 1.99:1 and
+     6.00:1 and on --rec-text 5.94:1; white on the BRIGHT values is 2.07:1 and
      3.55:1, which is the whole reason this indirection exists. */
   --go-fill: var(--go-text);
   --go-fill-ink: #ffffff;
@@ -102,7 +144,7 @@
 
   /* Under-key shadow on the hardware-style buttons: must be DARKER than the
      fill it sits under, so it inverts with the fill. */
-  --go-deep: #08512c;
+  --go-deep: #125a54;
   --rec-deep: #7a1610;
   --sound-deep: #1a4f6d;
 
@@ -283,8 +325,8 @@
      not allowed to touch, still say var(--ink-800) or var(--chalk-dim). They
      resolve through the semantic layer, so they repaint with everything else.
 
-     READ THIS BEFORE ADDING A USE: `--ink` is TYPE (#14151a on light) and
-     `--ink-950` is the GROUND (#fbfaf7 on light). They are opposites that
+     READ THIS BEFORE ADDING A USE: `--ink` is TYPE (#011207 on light) and
+     `--ink-950` is the GROUND (#F2F8E6 on light). They are opposites that
      sort next to each other in an editor. Do not add new uses of the NUMBERED
      names - reach for --bg / --surface / --text instead. */
   --ink-950: var(--bg);
@@ -317,7 +359,7 @@
      CHROME that content scrolls underneath. It goes on nothing else - never on
      a card, which is content, and never on a descendant of a scroll container,
      which repaints the blur every frame on a phone that is already working. */
-  --material-bg: rgba(251, 250, 247, 0.86);
+  --material-bg: rgba(242, 248, 230, 0.86); /* --paper's channels */
   --material-solid: var(--paper); /* the no-blur fallback, see @supports below */
   --material-hairline: var(--hairline);
 
@@ -384,28 +426,50 @@
      the old tokens still dress the four screens it has not reached, and 228
      tests plus the whole night ramp have to survive every intermediate state.
 
-     The palette is the approved one. The distinction that matters is SHEET vs
-     MASS: the app's ground is milled ivory, and a control is either a well
-     cut INTO that ivory (ROLL) or a block of dark metal set into it (CUT).
-     Those are different materials, so they get different wells and different
-     travel, not one button with two fills. */
-  --m-sheet: #f7f6f2;         /* the ivory a well is milled into */
-  --m-mass: #101714;          /* the dark block CUT is cut from */
-  --m-raised: #1c2420;        /* a key standing on the mass */
-  --m-pressed: #242d28;       /* that key, bottomed out */
-  --m-accent: #c9c6f7;        /* the ONE accent, where the thumb lands */
-  --m-accent-press: #afabe8;
-  --m-accent-ink: #22204a;    /* type on the accent, 8.6:1 */
-  --m-accent-deep: #8d89cf;   /* the accent's machined under-edge */
-  --m-accent-text: #5a55a8;   /* the accent AS TYPE. Same split --go-text
-                                 makes: #c9c6f7 is a fill, and as type on
-                                 paper it is unreadable. This is the pitch's
-                                 own deep lavender, and night collapses it
-                                 back to --m-accent the way --go-text does. */
-  --m-mass-ink: #f1f0ea;      /* type on the mass. NOT themed, for the same
+     The palette is the client's approved four: #E2F0CC pale green, #8BC53D
+     vibrant green, #012F13 deep green, #011207 near-black green - fixed
+     values, mixed only between themselves for any intermediate step. The
+     distinction that still matters is SHEET vs MASS: the app's ground is the
+     pale wash, and a control is either a well cut INTO that wash (ROLL) or a
+     block of dark metal set into it (CUT). Those are different materials, so
+     they get different wells and different travel, not one button with two
+     fills.
+
+     THE BUTTONS' 3D TREATMENT IS BEING REPLACED (client direction, in
+     review). --m-pressed, --m-accent-deep, --m-cast/--m-cast-mass and the
+     well shade/lip pairs below exist only to sell that extruded, backlit-key
+     look - press travel, an under-edge, a cast shadow. They are recoloured
+     here so the app is not caught mid-repaint in the wrong palette, but they
+     are not the reason to touch this block again: when the flat treatment
+     lands, those names are the ones to delete, not retune. */
+  --m-sheet: #F2F8E6;         /* the ground a well is milled into - the wash,
+                                 same value as --paper */
+  --m-mass: #011207;          /* the dark block CUT is cut from: the near-
+                                 black green, the darkest of the four */
+  --m-raised: #012F13;        /* a key standing on the mass: the deep green,
+                                 one step lighter than the mass it stands on */
+  --m-pressed: #04220E;       /* that key, bottomed out - between mass and
+                                 raised. Serves the retiring press-travel
+                                 effect; see the note above. */
+  --m-accent: #8BC53D;        /* the ONE accent, where the thumb lands - the
+                                 client's vibrant green, unmixed */
+  --m-accent-press: #6d9e31;  /* the accent 22% toward the near-black green,
+                                 for the pressed fill state */
+  --m-accent-ink: #011207;    /* type on the accent: the near-black green,
+                                 9.31:1 - exceeds the lavender-era 8.6:1 */
+  --m-accent-deep: #012F13;   /* the accent's machined under-edge: the deep
+                                 green. Serves the retiring bevel; see the
+                                 note above. */
+  --m-accent-text: #012F13;   /* the accent AS TYPE. Same split --go-text
+                                 makes: #8BC53D is a fill, and as type on
+                                 paper it is unreadable (1.73:1). The deep
+                                 green carries it instead, 13.65:1 on the
+                                 wash, and night collapses it back to
+                                 --m-accent the way --go-text does. */
+  --m-mass-ink: #E2F0CC;      /* type on the mass. NOT themed, for the same
                                  reason the clapper stripe is not: the mass is
                                  dark at 2pm and at 5am, so its ink is light at
-                                 2pm and at 5am */
+                                 2pm and at 5am. The pale green, 16.11:1 */
   --m-rec: #ff453a;           /* recording ONLY: the ring. Never a button fill */
   --m-brass: #d8b23c;         /* GOLD and nothing else */
   --m-brass-deep: #8a6d14;
@@ -413,16 +477,30 @@
   /* The two wells. A well is RECESSED, so it is always darker than the
      surface it is cut from, with a lit lip along its bottom edge where the
      milling catches the light. Those two shadows are what the eye actually
-     reads as "machined"; the fill alone reads as a second rectangle. */
-  --m-well-sheet: #eae7dc;
+     reads as "machined"; the fill alone reads as a second rectangle. Both
+     shade/lip pairs are neutral rgba overlays, not palette colours, and are
+     unchanged by this pass; they serve the retiring 3D treatment along with
+     --m-pressed and --m-accent-deep above. */
+  --m-well-sheet: #E2F0CC;    /* the pale green, spent as a surface exactly
+                                 where the brief's reference shows it */
   --m-well-sheet-shade: rgba(22, 24, 26, 0.20);
   --m-well-sheet-lip: rgba(255, 255, 255, 0.85);
-  --m-well-mass: #030605;
+  --m-well-mass: #010c05;     /* --m-mass (#011207) mixed 35% toward true
+                                 black - the mass itself is now the darkest of
+                                 the four palette colours, so a cut recessed
+                                 INTO it needs a step the four-colour family
+                                 does not contain on its own; derived as a
+                                 shade of the mass, same way --key-shadow and
+                                 --m-cast-mass are already pure-black-derived
+                                 shadows rather than palette colours */
   --m-well-mass-shade: rgba(0, 0, 0, 0.90);
-  --m-well-mass-lip: rgba(241, 240, 234, 0.13);
+  --m-well-mass-lip: rgba(226, 240, 204, 0.13); /* was ivory-based; now the
+                                 pale green's own channels */
   /* What a proud face casts onto the sheet below it. Light keeps this soft -
-     the existing --key-shadow note applies, a black slab on ivory is wrong. */
-  --m-cast: rgba(20, 22, 40, 0.16);
+     the existing --key-shadow note applies, a black slab on ivory is wrong.
+     Retinted from the deep green's own channels; the old rgba(20,22,40,…)
+     carried a blue-lavender cast left over from the pitch accent. */
+  --m-cast: rgba(1, 47, 19, 0.16);
   --m-cast-mass: rgba(0, 0, 0, 0.50);
 
   /* The tally ring's corner. Follows the DEVICE, not the radius family above:
@@ -453,21 +531,26 @@
    index.html before first paint - doing it in React means a white flash into
    night mode at 4am, which is exactly the moment it is least welcome.
 
-   This is the ramp exactly as it shipped, restored onto the primitive names.
-   Every signal's *-text alias collapses back onto the bright value, because
-   on near-black the bright value is the legible one: --go measures 9.77:1 on
-   this ground against 1.91:1 on paper. Nothing downstream of these names
-   needs a night rule of its own. */
+   Client-approved dark values (docs/specs/2026-08-20-brand-palette.md): the
+   ground and the mass are now literally the same near-black green, because
+   the client's own mapping sends "dark ground" to both --paper and --m-mass -
+   the CUT block was already meant to read as the app's own darkest surface,
+   not a separate metal bolted onto it. Every signal's *-text alias collapses
+   back onto the bright value, because on near-black the bright value is the
+   legible one: --go measures 9.31:1 on this ground against 1.90:1 on paper.
+   Nothing downstream of these names needs a night rule of its own. */
 [data-theme="night"] {
-  --paper: #0c0d10;
-  --paper-raised: #121319;
-  --paper-sunk: #181a21;
-  --paper-sunk-deep: #1f222b;
-  --ink: #ece9e1;       /* chalk: warm off-white, never pure #fff */
-  --ink-dim: #9a9da7;
-  --ink-faint: #61646e;
-  --rule: #2b2e39;
-  --rule-soft: #23262f;
+  --paper: #011207;
+  --paper-raised: #012F13;
+  --paper-sunk: #04220E;
+  --paper-sunk-deep: #093216;
+  --ink: #E2F0CC;        /* the pale green, used flat: 16.11:1 on the ground,
+                             and it is the client-approved value, not a
+                             brightened derivative of it */
+  --ink-dim: #9DB59A;
+  --ink-faint: #6F8570;
+  --rule: #0C3D1C;
+  --rule-soft: #082c14;
 
   /* The split collapses: bright IS the type colour here. */
   --m-accent-text: var(--m-accent);
@@ -477,7 +560,7 @@
   --sound-text: var(--sound);
 
   --go-fill: var(--go);
-  --go-fill-ink: #052213;
+  --go-fill-ink: #011207;
   --rec-fill: var(--rec);
   --rec-fill-ink: #ffffff;
   --brass-fill: var(--brass);
@@ -494,7 +577,7 @@
   --brass-tint: color-mix(in srgb, var(--brass) 14%, transparent);
   --sound-tint: color-mix(in srgb, var(--sound) 14%, transparent);
 
-  --go-deep: #1f7a48;
+  --go-deep: #1d8d82;
   --rec-deep: #7a1c17;
   --sound-deep: #2c5f7a;
 
@@ -508,9 +591,9 @@
   --key-shadow: rgba(0, 0, 0, 0.42);
   --lift-shadow: rgba(0, 0, 0, 0.45);
 
-  --material-bg: rgba(18, 19, 25, 0.80);
+  --material-bg: rgba(1, 47, 19, 0.80); /* --surface's (--paper-raised) channels */
   --material-solid: var(--surface);
-  --material-cap-bg: rgba(18, 19, 25, 0.80);
+  --material-cap-bg: rgba(1, 47, 19, 0.80);
   --material-cap-solid: var(--surface);
   /* Half of light's saturation lift, and a hair of brightness rather than
      light's none. See the long note beside the light value; the short version
@@ -520,19 +603,27 @@
 
   /* ---- Machined layer on night ------------------------------------------
      THE APPROVED DESIGN IS SINGLE-THEME, so this half is designed here rather
-     than ported. Only the SHEET side moves. The ivory well (#eae7dc) on a
-     #0c0d10 ground would be a lit slab floating under the button - the exact
-     opposite of a recess - so the sheet well drops below the ground and its
-     lip stops being white, because a specular highlight that bright at 5am is
-     the thing you are holding the phone away from your face to avoid.
+     than ported. Only the SHEET side moves. The pale-green well (#E2F0CC) on
+     a near-black ground would be a lit slab floating under the button - the
+     exact opposite of a recess - so the sheet well drops below the ground and
+     its lip stops being a bright warm white, because a specular highlight
+     that bright at 5am is the thing you are holding the phone away from your
+     face to avoid.
 
-     The MASS side needs nothing: #030605 is already below night's ground, so
-     CUT reads recessed in both themes for free. The accent needs nothing
-     either - #c9c6f7 was picked to carry --m-accent-ink on it, and that pair
-     is a closed system that does not care what is behind the button. */
-  --m-well-sheet: #06070a;
+     The MASS side needs nothing new here: --m-well-mass (#010c05, defined
+     above) is already darker than both --m-mass and night's --paper, so CUT
+     reads recessed in both themes without a night override. The accent needs
+     nothing either - #8BC53D was picked to carry --m-accent-ink on it, and
+     that pair is a closed system that does not care what is behind the
+     button. Client's dark-theme mapping sends the same near-black green to
+     both --m-mass and night's --paper, so the two are now identical rather
+     than one step apart the way round 3 shipped them; CUT still separates
+     from the page by its --m-raised face and its shadow, not by a base-colour
+     gap, which is worth confirming by eye once the screens are up. */
+  --m-well-sheet: #010c05;
   --m-well-sheet-shade: rgba(0, 0, 0, 0.80);
-  --m-well-sheet-lip: rgba(236, 233, 225, 0.10);
+  --m-well-sheet-lip: rgba(226, 240, 204, 0.10); /* was ivory-based; now the
+                                 pale green's own channels */
   --m-cast: rgba(0, 0, 0, 0.45);
 }
 
@@ -776,11 +867,11 @@ input, select, textarea {
 
 /* ---- grouped-inset card edge -------------------------------------------
    src/ui/list.css draws the card as --surface on --bg and nothing else, which
-   is right on night (#121319 on #0c0d10) but lands at 1.04:1 on light, where
-   the card is #ffffff on #fbfaf7 and effectively disappears. iOS gets away
-   with that separation because its grouped background is markedly greyer than
-   its rows; our paper is a warm ivory chosen to match the landing page, and it
-   is not.
+   is right on night (#012F13 on #011207, a real step) but lands at 1.04:1 on
+   light, where the card is #ffffff on #F2F8E6 and effectively disappears. iOS
+   gets away with that separation because its grouped background is markedly
+   greyer than its rows; our paper is a pale green wash, and a white card on a
+   pale wash needs the same help an ivory one did.
 
    So the card takes a hairline, which is also what `.card` next to it already
    does - one house rule, not a light-theme patch. Lives here rather than in
@@ -1563,7 +1654,10 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .clipset__preview .tnum {
   font-size: var(--t-display);
-  color: var(--go-text);
+  color: var(--chalk); /* was --go-text: a clip number is data, not a
+                           rolling-ready signal, and the new brand green sits
+                           too close to the old --go for the two to keep
+                           reading as different facts */
   font-weight: 700;
 }
 
@@ -2019,7 +2113,9 @@ select.field {
 .clipwidget__preview .tnum {
   font-size: var(--t-display);
   font-weight: 700;
-  color: var(--go-text);
+  color: var(--chalk); /* was --go-text - a clip number/day count is data,
+                           not a rolling-ready signal; see the note beside
+                           .clipset__preview .tnum */
 }
 .clipgrid { display: grid; grid-template-columns: 1.4fr 1fr 0.8fr; gap: var(--sp-3); }
 
@@ -2500,7 +2596,7 @@ select.field {
   font-size: var(--t-secondary);
 }
 .minitake .tnum { color: var(--chalk); font-weight: 600; }
-.minitake .clip { color: var(--go-text); font-family: var(--font-mono); font-size: var(--t-secondary); }
+.minitake .clip { color: var(--chalk-dim); font-family: var(--font-mono); font-size: var(--t-secondary); } /* was --go-text; a clip filename is data, matches the .roll override this rule already lost to */
 .minitake .dur { margin-left: auto; color: var(--chalk-dim); font-family: var(--font-mono); }
 .minitake--discarded { color: var(--chalk-faint); }
 .minitake--discarded .tnum,
@@ -2951,7 +3047,7 @@ select.field {
   background: linear-gradient(var(--m-raised) 0%, var(--m-mass) 70%);
   color: var(--m-mass-ink);
   box-shadow:
-    inset 0 1.5px 0 rgba(241, 240, 234, 0.14),
+    inset 0 1.5px 0 rgba(226, 240, 204, 0.14), /* --m-mass-ink's channels */
     inset 0 -1px 0 rgba(0, 0, 0, 0.50),
     0 4px 0 #000,
     0 14px 22px var(--m-cast-mass);
@@ -2967,7 +3063,7 @@ select.field {
   transform: translateY(4px);
   background: linear-gradient(var(--m-pressed) 0%, var(--m-raised) 70%);
   box-shadow:
-    inset 0 1px 0 rgba(241, 240, 234, 0.06),
+    inset 0 1px 0 rgba(226, 240, 204, 0.06), /* --m-mass-ink's channels */
     inset 0 3px 6px rgba(0, 0, 0, 0.55),
     0 0 0 #000,
     0 2px 5px var(--m-cast-mass);
@@ -3174,7 +3270,7 @@ select.field {
   font-size: var(--t-display);
   font-weight: 700;
 }
-.takesummary__cell .val--clip { color: var(--go-text); }
+.takesummary__cell .val--clip { color: var(--chalk); } /* was --go-text; a clip filename is data, not a state */
 
 /* toast confirm */
 .toast {
@@ -3535,7 +3631,7 @@ select.field {
 .camslot__clip {
   display: block;
   width: 100%;
-  color: var(--go-text);
+  color: var(--chalk); /* was --go-text; a clip name is data, not a state */
   font-weight: 700;
   font-size: var(--t-title);
   letter-spacing: var(--track-tight);
@@ -4190,7 +4286,7 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-size: var(--t-secondary);
   font-weight: 600;
-  color: var(--go-text);
+  color: var(--chalk); /* was --go-text; a clip filename is data, not a state */
   overflow-wrap: anywhere;
 }
 .cliprow__snd {
@@ -4290,7 +4386,7 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-size: var(--t-row);
   font-weight: 600;
-  color: var(--go-text);
+  color: var(--chalk); /* was --go-text; a clip filename is data, not a state */
   overflow-wrap: anywhere;
 }
 .movepreview__snd {
