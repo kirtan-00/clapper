@@ -149,17 +149,32 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 46vw;
+  min-width: 0;
 }
 
 .roll__head {
   justify-content: space-between;
+  gap: var(--sp-2);
 }
+.recpill {
+  flex: 0 0 auto;
+}
+/* The head is three pills on a 358px row. The take identity is the one that
+   may truncate: the REC pill is the state and the voice chip is a control,
+   and neither of those is allowed to lose a character to a long scene name. */
 .roll__headside {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--sp-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.roll__headside .voicechip {
   flex: 0 0 auto;
+}
+.headpill {
+  flex: 0 1 auto;
 }
 
 /* ==========================================================================
@@ -198,6 +213,50 @@
   line-height: 1;
 }
 
+/* ---------------------------------------------------------- THE READOUT ---
+   The live clock goes back to INK. It was deep red, which made sense while a
+   red band and a red wash owned the top of the screen and the clock had to
+   belong to them. Now that recording is stated by the ring, the pill and the
+   dots, a fourth red is a fourth thing competing to be the alarm — and the
+   clock is not an alarm, it is the fact you read. Red on this screen is
+   reserved for the perimeter and for dots. */
+.roll--live .readout--live {
+  color: var(--text);
+  text-shadow: none;
+}
+/* The state line, likewise: the DOT is red because shape plus colour is how
+   this app has always stated "rolling" under red set-lighting and to a
+   red/green-blind operator. The words beside it are reference text. */
+.roll--live .stage__reclabel {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.roll--live .stage__reclabel .recdot {
+  background: var(--m-rec);
+}
+
+/* The moments tapped this take: the earlier lines of the take's own report,
+   so they are ruled rows on the sheet rather than a stack of white cards
+   floating between two black objects. */
+.roll .momentrow {
+  background: transparent;
+  border-top: 1px solid var(--hairline);
+  border-left: none;
+  border-radius: 0;
+}
+.roll .momentlog > .momentrow:first-child {
+  border-top: none;
+}
+.roll .momentrow--gold .tag {
+  color: var(--roll-brass);
+}
+.roll .momentrow--range .tag {
+  color: var(--m-accent-deep);
+}
+[data-theme="night"] .roll .momentrow--range .tag {
+  color: var(--m-accent);
+}
+
 /* ==========================================================================
    THE IDLE SCREEN AS A CAMERA REPORT
    What a camera assistant writes down, in the order they read it back. Two
@@ -231,6 +290,19 @@
   align-items: baseline;
   gap: 14px;
   margin-top: 7px;
+}
+/* The hero pair drops the costume monospace. Mono is slate language on this
+   screen and it is spent on the CLIP NAME, which is the string that has to
+   match what the card wrote character for character. A take number and a
+   duration are read, not matched, so they take the UI face at hairline weight
+   with tabular figures — which is also what makes 40px sit on an idle screen
+   without shouting. */
+.lasttake__num,
+.lasttake__dur,
+.statpair__n b {
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 .lasttake__num {
   /* 200 weight at 40px: the take number is the biggest thing on the idle
@@ -440,12 +512,76 @@
   color: var(--roll-mass-ink);
 }
 
-/* The recent-take list stays on the SHEET. It is a document, not an object —
-   and two masses stacked under a third would turn the idle screen back into
-   the wall of cards this redesign is getting rid of. */
+/* The recent-take list stays on the SHEET, and stops being a card while it is
+   at it. It is a DOCUMENT — the earlier lines of the same camera report — so
+   it gets ruled rows and no fill: a white slab under two black objects is
+   three materials on one screen, which is how a redesign turns back into a
+   wall of cards. */
 .minitakes {
   width: 100%;
   max-width: 420px;
+  gap: 0;
+  border-radius: 0;
+  overflow: visible;
+  margin-top: var(--sp-1);
+}
+.minitakes__k {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin-top: var(--sp-4);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.roll .minitake {
+  background: transparent;
+  border-top: 1px solid var(--hairline);
+  padding: var(--sp-3) 2px;
+}
+.roll .minitakes .minitake:first-child {
+  border-top: none;
+}
+.roll .minitake .clip {
+  color: var(--text-dim);
+}
+.roll .minitake .tnum {
+  color: var(--text);
+}
+
+/* ==========================================================================
+   WHO OWNS THE LIVE SCREEN
+   Measured before this block, rolling on a five-tag project: the deck was 745
+   of 828px and the stage was ZERO, so the container rule blanked the big clock
+   entirely and the running take had no readout above arm's length. That was
+   survivable while a full-bleed red band mirrored the clock at the top; with
+   the band retired for the pill it is not, and the approved design has the
+   clock as the hero of the live screen anyway.
+
+   The cause is that `.roll__stage` is size-contained, so its height comes from
+   the flex algorithm and never from its content - and its parent does not
+   grow, so it resolved to zero. The fix is a FLOOR on the stage rather than a
+   bigger share for the body: the deck stays the growing box and keeps
+   priority, exactly as it was designed to, and the clock is guaranteed the one
+   band it needs. Deliberately a clamp and not 42% - handing the reading half
+   nearly half the screen pushed the whole keypad below the fold on multi-cam,
+   which trades a missing clock for missing tags.
+   ========================================================================== */
+.roll--live .roll__stage {
+  min-height: clamp(118px, 22vh, 190px);
+}
+/* And the deck's contents hug its BOTTOM. Without this the pads sit at the top
+   of a grown deck with CUT pushed to the bottom by its own auto margin, and
+   the void opens up between the mass and the one control it belongs to. One
+   auto margin, not two: flexbox splits free space between every auto margin it
+   finds, so CUT's has to go for this one to take all of it. */
+.roll--live .roll__pads {
+  margin-top: auto;
+}
+.roll--live .roll__deck > .bigbtn.hw {
+  margin-top: 0;
 }
 
 /* ==========================================================================
@@ -508,17 +644,13 @@
   text-shadow: 0 0 10px rgba(214, 212, 200, 0.16);
 }
 
-/* The tally badge. It rides the cap's corner rather than sitting inside it,
-   so the label never reflows when a count arrives — and it POPS, because a
-   tag tapped without looking needs a receipt sized for arm's length. */
-.roll--live .keypad--list .keycap {
-  position: relative;
-  overflow: visible;
-}
+/* The tally badge, and it POPS: a tag tapped without looking needs a receipt
+   sized for arm's length. It rides the row's right end rather than the cap's
+   top corner — the pitch's caps are a 3-up grid with room above them, and in
+   the list layout this app uses (which is what keeps a six-word script beat
+   readable) a corner badge lands on the cap above it. The row already has that
+   end reserved: `.keypad--list .keycap` is justify-content: space-between. */
 .roll--live .keypad--list .keycap__count {
-  position: absolute;
-  top: -9px;
-  right: -6px;
   padding: 3px 7px;
   border-radius: var(--radius-pill);
   background: var(--m-accent);
@@ -610,12 +742,30 @@
   color: var(--roll-brass);
 }
 
-/* The ground ring behind the sticky footer follows the new ground. It is
-   load-bearing, not decorative: without it chips scrolling under CUT stay
-   hit-testable beside it. */
-.roll--live .roll__deck > .bigbtn.hw,
-.roll--live .roll__deck > .bigbtn.hw:active {
+/* The ground ring behind the sticky footer follows the new ground - idle too,
+   or it paints the OLD ground as a pale halo around ROLL. It is load-bearing,
+   not decorative: without it chips scrolling under CUT stay hit-testable
+   beside it. */
+.roll .roll__deck > .bigbtn.hw,
+.roll .roll__deck > .bigbtn.hw:active {
   box-shadow: 0 0 0 var(--sp-4) var(--roll-ground);
+}
+/* CUT STICKS. `.roll__deck > .bigbtn { position: sticky }` and `.bigbtn.hw
+   { position: relative }` have identical specificity and the machined rule is
+   written later, so CUT quietly stopped sticking the day it became .hw - and
+   nothing showed it until the deck actually had to scroll (measured: multi-cam
+   plus sound plus five tags = 766px of content in a 476px deck, with CUT
+   resolving to top 1005 on an 844px screen, i.e. 160px below the glass). The
+   one control that may never leave was off the bottom of the phone. Restated
+   here at higher specificity rather than reordered in styles.css, which is not
+   this lane's file. */
+.roll .roll__deck > .bigbtn.hw {
+  position: sticky;
+  bottom: 0;
+}
+/* Same reason, one row up: the sticky mark row paints its own ground. */
+.roll--live .roll__markrow {
+  background: var(--roll-mass);
 }
 
 /* ---------------------------------------------------- ROLL / CUT at night --
@@ -652,6 +802,89 @@
 [data-theme="night"] .roll .bigbtn.hw--cut:active .hw__face,
 [data-theme="night"] .roll .bigbtn.hw--cut.is-pressed .hw__face {
   background: linear-gradient(#2a322a 0%, #20261f 70%);
+}
+
+/* ==========================================================================
+   THE UNIT SLOTS — every camera, and sound
+   Not restructured: multi-cam's independent roll/join/cut is the most
+   load-bearing behaviour on this screen and none of it moves. Only the
+   material changes. They were white cards, which on the new ground put a
+   third material beside the sheet and the mass; as dark chips they are the
+   pitch's own unit pills, and the clip number — the string an operator reads
+   aloud to the loader — gains contrast rather than losing it.
+   ========================================================================== */
+.roll .camslot {
+  background: var(--roll-mass);
+  border-color: transparent;
+  border-radius: 18px;
+  color: var(--roll-mass-ink);
+}
+[data-theme="night"] .roll .camslot {
+  border-color: var(--roll-mass-rule);
+}
+.roll .camslot__badge {
+  background: var(--roll-mass-raised);
+  border-color: var(--roll-mass-rule);
+  color: var(--roll-mass-dim);
+}
+.roll .camslot__clip {
+  color: var(--roll-mass-ink);
+}
+.roll .clipnum__fix,
+.roll .camslot__operator {
+  color: var(--roll-mass-dim);
+}
+.roll .camslot__pen {
+  color: var(--roll-mass-dim);
+}
+.roll .camslot__main:active,
+.roll .camslot__penbtn:active {
+  background: var(--roll-mass-raised);
+}
+/* Rolling: the red edge and the red clock, on the same metal. Red stays
+   recording-only and never becomes the slot's fill. */
+.roll .camslot--rolling {
+  background: var(--roll-mass);
+  /* The soft edge, not the full value. Two units rolling at full #FF453A on
+     their perimeters is four sides of red competing with the one perimeter
+     that is supposed to mean recording - the ring. The dot and the word REC
+     inside the slot carry it. */
+  border-color: var(--rec-edge);
+}
+.roll .camslot--rolling .camslot__badge {
+  color: var(--m-rec);
+  background: var(--roll-mass-raised);
+  border-color: var(--rec-edge);
+}
+.roll .camslot__elapsed {
+  color: var(--m-rec);
+}
+/* Not joined yet: the same block of metal, unlit. Dimming rather than emptying
+   keeps the clip number readable — a camera about to roll is exactly when its
+   next number matters. */
+.roll .camslot--join {
+  background: var(--roll-mass);
+  opacity: 0.62;
+}
+.roll .camslot--join:active {
+  background: var(--roll-mass-raised);
+  opacity: 1;
+}
+.roll .camslot__join {
+  color: var(--m-accent);
+}
+/* Sound's own zone: the mass, with the recorder's blue kept on the edge so it
+   can never be mistaken for a fifth camera. */
+.soundsection {
+  width: 100%;
+  max-width: 420px;
+  padding: 9px 10px 11px;
+  border: 1px solid var(--sound-edge);
+  border-radius: 18px;
+  background: var(--roll-mass);
+}
+.soundsection .section__note {
+  color: var(--roll-mass-dim);
 }
 
 /* ==========================================================================

@@ -1169,8 +1169,12 @@ export function RollingScreen(props: {
           {rolling && (
             // The take's identity, opposite the pill: outline, never fill,
             // because it is a fact you read and not a control you press.
+            // The setup and the take, and deliberately not the scene name: the
+            // scene is what you were already looking at when you pressed ROLL,
+            // and a long one truncated to "RECORDIN…" says less than nothing
+            // beside a pill that is already announcing the state.
             <span className="headpill tnum">
-              {shot ? shot.code : slate.name} &middot; take {nextTakeNumber}
+              {shot ? `${shot.code} · ` : ''}take {nextTakeNumber}
             </span>
           )}
           {voiceChip}
@@ -1291,6 +1295,10 @@ export function RollingScreen(props: {
                 : hasSoundUnit && soundRolling && !anyCamRolling
                   ? ' · SOUND'
                   : ''}
+              {/* The frame rate belongs on the live line, not only on the
+                  pre-roll slate: it is the one setting that silently ruins a
+                  take, and this is the line the operator's eye is already on. */}
+              {` · ${project.fps} FPS`}
             </span>
           ) : (
             'Take saved'
@@ -1435,6 +1443,9 @@ export function RollingScreen(props: {
             )}
           </div>
 
+          {recentTakes.length > 0 && (
+            <span className="minitakes__k">Earlier on this setup</span>
+          )}
           <div className="minitakes" aria-label="Recent takes">
             {recentTakes.length === 0 ? null : (
               recentTakes.map((t) => (
@@ -1646,17 +1657,12 @@ export function RollingScreen(props: {
         )}
 
         {hasSoundUnit && soundUnit && (
-          <div
-            className="soundsection"
-            style={{
-              width: '100%',
-              maxWidth: 420,
-              padding: '9px 10px 11px',
-              border: `1px solid ${SOUND_EDGE}`,
-              borderRadius: 14,
-              background: SOUND_TINT,
-            }}
-          >
+          // The box moved out of inline styles and into skin/roll.css, because
+          // an inline background outranks every rule in the skin and this zone
+          // has to change material with the rest of the deck. The recorder's
+          // blue stays on the EDGE, where it does its one job: sound is never
+          // a fifth camera.
+          <div className="soundsection">
             {/* Its own labelled, tinted zone so the audio roll is unmistakable
                 and never reads as a fifth camera. */}
             <div className="soundsection__head">
