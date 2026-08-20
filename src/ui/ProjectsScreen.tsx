@@ -1043,7 +1043,7 @@ function FileUnderSheet(props: {
             className="field"
             value={name}
             autoFocus
-            placeholder="e.g. CrayWingz · client"
+            placeholder="e.g. Northwind Films · client"
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && name.trim()) props.onNewFolder(name.trim());
