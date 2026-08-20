@@ -261,6 +261,23 @@ button.lamp.primary:active:not(:disabled) {
 .sub-note.is-bad { color: var(--danger); font-weight: 600; }
 
 /* ---------- form elements ---------- */
+/* One-tap drive chips. See buildChips() for why this exists at all. */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chips__label { flex-basis: 100%; font-size: 12px; color: var(--text-3); margin: 0 0 2px; }
+button.chip {
+  position: relative;
+  background: var(--panel);
+  color: var(--text);
+  border: 1.5px solid var(--edge);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  font-family: "SF Mono", ui-monospace, monospace;
+  cursor: pointer;
+}
+button.chip:hover { border-color: var(--accent); }
+button.chip[data-on] { border-color: var(--accent); color: var(--accent-type); }
+
 label.field-label {
   display: block;
   font-size: 12px;
@@ -491,6 +508,7 @@ footer.foot {
         <p class="sub-note">The path to the project folder <em>on the machine you will edit on</em>. Windows (<span class="mono">E:\folder\project</span>) or POSIX (<span class="mono">/Volumes/Drive/project</span>). The browser is never told where a folder really is, so this one line is yours to type.</p>
         <label class="field-label" for="rootInput">Project folder</label>
         <input type="text" id="rootInput" class="mono" placeholder="E:\drive folder\project folder" autocomplete="off" spellcheck="false" />
+        <div id="driveChips" class="chips" style="display:none;"></div>
       </div>
       <div>
         <p class="sub-heading">B &mdash; the folder itself</p>
@@ -676,6 +694,7 @@ footer.foot {
     typeWarning: document.getElementById('typeWarning'),
     destCard: document.getElementById('destCard'),
     rootInput: document.getElementById('rootInput'),
+    driveChips: document.getElementById('driveChips'),
     previewBlock: document.getElementById('previewBlock'),
     previewOld: document.getElementById('previewOld'),
     previewNew: document.getElementById('previewNew'),
@@ -857,7 +876,90 @@ footer.foot {
       el.downloadBtn.textContent = 'Rewrite & download relinked XML';
     }
   }
-  el.rootInput.addEventListener('input', updatePreview);
+  el.rootInput.addEventListener('input', function () {
+    chipsMatchInput();
+    updatePreview();
+  });
+
+  /* ------------------------------------------------------------ drive chips
+     WHY THIS IS NOT A "READ THE PATH FROM FINDER" BUTTON.
+     No browser will tell a page where a folder actually is. The folder picker
+     hands over the folder's NAME and what is inside it, and deliberately
+     nothing else - a page that could read absolute paths could read the shape
+     of your whole disk. That is a rule of the web, not a gap in this tool, and
+     no button can get round it.
+
+     What it CAN do is remove the typing. After you pick the folder we already
+     know its name and every subfolder under it. The only unknown left is which
+     drive it will be sitting on in the edit suite - one short word. So instead
+     of a text field, that becomes one tap: choose the drive, and the folder's
+     own name is appended for you.
+
+     Roots you have used before are remembered and offered first, because the
+     second XML off the same shoot should be no typing at all. */
+  const ROOTS_KEY = 'clapper.relink.roots.v1';
+  const COMMON_ROOTS = ['E:', 'D:', 'F:', 'G:', '/Volumes'];
+
+  function readRoots() {
+    try {
+      const v = JSON.parse(localStorage.getItem(ROOTS_KEY) || '[]');
+      return Array.isArray(v) ? v.filter(function (x) { return typeof x === 'string'; }) : [];
+    } catch (e) { return []; }
+  }
+  function rememberRoot(prefix) {
+    if (!prefix) return;
+    try {
+      const list = readRoots().filter(function (x) { return x !== prefix; });
+      list.unshift(prefix);
+      localStorage.setItem(ROOTS_KEY, JSON.stringify(list.slice(0, 6)));
+    } catch (e) { /* private mode, or storage full. The chips still work. */ }
+  }
+
+  function chipsMatchInput() {
+    const cur = normalizeRoot(el.rootInput.value);
+    const buttons = el.driveChips.querySelectorAll('button.chip');
+    for (let i = 0; i < buttons.length; i++) {
+      const full = buttons[i].getAttribute('data-full');
+      if (full && normalizeRoot(full) === cur) buttons[i].setAttribute('data-on', '');
+      else buttons[i].removeAttribute('data-on');
+    }
+  }
+
+  function buildChips() {
+    clearChildren(el.driveChips);
+    if (!picked) { el.driveChips.style.display = 'none'; return; }
+
+    const label = document.createElement('p');
+    label.className = 'chips__label';
+    label.textContent = 'Which drive will "' + picked.rootName + '" be on? Tap one and the folder name is added for you.';
+    el.driveChips.appendChild(label);
+
+    const seen = Object.create(null);
+    const prefixes = readRoots().concat(COMMON_ROOTS).filter(function (x) {
+      if (seen[x]) return false;
+      seen[x] = 1;
+      return true;
+    });
+
+    prefixes.forEach(function (prefix) {
+      const full = normalizeRoot(prefix) + '/' + picked.rootName;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.setAttribute('data-full', full);
+      b.textContent = prefix;
+      b.addEventListener('click', function () {
+        el.rootInput.value = full.replace(/\//g, prefix.indexOf(':') === 1 ? '\\' : '/');
+        rememberRoot(prefix);
+        chipsMatchInput();
+        updatePreview();
+      });
+      el.driveChips.appendChild(b);
+    });
+
+    el.driveChips.style.display = '';
+    chipsMatchInput();
+  }
 
   /* ---------------------------------------------------------------- download */
   function renderSummary(result) {
@@ -964,6 +1066,14 @@ footer.foot {
     if (!loadedXmlText || docType !== 'xmeml') return;
     const root = normalizeRoot(el.rootInput.value);
     if (!root) return;
+    // Remember the DRIVE, not the whole path: the folder half changes every
+    // shoot, the drive is the part that repeats.
+    if (picked) {
+      const tail = '/' + picked.rootName.toLowerCase();
+      if (root.toLowerCase().slice(-tail.length) === tail) {
+        rememberRoot(root.slice(0, root.length - tail.length));
+      }
+    }
     const result = rewriteXml(loadedXmlText, root);
     renderSummary(result);
     const blob = new Blob([result.newText], { type: 'application/xml' });
@@ -1058,6 +1168,7 @@ footer.foot {
       else ambiguous.push(name);
     });
     picked = { byBase: index.byBase, fileCount: index.fileCount, rootName: rootName || '(picked folder)' };
+    buildChips();
     renderVerifyReport({
       rootName: picked.rootName,
       matched: matched, missing: missing, ambiguous: ambiguous,
