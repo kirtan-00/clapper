@@ -1486,6 +1486,103 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    margin back. */
 .sl .sl-lede { margin: 0 0 var(--sp-4); }
 
+/* ---- first open ---------------------------------------------------------
+   src/ui/Onboarding.tsx. The rail, the panel and the sticky footer above are
+   the SHARED stage chrome and are not restated here; this is only what the two
+   stages add on top of it, and it is deliberately five rules.
+
+   NO NEW BUTTON. The footer is `.btn`, `.btn--go` and `.btn--ghost` exactly as
+   shipped, so the tally lamp arrives with them: the primary burns brass at
+   rest and brighter under a thumb, and the escape beside it does not. Which
+   means A SOLID BRASS FILL NEVER APPEARS ON THIS FLOW AT ALL - the accent is
+   only ever a line here (the lit rail segment, the ring around a step number,
+   the lamp down a leading edge), because a brass fill in this app means one
+   thing and it is a gold take. */
+.ob-say {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--t-title);
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
+  line-height: 1.25;
+  color: var(--text);
+}
+/* .camnote is declared further down this file and would otherwise win on equal
+   specificity and put its own top margin back - same reason .sl-lede is
+   scoped. */
+.ob .ob-note { margin: 0 0 var(--sp-3); font-size: var(--t-secondary); }
+.ob .ob-fine { margin: var(--sp-5) 0 0; font-size: 12px; }
+
+/* The instructions. NUMBERED, and numbered in the ring rather than with a bare
+   list marker, because these steps are carried out in another app - the Share
+   sheet, the browser menu - with the phone in one hand and this screen already
+   gone from it. "I was on two" has to survive the trip. */
+.ob-steps {
+  margin: var(--sp-4) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ob-step;
+  display: grid;
+  gap: var(--sp-3);
+}
+.ob-steps li {
+  counter-increment: ob-step;
+  position: relative;
+  padding-left: 36px;
+  min-height: 24px;
+  font-size: var(--t-secondary);
+  line-height: 1.45;
+  color: var(--text);
+}
+.ob-steps li::before {
+  content: counter(ob-step);
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  /* Brass as an EDGE and as TYPE. --m-accent-text is the deep value tuned for
+     ivory; the night block below swaps both to the bright one, which is the
+     split every accent in this file makes. */
+  box-shadow: inset 0 0 0 1px var(--m-accent-deep);
+  color: var(--m-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+}
+[data-theme='night'] .ob-steps li::before {
+  box-shadow: inset 0 0 0 1px var(--m-accent);
+  color: var(--m-accent);
+}
+.ob-steps b { font-weight: 650; }
+
+/* THE FOOTER IS NOT 50/50 HERE. `.sheet__actions .btn { flex: 1 }` is declared
+   later in this file than `.sl-actions .btn--ghost`, so at equal specificity it
+   wins and every staged footer splits down the middle - which puts "Sign in
+   with Google" on two lines beside a two-word backout. One class deeper is
+   enough to settle it, and the shape it settles on is the one .sl-actions asked
+   for in the first place: the way out is a backout, the primary is the sequence
+   carrying on, and they are not peers. */
+.ob .sl-actions .btn--ghost { flex: 0 1 30%; }
+
+/* Links inside this flow. With no `a` rule anywhere in the app, the Terms and
+   Privacy lines were rendering in user-agent BLUE - a colour that appears
+   nowhere in this palette, on the one surface a new user sees first. Ink plus
+   a rule under it says "link" without inventing a fifth colour. */
+.ob a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--m-accent-text);
+}
+[data-theme='night'] .ob a { text-decoration-color: var(--m-accent); }
+/* Inherits the step's colour rather than carrying one, so it is never a green
+   icon inside a brass ring. */
+.ob-glyph { display: inline-block; vertical-align: -2px; color: inherit; }
+
 /* ---- stage one: the document -------------------------------------------
    A target, not a button in a form. It is the only thing on the stage above
    the divider, so it gets the height to say so. */
@@ -4437,72 +4534,6 @@ select.field {
 .minitake__del:active { background: var(--ink-950); color: var(--rec-text); border-color: var(--rec-text); }
 
 /* ===================================================================
-   INSTALL NUDGE  (src/ui/InstallNudge.tsx)
-   Inline banner (not fixed-position) so it drops cleanly into normal
-   document flow wherever it's mounted, without fighting .toast/.sheet
-   for screen real estate. Scoped entirely to .installnudge*.
-   =================================================================== */
-.installnudge {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-3);
-  margin: 0 0 var(--sp-4);
-  padding: var(--sp-4);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--m-accent);
-  border-radius: var(--radius);
-  background: var(--ink-900);
-  animation: installnudge-in var(--dur-move) var(--ease-out);
-}
-@keyframes installnudge-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.installnudge__body { flex: 1; min-width: 0; }
-.installnudge__title {
-  margin: 0 0 var(--sp-1);
-  font-weight: 600;
-  font-size: var(--t-row);
-  color: var(--chalk);
-}
-.installnudge__msg {
-  margin: 0;
-  font-size: var(--t-secondary);
-  line-height: 1.4;
-  color: var(--chalk-dim);
-}
-.installnudge__msg b { color: var(--chalk); font-weight: 600; }
-.installnudge__glyph {
-  display: inline-block;
-  vertical-align: -2px;
-  color: var(--m-accent-text);
-}
-.installnudge__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--sp-2);
-  flex: none;
-}
-.installnudge__install {
-  min-height: 36px;
-  padding: 0 var(--sp-4);
-  font-size: var(--t-secondary);
-}
-.installnudge__dismiss {
-  width: var(--tap);
-  height: var(--tap);
-  margin: -10px -8px 0 0; /* enlarge the tap target without enlarging the visual footprint */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: var(--t-body);
-  line-height: 1;
-  border-radius: var(--radius-sm);
-}
-.installnudge__dismiss:active { background: var(--ink-850); color: var(--chalk); }
-
-/* ===================================================================
    ERROR BOUNDARY  (src/ui/ErrorBoundary.tsx)
    Full-screen recovery fallback, reusing .app for the same max-width /
    safe-area padding shell as every real screen so it doesn't look like
@@ -5312,7 +5343,6 @@ select.field {
   align-items: center;
 }
 .chip__x { font-size: 0; }
-.installnudge__dismiss { font-size: 0; }
 
 /* The destructive action inside the scene's edit sheet. Full width so it is
    findable, but below the field and above the Cancel/Save pair, so it never

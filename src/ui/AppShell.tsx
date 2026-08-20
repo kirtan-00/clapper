@@ -20,6 +20,7 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { useNavState, type Nav, type Route } from './nav';
 import { TabTray } from './TabTray';
+import { Onboarding } from './Onboarding';
 
 // ------------------------------------------------- full-screen claims -----
 
@@ -70,6 +71,13 @@ export function AppShell(props: { render: (route: Route, nav: Nav) => ReactNode 
     <div className={`shell${tray ? ' shell--tray' : ''}`}>
       {props.render(route, nav)}
       {tray && <TabTray nav={nav} />}
+      {/* FIRST OPEN, ASKED ONCE. It lives here rather than on Home because it
+          is about the app and not about a screen, and because here it is
+          mounted exactly once for the life of the page — the card it replaces
+          was mounted on two tabs and counted one appearance three times.
+          It decides for itself whether it has anything to ask; the only thing
+          it cannot know is the route, and mid-roll it must not appear at all. */}
+      <Onboarding rolling={route.name === 'rolling'} />
     </div>
   );
 }
