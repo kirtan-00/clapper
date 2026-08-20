@@ -274,10 +274,16 @@ async function main() {
 
   const chromeBin = findChrome();
   const userDataDir = mkdtempSync(join(tmpdir(), 'clapper-shoot-'));
+  // REDUCED MOTION is a BOOLEAN SWITCH. `--force-prefers-reduced-motion=false`
+  // does not mean "off", it means the switch is present, and Chrome forces
+  // reduce ON - which silently turns every transition in the app into an
+  // instant jump and makes a working drum look like a number being swapped.
+  // Set REDUCE=1 to shoot the still forms on purpose.
   const chrome = spawn(chromeBin, [
     '--headless=new', '--disable-gpu', `--remote-debugging-port=${CDP_PORT}`,
     `--user-data-dir=${userDataDir}`, '--no-first-run', '--disable-extensions',
-    '--force-prefers-reduced-motion=false', 'about:blank',
+    ...(process.env.REDUCE ? ['--force-prefers-reduced-motion'] : []),
+    'about:blank',
   ], { stdio: 'ignore' });
   await waitForHttp(`http://localhost:${CDP_PORT}/json/version`, 15000);
 
@@ -309,20 +315,70 @@ async function main() {
       await cdp.shot(join(OUT_DIR, `rolling.${tag}.png`));
       notes.push(`rolling.${tag}  bigbtn=${JSON.stringify(await bigbtnBox(cdp))}`);
 
-      // Two frames either side of a second boundary. A digit caught mid-roll
-      // is the evidence that the seconds actually ANIMATE rather than swap.
-      const drumA = await cdp.evaluate(`document.querySelector('.drum__col')?.style.transform ?? null`);
-      await sleep(1000);
-      await cdp.shot(join(OUT_DIR, `rolling-tick-a.${tag}.png`));
-      await sleep(90);
-      await cdp.shot(join(OUT_DIR, `rolling-tick-b.${tag}.png`));
-      const drumB = await cdp.evaluate(`
+      // DOES THE SECONDS DIGIT ACTUALLY ROLL? The user has said twice that he
+      // has never seen this, so asserting it is not good enough. A drum that
+      // rolls passes through positions BETWEEN two digits; a drum that swaps
+      // never does. So sample the hero clock's last column every ~25ms across a
+      // second boundary and look for a translate that is not a whole multiple
+      // of the glyph box - a fraction of a digit is a frame of the animation
+      // and cannot be produced any other way. A screenshot is taken at the
+      // first such sample, so there is a picture of it too.
+      //
+      // TWO HARNESS TRAPS, BOTH OF WHICH REPORT A WORKING DRUM AS A DEAD ONE,
+      // and both of which cost a turn. Written down so they cost no more.
+      //
+      // 1. The polling has to happen OUT HERE, one CDP round trip per sample.
+      //    An in-page loop inside a single awaited Runtime.evaluate reads the
+      //    same frozen value for its whole run.
+      // 2. Headless Chrome stops running the page about three seconds after
+      //    its last compositor frame, so a clock driven by setInterval simply
+      //    stops - measured, it froze at exactly 3.001 digits every time. A
+      //    screenshot forces a frame, so one is taken every sample. On a real
+      //    phone there is always a frame and none of this applies.
+      const SAMPLE = `
         (() => {
-          const cols = [...document.querySelectorAll('.drum__col')];
-          return cols.map(c => getComputedStyle(c).transform).join(' | ');
+          const d = [...document.querySelectorAll('.readout .drum__digit')].pop();
+          if (!d) return null;
+          const c = d.querySelector('.drum__col');
+          const m = getComputedStyle(c).transform;
+          const step = c.getBoundingClientRect().height / 10;  // ten glyph boxes
+          const y = m === 'none' ? 0 : Number(m.split(',').pop().replace(')', ''));
+          return -y / step;
         })()
-      `);
-      notes.push(`drum.${tag}  first-col-style=${drumA}  computed-after-tick=${drumB}`);
+      `;
+      let mid = null;
+      const seen = [];
+      for (let i = 0; i < 40 && mid === null; i++) {
+        const v = await cdp.evaluate(SAMPLE);
+        if (v === null) break;
+        seen.push(Number(v.toFixed(3)));
+        // Keeps the page alive (see trap 2) AND is the picture, when it lands
+        // on a frame of the roll.
+        await cdp.shot(join(OUT_DIR, `drum-mid-roll.${tag}.png`));
+        if (Math.abs(v - Math.round(v)) > 0.05) mid = v;
+        await sleep(45);
+      }
+      notes.push(
+        `drum.${tag}  rolling=${mid !== null} ` +
+          (mid !== null
+            ? `caught the seconds column at ${mid.toFixed(3)} digits - a whole number is a swap, a fraction is a roll`
+            : `never left a whole digit: ${JSON.stringify(seen.slice(0, 12))}`),
+      );
+
+      // ---- the post-cut sheet, and a lamp on a sheet button ---------------
+      p = await cdp.centreOf('.bigbtn');
+      await cdp.mouseDown(p.x, p.y);
+      await cdp.mouseUp(p.x, p.y);
+      await sleep(700);
+      await cdp.shot(join(OUT_DIR, `postcut.${tag}.png`));
+      const prim = await cdp.centreOf('.sheet .btn--go');
+      if (prim) {
+        await cdp.mouseDown(prim.x, prim.y);
+        await sleep(140);
+        await cdp.shot(join(OUT_DIR, `postcut-press.${tag}.png`));
+        await cdp.mouseUp(prim.x, prim.y);
+      }
+      notes.push(`postcut.${tag}  sheet=${await cdp.evaluate(`!!document.querySelector('.sheet')`)} primary=${!!prim}`);
 
       // ---- false-start sheet: CUT inside 2000ms ---------------------------
       await seed(cdp, { cameraCount: 1, soundOn: false, scriptMode: false });
