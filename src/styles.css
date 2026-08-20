@@ -2908,6 +2908,28 @@ select.field {
     color var(--dur-state) var(--ease-out);
 }
 .reachbtn:active { transform: scale(0.96); }
+/* THE LOG. It was the same dark-on-dark as its neighbours and disappeared into
+   the ground, which is a problem specific to this one: Scenes and the clip
+   chip say what they do in their own words, but "Log" is the door to every
+   take of the shoot and it was reading as a label rather than as a way in. It
+   gets the lamp bar the rest of the app uses for "this is a control", lit,
+   plus the brass label. It is a LINE, not a fill: no solid brass here. */
+.reachbtn--log {
+  position: relative;
+  overflow: hidden;
+  padding-left: calc(var(--sp-3) + 7px);
+  color: var(--m-accent-text);
+  border-color: var(--brass-edge);
+}
+.reachbtn--log::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--m-accent);
+  border-top-left-radius: inherit;
+  border-bottom-left-radius: inherit;
+}
 /* Voice, live. Same green the app already spends on "this is on". */
 .reachbtn--on {
   color: var(--m-accent-text);
@@ -4834,18 +4856,23 @@ select.field {
 .lmark {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding-right: var(--inset);
-  font-size: var(--t-caption);
+  /* One step up the scale from --t-caption. At 12px with a 15px slate the mark
+     read as a footnote that had wandered into the header; the wordmark is a
+     wordmark and should be legible as one. It stays a size and a weight below
+     the title it shares a line with, because the title is still the thing being
+     read - this is a notice, not a second heading. */
+  font-size: var(--t-secondary);
   font-weight: 600;
   letter-spacing: var(--track-caps);
   color: var(--ink-faint);
   white-space: nowrap;
   user-select: none;
 }
-.lmark__icon { width: 15px; height: 15px; border-radius: 4px; display: block; }
+.lmark__icon { width: 18px; height: 18px; border-radius: 4px; display: block; }
 /* The © itself, one step down again: the wordmark is the thing being read. */
-.lmark__c { font-size: 11px; opacity: 0.75; }
+.lmark__c { font-size: 12px; opacity: 0.75; }
 
 
 /* The Pro CTA sits between two cards on the Account tab, so it keeps the same

@@ -1538,14 +1538,13 @@ export function RollingScreen(props: {
             )}
 
             {report?.last ? (
-              // THIS SETUP and DAY N are one mass with a slot of ground cut
-              // down between them - the notch. Two separate cards with a gap
-              // would read as two cards with a gap; a cut reads as one piece of
-              // metal that was machined, which is the whole language. See
-              // .notch--v in skin/roll.css for how the mouth is flared without
-              // a mask or an SVG.
+              // THIS SETUP and DAY N are one mass, split by a hairline. It
+              // used to be a slot of ground cut down between them with flared
+              // mouths, so it would read as machined metal rather than as two
+              // cards with a gap. On a true-black ground the slot is the same
+              // colour as the page, so the flare stopped reading as a mouth
+              // and started reading as a curve floating between two numbers.
               <div className="statpair">
-                <span className="notch notch--v" aria-hidden="true" />
                 <div className="statpair__cell">
                   <span className="statpair__k">This setup</span>
                   <span className="statpair__n">
@@ -1726,7 +1725,7 @@ export function RollingScreen(props: {
             {props.onOpenClipLog && (
               <button
                 type="button"
-                className="reachbtn"
+                className="reachbtn reachbtn--log"
                 aria-label="Open the clip log for every take of this shoot"
                 onClick={props.onOpenClipLog}
               >

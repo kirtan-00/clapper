@@ -432,6 +432,12 @@
 
    Everything is painted in var(--roll-ground), so night gets the joint free.
    ------------------------------------------------------------------------ */
+/* THE CUT SLOT IS GONE. It was a black channel with flared mouths run down
+   between the two cells, meant to read as one piece of metal that had been
+   machined rather than as two cards with a gap. On a true-black ground the
+   channel is the same colour as the page, so the flare stopped reading as a
+   machined mouth and started reading as a stray curve floating between two
+   numbers. A hairline says "one piece, two halves" without drawing a shape. */
 .statpair {
   position: relative;
   display: grid;
@@ -439,6 +445,9 @@
   background: var(--roll-mass);
   color: var(--roll-mass-ink);
   border-radius: 28px;
+}
+.statpair__cell + .statpair__cell {
+  border-left: 1px solid var(--roll-mass-rule, rgba(255, 255, 255, 0.08));
 }
 .statpair__cell {
   display: flex;
