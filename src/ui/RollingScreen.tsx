@@ -101,8 +101,14 @@ interface Buffered {
  * A CUT inside this many ms is almost always a mis-roll - but only almost, so
  * the sheet ASKS rather than assumes. Past it, the false-start sheet never
  * appears at all.
+ *
+ * WAS 5000, cut to 2000 on 2026-08-20. Five seconds is a real take: a reaction
+ * shot, an insert, a slate-and-go pickup all land inside it, and the sheet was
+ * interrupting work that had gone right to ask whether it had gone wrong. Two
+ * seconds is short enough that a human could not have called action and cut in
+ * between - the only thing that fits is a thumb.
  */
-const FALSE_START_MS = 5000;
+const FALSE_START_MS = 2000;
 
 /**
  * Everything a running take is, captured the instant CUT lands so RESUME can
@@ -2340,19 +2346,19 @@ function PostCutSheet(props: {
 
   if (asking) {
     return (
-      <Sheet title={`Cut at ${tc.msToClock(props.take.durationMs)} — false start?`}>
+      <Sheet title={`Cut at ${tc.msToClock(props.take.durationMs)}`}>
         <p className="falsestart">
-          A scrapped take vanishes and <b>backs the clip counter down one</b>, so the
-          count matches the card if the camera never rolled. If it did roll, keep it —
-          it keeps its number.
+          A discarded take vanishes and <b>backs the clip counter down one</b>, so the
+          count matches the card if the camera never rolled. If it did roll, stop
+          rolling — the take keeps its number.
         </p>
         <div className="sheet__actions">
           <button type="button" className="btn btn--go" onClick={props.onScrap}>
-            Scrap take {props.take.number}
+            Discard take {props.take.number}
           </button>
         </div>
         <button type="button" className="resumerow" onClick={() => setAsking(false)}>
-          Keep it &middot; {tc.msToClock(props.take.durationMs)} on the board
+          Stop rolling &middot; {tc.msToClock(props.take.durationMs)} on the board
         </button>
       </Sheet>
     );
