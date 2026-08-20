@@ -228,9 +228,9 @@ describe('fcpxml.ts sound — the recorder file collides across days the same wa
   });
 });
 
-// The two failures a real 232-clip Hu Kon Chu import hit in Premiere: every
-// clip landed offline and had to be located by hand, and the bin held far more
-// items than the shoot had files. Both are pinned here.
+// The two failures a real 232-clip import hit in Premiere: every clip landed
+// offline and had to be located by hand, and the bin held far more items than
+// the shoot had files. Both are pinned here.
 
 describe('fcpxml.ts — one master clip per physical file', () => {
   it('a good take, laid in BOTH the story cut and the selects pool, is ONE master clip', async () => {
@@ -295,7 +295,7 @@ describe('fcpxml.ts — <pathurl> points where the footage actually is', () => {
   it('the editor’s real footage root lands in the path, percent-encoded', async () => {
     const bundle: ProjectBundle = {
       project: baseProject({
-        mediaRoot: '/Volumes/My Book-02/HU kon Chu? 8-08-2026/day 1/M4ROOT/CLIP',
+        mediaRoot: '/Volumes/Backup Drive-02/Wrap Reel? 8-08-2026/day 1/M4ROOT/CLIP',
       }),
       slates: [slate('s1', 0)],
       takes: [take('t1', 's1', 1, 'crav_0054')],
@@ -303,7 +303,7 @@ describe('fcpxml.ts — <pathurl> points where the footage actually is', () => {
     };
     const xml = await xmlOf(bundle);
     expect(pathsIn(xml)).toEqual([
-      '<pathurl>file://localhost/Volumes/My%20Book-02/HU%20kon%20Chu%3F%208-08-2026/day%201/M4ROOT/CLIP/crav_0054.MP4</pathurl>',
+      '<pathurl>file://localhost/Volumes/Backup%20Drive-02/Wrap%20Reel%3F%208-08-2026/day%201/M4ROOT/CLIP/crav_0054.MP4</pathurl>',
     ]);
   });
 

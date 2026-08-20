@@ -12,8 +12,8 @@ describe('mediaPath', () => {
   it('encodes the characters that silently truncate a path', () => {
     // "?" starts a query string and "#" starts a fragment, so an un-encoded
     // one throws away everything after it and the editor relinks to nothing.
-    expect(mediaPath('HU kon Chu? 8-08', 'crav_0273.MP4')).toBe(
-      'HU%20kon%20Chu%3F%208-08/crav_0273.MP4',
+    expect(mediaPath('Wrap Reel? 8-08', 'crav_0273.MP4')).toBe(
+      'Wrap%20Reel%3F%208-08/crav_0273.MP4',
     );
     expect(mediaPath(undefined, 'take #4.MOV')).toBe('take%20%234.MOV');
   });

@@ -241,13 +241,13 @@ describe('resolve.ts — the editor’s footage root reaches the asset src', () 
 
   it('single-cam: the root sits above the file, percent-encoded', async () => {
     const bundle: ProjectBundle = {
-      project: baseProject({ mediaRoot: '/Volumes/My Book-02/HU kon Chu? day 1' }),
+      project: baseProject({ mediaRoot: '/Volumes/Backup Drive-02/Wrap Reel? day 1' }),
       slates: [slate('s1', 0)],
       takes: [take('t1', 's1', 1, 'crav_0054')],
       moments: [],
     };
     expect(srcUrls(await xmlOf(bundle))).toEqual([
-      'file:///Volumes/My%20Book-02/HU%20kon%20Chu%3F%20day%201/crav_0054.MP4',
+      'file:///Volumes/Backup%20Drive-02/Wrap%20Reel%3F%20day%201/crav_0054.MP4',
     ]);
   });
 

@@ -140,9 +140,9 @@ describe('medialink — normalisation', () => {
     // A CSV cell is pasted into Finder or handed to ffmpeg, so it must be the
     // path as the disk spells it — the percent-encoding mediaPath does for
     // <pathurl> would break exactly that. See joinPath in paths.ts.
-    const idx = indexOf(['HU kon Chu? day 1/R&D takes/C0012.MP4']);
+    const idx = indexOf(['Wrap Reel? day 1/R&D takes/C0012.MP4']);
     expect(matchClip(idx, 'C0012', '/Volumes/My Book').path).toBe(
-      '/Volumes/My Book/HU kon Chu? day 1/R&D takes/C0012.MP4',
+      '/Volumes/My Book/Wrap Reel? day 1/R&D takes/C0012.MP4',
     );
   });
 
