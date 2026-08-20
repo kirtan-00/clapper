@@ -520,14 +520,21 @@ function Tally(props: {
 /**
  * "SC 1 · INT. THE MANSION · NIGHT" -> "INT. THE MANSION · NIGHT".
  *
- * Both example packs and every parsed PDF put the scene number at the front of
- * the scene NAME, and the row already carries it as its own left column. On a
- * 390px phone the duplicate costs the end of the location, which is the part
- * an operator actually recognises. Falls back to the whole name if stripping
- * it would leave nothing — a scene called only "SC 5" is still called that.
+ * Both example packs and every parsed PDF put the scene label at the front of
+ * the scene NAME, in whatever vernacular the document used ("SC 1", "GF 1",
+ * "S 4a"), and the row already carries the reference as its own left column.
+ * On a 390px phone the duplicate costs the end of the location, which is the
+ * part an operator actually recognises.
+ *
+ * A SEPARATOR IS REQUIRED, which is what keeps this safe: only a leading
+ * label that is followed by a real divider is dropped, so "12 Angry Men" and
+ * any name that simply starts with a number survive whole. So does a name
+ * that is nothing but its own reference.
  */
+const SCENE_LABEL = /^\s*[A-Za-z]{0,4}\s*[-_ ]?\s*\d+[A-Za-z]?\s*[·:.–—-]\s*/;
+
 function sceneName(name: string): string {
-  return name.replace(/^\s*(?:SCENE|SC|S)\s*\d+[a-z]?\s*[·:.–—-]?\s*/i, '').trim() || name;
+  return name.replace(SCENE_LABEL, '').trim() || name;
 }
 
 // How many scene rows stage two shows before it stops and says how many more
@@ -546,6 +553,10 @@ function ReadStage(props: {
   const shots = pack.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0);
   const shown = pack.scenes.slice(0, SCENES_SHOWN);
   const rest = pack.scenes.length - shown.length;
+  // A pack can legitimately be scenes with no shot-level breakdown. "0 SHOTS"
+  // over a column of zeros reads as a failed parse on the one stage whose job
+  // is to say the parse went fine, so the whole shot column just is not there.
+  const hasShots = shots > 0;
 
   return (
     <>
@@ -554,10 +565,12 @@ function ReadStage(props: {
           <b className="tnum">{pack.scenes.length}</b>
           <span className="label">Scenes</span>
         </span>
-        <span className="sl-count__cell">
-          <b className="tnum">{shots}</b>
-          <span className="label">Shots</span>
-        </span>
+        {hasShots && (
+          <span className="sl-count__cell">
+            <b className="tnum">{shots}</b>
+            <span className="label">Shots</span>
+          </span>
+        )}
       </div>
 
       <ol className="sl-scenes">
@@ -568,7 +581,7 @@ function ReadStage(props: {
               <b>{sceneName(s.name)}</b>
               {s.summary && <span>{s.summary}</span>}
             </span>
-            <span className="sl-scene__n tnum">{s.shots?.length ?? 0}</span>
+            {hasShots && <span className="sl-scene__n tnum">{s.shots?.length ?? 0}</span>}
           </li>
         ))}
         {rest > 0 && (
