@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clapper Relink — point a Premiere XML at the drive it is actually on</title>
+<meta name="description" content="Rewrite the media paths inside a Premiere or FCP7 XML so every clip relinks at once, subfolders and all. Runs entirely in your browser — nothing is uploaded." />
+<style>
+/* ===================================================================
+   THEME TOKENS
+   Light palette lives on bare :root. Dark overrides are declared twice:
+   once behind prefers-color-scheme (system default), guarded so an
+   explicit light choice always wins, and once behind [data-theme=dark]
+   so an explicit dark choice always wins regardless of system setting.
+   No color is ever defined ONLY inside a media query.
+   =================================================================== */
+:root {
+  --ground: #fbfaf7;
+  --surface: #f2f0ea;
+  --card: #ffffff;
+  --well: #f2f0ea;
+  --edge: #ddd9d0;
+  --text: #14151a;
+  --text-2: #5a5e68;
+  --text-3: #7c808a;
+  --accent: #c9c6f7;
+  --accent-type: #5a55a8;
+  --ink-on-accent: #22204a;
+  --panel: var(--card);
+  --danger: #c0261d;
+  --danger-bg: #fbe9e7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0c0d10;
+    --surface: #181a21;
+    --card: #121319;
+    --well: #181a21;
+    --edge: #2b2e39;
+    --text: #ece9e1;
+    --text-2: #9a9da7;
+    --text-3: #61646e;
+    --accent: #c9c6f7;
+    --accent-type: #c9c6f7;
+    --ink-on-accent: #22204a;
+    --panel: var(--surface);
+    --danger: #ff3b30;
+    --danger-bg: #241110;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0c0d10;
+  --surface: #181a21;
+  --card: #121319;
+  --well: #181a21;
+  --edge: #2b2e39;
+  --text: #ece9e1;
+  --text-2: #9a9da7;
+  --text-3: #61646e;
+  --accent: #c9c6f7;
+  --accent-type: #c9c6f7;
+  --ink-on-accent: #22204a;
+  --panel: var(--surface);
+  --danger: #ff3b30;
+  --danger-bg: #241110;
+}
+
+* { box-sizing: border-box; }
+
+html { color-scheme: light dark; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* ---------- layout ---------- */
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+}
+
+header.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+h1 {
+  font-size: 19px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.tagline {
+  color: var(--text-2);
+  font-size: 13px;
+  margin: 0;
+  max-width: 56ch;
+}
+
+.privacy {
+  margin: 14px 0 26px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--edge);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.privacy .dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 4px;
+}
+.privacy strong { color: var(--text); }
+
+section.card {
+  background: var(--panel);
+  border: 1.5px solid var(--edge);
+  border-radius: 8px;
+  padding: 18px 18px 20px;
+  margin-bottom: 18px;
+}
+
+section.card[data-disabled="true"] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--text-3);
+  margin: 0 0 12px;
+}
+
+h2 .step-num {
+  display: inline-block;
+  color: var(--accent-type);
+  margin-right: 6px;
+}
+
+p.hint {
+  color: var(--text-2);
+  font-size: 12.5px;
+  margin: 6px 0 0;
+}
+
+/* ---------- theme switch ---------- */
+.theme-switch {
+  display: flex;
+  border: 1.5px solid var(--edge);
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.theme-switch button {
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.theme-switch button + button { border-left: 1.5px solid var(--edge); }
+.theme-switch button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- tally-lamp buttons ---------- */
+button.lamp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 10px 20px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1.5px solid var(--edge);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+button.lamp::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  background: var(--edge);
+  transition: background-color 90ms ease, box-shadow 90ms ease;
+}
+button.lamp:hover:not(:disabled) { border-color: var(--text-3); }
+button.lamp:active:not(:disabled)::before,
+button.lamp.is-active::before {
+  background: var(--accent);
+  box-shadow: 0 0 10px 1px var(--accent);
+}
+button.lamp:disabled {
+  cursor: not-allowed;
+  color: var(--text-3);
+}
+/* The page has exactly one action. On a tally lamp, ARMED is a lit lamp — so
+   this one burns as soon as it can actually fire, and stays dark while it
+   cannot. The state you need to read is "can I press this yet", not "am I
+   pressing it", and the lamp is already the thing your eye goes to. */
+button.lamp.primary {
+  background: var(--surface);
+  padding: 12px 18px 12px 22px;
+  font-size: 14px;
+}
+button.lamp.primary::before { background: var(--edge); }
+button.lamp.primary:not(:disabled)::before {
+  background: var(--accent);
+  box-shadow: 0 0 10px 1px var(--accent);
+}
+button.lamp.primary:not(:disabled) { border-color: var(--accent); }
+button.lamp.primary:active:not(:disabled) {
+  background: var(--accent);
+  color: var(--ink-on-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.lamp, button.lamp::before { transition: none; }
+}
+
+/* ---------- form elements ---------- */
+label.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+
+input[type="text"] {
+  width: 100%;
+  background: var(--well);
+  border: 1.5px solid var(--edge);
+  border-radius: 5px;
+  padding: 9px 10px;
+  color: var(--text);
+  font: inherit;
+}
+input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* ---------- dropzone ---------- */
+.dropzone {
+  border: 1.5px dashed var(--edge);
+  border-radius: 6px;
+  padding: 22px;
+  text-align: center;
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  background: var(--well);
+}
+.dropzone.drag-over { border-color: var(--accent); color: var(--text); }
+.dropzone strong { color: var(--text); }
+
+.loaded-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--edge);
+  border-radius: 5px;
+  background: var(--well);
+}
+.loaded-file .name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.loaded-file .meta {
+  color: var(--text-3);
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1.5px solid var(--edge);
+}
+.badge.ok { color: var(--accent-type); border-color: var(--accent); }
+.badge.bad { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); }
+
+/* ---------- preview ---------- */
+.preview-block {
+  margin-top: 12px;
+  border: 1.5px solid var(--edge);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.preview-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  border-bottom: 1.5px solid var(--edge);
+}
+.preview-row:last-child { border-bottom: none; }
+.preview-row .tag {
+  padding: 9px 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: var(--well);
+  border-right: 1.5px solid var(--edge);
+}
+.preview-row.old .tag { color: var(--danger); }
+.preview-row.new .tag { color: var(--accent-type); }
+.preview-row .val {
+  padding: 9px 10px;
+  font-size: 12.5px;
+  word-break: break-all;
+  background: var(--well);
+}
+
+.warn-banner {
+  border: 1.5px solid var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.warn-banner strong { display: block; margin-bottom: 3px; }
+
+/* ---------- report lists ---------- */
+.stat-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.stat {
+  min-width: 90px;
+}
+.stat .num {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stat.ok .num { color: var(--accent-type); }
+.stat.bad .num { color: var(--danger); }
+.stat .label {
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.file-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1.5px solid var(--edge);
+  border-radius: 5px;
+  background: var(--well);
+}
+.file-list .row {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--edge);
+}
+.file-list .row:last-child { border-bottom: none; }
+.file-list.empty {
+  padding: 12px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.divider {
+  height: 1.5px;
+  background: var(--edge);
+  border: none;
+  margin: 16px 0;
+}
+
+footer.foot {
+  text-align: center;
+  color: var(--text-3);
+  font-size: 11.5px;
+  margin-top: 30px;
+}
+
+.two-col {
+  align-items: start;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+@media (min-width: 680px) {
+  .two-col { grid-template-columns: 1fr 1fr; }
+}
+
+.sub-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+.sub-note {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0 0 10px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Clapper Relink</h1>
+      <p class="tagline">Rewrites the media paths inside a Premiere / FCP7 XML so the whole shoot relinks in one step — through the SD-card and day folders the footage actually sits in — instead of being hunted down clip by clip.</p>
+    </div>
+    <div class="theme-switch" id="themeSwitch">
+      <button data-theme-choice="system" aria-pressed="true">Auto</button>
+      <button data-theme-choice="light" aria-pressed="false">Light</button>
+      <button data-theme-choice="dark" aria-pressed="false">Dark</button>
+    </div>
+  </header>
+
+  <div class="privacy">
+    <span class="dot"></span>
+    <div><strong>Your files never leave this machine.</strong> Everything here runs in this browser tab — no upload, no server, no network request. Close the wifi and it still works.</div>
+  </div>
+
+  <!-- STEP 1: load -->
+  <section class="card" id="loadCard">
+    <h2><span class="step-num">01</span>Load the XML</h2>
+    <div id="dropzone" class="dropzone">
+      Drop the exported XML here, or <strong>click to browse</strong>.
+      <input type="file" id="xmlInput" accept=".xml,.fcpxml,text/xml,application/xml" style="display:none" />
+    </div>
+    <div id="loadedFileRow" style="display:none; margin-top: 12px;"></div>
+    <div id="typeWarning" style="display:none; margin-top: 12px;"></div>
+  </section>
+
+  <!-- STEP 2: destination -->
+  <section class="card" id="destCard" data-disabled="true">
+    <h2><span class="step-num">02</span>Give it a destination</h2>
+    <div class="two-col">
+      <div>
+        <p class="sub-heading">A &mdash; where the folder will live</p>
+        <p class="sub-note">The path to the project folder <em>on the machine you will edit on</em>. Windows (<span class="mono">E:\folder\project</span>) or POSIX (<span class="mono">/Volumes/Drive/project</span>). The browser is never told where a folder really is, so this one line is yours to type.</p>
+        <label class="field-label" for="rootInput">Project folder</label>
+        <input type="text" id="rootInput" class="mono" placeholder="E:\drive folder\project folder" autocomplete="off" spellcheck="false" />
+      </div>
+      <div>
+        <p class="sub-heading">B &mdash; the folder itself</p>
+        <p class="sub-note">Point at that same folder here and the tool walks every subfolder inside it &mdash; <span class="mono">SD CARD 1/DAY-1</span> and the rest &mdash; then writes each clip's <em>real</em> path. Without this it can only write one flat folder, and nested footage stays offline.</p>
+        <button class="lamp" id="pickFolderBtn">Choose folder&hellip;</button>
+        <input type="file" id="folderFallbackInput" webkitdirectory directory multiple style="display:none" />
+        <div id="verifyReport" style="margin-top:14px; display:none;"></div>
+      </div>
+    </div>
+
+    <div class="preview-block" id="previewBlock" style="display:none; margin-top:18px;">
+      <div class="preview-row old"><div class="tag">WAS</div><div class="val mono" id="previewOld"></div></div>
+      <div class="preview-row new"><div class="tag">NOW</div><div class="val mono" id="previewNew"></div></div>
+    </div>
+    <p class="hint" id="rootHint"></p>
+    <div style="margin-top:14px;">
+      <button class="lamp primary" id="downloadBtn" disabled>Rewrite &amp; download relinked XML</button>
+    </div>
+  </section>
+
+  <!-- STEP 3: summary -->
+  <section class="card" id="summaryCard" style="display:none;">
+    <h2><span class="step-num">03</span>Summary</h2>
+    <div id="summaryBody"></div>
+  </section>
+
+  <footer class="foot">Clapper Relink &middot; no server, no upload, no tracking. Part of <a href="/">Clapper</a>. &copy; 2026 Clapper. All rights reserved.</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =====================================================================
+     WHY REGEX, NOT A DOM SERIALISER.
+     Parsing this into an XML DOM and writing it back out would round-trip
+     through the browser's serialiser, which normalises whitespace, quote
+     style and self-closing tags and can silently reformat parts of the
+     document nobody asked it to touch — turning a one-line diff into a
+     file-wide one and making the real edit hard to review. <pathurl> only
+     ever contains a URL string, no nested markup, so a scoped regex over
+     the raw text is the more honest tool: it changes exactly the bytes
+     between the tags and nothing else. See rewriteXml() below.
+     ===================================================================== */
+
+  // Ported from src/export/medialink.ts (Clapper's own relink matcher) —
+  // same extension allowlist and same "strip known extension, lowercase"
+  // basename key, so this tool agrees with Clapper's own logic instead of
+  // inventing a second heuristic.
+  const MEDIA_EXTENSIONS = [
+    '.mp4', '.mov', '.mxf', '.braw', '.r3d', '.ari', '.arx',
+    '.avi', '.mts', '.m2ts', '.dng', '.wav',
+  ];
+
+  function extensionOf(name) {
+    const dot = name.lastIndexOf('.');
+    return dot <= 0 ? '' : name.slice(dot).toLowerCase();
+  }
+  function isMediaFile(name) { return MEDIA_EXTENSIONS.includes(extensionOf(name)); }
+  function baseKey(fileName) {
+    const name = fileName.trim();
+    const ext = extensionOf(name);
+    const stem = MEDIA_EXTENSIONS.includes(ext) ? name.slice(0, name.length - ext.length) : name;
+    return stem.toLowerCase();
+  }
+
+  const PATHURL_SRC = '<pathurl>([^<]*)<\\/pathurl>';
+
+  function detectDocType(text) {
+    if (/<xmeml[\s>]/i.test(text)) return 'xmeml';
+    if (/<fcpxml[\s>]/i.test(text) || /<media-rep\b/i.test(text)) return 'fcpxml';
+    return 'unknown';
+  }
+
+  function filenameFromPathurl(raw) {
+    const lastSlash = raw.lastIndexOf('/');
+    const rawName = lastSlash >= 0 ? raw.slice(lastSlash + 1) : raw;
+    try { return decodeURI(rawName); } catch (e) { return rawName; }
+  }
+
+  function normalizeRoot(input) {
+    let r = input.trim().replace(/\\/g, '/');
+    r = r.replace(/\/+$/, '');
+    return r;
+  }
+
+  function buildPathurl(root, filename) {
+    // `file://localhost/` already supplies the separator after the
+    // authority, so a POSIX root (which starts with its own '/') would
+    // otherwise double up into "localhost//Volumes/..." — strip one
+    // leading slash before joining. Windows roots ("E:/...") have none,
+    // so this is a no-op for them.
+    const cleanRoot = root.replace(/^\/+/, '');
+    const combined = cleanRoot + '/' + filename;
+    return 'file://localhost/' + encodeURI(combined);
+  }
+
+  /** The clip's path inside the project folder, or null if this folder cannot
+   *  answer for it — either the file is not here, or two files share the name
+   *  and picking one would be a guess. */
+  function resolveRel(filename) {
+    if (!picked) return null;
+    const hits = picked.byBase[baseKey(filename)] || [];
+    return hits.length === 1 ? hits[0] : null;
+  }
+
+  function rewriteXml(text, root) {
+    const re = new RegExp(PATHURL_SRC, 'g');
+    let count = 0;
+    const samples = [];
+    const freq = new Map();
+    let kept = 0;
+    const unresolved = new Set();
+    const newText = text.replace(re, function (match, raw) {
+      const filename = filenameFromPathurl(raw);
+      freq.set(filename, (freq.get(filename) || 0) + 1);
+      const rel = resolveRel(filename);
+      // NO GUESSING. With a folder picked, a name that did not resolve to
+      // exactly one real file keeps the path it already had. Rewriting it to
+      // somewhere we could not confirm would turn "this clip is offline" —
+      // which the edit suite shows you in one glance — into "this clip is
+      // online and pointing at the wrong take", which it does not.
+      if (picked && !rel) { unresolved.add(filename); kept += 1; return match; }
+      const newUrl = buildPathurl(root, rel || filename);
+      count += 1;
+      if (samples.length < 4) samples.push({ oldUrl: raw, newUrl: newUrl });
+      return '<pathurl>' + newUrl + '</pathurl>';
+    });
+    const duplicates = [];
+    freq.forEach(function (n, name) { if (n > 1) duplicates.push([name, n]); });
+    duplicates.sort(function (a, b) { return b[1] - a[1] || a[0].localeCompare(b[0]); });
+    return {
+      newText: newText, count: count, kept: kept, samples: samples,
+      duplicates: duplicates, uniqueCount: freq.size,
+      unresolved: Array.from(unresolved).sort(),
+      mode: picked ? 'folder' : 'flat',
+    };
+  }
+
+  function firstPathurl(text) {
+    const re = new RegExp(PATHURL_SRC);
+    const m = re.exec(text);
+    return m ? m[1] : null;
+  }
+
+  function allFilenames(text) {
+    const re = new RegExp(PATHURL_SRC, 'g');
+    const names = new Set();
+    let m;
+    while ((m = re.exec(text))) names.add(filenameFromPathurl(m[1]));
+    return names;
+  }
+
+  function buildIndex(relPaths) {
+    const byBase = Object.create(null);
+    let fileCount = 0;
+    for (let i = 0; i < relPaths.length; i++) {
+      const rel = relPaths[i].replace(/^\/+/, '');
+      const fileName = rel.slice(rel.lastIndexOf('/') + 1);
+      if (!fileName || !isMediaFile(fileName)) continue;
+      fileCount += 1;
+      const key = baseKey(fileName);
+      (byBase[key] = byBase[key] || []).push(rel);
+    }
+    return { byBase: byBase, fileCount: fileCount };
+  }
+
+  /* ---------------------------------------------------------------- state */
+  // Set once someone points the tool at the real drive. It holds, per logged
+  // filename, that clip's ACTUAL path INSIDE the project folder — which is the
+  // entire reason this mode exists. Footage comes off a shoot nested (SD CARD 1
+  // / DAY-1 / Crav_0273.MP4), and a flat root + filename join throws that
+  // nesting away, so every clip stays offline no matter how right the root is.
+  let picked = null;   // { byBase, fileCount, rootName }
+  let loadedXmlText = null;
+  let loadedFileName = '';
+  let docType = null;
+
+  const el = {
+    dropzone: document.getElementById('dropzone'),
+    xmlInput: document.getElementById('xmlInput'),
+    loadedFileRow: document.getElementById('loadedFileRow'),
+    typeWarning: document.getElementById('typeWarning'),
+    destCard: document.getElementById('destCard'),
+    rootInput: document.getElementById('rootInput'),
+    previewBlock: document.getElementById('previewBlock'),
+    previewOld: document.getElementById('previewOld'),
+    previewNew: document.getElementById('previewNew'),
+    rootHint: document.getElementById('rootHint'),
+    downloadBtn: document.getElementById('downloadBtn'),
+    pickFolderBtn: document.getElementById('pickFolderBtn'),
+    folderFallbackInput: document.getElementById('folderFallbackInput'),
+    verifyReport: document.getElementById('verifyReport'),
+    summaryCard: document.getElementById('summaryCard'),
+    summaryBody: document.getElementById('summaryBody'),
+  };
+
+  /* ---------------------------------------------------------------- theme */
+  (function themeInit() {
+    const buttons = document.querySelectorAll('#themeSwitch button');
+    function apply(choice) {
+      if (choice === 'system') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', choice);
+      buttons.forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-choice') === choice));
+      });
+    }
+    buttons.forEach(function (b) {
+      b.addEventListener('click', function () { apply(b.getAttribute('data-theme-choice')); });
+    });
+    apply('system');
+  })();
+
+  /* ---------------------------------------------------------------- load */
+  function clearChildren(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+  function onFileLoaded(file, text) {
+    loadedXmlText = text;
+    loadedFileName = file.name;
+    docType = detectDocType(text);
+
+    clearChildren(el.loadedFileRow);
+    const row = document.createElement('div');
+    row.className = 'loaded-file';
+    const nameSpan = document.createElement('div');
+    nameSpan.className = 'name mono';
+    nameSpan.textContent = file.name;
+    const metaSpan = document.createElement('div');
+    metaSpan.className = 'meta';
+    metaSpan.textContent = Math.round(file.size / 1024) + ' KB';
+    row.appendChild(nameSpan);
+    row.appendChild(metaSpan);
+    el.loadedFileRow.appendChild(row);
+    el.loadedFileRow.style.display = '';
+
+    clearChildren(el.typeWarning);
+    if (docType === 'xmeml') {
+      const count = allFilenames(text).size;
+      let total = 0;
+      const re = new RegExp(PATHURL_SRC, 'g');
+      while (re.exec(text)) total += 1;
+      const badge = document.createElement('div');
+      badge.innerHTML = ''; // built via DOM below, no raw HTML from file data
+      const b1 = document.createElement('span');
+      b1.className = 'badge ok';
+      b1.textContent = 'FCP7 xmeml';
+      badge.appendChild(b1);
+      const info = document.createElement('span');
+      info.className = 'sub-note';
+      info.style.marginLeft = '10px';
+      info.textContent = total + ' <pathurl> entries found (' + count + ' unique filenames)';
+      badge.appendChild(info);
+      el.typeWarning.appendChild(badge);
+      el.typeWarning.style.display = '';
+      el.destCard.setAttribute('data-disabled', 'false');
+    } else {
+      const banner = document.createElement('div');
+      banner.className = 'warn-banner';
+      const strong = document.createElement('strong');
+      const note = document.createElement('span');
+      if (docType === 'fcpxml') {
+        strong.textContent = 'This is an FCPXML file, not FCP7 / Premiere xmeml.';
+        note.textContent = 'It looks like a DaVinci Resolve export (<fcpxml>, <media-rep src="…">), a different format from the <xmeml> this tool rewrites. Re-export from Premiere as "XML" (FCP7 interchange), or paste in that file instead.';
+      } else {
+        strong.textContent = "This doesn't look like an FCP7 / Premiere XML export.";
+        note.textContent = 'No <xmeml> root tag found, so rewriting it blind would likely produce a broken file. Nothing was changed.';
+      }
+      banner.appendChild(strong);
+      banner.appendChild(note);
+      el.typeWarning.appendChild(banner);
+      el.typeWarning.style.display = '';
+      el.destCard.setAttribute('data-disabled', 'true');
+    }
+    el.summaryCard.style.display = 'none';
+    el.verifyReport.style.display = 'none';
+    updatePreview();
+  }
+
+  function loadFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () { onFileLoaded(file, String(reader.result)); };
+    reader.readAsText(file);
+  }
+
+  el.dropzone.addEventListener('click', function () { el.xmlInput.click(); });
+  el.xmlInput.addEventListener('change', function (e) { loadFile(e.target.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (evt) {
+    el.dropzone.addEventListener(evt, function (e) {
+      e.preventDefault();
+      el.dropzone.classList.add('drag-over');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    el.dropzone.addEventListener(evt, function (e) {
+      e.preventDefault();
+      el.dropzone.classList.remove('drag-over');
+    });
+  });
+  el.dropzone.addEventListener('drop', function (e) {
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+
+  /* ---------------------------------------------------------------- preview */
+  function updatePreview() {
+    if (!loadedXmlText || docType !== 'xmeml') {
+      el.previewBlock.style.display = 'none';
+      el.downloadBtn.disabled = true;
+      return;
+    }
+    const raw = el.rootInput.value;
+    const root = normalizeRoot(raw);
+    const sampleOld = firstPathurl(loadedXmlText);
+    if (!root || !sampleOld) {
+      el.previewBlock.style.display = 'none';
+      el.downloadBtn.disabled = true;
+      el.rootHint.textContent = root ? '' : 'Type the folder path to see the exact string that will be written, before you commit to it.';
+      return;
+    }
+    // Preview a clip the folder can actually answer for, not merely the first
+    // one in the file. Showing a flat fallback path as the sample would sell
+    // the nested rewrite short in exactly the case it is doing its job.
+    let sample = sampleOld;
+    let rel = null;
+    if (picked) {
+      const re = new RegExp(PATHURL_SRC, 'g');
+      let m;
+      while ((m = re.exec(loadedXmlText))) {
+        const r = resolveRel(filenameFromPathurl(m[1]));
+        if (r && r.indexOf('/') >= 0) { sample = m[1]; rel = r; break; }
+        if (r && !rel) { sample = m[1]; rel = r; }
+      }
+    }
+    const filename = filenameFromPathurl(sample);
+    el.previewOld.textContent = sample;
+    el.previewNew.textContent = buildPathurl(root, rel || filename);
+    el.previewBlock.style.display = '';
+    el.downloadBtn.disabled = false;
+
+    // The one mistake this tool cannot catch for you. A picked folder gives
+    // paths INSIDE it, so the line you type has to end at that same folder. If
+    // it does not, every path comes out one level wrong and every clip stays
+    // offline — with no error anywhere, because the string is well-formed.
+    if (picked) {
+      const tail = root.slice(root.lastIndexOf('/') + 1);
+      el.rootHint.textContent = tail.toLowerCase() === picked.rootName.toLowerCase()
+        ? 'Real paths from "' + picked.rootName + '" — subfolders and all.'
+        : 'Heads up: you picked the folder "' + picked.rootName + '", but the path you typed ends at "' +
+          tail + '". Unless those are the same folder under two names, the path should end in "' +
+          picked.rootName + '".';
+      el.downloadBtn.textContent = 'Rewrite with real paths & download';
+    } else {
+      el.rootHint.textContent = 'Flat mode: every clip is written straight into this one folder. If your footage sits in subfolders, pick the folder in B instead.';
+      el.downloadBtn.textContent = 'Rewrite & download relinked XML';
+    }
+  }
+  el.rootInput.addEventListener('input', updatePreview);
+
+  /* ---------------------------------------------------------------- download */
+  function renderSummary(result) {
+    clearChildren(el.summaryBody);
+
+    const statRow = document.createElement('div');
+    statRow.className = 'stat-row';
+    const s1 = document.createElement('div');
+    s1.className = 'stat ok';
+    s1.innerHTML = '';
+    const s1num = document.createElement('div'); s1num.className = 'num'; s1num.textContent = String(result.count);
+    const s1label = document.createElement('div'); s1label.className = 'label'; s1label.textContent = 'paths rewritten';
+    s1.appendChild(s1num); s1.appendChild(s1label);
+    const s2 = document.createElement('div');
+    s2.className = 'stat';
+    const s2num = document.createElement('div'); s2num.className = 'num'; s2num.textContent = String(result.uniqueCount);
+    const s2label = document.createElement('div'); s2label.className = 'label'; s2label.textContent = 'unique filenames';
+    s2.appendChild(s2num); s2.appendChild(s2label);
+    const s3 = document.createElement('div');
+    s3.className = 'stat';
+    const s3num = document.createElement('div'); s3num.className = 'num'; s3num.textContent = String(result.duplicates.length);
+    const s3label = document.createElement('div'); s3label.className = 'label'; s3label.textContent = 'appear more than once';
+    if (result.kept) {
+      const s4 = document.createElement('div');
+      s4.className = 'stat bad';
+      const n = document.createElement('div'); n.className = 'num'; n.textContent = String(result.kept);
+      const l = document.createElement('div'); l.className = 'label'; l.textContent = 'left alone';
+      s4.appendChild(n); s4.appendChild(l);
+      statRow.appendChild(s4);
+    }
+    s3.appendChild(s3num); s3.appendChild(s3label);
+    statRow.appendChild(s1); statRow.appendChild(s2); statRow.appendChild(s3);
+    el.summaryBody.appendChild(statRow);
+
+    const sampleTitle = document.createElement('p');
+    sampleTitle.className = 'sub-heading';
+    sampleTitle.textContent = 'Sample before / after';
+    el.summaryBody.appendChild(sampleTitle);
+    const sampleBlock = document.createElement('div');
+    sampleBlock.className = 'preview-block';
+    result.samples.forEach(function (s) {
+      const rowOld = document.createElement('div');
+      rowOld.className = 'preview-row old';
+      const tagOld = document.createElement('div'); tagOld.className = 'tag'; tagOld.textContent = 'WAS';
+      const valOld = document.createElement('div'); valOld.className = 'val mono'; valOld.textContent = s.oldUrl;
+      rowOld.appendChild(tagOld); rowOld.appendChild(valOld);
+      const rowNew = document.createElement('div');
+      rowNew.className = 'preview-row new';
+      const tagNew = document.createElement('div'); tagNew.className = 'tag'; tagNew.textContent = 'NOW';
+      const valNew = document.createElement('div'); valNew.className = 'val mono'; valNew.textContent = s.newUrl;
+      rowNew.appendChild(tagNew); rowNew.appendChild(valNew);
+      sampleBlock.appendChild(rowOld); sampleBlock.appendChild(rowNew);
+    });
+    el.summaryBody.appendChild(sampleBlock);
+
+    if (result.duplicates.length) {
+      const dupTitle = document.createElement('p');
+      dupTitle.className = 'sub-heading';
+      dupTitle.style.marginTop = '16px';
+      dupTitle.textContent = 'Filenames used more than once';
+      el.summaryBody.appendChild(dupTitle);
+      const dupNote = document.createElement('p');
+      dupNote.className = 'sub-note';
+      dupNote.textContent = 'Normal for a clip cut into both a video and audio track — same file, referenced twice.';
+      el.summaryBody.appendChild(dupNote);
+      const list = document.createElement('div');
+      list.className = 'file-list';
+      result.duplicates.forEach(function (pair) {
+        const row = document.createElement('div');
+        row.className = 'row mono';
+        row.textContent = pair[0] + '  \u00d7' + pair[1];
+        list.appendChild(row);
+      });
+      el.summaryBody.appendChild(list);
+    }
+
+    if (result.unresolved.length) {
+      const title = document.createElement('p');
+      title.className = 'sub-heading';
+      title.style.marginTop = '16px';
+      title.textContent = 'Still pointing where they pointed before';
+      el.summaryBody.appendChild(title);
+      const note = document.createElement('p');
+      note.className = 'sub-note';
+      note.textContent = 'These were not in the folder you picked, or two files there share the name. ' +
+        'They were deliberately not rewritten — they will show as offline in the edit, which is the honest answer.';
+      el.summaryBody.appendChild(note);
+      const list = document.createElement('div');
+      list.className = 'file-list';
+      result.unresolved.forEach(function (name) {
+        const row = document.createElement('div');
+        row.className = 'row mono';
+        row.textContent = name;
+        list.appendChild(row);
+      });
+      el.summaryBody.appendChild(list);
+    }
+
+    el.summaryCard.style.display = '';
+    el.summaryCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  el.downloadBtn.addEventListener('click', function () {
+    if (!loadedXmlText || docType !== 'xmeml') return;
+    const root = normalizeRoot(el.rootInput.value);
+    if (!root) return;
+    const result = rewriteXml(loadedXmlText, root);
+    renderSummary(result);
+    const blob = new Blob([result.newText], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const base = loadedFileName.replace(/\.xml$/i, '');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = base + '-relinked.xml';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+  });
+
+  /* ---------------------------------------------------------------- verify */
+  function renderVerifyReport(report) {
+    clearChildren(el.verifyReport);
+
+    const statRow = document.createElement('div');
+    statRow.className = 'stat-row';
+    function stat(cls, num, label) {
+      const s = document.createElement('div');
+      s.className = 'stat ' + cls;
+      const n = document.createElement('div'); n.className = 'num'; n.textContent = String(num);
+      const l = document.createElement('div'); l.className = 'label'; l.textContent = label;
+      s.appendChild(n); s.appendChild(l);
+      return s;
+    }
+    statRow.appendChild(stat('ok', report.matched.length, 'found'));
+    statRow.appendChild(stat(report.missing.length ? 'bad' : '', report.missing.length, 'missing'));
+    if (report.ambiguous.length) statRow.appendChild(stat('bad', report.ambiguous.length, 'ambiguous'));
+    el.verifyReport.appendChild(statRow);
+
+    const rootNote = document.createElement('p');
+    rootNote.className = 'sub-note';
+    rootNote.textContent = 'Checked against "' + report.rootName + '" (' + report.fileCount + ' media files) for ' +
+      (report.matched.length + report.missing.length + report.ambiguous.length) + ' filenames logged in the XML.';
+    el.verifyReport.appendChild(rootNote);
+
+    if (report.missing.length) {
+      const title = document.createElement('p');
+      title.className = 'sub-heading';
+      title.style.marginTop = '10px';
+      title.textContent = 'Missing from this folder';
+      el.verifyReport.appendChild(title);
+      const list = document.createElement('div');
+      list.className = 'file-list';
+      report.missing.sort().forEach(function (name) {
+        const row = document.createElement('div');
+        row.className = 'row mono';
+        row.textContent = name;
+        list.appendChild(row);
+      });
+      el.verifyReport.appendChild(list);
+    } else {
+      const ok = document.createElement('p');
+      ok.className = 'sub-note';
+      ok.textContent = 'Every logged filename was found. Nothing missing.';
+      el.verifyReport.appendChild(ok);
+    }
+
+    if (report.ambiguous.length) {
+      const title = document.createElement('p');
+      title.className = 'sub-heading';
+      title.style.marginTop = '10px';
+      title.textContent = 'Ambiguous — more than one file shares this name';
+      el.verifyReport.appendChild(title);
+      const list = document.createElement('div');
+      list.className = 'file-list';
+      report.ambiguous.sort().forEach(function (name) {
+        const row = document.createElement('div');
+        row.className = 'row mono';
+        row.textContent = name;
+        list.appendChild(row);
+      });
+      el.verifyReport.appendChild(list);
+    }
+
+    el.verifyReport.style.display = '';
+  }
+
+  function verifyFiles(relPaths, rootName) {
+    if (!relPaths.length) return;
+    const index = buildIndex(relPaths);
+    const filenames = allFilenames(loadedXmlText);
+    const matched = [], missing = [], ambiguous = [];
+    filenames.forEach(function (name) {
+      const key = baseKey(name);
+      const hits = index.byBase[key] || [];
+      if (hits.length === 1) matched.push(name);
+      else if (hits.length === 0) missing.push(name);
+      else ambiguous.push(name);
+    });
+    picked = { byBase: index.byBase, fileCount: index.fileCount, rootName: rootName || '(picked folder)' };
+    renderVerifyReport({
+      rootName: picked.rootName,
+      matched: matched, missing: missing, ambiguous: ambiguous,
+      fileCount: index.fileCount,
+    });
+    updatePreview();
+  }
+
+  async function walkDir(dirHandle, prefix) {
+    let out = [];
+    for await (const [name, handle] of dirHandle.entries()) {
+      const rel = prefix ? prefix + '/' + name : name;
+      if (handle.kind === 'file') {
+        out.push(rel);
+      } else if (handle.kind === 'directory') {
+        out = out.concat(await walkDir(handle, rel));
+      }
+    }
+    return out;
+  }
+
+  el.pickFolderBtn.addEventListener('click', async function () {
+    if (!loadedXmlText || docType !== 'xmeml') return;
+    if ('showDirectoryPicker' in window) {
+      try {
+        const dirHandle = await window.showDirectoryPicker();
+        const relPaths = await walkDir(dirHandle, '');
+        verifyFiles(relPaths, dirHandle.name);
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.error(err);
+      }
+    } else {
+      el.folderFallbackInput.click();
+    }
+  });
+
+  el.folderFallbackInput.addEventListener('change', function (e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const raw = files.map(function (f) { return f.webkitRelativePath || f.name; });
+    const rootName = raw[0].indexOf('/') >= 0 ? raw[0].split('/')[0] : '';
+    // webkitRelativePath is prefixed with the picked folder's OWN name; the
+    // File System Access walk above is not. Strip it, so "relative path" means
+    // one thing in this file: the path INSIDE the project folder. Getting this
+    // wrong doubles the folder name into the output and every clip misses.
+    const relPaths = rootName
+      ? raw.map(function (r) { return r.slice(rootName.length + 1); })
+      : raw;
+    verifyFiles(relPaths, rootName);
+  });
+})();
+</script>
+</body>
+</html>
