@@ -464,6 +464,25 @@ html[data-uiscale='fine'] textarea {
   grid-template-columns: repeat(4, 1fr);
 }
 
+/* Commit fbe7e7f ("selected stops being green") retired --go/--go-tint as the
+   selection colour everywhere else this lane repainted, but `.cutsize__opt`
+   is styles.css's own rule and this row survived that pass unretouched -
+   until now. Same "chosen stop is the mass" idiom as `.msize__opt--on` right
+   above it, restated rather than shared, because `.cutsize` is not this
+   lane's class to redefine wholesale, only to override the way the grid
+   columns rule above already does. `--go`/`--go-text` are untouched: they
+   still mean rolling-ready everywhere they are actually used. */
+.cutsize__opt--on {
+  background: var(--m-card);
+  border-color: var(--m-card);
+  color: var(--m-card-ink);
+}
+[data-theme='night'] .cutsize__opt--on {
+  background: var(--m-keycap);
+  border-color: var(--m-legend);
+  color: var(--m-legend);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .msize__opt:active {
     transform: none;
