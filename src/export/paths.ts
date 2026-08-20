@@ -21,8 +21,8 @@
  * parts drop out, so a caller can hand over an optional folder without
  * branching:
  *
- *   mediaPath('A_20260808', 'crav_0273.MP4')  ->  "A_20260808/crav_0273.MP4"
- *   mediaPath(undefined, 'crav_0273.MP4')     ->  "crav_0273.MP4"
+ *   mediaPath('A_20260808', 'reel_0273.MP4')  ->  "A_20260808/reel_0273.MP4"
+ *   mediaPath(undefined, 'reel_0273.MP4')     ->  "reel_0273.MP4"
  *   mediaPath('day 2/card 1', 'a b.MP4')      ->  "day%202/card%201/a%20b.MP4"
  *
  * The return value carries no leading slash. Callers own the scheme, because

@@ -298,12 +298,12 @@ describe('fcpxml.ts — <pathurl> points where the footage actually is', () => {
         mediaRoot: '/Volumes/Backup Drive-02/Wrap Reel? 8-08-2026/day 1/M4ROOT/CLIP',
       }),
       slates: [slate('s1', 0)],
-      takes: [take('t1', 's1', 1, 'crav_0054')],
+      takes: [take('t1', 's1', 1, 'reel_0054')],
       moments: [],
     };
     const xml = await xmlOf(bundle);
     expect(pathsIn(xml)).toEqual([
-      '<pathurl>file://localhost/Volumes/Backup%20Drive-02/Wrap%20Reel%3F%208-08-2026/day%201/M4ROOT/CLIP/crav_0054.MP4</pathurl>',
+      '<pathurl>file://localhost/Volumes/Backup%20Drive-02/Wrap%20Reel%3F%208-08-2026/day%201/M4ROOT/CLIP/reel_0054.MP4</pathurl>',
     ]);
   });
 

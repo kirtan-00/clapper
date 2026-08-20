@@ -5,15 +5,15 @@ describe('mediaPath', () => {
   it('leaves an ordinary camera file exactly as the card wrote it', () => {
     // The overwhelmingly common case. If this ever changes shape, every
     // existing exported XML stops matching the footage it was cut against.
-    expect(mediaPath(undefined, 'crav_0273.MP4')).toBe('crav_0273.MP4');
+    expect(mediaPath(undefined, 'reel_0273.MP4')).toBe('reel_0273.MP4');
     expect(mediaPath('A_20260808', 'C0001.MP4')).toBe('A_20260808/C0001.MP4');
   });
 
   it('encodes the characters that silently truncate a path', () => {
     // "?" starts a query string and "#" starts a fragment, so an un-encoded
     // one throws away everything after it and the editor relinks to nothing.
-    expect(mediaPath('Wrap Reel? 8-08', 'crav_0273.MP4')).toBe(
-      'Wrap%20Reel%3F%208-08/crav_0273.MP4',
+    expect(mediaPath('Wrap Reel? 8-08', 'reel_0273.MP4')).toBe(
+      'Wrap%20Reel%3F%208-08/reel_0273.MP4',
     );
     expect(mediaPath(undefined, 'take #4.MOV')).toBe('take%20%234.MOV');
   });
@@ -26,8 +26,8 @@ describe('mediaPath', () => {
   });
 
   it('keeps folder separators and drops empty segments', () => {
-    expect(mediaPath('day 2/card 1/M4ROOT/CLIP', 'crav_0273.MP4')).toBe(
-      'day%202/card%201/M4ROOT/CLIP/crav_0273.MP4',
+    expect(mediaPath('day 2/card 1/M4ROOT/CLIP', 'reel_0273.MP4')).toBe(
+      'day%202/card%201/M4ROOT/CLIP/reel_0273.MP4',
     );
     // A missing, blank or slash-padded folder must not leave a "//" behind,
     // which some importers read as a host name rather than a directory.
