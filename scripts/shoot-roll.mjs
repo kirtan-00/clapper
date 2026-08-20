@@ -541,6 +541,31 @@ async function behaviourChecks(cdp, rows, fails) {
     note(!!back && back.onGlass && !landed.roll,
       `bug4 ${theme}  backout "${back?.label}" (${back?.aria}) -> left the roll screen: ${!landed.roll}, landed on "${landed.title || landed.body.trim()}"`);
   }
+
+  // ---- the two-pane landscape tablet -------------------------------------
+  // 390-wide portrait is where this screen lives, but the media query at the
+  // end of styles.css MATERIALISES .roll__panes into clock-pane + deck-pane at
+  // 780+ landscape, and that block inverts which box scrolls. A portrait-only
+  // harness would never see it break.
+  await cdp.setViewport(900, 500);
+  await seed(cdp, { cameraCount: 3, soundOn: true, scriptMode: true, shots: false });
+  await openRoll(cdp, 'night');
+  {
+    const p = await cdp.centreOf('.bigbtn');
+    await cdp.mouseDown(p.x, p.y);
+    await cdp.mouseUp(p.x, p.y);
+    await cdp.waitForExpr(`document.querySelector('.roll--live')`, { desc: 'live landscape' });
+    await sleep(700);
+  }
+  const land = await cdp.evaluate(MEASURE);
+  await cdp.shot(join(OUT_DIR, `landscape.900x500.night.png`));
+  note(
+    land.docScroll === land.docClient && land.rollScroll === land.rollClient &&
+      !!land.cut && land.cut.y + land.cut.h <= 500 && !!land.pill && land.pillSeen,
+    `landscape 900x500  doc ${land.docScroll}/${land.docClient}  roll ${land.rollScroll}/${land.rollClient}  ` +
+      `cut ${fmt(land.cut)}  pill ${fmt(land.pill)} seen=${land.pillSeen}  takebar ${fmt(land.takebar)}`,
+  );
+  await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
 }
 
 async function assertMain(cdp) {
