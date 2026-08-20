@@ -45,11 +45,11 @@ const SYSTEM_SHOTS = [
   "- Do not restate the shot's own size or move as a chip — the slate already carries them, so a shot marked MCU / PUSH IN needs no chip saying so. The spelling rule above is the backstop for when a framing legitimately belongs inside a chip anyway.",
   "- Keep each chip short (under 22 chars), and order them as they happen within the shot.",
   "- Return every code you were given, in the order given, with \"keyMoments\":[] where there is nothing to tap. Never invent a code.",
-  "WORKED EXAMPLES, from a real shotlist — match this target:",
-  '4.14 MS High / from balcony — "She hurls the coffee mug straight down at him. Mug shatters" -> ["hurls mug","mug shatters"]',
-  '1.1 XWS STATIC, low — "Empty late-night street, lone parked car" -> ["car in frame"]   (an establisher still has one thing to mark)',
-  "1.21 — Superimpose — \"Title Card: LET'S MEET DOBAARA\" -> []   (genuinely nothing to tap)",
-  '3.6 CU STATIC — Ruhi, not having it. "Ansh." -> ["\\"Ansh.\\""]',
+  "WORKED EXAMPLES, from a shipped shotlist — match this target:",
+  '4.14 MS High / from balcony — "She sets the coffee down hard enough that it slops over, storms back inside without a word." -> ["coffee slops","storms inside"]',
+  '1.1 XWS STATIC, low — "Terrace at night, string lights, a ring light glowing on its stand." -> ["ring light glow"]   (an establisher still has one thing to mark)',
+  "1.21 — Superimpose — \"Title Card: KEEP THE TAKE\" -> []   (genuinely nothing to tap)",
+  '3.6 CU STATIC — Maya, not having it. "Dev." -> ["\\"Dev.\\""]',
   "Note those inputs carry XWS / MS / CU, and not one chip repeats them.",
 ].join("\n");
 
