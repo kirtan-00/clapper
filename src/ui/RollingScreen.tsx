@@ -1082,8 +1082,15 @@ export function RollingScreen(props: {
     if (!rolling) return;
     haptics.tap();
     setBuffered((prev) => [...prev, { kind: 'point', atMs: elapsedMs, label: '', tag }]);
+    // NO TOAST. It used to say "WIDE marked" over the deck for a couple of
+    // seconds; the owner: "tapping a button makes a message of it pressed,
+    // dont have it, we have the count x shower of that button press." The line
+    // above is that count - it lights the key and puts xN on it - and the
+    // count is the better receipt: it persists for the whole take, it is
+    // countable, and it does not cover the controls to say so. The haptic
+    // already answers the thumb. The clip-fix toast stays: "N later takes
+    // moved too" reports something no count on a key can.
     setFlashes((prev) => ({ ...prev, [tag]: (prev[tag] ?? 0) + 1 }));
-    setToast(tag === 'GOLD' ? 'GOLD marked' : `${tag} marked`);
   }
 
   function markInOut() {
@@ -1177,6 +1184,18 @@ export function RollingScreen(props: {
   // immediately when there is no sound to wait on), so neither is affected.
   const cameraActive = anyCamRolling || finishedRolls.length > 0;
   const bigButtonCutMode = useEngine ? cameraActive : timer.rolling;
+  /**
+   * IS THE ONE CAMERA ACTUALLY TURNING OVER. The unit strip renders a pill for
+   * camera A on a single-camera project (see the camstack below), and the pill
+   * says REC and runs a clock, so it may only exist while that is true. Two
+   * different facts answer it depending on which engine is driving: with sound
+   * in play the roll/join engine owns camera A and `camRolls` is the truth
+   * (sound commonly rolls FIRST and alone, and a pill claiming REC while only
+   * the recorder is running would be a lie the loader pays for); without it,
+   * the plain single-cam timer is.
+   */
+  const singleCamRolling =
+    !multi && (useEngine ? camRolls[cameras[0].letter] !== undefined : timer.rolling);
 
   // Every path that ends a take (voice, a solo-cut that closes the last
   // camera, the big CUT) converges on `rolling` going false - one effect
@@ -1671,12 +1690,12 @@ export function RollingScreen(props: {
         )}
       </div>
 
-      {/* THE SHOT DECK. Last thing in the scrollable body, on purpose: it
-          sits directly above ROLL/CUT, and .roll__body's own max-height +
-          overflow (see styles.css) is what keeps that true no matter how
-          tall the deck's description text runs — the deck is a child that
-          SCROLLS, ROLL/CUT are a sibling that never does. Absent for a scene
-          with no shot breakdown; that case keeps the scene pager above. */}
+      {/* THE SHOT DECK. Last thing in the top band, directly above the deck.
+          It is `flex: 0 0 auto` in a box that no longer scrolls, so its height
+          is part of the screen's fixed geometry - which is why it renders as
+          ONE card while rolling rather than a 300px wheel (see LIVE_CARD_H in
+          ShotDeck.tsx). Absent for a scene with no shot breakdown; that case
+          keeps the scene pager above. */}
       {shot && (
         <ShotDeck
           shotList={shotList}
@@ -1699,14 +1718,23 @@ export function RollingScreen(props: {
             The controls here are all things you do BETWEEN takes anyway. */}
         {!rolling && (
           <div className="roll__reach">
+            {/* THE WAY OUT, and it has to READ as one. It said "Scenes"
+                always, which is true of a project with a scene list and says
+                nothing at all on a one-scene project - the owner, looking at
+                exactly that screen: "can't go back from here to back menu."
+                The destination was never wrong (it pops to the project, which
+                is where he wanted to be); the word was. So the word names the
+                place when there is a list to go back to, and is plainly BACK
+                when there is not. Idle only, as before: a way off this screen
+                beside CUT during a take is how a take gets lost. */}
             <button
               type="button"
               className="reachbtn"
-              aria-label="Back to scenes"
+              aria-label={siblings.length > 1 ? 'Back to scenes' : `Back to ${project.name}`}
               onClick={props.onExit}
             >
               <BackMark />
-              <span>Scenes</span>
+              <span>{siblings.length > 1 ? 'Scenes' : 'Back'}</span>
             </button>
 
             {multi ? (
@@ -1761,8 +1789,46 @@ export function RollingScreen(props: {
             among the pills now, told apart by the speaker mark on its badge:
             a SHAPE, which survives red set-lighting and a colour-blind
             operator, where the blue never did. */}
-        {(multi || (hasSoundUnit && soundUnit)) && (
+        {(multi || (hasSoundUnit && soundUnit) || singleCamRolling) && (
           <div className="camstack" aria-label="Every unit - tap one to roll, join, or cut it alone">
+            {/* ONE CAMERA IS A STACK OF ONE. The whole strip used to be gated on
+                multi-cam-or-sound and the camera map gated on multi again, so a
+                single-camera project rendered no unit pill at all - and the clip
+                number and the running per-unit clock live ON that pill. The
+                owner's words: "in single camera rooling mode i cannot see the
+                clip number, in multicam i can see cameras but in single not
+                even single is not visible." The clip name is the string he
+                reads aloud to the loader, so it cannot be the one thing missing
+                from the screen he is holding while the camera turns over.
+
+                Same markup, same classes, same component as a multi-cam pill -
+                deliberately not a second readout, which would drift.
+
+                It renders WHILE THE CAMERA IS ROLLING and not before, and that
+                is a statement of fact rather than a saving: idle, the reach row
+                below already carries this project's next clip with the pencil
+                that fixes it, and two clip numbers on one idle screen is a
+                worse screen. It is also not a button: with one camera there is
+                nothing to solo-cut - CUT ends the take - and a tappable pill
+                beside CUT mid-take is how a take gets lost. */}
+            {singleCamRolling && (
+              <div
+                className="camslot camslot--rolling"
+                aria-label={`Camera A rolling ${renderUnitClip(liveUnit(cameras[0]))}`}
+              >
+                <span className="camslot__top">
+                  <span className="camslot__badge">{cameras[0].letter}</span>
+                  {cameras[0].operator && (
+                    <span className="camslot__operator">{cameras[0].operator}</span>
+                  )}
+                  <span className="camslot__elapsed tnum">
+                    <span className="recdot" aria-hidden="true" /> REC{' '}
+                    {tc.msToClock(useEngine ? elapsedForCam(cameras[0].letter) : elapsedMs)}
+                  </span>
+                </span>
+                <ClipNum parts={unitClipParts(liveUnit(cameras[0]))} className="camslot__clip tnum" />
+              </div>
+            )}
             {multi && cameras.map((u) => {
               const camIsRolling = camRolls[u.letter] !== undefined;
               // What this camera's card is actually on right now - past any
