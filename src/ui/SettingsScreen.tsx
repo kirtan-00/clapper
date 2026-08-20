@@ -137,7 +137,7 @@ export function SettingsScreen(props: { nav: Nav }) {
 
       {/* The beta note is not lost: FEEDBACK_MAILTO seeds the same words into
           the message body, where they are a prompt instead of an aside. */}
-      <Section title="Clapper">
+      <Section title="Clapper" note="© 2026 Clapper. All rights reserved.">
         <Row
           label="Send feedback"
           push
