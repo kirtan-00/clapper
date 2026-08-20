@@ -196,7 +196,12 @@ export function UiSizeRow() {
           </div>
           <div className="bigbtn hw">
             <span className="hw__well" />
-            <span className="hw__face">Roll</span>
+            {/* Literal 'ROLL', not 'Roll' + text-transform: the real button
+                (RollingScreen.tsx) renders the literal string uppercase -
+                .hw__face carries no text-transform of its own - so a preview
+                that lowercases it differs from the control it exists to
+                preview in the one property a size comparison is about. */}
+            <span className="hw__face">ROLL</span>
           </div>
         </div>
       </div>
