@@ -9,3 +9,817 @@
  * the same-specificity rule there, which is the point — adoption is opt-in per
  * screen and reverting is deleting a block, never untangling a merge.
  */
+
+/* ==========================================================================
+   THE TWO MATERIALS
+   The approved language is SHEET vs MASS. The sheet is the ground the screen
+   is milled from; the mass is a block of dark metal set into it. Every card,
+   deck and keycap below is one or the other, and the notch is what proves it:
+   you can only cut a slot of ground INTO something that is a solid object.
+   These are roll-screen-local names because styles.css owns `--m-*` and this
+   file may only consume it — night's mass (#151B17) has no `--m-*` home, so
+   it gets one here rather than a second definition over there.
+   ========================================================================== */
+.roll {
+  --roll-ground: var(--m-sheet);
+  --roll-mass: var(--m-mass);
+  --roll-mass-raised: var(--m-raised);   /* a key standing on the mass    */
+  --roll-mass-pressed: var(--m-pressed); /* that key, bottomed out        */
+  --roll-mass-ink: var(--m-mass-ink);
+  --roll-mass-dim: #96a099;
+  --roll-mass-faint: #5e6a63;
+  --roll-mass-rule: #26302a;
+  --roll-key-under: #060a08;              /* the 3px a keycap stands on   */
+  --roll-brass: var(--m-brass);
+  --roll-brass-edge: #4a3e14;
+  /* The ring, at day value. Night drops it one stop below. */
+  --roll-ring: var(--m-rec);
+  --roll-ring-glow: none;
+  /* The notch's mouth radius. One number: the slot's own corner is half it,
+     which is what makes the fillet and the slot read as one cut. */
+  --roll-notch: 16px;
+
+  background: var(--roll-ground);
+}
+
+/* ---------------------------------------------------------------- NIGHT ---
+   Round 3's second instrument. The object logic survives and the light
+   leaves: the ground drops to near-black and the mass sits a step ABOVE it,
+   so a card is still an object rather than a hole. Ink is chalk (#D6D4C8),
+   never white — at 3am a white glyph on near-black glows almost as hard as
+   the ivory sheet it replaced.
+
+   The ring drops one stop to #C7332A. It is the same hue and the same
+   meaning, 43% less emitted light: 7px of lit perimeter at full #FF453A is
+   the brightest lamp on the cart, an arm from the operator's face. The REC
+   DOTS keep full #FF453A — they are 7px of area, not 7px of perimeter. */
+[data-theme="night"] .roll {
+  --roll-ground: #0a0d0b;
+  --roll-mass: #151b17;
+  --roll-mass-raised: #1f2721;
+  --roll-mass-pressed: #28312a;
+  --roll-mass-ink: #d6d4c8;
+  --roll-mass-dim: #8b928a;
+  --roll-mass-faint: #575e57;
+  --roll-mass-rule: #2a322b;
+  --roll-key-under: #030504;
+  --roll-brass: #c7a62f;
+  --roll-brass-edge: #413611;
+  --roll-ring: #c7332a;
+  --roll-ring-glow: 0 0 26px rgba(199, 51, 42, 0.3), inset 0 0 18px rgba(199, 51, 42, 0.12);
+}
+
+/* The red wash under the live screen is retired. It existed to carry state
+   into peripheral vision before the ring did; now the ring, the REC pill and
+   the unit dots state it three times at three distances, and a third red on
+   the same screen is the thing that made night's band and ring merge into one
+   mass. The ground does not change when a take starts — only the ring
+   arrives, which is what makes its arrival readable. */
+.roll--live {
+  background: var(--roll-ground);
+}
+.roll--live::after {
+  border-color: var(--roll-ring);
+  box-shadow: var(--roll-ring-glow);
+}
+
+/* ==========================================================================
+   THE REC PILL — replacing the full-bleed tally band
+   The band was a solid red header with square corners tucked inside a red
+   ring: two reds meeting where the eye is least able to separate them, and on
+   night they were near-identical values and read as ONE mass with a hole in
+   it. A pill is a different SHAPE on a different GROUND — dark metal, not
+   red — so the only red left in the top third is the dot, and the ring has
+   the perimeter entirely to itself.
+   ========================================================================== */
+.recpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  background: var(--roll-mass);
+  color: var(--roll-mass-ink);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+/* At night the mass sits only a step above the ground, so the pill needs an
+   edge to stay an object rather than a smudge. */
+[data-theme="night"] .recpill {
+  border-color: var(--roll-mass-rule);
+}
+.recpill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  /* FULL #FF453A in both themes. Small area, and it is the one thing on this
+     screen allowed to be unambiguous about what red means. */
+  background: var(--m-rec);
+  flex: 0 0 auto;
+  /* The app's one heartbeat, unchanged from the band it replaces. */
+  animation: tallypulse 550ms var(--ease-out) infinite alternate;
+}
+.recpill__k {
+  font-size: var(--t-caps);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.recpill__clock {
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The take identity, opposite the pill: outline, not fill, because it is a
+   fact you read and never a control you press. */
+.headpill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--hairline);
+  color: var(--text-dim);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46vw;
+}
+
+.roll__head {
+  justify-content: space-between;
+}
+.roll__headside {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+}
+
+/* ==========================================================================
+   THE DRUM CLOCK
+   A digit is a column that ROLLS to its new value and settles with weight,
+   not a character that is swapped. It is the difference between a clock that
+   ticks and a number that changes. Only the digit that actually changed
+   moves, so a four-minute take costs one 260ms transform per second.
+   ========================================================================== */
+.drum {
+  display: inline-flex;
+  align-items: baseline;
+  /* The columns step by exactly 1em, so the drum forces its own line-height
+     regardless of what the host sets (.readout runs 0.95 and would creep). */
+  line-height: 1;
+}
+.drum__digit {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+  line-height: 1;
+}
+.drum__col {
+  display: flex;
+  flex-direction: column;
+  transition: transform 260ms cubic-bezier(0.3, 0.9, 0.35, 1.12);
+  will-change: transform;
+}
+.drum__col > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
+.drum__sep {
+  display: inline-block;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   THE IDLE SCREEN AS A CAMERA REPORT
+   What a camera assistant writes down, in the order they read it back. Two
+   objects: the take that just happened, and how the setup and the day are
+   running. Both are MASS — a report is a thing you hold, and on this ground
+   that means a dark block, not a ruled list floating on the sheet.
+   ========================================================================== */
+.report {
+  gap: var(--sp-3);
+}
+
+.lasttake {
+  background: var(--roll-mass);
+  color: var(--roll-mass-ink);
+  border-radius: 28px;
+  padding: 15px 18px 14px;
+}
+.lasttake__k {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--roll-mass-dim);
+}
+.lasttake__hero {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 7px;
+}
+.lasttake__num {
+  /* 200 weight at 40px: the take number is the biggest thing on the idle
+     screen because it is the one number the operator is asked for out loud. */
+  font-size: 40px;
+  font-weight: 200;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+.lasttake__dur {
+  font-size: 20px;
+  font-weight: 250;
+}
+.lasttake__spacer {
+  flex: 1;
+}
+.lasttake__gold {
+  flex: 0 0 auto;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--roll-brass);
+  border: 1px solid var(--roll-brass-edge);
+  border-radius: var(--radius-pill);
+  padding: 3px 8px;
+}
+.lasttake__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  margin-top: 9px;
+  font-size: var(--t-caption);
+  color: var(--roll-mass-dim);
+  min-width: 0;
+}
+.lasttake__sub > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.lasttake__note {
+  font-style: italic;
+  color: var(--roll-mass-ink);
+}
+.lasttake__first {
+  margin-top: 8px;
+  font-size: var(--t-secondary);
+  line-height: 1.5;
+  color: var(--roll-mass-dim);
+}
+
+/* ---------------------------------------------------------- THE NOTCH -----
+   The signature joint. Two stat cards are ONE mass with a slot of ground cut
+   down into it — not two boxes with a gap, which is what a gap looks like.
+
+   Built from three rectangles and no mask, no SVG, no clip-path:
+     · the SLOT itself, a ground-coloured bar with a rounded bottom;
+     · two 16px TILES either side of the slot's mouth, each painted with a
+       radial-gradient that is ground everywhere EXCEPT a quarter-disc at the
+       corner touching the slot, which is left transparent.
+   The mass shows through those two transparent quarter-discs, so the mouth
+   flares outward in a concave curve — the tell that the slot was CUT rather
+   than drawn. The gradient's two stops are 15px and 15.7px inside a 16px
+   circle: the 0.7px feather is the anti-alias, without which the arc reads as
+   a staircase at 3x.
+
+   Everything is painted in var(--roll-ground), so night gets the joint free.
+   ------------------------------------------------------------------------ */
+.statpair {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--roll-mass);
+  color: var(--roll-mass-ink);
+  border-radius: 28px;
+}
+.statpair__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 15px 18px 14px;
+  min-width: 0;
+}
+.statpair__k {
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--roll-mass-dim);
+}
+.statpair__n {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: var(--t-caption);
+  color: var(--roll-mass-dim);
+}
+.statpair__n b {
+  font-size: 32px;
+  font-weight: 200;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--roll-mass-ink);
+}
+.statpair__s {
+  font-size: var(--t-caption);
+  color: var(--roll-mass-dim);
+}
+
+.notch {
+  position: absolute;
+  pointer-events: none;
+  background: var(--roll-ground);
+}
+.notch--v {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 62%;
+  border-radius: 0 0 7px 7px;
+}
+.notch--v::before,
+.notch--v::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: var(--roll-notch);
+  height: var(--roll-notch);
+}
+.notch--v::before {
+  left: calc(var(--roll-notch) * -1);
+  background: radial-gradient(
+    circle 16px at 0% 100%,
+    rgba(0, 0, 0, 0) 15px,
+    var(--roll-ground) 15.7px
+  );
+}
+.notch--v::after {
+  right: calc(var(--roll-notch) * -1);
+  background: radial-gradient(
+    circle 16px at 100% 100%,
+    rgba(0, 0, 0, 0) 15px,
+    var(--roll-ground) 15.7px
+  );
+}
+
+/* The horizontal form of the same cut: a slot biting in from the RIGHT at
+   58%, used where the deck's mass ends and CUT begins. Same three rectangles,
+   turned ninety degrees. */
+.notch--h {
+  left: 58%;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  border-radius: 7px 0 0 7px;
+}
+.notch--h::before,
+.notch--h::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: var(--roll-notch);
+  height: var(--roll-notch);
+}
+.notch--h::before {
+  top: calc(var(--roll-notch) * -1);
+  background: radial-gradient(
+    circle 16px at 0% 0%,
+    rgba(0, 0, 0, 0) 15px,
+    var(--roll-ground) 15.7px
+  );
+}
+.notch--h::after {
+  bottom: calc(var(--roll-notch) * -1);
+  background: radial-gradient(
+    circle 16px at 0% 100%,
+    rgba(0, 0, 0, 0) 15px,
+    var(--roll-ground) 15.7px
+  );
+}
+
+/* The pre-first-take slate spec, on the same mass. Rows, not cards: there is
+   no tally to compare yet, only the settings a 1st AC checks against the
+   camera before anyone rolls. */
+.report .report__tally {
+  background: var(--roll-mass);
+  color: var(--roll-mass-ink);
+  border-radius: 28px;
+  padding: 4px 18px;
+}
+.report .report__row {
+  border-bottom-color: var(--roll-mass-rule);
+}
+.report .report__row:last-child {
+  border-bottom: none;
+}
+.report .report__row dt {
+  color: var(--roll-mass-dim);
+}
+.report .report__row dd,
+.report .report__row dd:last-child {
+  color: var(--roll-mass-ink);
+}
+
+/* The recent-take list stays on the SHEET. It is a document, not an object —
+   and two masses stacked under a third would turn the idle screen back into
+   the wall of cards this redesign is getting rid of. */
+.minitakes {
+  width: 100%;
+  max-width: 420px;
+}
+
+/* ==========================================================================
+   THE DECK — one mass, machined keys standing on it
+   ========================================================================== */
+.roll--live .roll__pads {
+  background: var(--roll-mass);
+  color: var(--roll-mass-ink);
+  border-radius: 28px 28px 0 0;
+  padding: 14px 14px 0;
+  /* The deck's own 12px gap would show a stripe of ground between the pads
+     and the mark row, splitting one mass into two. Pulled shut here and given
+     back as padding so nothing else in the deck moves. */
+  margin-bottom: calc(var(--sp-3) * -1);
+  padding-bottom: var(--sp-3);
+}
+.roll--live .roll__markrow {
+  background: var(--roll-mass);
+  border-radius: 0 0 28px 28px;
+  /* Room at the bottom for the notch to be cut into. */
+  padding: 0 14px 16px;
+  position: sticky;
+}
+.roll--live .roll__markrow .notch--h {
+  /* Inset to the mass's own edges, so the slot ends where the metal does. */
+  left: 58%;
+  right: 0;
+  bottom: 0;
+}
+
+/* Machined keycaps. Same idiom as .bigbtn's well/face, one step smaller: a
+   cap standing 3px proud of the mass, travelling 2px on a 60ms break and
+   recovering in 140ms with a hair of overshoot. */
+.roll--live .keycap {
+  background: var(--roll-mass-raised);
+  border: 1.5px solid var(--roll-mass-rule);
+  color: var(--roll-mass-ink);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(241, 240, 234, 0.07),
+    0 3px 0 var(--roll-key-under);
+  transition:
+    transform 140ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow 140ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    background 140ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.roll--live .chip.keycap:active,
+.roll--live .chip.keycap.is-pressed {
+  transform: translateY(2px);
+  background: var(--roll-mass-pressed);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 1px 0 var(--roll-key-under);
+  transition-duration: 60ms;
+  transition-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+/* Night: the cap stops reflecting and the legend starts emitting, like a
+   camera's backlit controls. */
+[data-theme="night"] .roll--live .keycap {
+  text-shadow: 0 0 10px rgba(214, 212, 200, 0.16);
+}
+
+/* The tally badge. It rides the cap's corner rather than sitting inside it,
+   so the label never reflows when a count arrives — and it POPS, because a
+   tag tapped without looking needs a receipt sized for arm's length. */
+.roll--live .keypad--list .keycap {
+  position: relative;
+  overflow: visible;
+}
+.roll--live .keypad--list .keycap__count {
+  position: absolute;
+  top: -9px;
+  right: -6px;
+  padding: 3px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--m-accent);
+  color: var(--m-accent-ink);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 1;
+  animation: rolltallypop 220ms cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+@keyframes rolltallypop {
+  0% { transform: scale(0.4); }
+  62% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+.roll--live .keycap.chip--flash {
+  /* The old green flash fought the badge for the same instant. The travel and
+     the pop are the receipt now. */
+  animation: none;
+}
+/* A tallied cap keeps a lit edge after the pop has gone. */
+.roll--live .keypad--list .keycap:has(.keycap__count) {
+  border-color: var(--m-accent);
+}
+
+/* Tier 1 (coverage sizes) is the quiet strip it always was — recoloured onto
+   the mass, never given the keycap's travel. Its job is high-frequency and
+   low-stakes; the weight belongs to the moments below it. */
+.roll--live .keypad--segmented {
+  background: var(--roll-mass-rule);
+  border-color: var(--roll-mass-rule);
+}
+.roll--live .keycap--coverage {
+  background: var(--roll-mass-raised);
+  color: var(--roll-mass-ink);
+  border: none;
+  box-shadow: none;
+}
+.roll--live .keycap--coverage.chip.keycap:active,
+.roll--live .keycap--coverage.chip.keycap.is-pressed {
+  transform: none;
+  box-shadow: none;
+  background: var(--roll-mass-pressed);
+}
+.roll--live .keycap--coverage .keycap__count {
+  position: static;
+  background: none;
+  color: var(--m-accent);
+  padding: 0;
+  animation: none;
+}
+
+/* MARK IN / MARK OUT: an outline pill on the mass. Not a slab — CUT below is
+   the slab, and a second slab above it is how a take gets ended by accident. */
+.roll--live .markbtn {
+  border-color: var(--roll-mass-rule);
+  color: var(--roll-mass-dim);
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+.roll--live .markbtn--armed {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
+}
+.roll--live .markbtn__badge {
+  background: var(--m-accent);
+  color: var(--m-accent-ink);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* GOLD keeps brass, and brass keeps GOLD. The accent is where the thumb
+   lands; brass is a JUDGEMENT about a take, and the two must never be
+   mistaken for each other at a squint on a dark deck — which is exactly the
+   test that got the citron colourway rejected in round 2. */
+.roll--live .goldbtn {
+  border-color: var(--roll-brass-edge);
+  background: transparent;
+  color: var(--roll-brass);
+  border-radius: var(--radius-pill);
+}
+[data-theme="night"] .roll--live .goldbtn {
+  text-shadow: 0 0 10px rgba(199, 166, 47, 0.25);
+}
+.roll--live .goldbtn .keycap__count {
+  color: var(--roll-brass);
+}
+
+/* The ground ring behind the sticky footer follows the new ground. It is
+   load-bearing, not decorative: without it chips scrolling under CUT stay
+   hit-testable beside it. */
+.roll--live .roll__deck > .bigbtn.hw,
+.roll--live .roll__deck > .bigbtn.hw:active {
+  box-shadow: 0 0 0 var(--sp-4) var(--roll-ground);
+}
+
+/* ---------------------------------------------------- ROLL / CUT at night --
+   Same well, same travel, same overshoot. What changes is the material: the
+   face stops reflecting light and the LEGEND lights, because a lavender fill
+   at 3am out-glows the tally ring it is supposed to sit under. The press
+   acknowledges by brightening the legend rather than darkening the face — a
+   backlit key answers with light. */
+[data-theme="night"] .roll .bigbtn.hw .hw__face {
+  background: linear-gradient(#262534 0%, #201f2c 60%);
+  color: var(--m-accent);
+  text-shadow: 0 0 16px rgba(201, 198, 247, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(201, 198, 247, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 3px 0 #3b3878,
+    0 10px 18px rgba(0, 0, 0, 0.5);
+}
+[data-theme="night"] .roll .bigbtn.hw:active .hw__face,
+[data-theme="night"] .roll .bigbtn.hw.is-pressed .hw__face {
+  background: linear-gradient(#2c2b3c 0%, #262534 60%);
+  color: #dddbfa;
+  box-shadow:
+    inset 0 1px 0 rgba(201, 198, 247, 0.08),
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 0 #3b3878,
+    0 2px 5px rgba(0, 0, 0, 0.4);
+}
+[data-theme="night"] .roll .bigbtn.hw--cut .hw__face {
+  background: linear-gradient(#20261f 0%, #171d17 70%);
+  color: var(--roll-mass-ink);
+  text-shadow: 0 0 14px rgba(214, 212, 200, 0.2);
+}
+[data-theme="night"] .roll .bigbtn.hw--cut:active .hw__face,
+[data-theme="night"] .roll .bigbtn.hw--cut.is-pressed .hw__face {
+  background: linear-gradient(#2a322a 0%, #20261f 70%);
+}
+
+/* ==========================================================================
+   VOICE — armed, listening, blocked
+   A 2nd AC mid-take is one-handed and looking at the camera, not the phone.
+   Voice is how a take gets ended without taking your eyes off the set, so it
+   has to exist WHILE ROLLING — which is exactly where the pitches never put
+   it. It lives at the top of the screen, opposite the REC pill, and that
+   placement is the safety argument rather than a layout one: CUT is the
+   consequential control on this screen and it owns the thumb's whole arc.
+   A voice toggle within a thumb's reach of CUT is a mis-tap that either ends
+   a take or silently opens the mic; at the top it is a deliberate, two-handed
+   act, which is what arming a microphone should be.
+
+   PERMISSION DENIED IS A STATE, NOT A DIALOG. The chip wears amber and says
+   where the switch lives. Nothing else changes — voice is always an extra
+   path to ROLL and CUT, never the only one.
+
+   AND IT NEVER MAKES A SOUND. A set is a live-audio environment; a phone that
+   beeps during a take is a phone that ends up in a pocket. Every acknowledge-
+   ment here is haptic and visual.
+   ========================================================================== */
+.voicechip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--hairline);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    border-color var(--dur-state) var(--ease-out),
+    color var(--dur-state) var(--ease-out);
+}
+.voicechip__lamp {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex: 0 0 auto;
+}
+.voicechip--on {
+  border-color: var(--m-accent-deep);
+  color: var(--m-accent-deep);
+}
+.voicechip--on .voicechip__lamp {
+  background: var(--m-accent-deep);
+}
+[data-theme="night"] .voicechip--on {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
+}
+[data-theme="night"] .voicechip--on .voicechip__lamp {
+  background: var(--m-accent);
+}
+/* Amber, never red. Red is recording, and a blocked microphone is not an
+   emergency — it is a switch in the wrong position. */
+.voicechip--blocked {
+  border-color: #dfc79a;
+  color: #8a5a12;
+}
+.voicechip--blocked .voicechip__lamp {
+  background: #8a5a12;
+}
+[data-theme="night"] .voicechip--blocked {
+  border-color: #4a3a14;
+  color: #e8b45a;
+}
+[data-theme="night"] .voicechip--blocked .voicechip__lamp {
+  background: #e8b45a;
+}
+/* Listening is the one place the lamp is allowed to breathe: the operator is
+   not looking at the phone, so the state has to be readable from the corner
+   of an eye. Slow enough (2.4s) never to be confused with the REC dot's
+   550ms heartbeat — two rhythms two decades apart read as two facts. */
+.voicechip--live .voicechip__lamp {
+  animation: voicebreathe 2.4s ease-in-out infinite;
+}
+@keyframes voicebreathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* The one-line how-to behind the blocked chip. */
+.voicehelp {
+  margin: 0;
+  font-size: var(--t-secondary);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* ==========================================================================
+   THE EIGHT SECONDS AFTER CUT
+   ========================================================================== */
+
+/* RESUME. The mis-cut eraser, and the quietest control on the sheet on
+   purpose: it is right perhaps once a day, and a control that undoes a take
+   must never compete with the two that file one. */
+.resumerow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--tap);
+  margin-top: var(--sp-2);
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.resumerow:active {
+  color: var(--text);
+}
+.resumerow__mark {
+  flex: 0 0 auto;
+}
+
+/* The false-start sheet's own copy. Amber-free: nothing failed, the question
+   is simply which of two true things happened. */
+.falsestart {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.falsestart b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   REDUCED MOTION
+   Every animation above has a deliberate still form. The global block in
+   styles.css already forces `transition-property: opacity` and kills every
+   animation; what is left is the two places where the STILL form has to be
+   stated rather than inherited — a drum that has stopped rolling must still
+   show the right digit, and a badge that has stopped popping must still be at
+   full size.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .drum__col {
+    transition: none;
+  }
+  .roll--live .keypad--list .keycap__count {
+    animation: none;
+    transform: none;
+  }
+  .voicechip--live .voicechip__lamp {
+    animation: none;
+    opacity: 1;
+  }
+  .recpill__dot {
+    animation: none;
+    opacity: 1;
+  }
+  .roll--live .chip.keycap:active,
+  .roll--live .chip.keycap.is-pressed {
+    transform: none;
+  }
+}

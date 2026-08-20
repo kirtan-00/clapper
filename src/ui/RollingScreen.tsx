@@ -97,6 +97,31 @@ interface Buffered {
   tag?: string;
 }
 
+/**
+ * A CUT inside this many ms is almost always a mis-roll - but only almost, so
+ * the sheet ASKS rather than assumes. Past it, the false-start sheet never
+ * appears at all.
+ */
+const FALSE_START_MS = 5000;
+
+/**
+ * Everything a running take is, captured the instant CUT lands so RESUME can
+ * put it back. Not the CLOSED take - the OPEN one: the moment buffer before an
+ * armed MARK IN was folded into a range, the per-unit epoch starts, the chip
+ * tallies. Resuming from the closed form would silently end a range at the
+ * point of the mis-cut, which is the one thing the operator is undoing.
+ */
+interface RollSnapshot {
+  takeStartedAt: number;
+  camRolls: Partial<Record<CameraUnitLetter, number>>;
+  finishedRolls: TakeUnitRoll[];
+  soundStartedAt: number | null;
+  soundFinished: { startOffsetMs: number; durationMs: number } | null;
+  buffered: Buffered[];
+  markInMs: number | null;
+  flashes: Record<string, number>;
+}
+
 function clipName(p: Project): string {
   return (
     p.clipPrefix +
@@ -119,6 +144,47 @@ function clockMMSS(ms: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const min = Math.floor(totalSeconds / 60) % 60;
   return `${h}:${String(min).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/**
+ * The clock as a set of drums.
+ *
+ * A digit is a COLUMN of 0-9 that rolls to its new value and settles; only the
+ * column whose digit actually changed moves. That is the whole difference
+ * between a clock that ticks with weight and a number that is swapped out
+ * underneath you, and on the one screen an operator glances at rather than
+ * reads, weight is what says the take is still running.
+ *
+ * Digits are addressed by translating the column -n em. The column forces its
+ * own line-height so the step is exactly one glyph box no matter what the host
+ * text sets (.readout runs 0.95 and would creep a pixel per digit). Separators
+ * and an hour rollover's extra digits are plain spans, so "01:23" growing into
+ * "1:00:05" just re-renders with one more drum.
+ */
+function DrumClock(props: { value: string; className?: string }) {
+  return (
+    <span className={`drum${props.className ? ` ${props.className}` : ''}`} aria-hidden="true">
+      {props.value.split('').map((ch, i) => {
+        if (ch < '0' || ch > '9') {
+          return (
+            <span key={i} className="drum__sep">
+              {ch}
+            </span>
+          );
+        }
+        const n = Number(ch);
+        return (
+          <span key={i} className="drum__digit">
+            <span className="drum__col" style={{ transform: `translateY(${-n}em)` }}>
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
+                <span key={d}>{d}</span>
+              ))}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 /** A saved take's clip(s) for a compact row: single name, or all units joined. */
@@ -212,6 +278,8 @@ export function RollingScreen(props: {
     dayCount: number;
     dayMs: number;
     dayIndex?: number;
+    /** GOLD taps on the last take. The one judgement a camera report carries. */
+    lastGold: number;
   } | null>(null);
   const [siblings, setSiblings] = useState<Slate[]>([]);
 
@@ -259,7 +327,25 @@ export function RollingScreen(props: {
   const [buffered, setBuffered] = useState<Buffered[]>([]);
   const [markInMs, setMarkInMs] = useState<number | null>(null);
   const [rangeLabelTarget, setRangeLabelTarget] = useState<number | null>(null);
-  const [postCut, setPostCut] = useState<{ take: Take } | null>(null);
+  const [postCut, setPostCut] = useState<{ take: Take; falseStart: boolean } | null>(null);
+  /**
+   * The open take, frozen at CUT, waiting to be handed back by RESUME. A ref
+   * rather than state: it is written inside the CUT gesture and read inside the
+   * RESUME gesture, and must never cost a render in between.
+   */
+  const resumeRef = useRef<RollSnapshot | null>(null);
+  /**
+   * How much of a RESUMED take's clock already ran before this roll started.
+   *
+   * useRollTimer always starts from Date.now() and derives elapsed from that,
+   * which is exactly right for a fresh take and one number short for a resumed
+   * one. Carrying the difference here keeps the clock DERIVED - the resumed
+   * readout is still `now - startedAt`, just with the real startedAt - rather
+   * than turning it into an accumulator that a locked screen could drift.
+   * Zero at every other moment. The multi-cam/sound engine needs none of this:
+   * its startedAt is state on this screen and is simply restored.
+   */
+  const [resumeOffsetMs, setResumeOffsetMs] = useState(0);
   const [deletingTake, setDeletingTake] = useState<Take | null>(null);
   const [editingTake, setEditingTake] = useState<Take | null>(null);
   const [editingClip, setEditingClip] = useState(false);
@@ -293,6 +379,10 @@ export function RollingScreen(props: {
   const [listener] = useState(() => createSpeechListener());
   const [micOn, setMicOn] = useState(false);
   const [listening, setListening] = useState(false);
+  // The mic switch is off at the OS level. Round 3's rule: this is a STATE the
+  // chip wears, never a dialog thrown at an operator mid-take.
+  const [micBlocked, setMicBlocked] = useState(false);
+  const [showVoiceHelp, setShowVoiceHelp] = useState(false);
 
   const doRollRef = useRef<() => void>(() => {});
   const doCutRef = useRef<() => void>(() => {});
@@ -468,6 +558,18 @@ export function RollingScreen(props: {
   ) {
     const start = takeStartedAt ?? endedAt;
     const durationMs = Math.max(0, endedAt - start);
+    // Freeze the OPEN take before any of it is folded or cleared. See
+    // RollSnapshot, and doResume() below for what puts it back.
+    resumeRef.current = {
+      takeStartedAt: start,
+      camRolls: { ...camRolls },
+      finishedRolls: [...finishedRolls],
+      soundStartedAt,
+      soundFinished,
+      buffered: [...buffered],
+      markInMs,
+      flashes: { ...flashes },
+    };
     const finalBuffer: Buffered[] =
       markInMs !== null
         ? [...buffered, { kind: 'range', atMs: markInMs, endMs: durationMs, label: '' }]
@@ -502,7 +604,7 @@ export function RollingScreen(props: {
     setSoundStartedAt(null);
     setSoundFinished(null);
     setTakeStartedAt(null);
-    setPostCut({ take });
+    setPostCut({ take, falseStart: durationMs < FALSE_START_MS });
     await refreshMeta();
   }
 
@@ -520,6 +622,8 @@ export function RollingScreen(props: {
     setBuffered([]);
     setMarkInMs(null);
     setRangeLabelTarget(null);
+    setResumeOffsetMs(0);
+    resumeRef.current = null;
   }
 
   /** Tap ONE camera's own CUT. Closes the take only if it was the last thing
@@ -655,13 +759,24 @@ export function RollingScreen(props: {
       dayCount = today.length;
       dayMs = sum(today);
     }
+    // GOLD on the last take. One extra read against ONE take, on a panel that
+    // is idle by definition - never while rolling - so it costs nothing the
+    // operator can feel. Counted from the moments rather than stored on the
+    // take, because GOLD is a tap during a take and can happen more than once.
+    const last = good.length ? good[good.length - 1] : undefined;
+    let lastGold = 0;
+    if (last) {
+      const moments = await store.listMoments(last.id);
+      lastGold = moments.filter((m) => m.tag === 'GOLD').length;
+    }
     setReport({
-      last: good.length ? good[good.length - 1] : undefined,
+      last,
       setupCount: good.length,
       setupMs: sum(good),
       dayCount,
       dayMs,
       dayIndex,
+      lastGold,
     });
   }
 
@@ -691,6 +806,63 @@ export function RollingScreen(props: {
     };
   }, [listener]);
 
+  /**
+   * Is the microphone switched off at the OS level?
+   *
+   * Asked up front rather than discovered by a failed start, because the whole
+   * point of "blocked is a state" is that the chip is already amber BEFORE the
+   * operator reaches for it. The Permissions API is the good answer and is
+   * absent on Safari and throws for the 'microphone' name on Firefox, so every
+   * step is guarded and the timeout below is the honest fallback. Nothing here
+   * touches the network - the query is a local capability check.
+   */
+  useEffect(() => {
+    if (!listener.supported) return;
+    let live = true;
+    let status: PermissionStatus | null = null;
+    const read = () => {
+      if (live && status) setMicBlocked(status.state === 'denied');
+    };
+    try {
+      navigator.permissions
+        ?.query({ name: 'microphone' as PermissionName })
+        .then((s) => {
+          if (!live) return;
+          status = s;
+          read();
+          s.onchange = read;
+        })
+        .catch(() => {
+          /* name unsupported: fall through to the timeout below */
+        });
+    } catch {
+      /* no Permissions API at all */
+    }
+    return () => {
+      live = false;
+      if (status) status.onchange = null;
+    };
+  }, [listener]);
+
+  /**
+   * The fallback. If the mic was armed and the engine never reported that it
+   * was listening, the permission prompt was refused (or the OS switch is off)
+   * and no error ever reached us - the speech engine's own error path stops
+   * cleanly and silently on 'not-allowed'. Long enough (2.5s) to sit through
+   * the engine's restart backoff, so a session that merely blinked is not
+   * mistaken for a denial.
+   */
+  useEffect(() => {
+    if (!micOn || listening || micBlocked) return;
+    const id = window.setTimeout(() => {
+      if (listener.listening) return;
+      listener.stop();
+      setMicOn(false);
+      setMicBlocked(true);
+    }, 2500);
+    return () => window.clearTimeout(id);
+  }, [micOn, listening, micBlocked, listener]);
+
   function bumpClap() {
     setClapKey((k) => k + 1);
   }
@@ -703,6 +875,7 @@ export function RollingScreen(props: {
     setFlashes({}); // per-chip tap counts are scoped to THIS take
     setMarkInMs(null);
     setRangeLabelTarget(null);
+    setResumeOffsetMs(0); // a fresh take's clock starts where the timer does
     bumpClap();
     timer.start();
   }
@@ -712,7 +885,22 @@ export function RollingScreen(props: {
     haptics.doubleThump();
     track('cut'); // fire-and-forget; never blocks or throws
     bumpClap();
-    const { startedAt, durationMs } = timer.stop();
+    const stopped = timer.stop();
+    // A resumed take's real clock began before this roll did, so the offset is
+    // folded back in here - once, at the only place the take becomes a fact.
+    const startedAt = stopped.startedAt - resumeOffsetMs;
+    const durationMs = stopped.durationMs + resumeOffsetMs;
+    setResumeOffsetMs(0);
+    resumeRef.current = {
+      takeStartedAt: startedAt,
+      camRolls: {},
+      finishedRolls: [],
+      soundStartedAt: null,
+      soundFinished: null,
+      buffered: [...buffered],
+      markInMs,
+      flashes: { ...flashes },
+    };
     const finalBuffer: Buffered[] =
       markInMs !== null
         ? [...buffered, { kind: 'range', atMs: markInMs, endMs: durationMs, label: '' }]
@@ -740,7 +928,62 @@ export function RollingScreen(props: {
       });
     }
     setBuffered([]);
-    setPostCut({ take });
+    setPostCut({ take, falseStart: durationMs < FALSE_START_MS });
+    await refreshMeta();
+  }
+
+  /**
+   * RESUME - the mis-cut eraser.
+   *
+   * CUT fires on touch-down, which is right (a director's "cut!" cannot wait
+   * for a pointerup) and means a brushed button ends a take that is still
+   * happening. The camera never stopped, so the honest repair is not an
+   * apology - it is to un-write the take and hand the operator back the one
+   * that was running: same clock, same moments, same chip tallies, same clip
+   * number. deleteTake is what gives the number back and slides every later
+   * take on that camera down one, which is the app's own wording for backing
+   * the counter down.
+   *
+   * The take is deleted BEFORE the state is restored: a mis-cut take must
+   * never coexist with the take it is being turned back into.
+   */
+  async function doResume() {
+    const snap = resumeRef.current;
+    const take = postCut?.take;
+    if (!snap || !take) return;
+    haptics.thump(); // the same one heavy hit a take starts with
+    setPostCut(null);
+    await store.deleteTake(take.id);
+    setBuffered(snap.buffered);
+    setMarkInMs(snap.markInMs);
+    setFlashes(snap.flashes);
+    setRangeLabelTarget(null);
+    if (useEngine) {
+      setTakeStartedAt(snap.takeStartedAt);
+      setCamRolls(snap.camRolls);
+      setFinishedRolls(snap.finishedRolls);
+      setSoundStartedAt(snap.soundStartedAt);
+      setSoundFinished(snap.soundFinished);
+      setNowTick(Date.now());
+    } else {
+      setResumeOffsetMs(Math.max(0, Date.now() - snap.takeStartedAt));
+      timer.start();
+    }
+    resumeRef.current = null;
+    bumpClap();
+    await refreshMeta();
+  }
+
+  /** The false start's own answer: the camera never rolled, so the take is not
+   * a bad take - it is not a take. Deleting it (rather than discarding it)
+   * hands the clip number back, which is the whole reason the sheet asks. */
+  async function doScrap() {
+    const take = postCut?.take;
+    if (!take) return;
+    haptics.tap();
+    setPostCut(null);
+    resumeRef.current = null;
+    await store.deleteTake(take.id);
     await refreshMeta();
   }
 
@@ -776,6 +1019,17 @@ export function RollingScreen(props: {
   }
 
   function toggleMic() {
+    // Acknowledged in the HAND, never in the room. A set is a live-audio
+    // environment: the boom is open from "sound speed", so a UI click lands on
+    // the recording. Clapper's entire non-visual layer is haptic.
+    haptics.tap();
+    if (micBlocked) {
+      // Permission denied is a STATE, not a dialog - the chip already wears
+      // amber and says so. Tapping it opens the one line that says where the
+      // switch actually lives, because the app cannot flip it from here.
+      setShowVoiceHelp(true);
+      return;
+    }
     if (micOn) {
       listener.stop();
       setMicOn(false);
@@ -805,7 +1059,9 @@ export function RollingScreen(props: {
     ? takeStartedAt !== null
       ? Math.max(0, nowTick - takeStartedAt)
       : 0
-    : timer.elapsedMs;
+    : // Still derived, never accumulated: the offset only supplies the part of
+      // a resumed take's clock that ran before this roll began.
+      timer.elapsedMs + resumeOffsetMs;
   const rangeArmedMs = markInMs !== null ? Math.max(0, elapsedMs - markInMs) : 0;
   const rollingLetters = (Object.keys(camRolls) as CameraUnitLetter[]).sort();
   // The big button's own ROLL/CUT state is NOT the same as `rolling`: sound
@@ -826,23 +1082,54 @@ export function RollingScreen(props: {
     else doRoll();
   }
 
+  /**
+   * THE VOICE CHIP, and it renders WHILE ROLLING - which is the point.
+   *
+   * A 2nd AC mid-take is one-handed and watching the camera, the slate and the
+   * actor; the phone is the one thing they are not looking at. Voice is how a
+   * take gets ended without breaking that, so a voice control that only exists
+   * between takes is a voice control that does not exist.
+   *
+   * It sits at the TOP, opposite the REC pill, and that is a safety decision
+   * rather than a layout one. This screen's rule is that everything you tap
+   * lives by the thumb - but CUT is the consequential control down there and it
+   * owns the whole arc. A mic toggle within a thumb's reach of CUT is a mis-tap
+   * that either ends a take or silently opens a microphone on a live set.
+   * Arming a mic should cost a deliberate second hand, so it is put where the
+   * second hand is.
+   *
+   * Three states, straight from round 3: armed, listening, blocked. Voice is
+   * always an EXTRA path to ROLL and CUT and never the only one, so none of
+   * these states changes anything else on the screen.
+   */
+  const voiceChip = listener.supported ? (
+    <button
+      type="button"
+      className={`voicechip${
+        micBlocked ? ' voicechip--blocked' : micOn ? ' voicechip--on' : ''
+      }${micOn && listening && !micBlocked ? ' voicechip--live' : ''}`}
+      aria-pressed={micBlocked ? undefined : micOn}
+      aria-label={
+        micBlocked
+          ? 'Microphone is off in your browser settings. Tap for how to turn it on.'
+          : micOn
+            ? listening
+              ? 'Listening for roll and cut. Tap to disarm voice.'
+              : 'Voice armed. Tap to disarm.'
+            : 'Arm voice commands for roll and cut'
+      }
+      onClick={toggleMic}
+    >
+      <span className="voicechip__lamp" aria-hidden="true" />
+      <span>{micBlocked ? 'mic off' : micOn ? (listening ? 'listening' : 'arming') : 'voice'}</span>
+    </button>
+  ) : null;
+
   return (
     <div
       className={`roll${rolling ? ' roll--live' : ''}`}
       style={{ '--cut-scale': CUT_SCALE[cutSize] } as CSSProperties}
     >
-      {rolling && (
-        // Tally band: the PRIMARY recording tell. A committed solid-red fill at
-        // the very top, daylight-legible and readable even when a thumb covers
-        // the CUT button. Present only while live - a hard, binary switch, like
-        // a camera tally light - with the running clock mirrored small.
-        <div className="tally" role="status" aria-label="Recording">
-          <span className="tally__rec">
-            <span className="tally__dot" aria-hidden="true" /> REC
-          </span>
-          <span className="tally__clock tnum">{clockMMSS(elapsedMs)}</span>
-        </div>
-      )}
       {/* Two-pane wrapper — phone/portrait stack is unchanged; on a landscape
           tablet these split into clock/takes (left) + action deck (right).
           See the .roll__panes rules in styles.css. */}
@@ -854,13 +1141,39 @@ export function RollingScreen(props: {
           nothing you have to TAP is at the top any more; it is all in
           .roll__reach down by the thumb. What stays is what you READ. */}
       <div className="roll__head">
-        <div className="roll__slate">
-          <div className="name">{slate.name}</div>
-          <div className="roll__nextline">
-            <span>
-              take <span className="tnum">{nextTakeNumber}</span>
-            </span>
+        {rolling ? (
+          // THE REC PILL. It replaces a full-bleed red band, and the reason is
+          // a defect rather than a preference: the band was a solid red header
+          // with square corners tucked inside a solid red RING, and at night
+          // the two were near-identical values meeting at the one place the eye
+          // is least able to separate them - they merged into a single mass
+          // with a hole in it. A pill is a different SHAPE on a different
+          // GROUND (dark metal, not red), so the ring owns the perimeter alone
+          // and the only red left up here is the dot.
+          <span className="recpill" role="status" aria-label="Recording">
+            <span className="recpill__dot" aria-hidden="true" />
+            <span className="recpill__k">REC</span>
+            <DrumClock value={clockMMSS(elapsedMs)} className="recpill__clock" />
+          </span>
+        ) : (
+          <div className="roll__slate">
+            <div className="name">{slate.name}</div>
+            <div className="roll__nextline">
+              <span>
+                take <span className="tnum">{nextTakeNumber}</span>
+              </span>
+            </div>
           </div>
+        )}
+        <div className="roll__headside">
+          {rolling && (
+            // The take's identity, opposite the pill: outline, never fill,
+            // because it is a fact you read and not a control you press.
+            <span className="headpill tnum">
+              {shot ? shot.code : slate.name} &middot; take {nextTakeNumber}
+            </span>
+          )}
+          {voiceChip}
         </div>
       </div>
 
@@ -962,7 +1275,10 @@ export function RollingScreen(props: {
             it is holding is the take you just finished. */}
         {(rolling || postCut) && (
           <div className={`readout${rolling ? ' readout--live' : ' readout--idle'}`}>
-            {clockMMSS(elapsedMs)}
+            {/* Post-cut the drums hold the take that just closed, not zero:
+                the number the screen is holding IS the take you just finished,
+                and it is the one the sheet below is asking about. */}
+            <DrumClock value={clockMMSS(rolling ? elapsedMs : (postCut?.take.durationMs ?? 0))} />
           </div>
         )}
         {(rolling || postCut) && (
@@ -1014,20 +1330,36 @@ export function RollingScreen(props: {
               rolling — the rolling screen is the one his hands know. */}
           <div className="report">
             {report?.last ? (
-              <div className="report__head">
-                <span className="label">Last take</span>
-                <div className="report__hero">
-                  <span className="report__num tnum">{report.last.number}</span>
-                  <span className="report__dur tnum">{tc.msToClock(report.last.durationMs)}</span>
+              // LAST TAKE, as one block of mass. The number is the biggest
+              // thing on the idle screen because it is the one figure an
+              // operator is asked for out loud, and the line under it is the
+              // rest of what a camera report row actually carries: the clip the
+              // card wrote, the recorder's file, and the note.
+              <div className="lasttake">
+                <div className="lasttake__k">
+                  <span>Last take</span>
+                  <span>{report.last.status === 'discarded' ? 'discarded' : 'kept'}</span>
                 </div>
-                <div className="report__sub">
+                <div className="lasttake__hero">
+                  <span className="lasttake__num tnum">{report.last.number}</span>
+                  <span className="lasttake__dur tnum">
+                    {tc.msToClock(report.last.durationMs)}
+                  </span>
+                  <span className="lasttake__spacer" />
+                  {report.lastGold > 0 && (
+                    <span className="lasttake__gold tnum">Gold &times;{report.lastGold}</span>
+                  )}
+                </div>
+                <div className="lasttake__sub">
                   <span className="tnum">{takeClipLabel(report.last)}</span>
                   {report.last.sound && (
                     <span className="tnum" style={soundTextStyle}>
                       {report.last.sound.fileName}
                     </span>
                   )}
-                  {report.last.note && <span className="report__note">{report.last.note}</span>}
+                  {report.last.note && (
+                    <span className="lasttake__note">&ldquo;{report.last.note}&rdquo;</span>
+                  )}
                 </div>
               </div>
             ) : (
@@ -1035,9 +1367,11 @@ export function RollingScreen(props: {
               // 448px void, which reads as a screen that failed to load rather
               // than a shoot that has not started. Say what the button does and
               // what will appear, so the emptiness is an instruction.
-              <div className="report__head report__head--first">
-                <span className="label">Nothing rolled yet</span>
-                <p className="report__first">
+              <div className="lasttake">
+                <div className="lasttake__k">
+                  <span>Nothing rolled yet</span>
+                </div>
+                <p className="lasttake__first">
                   Hit ROLL, then CUT. Each take lands here with its clip name,
                   how long it ran, and anything you tapped while it was running.
                 </p>
@@ -1045,18 +1379,33 @@ export function RollingScreen(props: {
             )}
 
             {report?.last ? (
-              <dl className="report__tally">
-                <div className="report__row">
-                  <dt>This setup</dt>
-                  <dd className="tnum">{report.setupCount}</dd>
-                  <dd className="tnum">{tc.msToClock(report.setupMs)}</dd>
+              // THIS SETUP and DAY N are one mass with a slot of ground cut
+              // down between them - the notch. Two separate cards with a gap
+              // would read as two cards with a gap; a cut reads as one piece of
+              // metal that was machined, which is the whole language. See
+              // .notch--v in skin/roll.css for how the mouth is flared without
+              // a mask or an SVG.
+              <div className="statpair">
+                <span className="notch notch--v" aria-hidden="true" />
+                <div className="statpair__cell">
+                  <span className="statpair__k">This setup</span>
+                  <span className="statpair__n">
+                    <b className="tnum">{report.setupCount}</b> takes
+                  </span>
+                  <span className="statpair__s tnum">
+                    {tc.msToClock(report.setupMs)} rolled
+                  </span>
                 </div>
-                <div className="report__row">
-                  <dt>{report.dayIndex ? `Day ${report.dayIndex}` : 'Today'}</dt>
-                  <dd className="tnum">{report.dayCount}</dd>
-                  <dd className="tnum">{tc.msToClock(report.dayMs)}</dd>
+                <div className="statpair__cell">
+                  <span className="statpair__k">
+                    {report.dayIndex ? `Day ${report.dayIndex}` : 'Today'}
+                  </span>
+                  <span className="statpair__n">
+                    <b className="tnum">{report.dayCount}</b> takes
+                  </span>
+                  <span className="statpair__s tnum">{tc.msToClock(report.dayMs)} rolled</span>
                 </div>
-              </dl>
+              </div>
             ) : (
               // Two rows of zeroes are not a report, they are furniture. Before
               // the first take the useful thing is the SLATE ITSELF — the
@@ -1204,18 +1553,9 @@ export function RollingScreen(props: {
               </button>
             )}
 
-            {listener.supported && (
-              <button
-                type="button"
-                className={`reachbtn${micOn ? ' reachbtn--on' : ''}`}
-                aria-label={micOn ? 'Turn voice commands off' : 'Turn voice commands on'}
-                aria-pressed={micOn}
-                onClick={toggleMic}
-              >
-                <span className="miclamp" aria-hidden="true" />
-                <span>{micOn ? (listening ? 'listening' : 'on') : 'voice'}</span>
-              </button>
-            )}
+            {/* Voice used to live here, idle-only. It moved to the head so it
+                exists during a take too - see the voiceChip comment above. One
+                voice control, one place, idle and live alike. */}
           </div>
         )}
 
@@ -1534,6 +1874,12 @@ export function RollingScreen(props: {
                     </button>
                   );
                 })()}
+              {/* Where the deck's mass ends and CUT begins, the same cut turned
+                  ninety degrees. It is decoration doing structural work: the
+                  bite is what says the slab below is a DIFFERENT part, not more
+                  of the deck - which is exactly the distinction a thumb needs
+                  to make without looking. */}
+              <span className="notch notch--h" aria-hidden="true" />
             </div>
 
             {rangeLabelTarget !== null && (
@@ -1624,6 +1970,12 @@ export function RollingScreen(props: {
         <PostCutSheet
           take={postCut.take}
           tcValid={tcValid}
+          falseStart={postCut.falseStart}
+          // The snapshot is written inside the CUT gesture, before the sheet
+          // exists, so this is never stale by the time the sheet reads it.
+          canResume={resumeRef.current !== null}
+          onResume={() => void doResume()}
+          onScrap={() => void doScrap()}
           onKeep={async (cameraTC, note) => {
             const patch: Partial<Take> = {};
             if (cameraTC) patch.cameraTC = cameraTC;
@@ -1757,6 +2109,25 @@ export function RollingScreen(props: {
             <button type="button" className="btn btn--go" onClick={() => void resolveWrapPrompt(true)}>
               New day
             </button>
+          </div>
+        </Sheet>
+      )}
+
+      {showVoiceHelp && (
+        // One line, and it is the only thing the app can honestly offer: the
+        // mic switch lives in the browser, not in here. No retry button that
+        // would just fail again in front of an operator mid-shoot.
+        <Sheet title="Voice needs the microphone" onClose={() => setShowVoiceHelp(false)}>
+          <p className="voicehelp">
+            The mic is switched off for this site. Open your browser&rsquo;s site
+            settings (the icon beside the address bar), allow the microphone, then
+            reload. ROLL and CUT keep working by thumb either way &mdash; voice is
+            an extra path, never the only one.
+          </p>
+          <div className="sheet__actions">
+            <SheetClose className="btn btn--ghost" onClose={() => setShowVoiceHelp(false)}>
+              Close
+            </SheetClose>
           </div>
         </Sheet>
       )}
@@ -1927,11 +2298,40 @@ function MultiClipSheet(props: {
 function PostCutSheet(props: {
   take: Take;
   tcValid: (s: string) => boolean;
+  /** CUT landed inside FALSE_START_MS. Offered, never assumed. */
+  falseStart: boolean;
+  canResume: boolean;
+  onResume: () => void;
+  onScrap: () => void;
   onKeep: (cameraTC: string | undefined, note: string | undefined) => void;
   onDiscard: (cameraTC: string | undefined, note: string | undefined) => void;
 }) {
   const [camTC, setCamTC] = useState('');
   const [note, setNote] = useState('');
+  // The false-start question comes FIRST and is answerable in one tap either
+  // way; answering "keep it" falls through to the normal sheet with nothing
+  // lost. It is a gate, not a mode - past FALSE_START_MS it never renders.
+  const [asking, setAsking] = useState(props.falseStart);
+
+  if (asking) {
+    return (
+      <Sheet title={`Cut at ${tc.msToClock(props.take.durationMs)} — false start?`}>
+        <p className="falsestart">
+          A scrapped take vanishes and <b>backs the clip counter down one</b>, so the
+          count matches the card if the camera never rolled. If it did roll, keep it —
+          it keeps its number.
+        </p>
+        <div className="sheet__actions">
+          <button type="button" className="btn btn--go" onClick={props.onScrap}>
+            Scrap take {props.take.number}
+          </button>
+        </div>
+        <button type="button" className="resumerow" onClick={() => setAsking(false)}>
+          Keep it &middot; {tc.msToClock(props.take.durationMs)} on the board
+        </button>
+      </Sheet>
+    );
+  }
 
   const trimmedTC = camTC.trim();
   const tcOk = trimmedTC === '' || props.tcValid(trimmedTC);
@@ -2040,6 +2440,18 @@ function PostCutSheet(props: {
           Keep
         </button>
       </div>
+
+      {/* RESUME. Quiet on purpose - it is right perhaps once a day, and a
+          control that un-writes a take must never compete with the two that
+          file one. It is here rather than in a menu because the mis-cut is
+          discovered in the second after CUT, with the sheet already open and
+          the thumb already there. */}
+      {props.canResume && (
+        <button type="button" className="resumerow" onClick={props.onResume}>
+          <BackMark />
+          Mis-cut? Resume take {props.take.number}
+        </button>
+      )}
     </Sheet>
   );
 }
