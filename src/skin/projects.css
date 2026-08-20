@@ -50,13 +50,30 @@
   --pj-accent-edge: var(--m-accent-deep);
 }
 
-/* TRUE BLACK, NEUTRAL - same move as the shell and the roll deck. */
+/* TRUE BLACK, NEUTRAL - same move as the shell and the roll deck.
+   ON THE LOCKED RAMP, which this block had drifted off. The locked night greys
+   are sunk #0e0e0e, raised #161616, sunk-deep #1c1c1c, rule #262626, ink
+   #ece9e1. This lane had invented #131313 for the mass and #D6D4C8 for its ink,
+   neither of which is on that ramp, and the mass one is the expensive mistake:
+   #131313 on #000000 is nineteen values of separation, so at night
+
+     - the mass stopped reading as a block SET INTO the ground and read as a
+       slightly-less-black rectangle,
+     - the notch — which paints --pj-ground INTO the mass — had nineteen values
+       to work with and came out as a smudge rather than a cut slot, and
+     - `.newproject--primary` (background: --pj-mass) became indistinguishable
+       from `.newproject--ghost`, so the screen had two equal-weight buttons and
+       no primary. On DAY the same rule is near-black on ivory and reads
+       correctly, which is why this only ever looked broken in the dark.
+
+   Moving the mass to the locked sunk-deep #1c1c1c fixes all three at once and
+   moves this lane ONTO the shared ramp instead of further off it. */
 [data-theme='night'] .pj {
   --pj-ground: #000000;
-  --pj-mass: #131313;
-  --pj-key: #1A1A1A;
-  --pj-key-lift: #232323;
-  --pj-mass-ink: #D6D4C8;
+  --pj-mass: #1c1c1c;
+  --pj-key: #262626;
+  --pj-key-lift: #303030;
+  --pj-mass-ink: #ece9e1;
   --pj-mass-dim: #8F8D87;
   --pj-mass-faint: #6E6C67;
   --pj-mass-rule: rgba(214, 212, 200, 0.10);
@@ -845,7 +862,10 @@
   background: var(--pj-mass);
   color: var(--pj-mass-ink);
   border: none;
-  box-shadow: 0 10px 24px var(--m-cast);
+  /* NO CAST. This carried `0 10px 24px var(--m-cast)`, which floats the button
+     off the page — the lift the design refuses on every other control in the
+     app. The primary is told apart by its FILL against the ghost's hairline,
+     which is a difference you can still see with the lights off. */
 }
 .pj .newproject--primary:active { background: var(--m-raised); }
 .pj .newproject--ghost {

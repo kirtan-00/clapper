@@ -2250,8 +2250,20 @@ select.field {
      so the layout stops resizing and the button is nailed to one physical spot.
      The strip the collapsing bar reveals is just ground, which is what was
      under the toolbar anyway. `dvh` would be wrong here: it tracks the bar
-     continuously, which is a smoother version of the same movement. */
+     continuously, which is a smoother version of the same movement.
+
+     THE `100vh` LINE ABOVE IS THE FALLBACK AND IT IS SAFE, which is worth one
+     sentence because `vh` is the unit that caused this whole class of bug
+     everywhere else. A browser old enough not to parse `svh` drops that
+     declaration and keeps this one; `vh` resolves against the LARGEST
+     viewport, so the box comes out taller than the glass - but this element is
+     `position: fixed`, so an over-tall fixed box CLIPS at the viewport rather
+     than adding to the document's scrollable overflow. Worst case there is a
+     deck sitting below the fold on a browser nobody on set is running; it can
+     never be a scrolling page. Every browser this app actually ships to takes
+     the `svh` line. */
   bottom: auto;
+  height: 100vh;
   height: 100svh;
   /* The toast reads --tray-lift to clear the tab tray, and the comment on
      .toast used to say this was correctly ZERO here because the roll screen
@@ -2945,7 +2957,9 @@ select.field {
      everything they can and the buttons still do not fit. CUT is sticky to
      this box's bottom edge, so even in that corner it is on the glass. The
      assertion run prints `.roll__deck` scrollHeight/clientHeight for all sixty
-     states; they are equal in every one. */
+     states; they are equal in fifty-nine. The one exception - a 667px phone in
+     Script Mode with a breakdown and a camera pill, 332 in 281 - is measured
+     and pinned at both ends; see the sticky `.camstack` note in roll.css. */
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;

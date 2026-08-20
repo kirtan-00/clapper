@@ -731,7 +731,14 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           <>
             {shape.hero && (
               <section className="pj-band">
-                <h2 className="pj-band__hdr">{bucketFor(shape.now, shape.hero.project)}</h2>
+                {/* NOT `bucketFor(...)`. The hero is excluded from the bands
+                    below but was still labelled with the SAME vocabulary they
+                    use, so a shoot touched today printed "TODAY" twice on one
+                    screen — once over the hero, once over the list it had just
+                    been lifted out of. The hero is not a date bucket; it is the
+                    shoot you were last in, which is the same object Home calls
+                    "Where you were". Same object, same name, in both places. */}
+                <h2 className="pj-band__hdr">Where you were</h2>
                 <HeroMass
                   row={shape.hero}
                   folderName={shape.heroFolder}
