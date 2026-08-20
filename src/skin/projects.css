@@ -910,3 +910,22 @@
   border-color: transparent;
   color: var(--pj-mass-ink);
 }
+
+/* --------------------------------------------------- the hole it left -----
+   `.pj-holder` is the card's place in the list and does nothing at rest — it
+   exists only so `.pj-slot` has something to become. Lifted, it draws the
+   dashed outline of where the card WAS, which is what stops a one-card folder
+   from turning into a blank slab the instant its one card is picked up. */
+.pj-holder { position: relative; }
+.pj-slot {
+  position: relative;
+  border: 1.5px dashed var(--pj-mass-faint);
+  border-radius: var(--radius);
+  margin-top: var(--sp-2);
+}
+/* The card inside no longer needs its own top margin — the hole has it. */
+.pj-slot > .pj-key { margin-top: -1.5px; }
+
+/* The clapper stripe is drawn from --stripe, which is mixed against the app's
+   own ground. On this one it arrives BLUE-black under a green-black page. */
+.pj .rail { background-color: var(--pj-ground); }
