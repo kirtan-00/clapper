@@ -190,6 +190,11 @@ export function RollingScreen(props: {
   // (see cutsize.ts for why this is read live here instead of stamped onto
   // <html> the way the theme is — the roll screen is never first paint).
   const cutSize = useSyncExternalStore(subscribeCutSize, getCutSize, () => 'standard' as const);
+  // Set when ROLL/CUT fired from pointerdown, so the click the browser
+  // synthesises afterwards is swallowed instead of firing the take twice. A
+  // ref rather than state: it is read and cleared inside the same gesture and
+  // must never cost a render mid-take.
+  const firedByPointer = useRef(false);
 
   const [project, setProject] = useState<Project>(props.project);
   const [nextTakeNumber, setNextTakeNumber] = useState(1);
@@ -814,6 +819,12 @@ export function RollingScreen(props: {
   // immediately when there is no sound to wait on), so neither is affected.
   const cameraActive = anyCamRolling || finishedRolls.length > 0;
   const bigButtonCutMode = useEngine ? cameraActive : timer.rolling;
+
+  function fireBigButton() {
+    if (bigButtonCutMode) void (useEngine ? bigCutMulti() : doCut());
+    else if (useEngine) bigRollMulti();
+    else doRoll();
+  }
 
   return (
     <div
@@ -1552,7 +1563,7 @@ export function RollingScreen(props: {
 
         <button
           type="button"
-          className={`bigbtn${bigButtonCutMode ? ' bigbtn--cut' : ' bigbtn--go'}`}
+          className={`bigbtn hw${bigButtonCutMode ? ' hw--cut' : ' hw--go'}`}
           aria-label={
             bigButtonCutMode
               ? multi
@@ -1566,15 +1577,33 @@ export function RollingScreen(props: {
                   ? 'Roll the camera and sound together'
                   : 'Roll, start rolling'
           }
-          onClick={
-            bigButtonCutMode
-              ? () => void (useEngine ? bigCutMulti() : doCut())
-              : useEngine
-                ? () => bigRollMulti()
-                : doRoll
-          }
+          // FIRES ON POINTER-DOWN, not on click. The button's 3px of travel is
+          // there to confirm a press the operator cannot look at; it is not
+          // allowed to be the thing that starts or stops the take, because
+          // pointerup is ~100ms of a good take away and CUT is pressed under
+          // exactly the pressure where that is felt. The travel now trails the
+          // action instead of gating it.
+          onPointerDown={(e) => {
+            if (!e.isPrimary || e.button !== 0) return;
+            firedByPointer.current = true;
+            fireBigButton();
+          }}
+          // Keyboard only. A pointer press synthesises a click after its
+          // pointerup, so the flag above swallows exactly that one; Enter and
+          // Space arrive here with no pointer ahead of them and still work.
+          onClick={() => {
+            if (firedByPointer.current) {
+              firedByPointer.current = false;
+              return;
+            }
+            fireBigButton();
+          }}
         >
-          {bigButtonCutMode ? 'CUT' : 'ROLL'}
+          <span className="hw__well" aria-hidden="true" />
+          <span className="hw__face">
+            {bigButtonCutMode && <span className="hw__dot" aria-hidden="true" />}
+            {bigButtonCutMode ? 'CUT' : 'ROLL'}
+          </span>
         </button>
       </div>
       </div>

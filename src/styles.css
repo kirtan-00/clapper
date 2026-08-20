@@ -397,6 +397,10 @@
   --m-accent-press: #afabe8;
   --m-accent-ink: #22204a;    /* type on the accent, 8.6:1 */
   --m-accent-deep: #8d89cf;   /* the accent's machined under-edge */
+  --m-mass-ink: #f1f0ea;      /* type on the mass. NOT themed, for the same
+                                 reason the clapper stripe is not: the mass is
+                                 dark at 2pm and at 5am, so its ink is light at
+                                 2pm and at 5am */
   --m-rec: #ff453a;           /* recording ONLY: the ring. Never a button fill */
   --m-brass: #d8b23c;         /* GOLD and nothing else */
   --m-brass-deep: #8a6d14;
@@ -2730,6 +2734,173 @@ select.field {
   box-shadow: 0 10px 0 0 var(--rec-deep);
 }
 .bigbtn--cut:active { box-shadow: 0 6px 0 0 var(--rec-deep); }
+
+/* ================================================== THE MACHINED PRESS ====
+   TWO PARTS, NOT ONE ELEMENT. A camera button is a face sitting proud of a
+   well; it does not squish, it breaks over a detent, bottoms out, and pops
+   back as the finger leaves. So the well never moves and the face descends
+   INTO it, and the shadow BETWEEN them collapses. That collapsing shadow is
+   the whole tell - a single div that just changes colour reads as a web
+   button no matter what curve it is on.
+
+   WHY THIS LAYERS ONTO `.bigbtn` RATHER THAN REPLACING IT. `.bigbtn` is not
+   a look, it is a contract: --cut-scale sizes it, --tray-lift lifts the toast
+   off it, --roll-footer-band reserves its band, and `position: sticky` keeps
+   it on screen when the deck scrolls. All four measure the OUTER box. So the
+   outer box stays exactly what it was and the hardware is built inside it -
+   which is also why the face is `flex: 1` and never a fixed height. Take the
+   `hw` class off the element and the old button comes back intact.
+
+   Fires on POINTER-DOWN (see RollingScreen). The travel confirms the press;
+   it never gates it. Stopping a take at 4:57 into a good one is the moment
+   this app exists for and it does not get to wait 3px for anything. */
+.bigbtn.hw {
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 0;
+  /* The face fills the box, so the operator's CUT-size choice still lands. */
+  align-items: stretch;
+  /* The old flat under-key drop is now drawn by the face's own under-edge. */
+  box-shadow: none;
+  transform: none;
+  transition: none;
+}
+/* .bigbtn:active moved the whole button. The well is the one thing on this
+   screen that must never move - it is the hole, not the key. */
+.bigbtn.hw:active {
+  transform: none;
+  box-shadow: none;
+}
+/* The ground ring is load-bearing and survives the repaint: chips scrolling
+   under the sticky footer were hit-testable beside CUT until this painted an
+   opaque band around it (see the .roll__deck note above). The key drop is
+   dropped from both states because the face carries its own now. */
+.roll__deck > .bigbtn.hw,
+.roll__deck > .bigbtn.hw:active {
+  box-shadow: 0 0 0 var(--sp-4) var(--ink-950);
+}
+
+.hw__well {
+  position: absolute;
+  /* Outside the border box on every side, so the face is genuinely INSIDE
+     something rather than sitting on a mat. The 6px bottom overhang lives in
+     the room --key-drop (10px) already reserves below the button. */
+  inset: -5px;
+  border-radius: calc(var(--radius-lg) + 5px);
+  background: var(--m-well-sheet);
+  box-shadow:
+    inset 0 2px 4px var(--m-well-sheet-shade),
+    inset 0 -1px 0 var(--m-well-sheet-lip);
+  pointer-events: none;
+}
+.hw__face {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(color-mix(in srgb, var(--m-accent) 94%, #fff) 0%, var(--m-accent) 55%);
+  color: var(--m-accent-ink);
+  /* Wider than --track-caps on purpose: this is the one control read at arm's
+     length in the dark, and the approved design tracks it as signage. Size and
+     weight are inherited so --cut-scale keeps governing the whole object. */
+  letter-spacing: 0.28em;
+  text-indent: 0.28em; /* centres against the trailing letter-space */
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10),
+    0 3px 0 var(--m-accent-deep),
+    0 12px 20px var(--m-cast);
+  transition:
+    transform 170ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 170ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+/* 3px down in 80ms, back in 170ms with a hair of overshoot. `.is-pressed` sits
+   beside `:active` everywhere so the state can be driven from script - which
+   is how it gets screenshotted, and how a held key survives a finger that
+   slides off the button without lifting. */
+.bigbtn.hw:active .hw__face,
+.bigbtn.hw.is-pressed .hw__face {
+  transform: translateY(3px);
+  background: var(--m-accent-press);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 2px 3px rgba(0, 0, 0, 0.14),
+    0 0 0 var(--m-accent-deep),
+    0 3px 6px var(--m-cast);
+  transition:
+    transform 80ms cubic-bezier(0.3, 0.7, 0.4, 1),
+    box-shadow 80ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+/* CUT is the heavier part, and it says so: a deeper well, 4px of travel, a
+   sharper 70ms break and a 200ms recovery. Ending a take is the consequential
+   press, so it gets the bigger switch - the same hand learns two weights and
+   can tell them apart without looking. */
+.bigbtn.hw--cut .hw__well {
+  inset: -6px;
+  border-radius: calc(var(--radius-lg) + 6px);
+  background: var(--m-well-mass);
+  box-shadow:
+    inset 0 3px 6px var(--m-well-mass-shade),
+    inset 0 -1.5px 0 var(--m-well-mass-lip);
+}
+.bigbtn.hw--cut .hw__face {
+  background: linear-gradient(var(--m-raised) 0%, var(--m-mass) 70%);
+  color: var(--m-mass-ink);
+  box-shadow:
+    inset 0 1.5px 0 rgba(241, 240, 234, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.50),
+    0 4px 0 #000,
+    0 14px 22px var(--m-cast-mass);
+  transition:
+    transform 200ms cubic-bezier(0.3, 1.4, 0.5, 1),
+    box-shadow 200ms cubic-bezier(0.3, 1.4, 0.5, 1),
+    background 200ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+/* Bottomed out: one step up the mass ramp, and the inner shadow arrives - the
+   face is now BELOW the lip, so the well casts onto it. */
+.bigbtn.hw--cut:active .hw__face,
+.bigbtn.hw--cut.is-pressed .hw__face {
+  transform: translateY(4px);
+  background: linear-gradient(var(--m-pressed) 0%, var(--m-raised) 70%);
+  box-shadow:
+    inset 0 1px 0 rgba(241, 240, 234, 0.06),
+    inset 0 3px 6px rgba(0, 0, 0, 0.55),
+    0 0 0 #000,
+    0 2px 5px var(--m-cast-mass);
+  transition:
+    transform 70ms cubic-bezier(0.3, 0.7, 0.4, 1),
+    box-shadow 70ms cubic-bezier(0.3, 0.7, 0.4, 1),
+    background 70ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+/* Red is recording, never an action. CUT names the state it is about to end,
+   so the dot rides the label rather than filling the button. */
+.hw__dot {
+  width: 0.28em;
+  height: 0.28em;
+  border-radius: 50%;
+  background: var(--m-rec);
+  flex: 0 0 auto;
+}
+
+/* Travel is the confirmation, so with travel switched off the confirmation
+   has to be carried entirely by colour. The global reduce block above already
+   forces `transition-property: opacity`, so both states land instantly; all
+   that is left is to stop the face moving. Same specificity as the rules it
+   overrides, placed after them. */
+@media (prefers-reduced-motion: reduce) {
+  .bigbtn.hw:active .hw__face,
+  .bigbtn.hw.is-pressed .hw__face,
+  .bigbtn.hw--cut:active .hw__face,
+  .bigbtn.hw--cut.is-pressed .hw__face {
+    transform: none;
+  }
+}
 
 .microw {
   display: flex;
