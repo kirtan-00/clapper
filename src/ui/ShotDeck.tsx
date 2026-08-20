@@ -56,6 +56,18 @@ const STEP = CARD_H + CARD_GAP;
  *  room for that first line or two before the mask (below) takes over. */
 const PEEK = 128;
 const VIEWPORT_H = CARD_H + PEEK;
+/** WHILE A CAMERA IS ROLLING THE WHEEL IS DEAD, so it stops paying rent.
+ *  `locked` already disables every card, so the peek previews a setup nobody
+ *  can move to and the wheel has no detents to find - 300px of the screen
+ *  spent on chrome for a gesture that cannot happen. What is still worth
+ *  having is the FACT: which setup this is and what it is. So live, the deck
+ *  is one card of code, spec and two lines of description.
+ *  The number is the budget: at 667px - the shortest phone this has to hold -
+ *  the three zones plus a 300px wheel do not fit, and the two things that must
+ *  never yield are the clock block and CUT. Measured: 116 is the card's own
+ *  content height at a 2-line clamp (16 padding + 27 code row + 11 + 46 of
+ *  text + 15 padding), so nothing is cut through the middle of a glyph. */
+const LIVE_CARD_H = 116;
 /** Past the first or last shot, the drag still moves but at this fraction of
  *  finger travel — the pitch's own "rubber-band at 0.35x travel". */
 const RUBBER = 0.35;
@@ -199,10 +211,10 @@ export function ShotDeck(props: {
   for (let i = lo; i <= hi; i++) cards.push({ shot: shotList[i], i });
 
   return (
-    <div className="shotdeck">
+    <div className={`shotdeck${locked ? ' shotdeck--live' : ''}`}>
       <div
         className="shotdeck__viewport"
-        style={{ height: shotList.length > 1 ? VIEWPORT_H : CARD_H }}
+        style={{ height: locked ? LIVE_CARD_H : shotList.length > 1 ? VIEWPORT_H : CARD_H }}
       >
         <div
           className={`shotdeck__wheelstack${settling ? ' is-settling' : ''}`}

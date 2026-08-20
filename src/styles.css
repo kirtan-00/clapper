@@ -2375,17 +2375,39 @@ select.field {
    put the camera strip, MARK IN and CUT off screen mid-take.
    Making this a real box with min-height:0 and its own scroller means the
    TEXT scrolls and the CONTROLS never move. */
+/* THE SCREEN IS THREE ZONES AND NONE OF THEM MOVES.
+   This box used to be a SCROLLER capped at 42% of the screen, and that is the
+   bug the owner filmed on a real iPhone: measured on a 667px phone in Script
+   Mode, it held 564px of content in a 270px box, so a flick anywhere in the
+   top half slid the REC pill, the shot line and the scene strip out of view
+   (measured: pill at y13 before the flick, y-281 after) while the clock and
+   the take bar re-centred underneath. A control surface used at speed, in the
+   dark, moved under the thumb while a camera was rolling.
+
+   So it stops being a scroller and becomes the frame the three zones live in:
+     TOP     head / dialogue / scene strip / clapper stripe - `flex: 0 0 auto`,
+             pinned, truncating rather than growing (see .roll__line's clamp).
+     MIDDLE  .roll__stage - `flex: 1 1 auto`, takes what is left and centres
+             the clock, the state line and the take bar in it.
+     BOTTOM  .roll__deck, below this box entirely.
+   `overflow: hidden` rather than `auto` is the whole point: nothing here
+   scrolls, and anything that genuinely cannot fit is clipped INSIDE this box
+   so it can never inflate .roll's own scrollHeight (which is what would make
+   the page itself scrollable). */
 .roll__body {
   display: flex;
   flex-direction: column;
-  /* Shrinks FIRST and never takes more than its share: this is all reference
-     text (scene, shot spec, action line, pager, clock) and none of it is a
-     control. It scrolls inside itself rather than pushing controls away. */
-  flex: 0 1 auto;
+  /* GROWS, NEVER SHRINKS. `1 1 auto` let the flex algorithm split a deficit
+     between this band and the deck in proportion to their heights, and on a
+     667px phone in Script Mode that took 55px off the bottom of the shot card
+     - a description sliced through the middle of a line, which is precisely
+     the "half a glyph reads as a rendering fault" failure this screen keeps
+     being written to avoid. The DECK is the box that yields, because the tag
+     pad inside it is built to: it scrolls, and its 52px floor is one whole
+     chip. */
+  flex: 1 0 auto;
   min-height: 0;
-  max-height: 42%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
 }
 /* The action line is a flex item in the box above, so flexbox happily squeezed
    it to ZERO while its own content still measured 43px - which is how "Cafe
@@ -2399,28 +2421,16 @@ select.field {
   flex: 0 0 auto;
 }
 
-/* IDLE vs LIVE is a different argument about who owns the screen, and until now
-   only one of them was made.
-     LIVE  - the deck wins. Its buttons are the whole job, and the reference
-             text above must shrink first and never take more than its share.
-             That is what `flex: 0 1 auto` + `max-height: 42%` above encode,
-             and nothing here changes them while rolling.
-     IDLE  - there is nothing to protect. The deck holds ONE button, and it
-             was taking 562px of a 664px screen to hold it: measured, the stage
-             came out 0px tall, which then tripped the @container rule below
-             into blanking itself, so the app's primary screen was 448px of
-             void that looked deliberate. The report is the reason to be on
-             this screen before you roll, so idle it gets the room and the deck
-             takes only what its button needs.
-   CUT does not move between the two: it is `position: sticky; bottom: 0` in a
-   deck that still reaches the bottom of the fixed .roll either way. */
-.roll:not(.roll--live) .roll__body {
-  flex: 1 1 auto;
-  max-height: none;
-}
-.roll:not(.roll--live) .roll__deck {
-  flex: 0 0 auto;
-}
+/* IDLE vs LIVE used to be two different arguments about who owns the screen,
+   and the forks that encoded them are gone with the scroller they depended on.
+   ONE rule now covers both: the deck is sized by its own contents (`flex: 0 1
+   auto` below), the body takes everything above it, and the stage inside the
+   body takes whatever the top band does not. So the deck is as tall as its
+   buttons need and never taller, idle or live, and the void that used to open
+   under an idle ROLL is spent on the report instead.
+   CUT does not move between the two: the deck reaches the bottom of the fixed
+   .roll in both states, and CUT is `margin-top: auto; position: sticky` inside
+   it. Measured identical at 390x844 in both: x16 y714 358x104. */
 /* The idle stage is a document, and documents start at the top. `safe center`
    above is right for a lone clock and wrong for a report — see .report. */
 .roll:not(.roll--live) .roll__stage {
@@ -2511,9 +2521,11 @@ select.field {
 
 .roll__rail { margin: var(--sp-3) 0; }
 
-/* center timecode readout */
+/* THE MIDDLE ZONE. Idle it is a document (the camera report) and scrolls
+   inside itself; live it is the clock, the state line and the take bar, and it
+   scrolls not at all - see the .roll--live grid below. */
 .roll__stage {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2545,6 +2557,65 @@ select.field {
 @container stage (max-height: 88px) {
   .roll__stage > * { display: none; }
 }
+
+/* ------------------------------------------------- THE MIDDLE ZONE, LIVE ---
+   Three rows: an empty one, the readout block, an empty one. The clock, the
+   state line and the take bar sit in the middle row, which is `auto`, so they
+   are centred in whatever height the zone has and their own height is never
+   negotiable. The two `minmax(0, 1fr)` rows are the give: they collapse to
+   nothing on a short phone and the clock does not move a pixel while they do.
+
+   THE MOMENTS LIST GOES IN THE BOTTOM ROW, and that is the fix for the second
+   half of what the owner filmed. It used to be a flex sibling under a
+   `justify-content: safe center` column, so every tag tapped during a take
+   added a row, re-centred the group, and shifted the clock and the take bar
+   mid-take - which is why his five screenshots, seconds apart in ONE take,
+   have the take bar at a different height in each. Now it is a clipped box
+   with a fixed share: the rows are rendered newest-first, so what falls off
+   the bottom is the OLDEST mark, and nothing above it ever moves.
+
+   `container-type: normal` deliberately turns size containment OFF here. The
+   contained form gives the box a zero intrinsic height, which is what let the
+   flex algorithm leave 10px of clock on screen; without it, `min-height:
+   min-content` is a real floor measured off the readout itself, so the take
+   bar is either whole or the deck below gives up the room. Idle keeps the
+   containment and the blanking rule above, because a report genuinely can be
+   too tall for its box and half a row of it is still readable. */
+.roll--live .roll__stage {
+  container-type: normal;
+  display: grid;
+  /* ONE FULL-WIDTH COLUMN, and both of these lines are load-bearing. The flex
+     form of this box carried `justify-content: safe center`, which in a GRID
+     means "size the tracks to their content and centre them" - so the column
+     came out as wide as the clock, a `width: 100%` inside it had no definite
+     box to resolve against, and the take bar rendered 147px wide instead of
+     358: sixty ticks squeezed into a barcode. The column is stated explicitly
+     and the tracks are left to fill the box; the block below centres its own
+     children, which is where centring belongs. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  justify-content: normal;
+  justify-items: stretch;
+  gap: 0;
+  min-height: min-content;
+  /* Never a scroller while rolling. The one gesture this screen accepts
+     mid-take is a tap. */
+  overflow: hidden;
+}
+.roll--live .stage__now {
+  grid-row: 2;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.roll--live .momentlog {
+  grid-row: 3;
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
 /* THE CLOCK IS THIN, and that is the whole difference between a number and a
    clock. 700-weight mono was a COUNTER: heavy, boxy, the same voice the clip
    name and the take number are written in, so at a glance the biggest thing on
@@ -2567,6 +2638,7 @@ select.field {
      phone without needing the stage to scroll — the tally band already mirrors
      the running time up top, so the centre readout no longer has to be huge. */
   font-size: var(--t-timecode);
+  flex: 0 0 auto;
   color: var(--chalk);
 }
 /* On night this is white over the red wash, with the glow it shipped with. On
@@ -2597,6 +2669,11 @@ select.field {
      the height at which a lit tick is a MARK rather than a scratch, and it is
      also, not coincidentally, about the proportion of a film perforation. */
   height: 26px;
+  /* NEVER SQUASHED. It is a flex item in the readout block, and a flex item
+     with a height and no shrink rule will be compressed by a short parent -
+     which is how sixty 26px ticks rendered as a row of tiny dots in one of the
+     owner's screenshots. Asserted: same 26px box at 932/844/780/740/667. */
+  flex: 0 0 auto;
   margin: var(--sp-3) auto 0;
 }
 .takebar__tick {
@@ -2618,6 +2695,17 @@ select.field {
   background: var(--m-accent);
 }
 
+/* The clock, the state line and the take bar as one block. Live it is a grid
+   row (see .roll--live .stage__now); post-cut the stage is still a flex column
+   and this keeps the three parts spaced exactly as they were when they were
+   loose items in it. */
+.stage__now {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
 .stage__hint {
   min-height: 24px;
   /* Load-bearing "Tap ROLL..." prompt - promoted off --chalk-faint so it holds
@@ -2782,6 +2870,12 @@ select.field {
 .minitakes__empty { text-align: center; color: var(--text-dim); font-size: var(--t-secondary); padding: var(--sp-2); }
 
 /* moments logged this take */
+/* The marks tapped during the running take. It WAS a fourth scrollport on this
+   screen (`max-height: 26vh; overflow-y: auto`) and it was the one that grew:
+   four tags tapped, four full-width rows, the group re-centred and the clock
+   and take bar moved. It is a clipped box now, bounded by the middle zone's
+   bottom grid row - the rows render newest-first, so what leaves is the oldest
+   mark, and the take's whole list is on the take card after CUT anyway. */
 .momentlog {
   width: 100%;
   max-width: 460px;
@@ -2789,9 +2883,7 @@ select.field {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  max-height: 26vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
 }
 .momentrow {
   display: flex;
@@ -2824,12 +2916,21 @@ select.field {
   flex-direction: column;
   gap: var(--sp-3);
   padding-top: var(--sp-3);
-  /* The controls take every pixel the text does not. The deck itself is the
-     scroller now (not .roll__pads nested inside it - a scroller inside a
-     scroller strands the buttons at the bottom, which is exactly how CUT went
-     off screen), and CUT is stuck to its bottom edge so it is on screen no
-     matter how little room is left. */
-  flex: 1 1 auto;
+  /* THE BOTTOM ZONE IS SIZED BY ITS OWN BUTTONS. It used to be `flex: 1 1
+     auto` - the growing box - with the reference text above capped at 42% and
+     scrolling; that pairing is what made the top of the screen a scroller, and
+     the owner filmed the result. Now the body above takes the free space and
+     this box is exactly as tall as its controls need, which is also what pins
+     it to the bottom of the fixed .roll in both states.
+
+     `overflow-y: auto` STAYS, and it is a dormant safety net rather than the
+     scroller: .roll__pads inside it is the one thing on this screen allowed to
+     scroll, and this only ever engages if the pads have already given up
+     everything they can and the buttons still do not fit. CUT is sticky to
+     this box's bottom edge, so even in that corner it is on the glass. The
+     assertion run prints `.roll__deck` scrollHeight/clientHeight for all sixty
+     states; they are equal in every one. */
+  flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2975,16 +3076,23 @@ select.field {
      overflow the chips escaped the box and MARK IN was drawn over them. The
      floor keeps at least one row of chips tappable: collapsing to 0 hid the
      script beats entirely, which is the whole reason this pad exists. */
-  /* NOT a scroller, and NOT shrinkable. It was both, and on a real phone
-     (Script Mode, 3 cameras, iOS Safari's toolbars eating ~145px) it shrank to
-     its 48px floor and clipped: measured 71.4px tall holding 318px of chips,
-     so five of the scene's six key moments were simply not on the screen, and
-     the floor is shorter than the 52px chip it is supposed to keep tappable.
-     The old comment above was written when .roll__pads was the only scroller;
-     the deck took that job later and this rule was never revisited.
-     Natural height here means the DECK scrolls, one gesture reaches every
-     chip, and CUT stays pinned by its own sticky rule below. */
-  flex: 0 0 auto;
+  /* THE ONE THING ON THIS SCREEN THAT MAY SCROLL. Every other box is fixed;
+     a scene can carry more key moments than fit above CUT, and the tag list is
+     where that overflow belongs.
+
+     It shrinks and scrolls; MARK IN, GOLD, the unit pills and CUT are all
+     `flex: 0 0 auto` around it and therefore cannot be pushed anywhere by it.
+     The 52px floor is one whole chip: a pad that collapses to nothing hides
+     the scene's beats entirely, which is the reason this pad exists. This is
+     NOT the old "scroller inside a scroller" that stranded the buttons - the
+     boxes that used to scroll above and around it don't any more, so this is
+     the only scrollport on the screen and one gesture reaches every chip.
+     `overscroll-behavior: contain` stops a flick that runs out of chips from
+     chaining into anything else. */
+  flex: 1 1 auto;
+  min-height: 52px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .roll__deck > .camstack,
 .roll__deck > .roll__markrow,
@@ -4219,8 +4327,12 @@ select.field {
     overscroll-behavior: contain;
   }
   /* In landscape the whole deck pane is the scroller, so the pads must not be a
-     second nested one — a scroller inside a scroller strands the buttons. */
+     second nested one — a scroller inside a scroller strands the buttons. The
+     portrait rule hands the pads a 52px floor and a scrollport; both are
+     handed back here, because on a two-pane tablet the deck is a column of its
+     own with room to spare and the pane below is where any overflow goes. */
   .roll__pads {
+    flex: 0 0 auto;
     overflow: visible;
     min-height: auto;
   }
@@ -4370,13 +4482,24 @@ select.field {
   font-weight: 600;
 }
 
-/* The spoken line under the strip, when the setup carries one. */
+/* The spoken line under the strip, when the setup carries one. TWO LINES, and
+   then it stops. The top zone is a fixed band now (see .roll__body): a shot
+   whose dialogue runs four lines would otherwise grow the band and push the
+   clock down, which is exactly the "long content changes the geometry of a
+   control surface" failure the whole layout exists to prevent. The full line
+   is on the shot list and in the shot-jump sheet, the same place .roll__summary
+   sends you for the same reason. */
 .roll__line {
   margin-top: var(--sp-2);
   color: var(--text-dim);
   font-size: var(--t-secondary);
   font-style: italic;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 /* ---- jump sheet ---- */

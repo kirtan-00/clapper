@@ -1422,15 +1422,23 @@ export function RollingScreen(props: {
             size, and it sat on 448px of measured void. Idle now carries the
             report instead (below); postCut keeps the clock, because the number
             it is holding is the take you just finished. */}
+        {/* THE READOUT BLOCK, and it is ONE box on purpose. The clock, the
+            state line and the take bar are a single unit that must never move
+            relative to each other or to the screen: while rolling they are the
+            middle zone's `auto` grid row, centred between two rows that
+            collapse instead of pushing them (see .roll--live .roll__stage).
+            Before this they were three loose flex items in a `safe center`
+            column with the moments list beside them, so every tag tapped
+            during a take re-centred the clock and moved the take bar - which
+            is what the owner filmed. */}
         {(rolling || postCut) && (
+        <div className="stage__now">
           <div className={`readout${rolling ? ' readout--live' : ' readout--idle'}`}>
             {/* Post-cut the drums hold the take that just closed, not zero:
                 the number the screen is holding IS the take you just finished,
                 and it is the one the sheet below is asking about. */}
             <DrumClock value={clockMMSS(rolling ? elapsedMs : (postCut?.take.durationMs ?? 0))} />
           </div>
-        )}
-        {(rolling || postCut) && (
         <div className="stage__hint">
           {rolling ? (
             <span className="stage__reclabel">
@@ -1451,11 +1459,12 @@ export function RollingScreen(props: {
             'Take saved'
           )}
         </div>
-        )}
 
         {/* THE SEGMENT BAR. Sixty ticks, one per second, filling across the
             current minute and starting again on the next - see TakeBar. */}
         {rolling && <TakeBar elapsedMs={elapsedMs} />}
+        </div>
+        )}
 
         {rolling ? (
           buffered.length > 0 && (

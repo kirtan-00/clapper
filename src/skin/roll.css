@@ -644,26 +644,25 @@
    the band retired for the pill it is not, and the approved design has the
    clock as the hero of the live screen anyway.
 
-   The cause is that `.roll__stage` is size-contained, so its height comes from
-   the flex algorithm and never from its content - and its parent does not
-   grow, so it resolved to zero. The fix is a FLOOR on the stage rather than a
-   bigger share for the body: the deck stays the growing box and keeps
-   priority, exactly as it was designed to, and the clock is guaranteed the one
-   band it needs. Deliberately a clamp and not 42% - handing the reading half
-   nearly half the screen pushed the whole keypad below the fold on multi-cam,
-   which trades a missing clock for missing tags.
+   The cause was that `.roll__stage` is size-contained, so its height came from
+   the flex algorithm and never from its content - and its parent did not grow,
+   so it resolved to zero. The clamp that used to live here (118px / 22vh /
+   190px) was a floor guessed at rather than measured, and 118 is SHORTER than
+   the block it was protecting: the clock, the state line and the take bar
+   measure ~147px at 390 wide, so the floor itself could slice the bar into a
+   row of dots.
+
+   Both are gone with the three-zone rebuild in styles.css. The stage is the
+   middle zone now - it takes what the top band leaves, its containment is
+   switched off while live, and its floor is `min-content`, i.e. the readout
+   block's own height, measured rather than guessed. The DECK is the box that
+   yields, and the tag pad inside it is what scrolls.
    ========================================================================== */
-.roll--live .roll__stage {
-  min-height: clamp(118px, 22vh, 190px);
-}
-/* And the deck's contents hug its BOTTOM. Without this the pads sit at the top
-   of a grown deck with CUT pushed to the bottom by its own auto margin, and
-   the void opens up between the mass and the one control it belongs to. One
-   auto margin, not two: flexbox splits free space between every auto margin it
-   finds, so CUT's has to go for this one to take all of it. */
-.roll--live .roll__pads {
-  margin-top: auto;
-}
+/* The deck's contents hug its BOTTOM. This mattered while the deck was the
+   growing box; it is kept because it costs nothing and still holds if the deck
+   is ever given free space again. One auto margin, not two: flexbox splits
+   free space between every auto margin it finds, so CUT's has to go for this
+   one to take all of it. */
 .roll--live .roll__deck > .bigbtn.hw {
   margin-top: 0;
 }
@@ -1233,6 +1232,31 @@
 .shotdeck__card--off:active:not(:disabled) {
   opacity: 0.66;
 }
+/* THE LIVE FORM: one card, two lines, no wheel. See LIVE_CARD_H in
+   ShotDeck.tsx for the height and the argument. The card's own height has to
+   come down with the viewport's or the fixed 172px box would be sliced by it;
+   the rail keeps its ticks, because "3 of 7" is still true while rolling. */
+.shotdeck--live .shotdeck__viewport {
+  /* No fade: at one card there is nothing below to fade toward, and a taper
+     over the last line of a description reads as a rendering fault. */
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.shotdeck--live .shotdeck__card {
+  height: 116px;
+  padding: 14px 18px 13px;
+}
+.shotdeck--live .shotdeck__text {
+  margin-top: 9px;
+  -webkit-line-clamp: 2;
+}
+/* Every card that is not the current one is off screen entirely in this form
+   (the stack still positions by the full STEP), so the dimmed mask below has
+   nothing to do and only costs a paint. */
+.shotdeck--live .shotdeck__card--off {
+  display: none;
+}
+
 .shotdeck__row {
   display: flex;
   align-items: baseline;
