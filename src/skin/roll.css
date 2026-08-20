@@ -32,6 +32,16 @@
   --roll-key-under: #060a08;              /* the 3px a keycap stands on   */
   --roll-brass: var(--m-brass);
   --roll-brass-edge: #4a3e14;
+  /* THE ACCENT AS IT APPEARS ON THE MASS. The deck is dark metal at 2pm and at
+     5am, so - exactly like --roll-mass-ink - the value that reads on it is the
+     BRIGHT one in both themes. --m-accent-text is the pair for accents that
+     sit on the SHEET (the head, the report), where ivory is the ground half
+     the time and #d8b23c measures 1.94:1 on it.
+
+     This is brass, and so is GOLD, so the whole screen leans on ONE rule to
+     keep them apart: GOLD is the only solid brass FILL in the app. Everything
+     else the accent touches here is an outline, a segment, an edge or type. */
+  --roll-accent: var(--m-accent);
   /* The ring, at day value. Night drops it one stop below. */
   --roll-ring: var(--m-rec);
   --roll-ring-glow: none;
@@ -59,17 +69,25 @@
    the brightest lamp on the cart, an arm from the operator's face. The REC
    DOTS keep full #FF453A — they are 7px of area, not 7px of perimeter. */
 [data-theme="night"] .roll {
-  --roll-ground: #0a0d0b;
-  --roll-mass: #151b17;
-  --roll-mass-raised: #1f2721;
-  --roll-mass-pressed: #28312a;
+  /* TRUE BLACK, AND NEUTRAL. This ramp was a green-biased charcoal
+     (#0A0D0B / #151B17 / #96A099) and the green had to go with the rest of
+     it - a tinted black is the tint you notice first at 5am, and a green one
+     sits badly under a brass accent. The ground is #000 and every step above
+     it is a warm grey, so the only colour left on a night deck is a signal:
+     red for rolling, brass for GOLD. Object logic is unchanged - the mass
+     still sits ABOVE the ground, so a card is an object and not a hole. */
+  --roll-ground: #000000;
+  --roll-mass: #131313;
+  --roll-mass-raised: #1e1e1e;
+  --roll-mass-pressed: #272727;
   --roll-mass-ink: #d6d4c8;
-  --roll-mass-dim: #8b928a;
-  --roll-mass-faint: #575e57;
-  --roll-mass-rule: #2a322b;
-  --roll-key-under: #030504;
+  --roll-mass-dim: #8f8d87;
+  --roll-mass-faint: #5b5955;
+  --roll-mass-rule: #2b2b2b;
+  --roll-key-under: #000000;
   --roll-brass: #c7a62f;
   --roll-brass-edge: #413611;
+  --roll-accent: #c7a62f;
   --roll-ring: #c7332a;
   --roll-ring-glow: 0 0 26px rgba(199, 51, 42, 0.3), inset 0 0 18px rgba(199, 51, 42, 0.12);
 
@@ -84,22 +102,22 @@
      down here and moving --text alone would not move it. Scoped to .roll, so
      no other screen's ramp is touched by this lane. */
   --text: #d6d4c8;
-  --text-dim: #8b928a;
-  --text-faint: #575e57;
+  --text-dim: #8f8d87;
+  --text-faint: #5b5955;
   --chalk: #d6d4c8;
-  --chalk-dim: #8b928a;
-  --chalk-faint: #575e57;
-  --hairline: #232a25;
-  --hairline-soft: #1b211d;
-  --line: #232a25;
-  --line-soft: #1b211d;
-  --surface: #151b17;
-  --surface-raised: #1f2721;
-  --surface-sunk: #1f2721;
-  --ink-950: #0a0d0b;
-  --ink-900: #151b17;
-  --ink-850: #1f2721;
-  --ink-800: #1f2721;
+  --chalk-dim: #8f8d87;
+  --chalk-faint: #5b5955;
+  --hairline: #262626;
+  --hairline-soft: #1c1c1c;
+  --line: #262626;
+  --line-soft: #1c1c1c;
+  --surface: #131313;
+  --surface-raised: #1e1e1e;
+  --surface-sunk: #1e1e1e;
+  --ink-950: #000000;
+  --ink-900: #131313;
+  --ink-850: #1e1e1e;
+  --ink-800: #1e1e1e;
 }
 
 /* The red wash under the live screen is retired. It existed to carry state
@@ -289,11 +307,11 @@
 .roll .momentrow--gold .tag {
   color: var(--roll-brass);
 }
+/* On the SHEET, so it takes the split pair rather than the mass's bright one:
+   #d8b23c measures 1.94:1 on ivory. --lamp-accent-text is the deep end and
+   collapses back to the bright value at night, the way --go-text does. */
 .roll .momentrow--range .tag {
-  color: var(--m-accent-deep);
-}
-[data-theme="night"] .roll .momentrow--range .tag {
-  color: var(--m-accent);
+  color: var(--lamp-accent-text);
 }
 
 /* ==========================================================================
@@ -669,31 +687,26 @@
   bottom: 0;
 }
 
-/* Machined keycaps. Same idiom as .bigbtn's well/face, one step smaller: a
-   cap standing 3px proud of the mass, travelling 2px on a 60ms break and
-   recovering in 140ms with a hair of overshoot. */
+/* FLAT KEYS. These stood 3px proud of the mass and travelled 2px into it, on
+   an overshoot curve, in the same machined language the big button used - and
+   the same instruction retired both: no 3D, no lift, no under-key shadow, no
+   raised-key gradient. Nine of them on one screen was the loudest instance of
+   it, and a wall of bevelled caps is what made a set instrument read as a
+   games controller. A key is a quiet surface with a hairline now, and a press
+   is a colour. Nothing moves anywhere on this screen except the clock. */
 .roll--live .keycap {
   background: var(--roll-mass-raised);
   border: 1.5px solid var(--roll-mass-rule);
   color: var(--roll-mass-ink);
   border-radius: 14px;
-  box-shadow:
-    inset 0 1px 0 rgba(241, 240, 234, 0.07),
-    0 3px 0 var(--roll-key-under);
-  transition:
-    transform 140ms cubic-bezier(0.34, 1.4, 0.64, 1),
-    box-shadow 140ms cubic-bezier(0.34, 1.4, 0.64, 1),
-    background 140ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  box-shadow: none;
+  transition: background var(--dur-state) linear, border-color var(--dur-state) linear;
 }
 .roll--live .chip.keycap:active,
 .roll--live .chip.keycap.is-pressed {
-  transform: translateY(2px);
+  transform: none;
   background: var(--roll-mass-pressed);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.3),
-    0 1px 0 var(--roll-key-under);
-  transition-duration: 60ms;
-  transition-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1);
+  box-shadow: none;
 }
 /* Night: the cap stops reflecting and the legend starts emitting, like a
    camera's backlit controls. */
@@ -708,10 +721,15 @@
    readable) a corner badge lands on the cap above it. The row already has that
    end reserved: `.keypad--list .keycap` is justify-content: space-between. */
 .roll--live .keypad--list .keycap__count {
-  padding: 3px 7px;
+  padding: 2px 7px;
   border-radius: var(--radius-pill);
-  background: var(--m-accent);
-  color: var(--m-accent-ink);
+  /* AN OUTLINE, NOT A FILL. It was a filled accent pill, and a filled accent
+     pill is now a filled BRASS pill, which is GOLD's one reserved shape. The
+     receipt is just as loud drawn as a ring - it is the only ring on the
+     row - and it costs the app nothing to keep the fill meaning one thing. */
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--roll-accent);
+  color: var(--roll-accent);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -730,7 +748,7 @@
 }
 /* A tallied cap keeps a lit edge after the pop has gone. */
 .roll--live .keypad--list .keycap:has(.keycap__count) {
-  border-color: var(--m-accent);
+  border-color: var(--roll-accent);
 }
 
 /* Tier 1 (coverage sizes) is the quiet strip it always was — recoloured onto
@@ -755,7 +773,7 @@
 .roll--live .keycap--coverage .keycap__count {
   position: static;
   background: none;
-  color: var(--m-accent);
+  color: var(--roll-accent);
   padding: 0;
   animation: none;
 }
@@ -769,12 +787,16 @@
   background: transparent;
 }
 .roll--live .markbtn--armed {
-  border-color: var(--m-accent);
-  color: var(--m-accent);
+  border-color: var(--roll-accent);
+  color: var(--roll-accent);
 }
 .roll--live .markbtn__badge {
-  background: var(--m-accent);
-  color: var(--m-accent-ink);
+  /* A line, not a fill - see the goldbtn note. The armed range clock is the
+     one thing on this row that has to be told apart from GOLD beside it, and
+     ring-versus-fill is the distinction that survives a squint. */
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--roll-accent);
+  color: var(--roll-accent);
   border-radius: var(--radius-pill);
   padding: 2px 8px;
   font-size: 10.5px;
@@ -782,21 +804,22 @@
   letter-spacing: 0.02em;
 }
 
-/* GOLD keeps brass, and brass keeps GOLD. The accent is where the thumb
-   lands; brass is a JUDGEMENT about a take, and the two must never be
-   mistaken for each other at a squint on a dark deck — which is exactly the
-   test that got the citron colourway rejected in round 2. */
+/* GOLD IS THE ONE SOLID BRASS FILL IN THE APP, and that sentence is now the
+   only thing keeping it distinct. The accent is brass too, so "brass means
+   GOLD" stopped being true the moment the palette landed - what is still true
+   is that a FILL means GOLD and a LINE means emphasis. So GOLD stops being an
+   outline and becomes the fill, and every other brass thing on this deck (the
+   armed MARK IN, a tag's tally, the shot ticks) is a line, a segment or type.
+   At a squint on a dark deck there is exactly one filled brass object and it
+   is a judgement about the take. */
 .roll--live .goldbtn {
-  border-color: var(--roll-brass-edge);
-  background: transparent;
-  color: var(--roll-brass);
+  border-color: transparent;
+  background: var(--roll-accent);
+  color: var(--m-accent-ink);
   border-radius: var(--radius-pill);
 }
-[data-theme="night"] .roll--live .goldbtn {
-  text-shadow: 0 0 10px rgba(199, 166, 47, 0.25);
-}
 .roll--live .goldbtn .keycap__count {
-  color: var(--roll-brass);
+  color: var(--m-accent-ink);
 }
 
 /* The ground ring behind the sticky footer follows the new ground - idle too,
@@ -914,7 +937,7 @@
   color: var(--roll-mass-ink);
 }
 .roll .camslot__join {
-  color: var(--m-accent);
+  color: var(--roll-accent);
 }
 /* ------------------------------------------------------------- COMPACT ----
    PILLS, NOT ROWS. Every unit used to get a full-width bar of its own: one
@@ -1042,19 +1065,13 @@
   background: var(--text-faint);
   flex: 0 0 auto;
 }
+/* Also on the sheet: the split pair, one rule, both themes. */
 .voicechip--on {
-  border-color: var(--m-accent-deep);
-  color: var(--m-accent-deep);
+  border-color: var(--lamp-accent-text);
+  color: var(--lamp-accent-text);
 }
 .voicechip--on .voicechip__lamp {
-  background: var(--m-accent-deep);
-}
-[data-theme="night"] .voicechip--on {
-  border-color: var(--m-accent);
-  color: var(--m-accent);
-}
-[data-theme="night"] .voicechip--on .voicechip__lamp {
-  background: var(--m-accent);
+  background: var(--lamp-accent-text);
 }
 /* Amber, never red. Red is recording, and a blocked microphone is not an
    emergency — it is a switch in the wrong position. */
@@ -1306,13 +1323,12 @@
   background: var(--hairline);
   transition: width 180ms var(--ease-out), background 180ms var(--ease-out);
 }
+/* A SEGMENT, which the accent is allowed to fill - it is 20x5px of rail, not
+   an object anybody could mistake for a GOLD chip. */
 .shotdeck__tick.is-cur {
   width: 20px;
   height: 5px;
-  background: var(--m-accent-deep);
-}
-[data-theme="night"] .shotdeck__tick.is-cur {
-  background: var(--m-accent);
+  background: var(--lamp-accent-text);
 }
 
 /* ==========================================================================

@@ -393,15 +393,34 @@
   --m-mass: #101714;          /* the dark block CUT is cut from */
   --m-raised: #1c2420;        /* a key standing on the mass */
   --m-pressed: #242d28;       /* that key, bottomed out */
-  --m-accent: #c9c6f7;        /* the ONE accent, where the thumb lands */
-  --m-accent-press: #afabe8;
-  --m-accent-ink: #22204a;    /* type on the accent, 8.6:1 */
-  --m-accent-deep: #8d89cf;   /* the accent's machined under-edge */
-  --m-accent-text: #5a55a8;   /* the accent AS TYPE. Same split --go-text
-                                 makes: #c9c6f7 is a fill, and as type on
-                                 paper it is unreadable. This is the pitch's
-                                 own deep lavender, and night collapses it
-                                 back to --m-accent the way --go-text does. */
+  /* THE ACCENT IS BRASS. It was lavender, and green before that, and both
+     were rejected as an identity rather than as a shade - so this is the last
+     hue this app introduces, because it is not a new one. #d8b23c is already
+     in the palette: it is --brass, the colour GOLD has always been written
+     in, and the reason it survives where two invented accents did not is that
+     it is the colour of the hardware this app sits next to.
+
+     WHICH MEANS ONE RULE HAS TO HOLD, EVERYWHERE, OR "GOLD" STOPS MEANING
+     ANYTHING:
+
+         A SOLID BRASS FILL IS GOLD. Nothing else in the app gets one.
+         Brass as a LAMP STRIP, an OUTLINE, a SEGMENT or TYPE is emphasis.
+
+     Fill means gold, line means emphasis. A tag badge that used to be a
+     filled lavender pill is an outlined brass one now, not a filled brass
+     one, and that is why.
+
+     RED IS NOT THE ACCENT and does not move into any of this. It means
+     rolling, cut and destructive, and it means only that. */
+  --m-accent: #d8b23c;        /* the ONE accent. NEVER a full fill except GOLD */
+  --m-accent-press: #bf9a2c;
+  --m-accent-ink: #241a02;    /* type on a brass fill, 8.46:1 */
+  --m-accent-deep: #7a5f0e;   /* the deep end: an edge, or type on ivory */
+  --m-accent-text: #7a5f0e;   /* the accent AS TYPE, 5.80:1 on paper. Same
+                                 split --go-text makes: #d8b23c is a fill, and
+                                 as type on ivory it measures 1.94:1. Night
+                                 collapses it back to --m-accent the way
+                                 --go-text does. */
   --m-mass-ink: #f1f0ea;      /* type on the mass. NOT themed, for the same
                                  reason the clapper stripe is not: the mass is
                                  dark at 2pm and at 5am, so its ink is light at
@@ -436,6 +455,36 @@
      vanish into the button and leave nothing there to ignite, so it lifts. A
      pair, stated in both themes, defined in neither alone - same rule as
      --go/--go-text. */
+  /* ---- THE ONE DECORATIVE ACCENT, ROUTED THROUGH ONE NAME ---------------
+     Lavender is out. Green was out before it. Rather than pick a third colour
+     and be told the same thing again, every decorative accent on the screens
+     this lane owns now reads ONE token trio, and the trio currently points at
+     the app's own ink. So the accent is a NEUTRAL until the replacement hue
+     is decided, and deciding it is re-pointing three declarations here rather
+     than hunting a hue through four stylesheets.
+
+     Three names, not one, because a bright value cannot be type and a deep
+     value cannot be a fill - the same split --go/--go-text/--go-fill-ink
+     already makes and for the same measured reason:
+
+       --lamp-accent       The bright value. A lit lamp strip, a segment, a
+                           pip, and GOLD's own fill - which is the only full
+                           fill it is ever allowed to be.
+       --lamp-accent-ink   The type that sits ON that one fill.
+       --lamp-accent-text  The accent AS TYPE, AN ICON OR AN EDGE.
+
+     SEMANTIC COLOUR IS NOT AN ACCENT AND IS NOT IN HERE. Red still means
+     rolling, cut and destructive; brass still means GOLD. Those carry meaning
+     rather than identity and nothing about them moves. */
+  --lamp-accent: var(--m-accent);
+  --lamp-accent-ink: var(--m-accent-ink);
+  --lamp-accent-text: var(--m-accent-text);
+
+  /* THE UNLIT LAMP. Dark on ivory and dark on black - an unlit bulb is a dark
+     object you can SEE, which is what makes the button read as something
+     waiting to light rather than a plain slab. Each lit state clears it by a
+     wide margin: brass 6.1:1 against this value, the record red 3.9:1, the
+     rolling green 6.5:1. */
   --lamp-off: #23262c;
   /* 7px. Wide enough to be a LAMP read across a room rather than a border
      detail read at arm's length; the reference the user picked measured it at
@@ -480,15 +529,31 @@
    this ground against 1.91:1 on paper. Nothing downstream of these names
    needs a night rule of its own. */
 [data-theme="night"] {
-  --paper: #0c0d10;
-  --paper-raised: #121319;
-  --paper-sunk: #181a21;
-  --paper-sunk-deep: #1f222b;
+  /* NEAR-PITCH-BLACK, AND NEUTRAL. This ramp used to be blue-black (#0C0D10
+     and its family) and the roll screen's was green-black; both are a HUE on
+     the one theme whose job is the absence of one, and at 5am a tinted black
+     is the tint you notice first. The ground goes to near-nothing and every
+     step above it is a grey, so the only colour left anywhere on a night
+     screen is a signal: red for rolling, brass for GOLD.
+     The ink is unchanged - warm chalk, never pure white, for the reason its
+     own comment gives. */
+  --paper: #000000;
+  --paper-raised: #161616;
+  --paper-sunk: #0e0e0e;
+  --paper-sunk-deep: #1c1c1c;
   --ink: #ece9e1;       /* chalk: warm off-white, never pure #fff */
-  --ink-dim: #9a9da7;
-  --ink-faint: #61646e;
-  --rule: #2b2e39;
-  --rule-soft: #23262f;
+  /* WARMED, AT THE SAME MEASURED CONTRAST. The old pair was blue-leaning
+     (#9A9DA7 and #61646E) and blue is the one bias that actively fights
+     brass. These are warm neutrals solved to land on the ratio each one
+     already had, against the new ground rather than the old one:
+       --ink-dim    7.18:1 on #0C0D10  ->  7.20:1 on #000
+       --ink-faint  3.29:1 on #0C0D10  ->  3.30:1 on #000
+     Not eyeballed. --ink-faint stays under 4.5 by design and its own rule
+     above still forbids it carrying a number or a meaningful label. */
+  --ink-dim: #999793;
+  --ink-faint: #615f5b;
+  --rule: #262626;
+  --rule-soft: #1c1c1c;
 
   /* The split collapses: bright IS the type colour here. */
   --m-accent-text: var(--m-accent);
@@ -549,7 +614,7 @@
 
      The MASS side needs nothing: #030605 is already below night's ground, so
      CUT reads recessed in both themes for free. The accent needs nothing
-     either - #c9c6f7 was picked to carry --m-accent-ink on it, and that pair
+     either - the accent was picked to carry --m-accent-ink on it, and that pair
      is a closed system that does not care what is behind the button. */
   --m-well-sheet: #06070a;
   --m-well-sheet-shade: rgba(0, 0, 0, 0.80);
@@ -559,7 +624,21 @@
   /* The unlit lamp lifts off the ground rather than sinking into it. Near-
      black on near-black is not a dark object, it is a hole, and a hole cannot
      light up. */
-  --lamp-off: #3a3f47;
+  /* The unlit lamp lifts off the ground rather than sinking into it. On true
+     black a near-black strip is not a dark object, it is a hole, and a hole
+     cannot light up. Warm, like everything else here.
+
+     IT MEASURES 1.66:1 AGAINST THE NIGHT FACE AND THAT IS THE CHOSEN TRADE,
+     stated rather than missed. A value that cleared the 3:1 non-text bar at
+     rest was tried (#676561, 3.19:1) and it breaks the thing the lamp is for:
+     from there, ignition to the record red measures 1.71:1 and to brass
+     2.87:1 - the lamp comes on and almost nothing happens. THE INFORMATION IS
+     THE LIT STATE, and against the face that state measures 9.16:1 for brass,
+     5.1:1 for red and 10.4:1 for the rolling green, plus a glow across the
+     whole button. A lamp bright enough to pass at rest cannot then read as
+     having been switched on. Day has no such trade and takes the strong
+     value: 15.2:1 at rest on the ivory face. */
+  --lamp-off: #3d3b37;
 }
 
 * { box-sizing: border-box; }
@@ -1237,7 +1316,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    take. It was drawing --go-fill, which on paper is #0e7a43.
    The approved pitch has no saturated green anywhere in it. Its greens are all
    desaturated sage used as NEUTRALS (#96A099 and its family); the one accent
-   is #c9c6f7, and it is what ROLL and DONE are already drawn in. So a filled
+   is brass, and it is what ROLL and DONE are already lamped in. So a filled
    green confirm sitting a thumb's width from a lavender ROLL was two accents
    arguing about which one the eye should obey.
    --go, --go-text and --go-fill are untouched and still mean rolling-ready
@@ -1945,12 +2024,15 @@ select.field {
   gap: var(--sp-2);
   text-align: center;
   line-height: 1.15;
-  /* hardware key: sits proud, then depresses on press (same language as .bigbtn) */
-  box-shadow: 0 4px 0 0 var(--key-shadow);
-  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
+  /* FLAT. This carried `box-shadow: 0 4px 0 0` and travelled 3px into it - a
+     key sitting proud of the deck, the same language .bigbtn used before the
+     tally lamp replaced it. Both are gone for the same reason: the press is
+     confirmed by what the control LOOKS like, not by where it sits, and a
+     screen full of raised keys is the thing that made this read as a game pad
+     rather than an instrument. The press is a colour now. */
+  transition: background var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
 }
-/* Wins over the base .chip:active scale - a key travels DOWN onto its shadow. */
-.chip.keycap:active { transform: translateY(3px); box-shadow: 0 1px 0 0 var(--key-shadow); }
+.chip.keycap:active { transform: none; box-shadow: none; }
 
 /* Label clamps to 2 lines inside the fixed cell rather than widening it. */
 .keycap__label {

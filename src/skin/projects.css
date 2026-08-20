@@ -50,21 +50,22 @@
   --pj-accent-edge: var(--m-accent-deep);
 }
 
+/* TRUE BLACK, NEUTRAL - same move as the shell and the roll deck. */
 [data-theme='night'] .pj {
-  --pj-ground: #0A0D0B;
-  --pj-mass: #151B17;
-  --pj-key: #1B221D;
-  --pj-key-lift: #232B26;
+  --pj-ground: #000000;
+  --pj-mass: #131313;
+  --pj-key: #1A1A1A;
+  --pj-key-lift: #232323;
   --pj-mass-ink: #D6D4C8;
-  --pj-mass-dim: #8E978F;
-  --pj-mass-faint: #6E7870;
+  --pj-mass-dim: #8F8D87;
+  --pj-mass-faint: #6E6C67;
   --pj-mass-rule: rgba(214, 212, 200, 0.10);
 
   --pj-ink: #D6D4C8;
-  --pj-ink-dim: #8E978F;
-  --pj-ink-faint: #6E7870;
+  --pj-ink-dim: #8F8D87;
+  --pj-ink-faint: #6E6C67;
   --pj-rule: rgba(214, 212, 200, 0.12);
-  --pj-tile: #1F2721;
+  --pj-tile: #1E1E1E;
   /* On near-black the fill value IS the legible edge; the deep one vanishes. */
   --pj-accent-edge: var(--m-accent);
 }
@@ -262,7 +263,10 @@
 }
 .pj-cov__seg--on { background: var(--pj-accent); }
 [data-theme='night'] .pj-cov__seg { background: #1B211C; }
-[data-theme='night'] .pj-cov__seg--on { background: #8A86D8; }
+/* The coverage segment was a hardcoded LAVENDER, which is both the retired
+   accent and a literal nobody could find by grepping the token. It is a
+   SEGMENT, which the accent is allowed to fill, so it reads the accent. */
+[data-theme='night'] .pj-cov__seg--on { background: var(--m-accent); }
 .pj-cov__cap {
   margin-top: var(--sp-2);
   color: var(--pj-mass-faint);

@@ -243,15 +243,13 @@
  * statement that the camera can roll. ProjectScreen's own camera setup fixed
  * this for itself via `.pj-units .camunit__badge`; TakeEditSheet needed the
  * same fix and had no `.pj` to inherit it from. */
+/* A ring, not a fill: the accent is brass and a solid brass fill is GOLD's
+   alone (see --m-accent in styles.css). One rule for both themes now, because
+   --m-accent-text already carries the day/night split. */
 .dt-sheet .camunit__badge {
-  color: var(--m-accent-ink);
-  background: var(--m-accent);
-  border-color: var(--m-accent);
-}
-[data-theme='night'] .dt-sheet .camunit__badge {
-  color: var(--m-legend);
-  background: var(--m-keycap);
-  border-color: var(--m-legend);
+  color: var(--m-accent-text);
+  background: none;
+  border-color: var(--m-accent-text);
 }
 .dt-sheet .camcount__opt--on {
   background: var(--m-card);
