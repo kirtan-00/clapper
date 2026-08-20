@@ -34,6 +34,7 @@ import {
 } from './cameras';
 import { ClipNumberRows, TakeEditSheet } from './TakeEditSheet';
 import { sizeInWords } from './shotlist';
+import { ShotDeck } from './ShotDeck';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
 import { ClipNum, Sheet, SheetClose, Rail, Toast, Confirm } from './common';
 import { BackMark, ForwardMark, SpeakerMark } from './marks';
@@ -288,6 +289,11 @@ export function RollingScreen(props: {
     lastGold: number;
   } | null>(null);
   const [siblings, setSiblings] = useState<Slate[]>([]);
+  /** Every take logged against this SLATE (every shot in it, not just the one
+   *  being rolled) — refreshMeta already fetches this list to work out the
+   *  current shot's next take number; the shot deck reuses it to show a take
+   *  count on the peeked next card without a second read. */
+  const [allTakes, setAllTakes] = useState<Take[]>([]);
 
   const multi = isMultiCam(project);
   // clipUnits() is the same "one shape either way" helper the store uses:
@@ -329,6 +335,12 @@ export function RollingScreen(props: {
   const nextShot =
     shotIndex >= 0 && shotIndex < shotList.length - 1 ? shotList[shotIndex + 1] : null;
   const [showShotJump, setShowShotJump] = useState(false);
+  // Kept takes per shot, for the deck's "N takes" line — same "not discarded"
+  // rule refreshMeta already applies to report.setupCount, so the two numbers
+  // never disagree about what counts as a take.
+  function takeCountFor(shotId: string): number {
+    return allTakes.filter((t) => t.shotId === shotId && t.status !== 'discarded').length;
+  }
 
   const [buffered, setBuffered] = useState<Buffered[]>([]);
   const [markInMs, setMarkInMs] = useState<number | null>(null);
@@ -730,6 +742,7 @@ export function RollingScreen(props: {
       store.listTakes(slate.id),
     ]);
     if (p) setProject(p);
+    setAllTakes(all);
     // Scope to the setup being rolled. Takes number per SHOT when there is one
     // — 5.31 gets takes 1,2,3 and 5.32 starts at 1 again, which is what the
     // slate in front of the lens says — and per scene when there isn't. The
@@ -1187,50 +1200,11 @@ export function RollingScreen(props: {
         </div>
       </div>
 
-      {/* The shot strip. This is where the operator lives between setups: step
-          with the arrows, or tap the middle to jump anywhere in the scene.
-          Locked while rolling and while the post-cut sheet is open, the same
-          rule as the scene pager — skidding onto the wrong setup mid-take
-          would mis-number a take and mislabel the clip. */}
-      {shot && (
-        <div className="shotstrip">
-          <button
-            type="button"
-            className="shotstrip__btn"
-            aria-label="Previous shot"
-            disabled={!prevShot || rolling || postCut !== null}
-            onClick={() => prevShot && props.onNavigateShot?.(prevShot)}
-          >
-            <BackMark />
-          </button>
-          <button
-            type="button"
-            className="shotstrip__now"
-            aria-label={`Shot ${shot.code} of ${shotList.length}. Tap to jump to another shot.`}
-            disabled={rolling || postCut !== null}
-            onClick={() => setShowShotJump(true)}
-          >
-            <span className="shotstrip__code tnum">{shot.code}</span>
-            <span className="shotstrip__spec">
-              {[sizeInWords(shot.size), shot.move].filter(Boolean).join(' · ') || '—'}
-            </span>
-            <span className="shotstrip__pos tnum">
-              {shotIndex >= 0 ? shotIndex + 1 : '-'}/{shotList.length}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="shotstrip__btn"
-            aria-label="Next shot"
-            disabled={!nextShot || rolling || postCut !== null}
-            onClick={() => nextShot && props.onNavigateShot?.(nextShot)}
-          >
-            <ForwardMark />
-          </button>
-        </div>
-      )}
-
-      {shot?.action && <div className="roll__summary">{shot.action}</div>}
+      {/* The dialogue line stays up here, under the head — it is scene
+          reference text, read once on the way into a setup, not a control the
+          thumb needs at the bottom. The shot's own spec/description moved
+          into the deck (see shotdeck below): this is deliberately the ONLY
+          reference to the shot left above the fold. */}
       {shot?.dialogue && <div className="roll__line">&ldquo;{shot.dialogue}&rdquo;</div>}
       {!shot && slate.summary && <div className="roll__summary">{slate.summary}</div>}
 
@@ -1517,6 +1491,25 @@ export function RollingScreen(props: {
           </>
         )}
       </div>
+
+      {/* THE SHOT DECK. Last thing in the scrollable body, on purpose: it
+          sits directly above ROLL/CUT, and .roll__body's own max-height +
+          overflow (see styles.css) is what keeps that true no matter how
+          tall the deck's description text runs — the deck is a child that
+          SCROLLS, ROLL/CUT are a sibling that never does. Absent for a scene
+          with no shot breakdown; that case keeps the scene pager above. */}
+      {shot && (
+        <ShotDeck
+          shotList={shotList}
+          shotIndex={shotIndex}
+          shot={shot}
+          nextShot={nextShot}
+          takeCountFor={takeCountFor}
+          locked={rolling || postCut !== null}
+          onOpenJump={() => setShowShotJump(true)}
+          onAdvance={(picked) => props.onNavigateShot?.(picked)}
+        />
+      )}
       </div>
 
       <div className="roll__deck">

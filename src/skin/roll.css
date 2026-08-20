@@ -1081,6 +1081,133 @@
 }
 
 /* ==========================================================================
+   THE SHOT DECK — replaces .shotstrip + .roll__summary
+   The current setup as a filled mass (code, spec, take count, description),
+   the next setup peeking dimmed beneath it, a tick rail standing in for
+   "N of M". `.shotdeck`, never `.roll__deck` — see ShotDeck.tsx's header for
+   why that name is already taken on this screen.
+   ========================================================================== */
+.shotdeck {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sp-2);
+  width: 100%;
+  max-width: 420px;
+  margin-top: var(--sp-4);
+  /* Fixed-size reference block, same as .roll__summary/.roll__line above it —
+     .roll__body shrinks and scrolls FIRST (see styles.css), this never does,
+     which is the whole mechanism that keeps ROLL/CUT from moving underneath
+     it no matter how long a description runs. */
+  flex: 0 0 auto;
+}
+.shotdeck__stack {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.shotdeck__card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 28px;
+  padding: 16px 18px 15px;
+  background: var(--roll-mass);
+  color: var(--roll-mass-ink);
+  font-family: inherit;
+  cursor: pointer;
+}
+.shotdeck__card:disabled {
+  cursor: default;
+}
+.shotdeck__card--now:active:not(:disabled) {
+  background: var(--roll-mass-raised);
+}
+/* The peeked next card: same object, dimmed, and fading toward the ground at
+   its own bottom edge — "about to arrive", not "equally important". A mask
+   rather than a gradient overlay div, so it works over any description
+   length without a second element to keep in sync. */
+.shotdeck__card--next {
+  opacity: 0.5;
+  -webkit-mask-image: linear-gradient(#000 60%, transparent 96%);
+  mask-image: linear-gradient(#000 60%, transparent 96%);
+}
+.shotdeck__card--next:active:not(:disabled) {
+  opacity: 0.66;
+}
+.shotdeck__row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.shotdeck__code {
+  font-size: 27px;
+  font-weight: 250;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.shotdeck__spec {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-caption);
+  color: var(--roll-mass-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shotdeck__takes {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--roll-mass-faint);
+}
+.shotdeck__text {
+  margin-top: 11px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--roll-mass-ink);
+  /* Long descriptions wrap rather than push the rail out of alignment with
+     the card they describe — four lines is the same clamp the old action
+     line used, restated here because the card is a different element. */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The rail: a tick per shot, evenly spaced, the current one longer and lit.
+   Deliberately not a scrollbar — it states "you are the Nth of M" at a
+   glance, the same fact the old .shotstrip__pos gave in digits. */
+.shotdeck__rail {
+  flex: 0 0 auto;
+  width: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 4px 0;
+}
+.shotdeck__tick {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--hairline);
+  transition: width 180ms var(--ease-out), background 180ms var(--ease-out);
+}
+.shotdeck__tick.is-cur {
+  width: 20px;
+  height: 5px;
+  background: var(--m-accent-deep);
+}
+[data-theme="night"] .shotdeck__tick.is-cur {
+  background: var(--m-accent);
+}
+
+/* ==========================================================================
    REDUCED MOTION
    Every animation above has a deliberate still form. The global block in
    styles.css already forces `transition-property: opacity` and kills every
