@@ -550,6 +550,7 @@ html[data-uiscale='fine'] textarea {
 }
 .mheld__retry {
   flex: 0 0 auto;
+  border: 1px solid var(--brass-edge);
   min-height: var(--tap);
   padding: 0 var(--sp-4);
   border-radius: var(--radius-pill);
@@ -656,7 +657,11 @@ html[data-uiscale='fine'] textarea {
   color: var(--m-card-ink);
   border-radius: var(--radius-lg);
   border-bottom-color: transparent;
-  box-shadow: 0 10px 24px var(--m-cast);
+  /* Two things, because they do the same job on different grounds: the cast
+     separates the card from ivory, and the inset lip separates it from
+     near-black, where a black shadow is invisible and the card's own edge is
+     all there is. Same pair the nav pod carries. */
+  box-shadow: 0 10px 24px var(--m-cast), inset 0 0 0 1px var(--m-card-line);
 }
 
 .mclip__face {
@@ -853,7 +858,13 @@ html[data-uiscale='fine'] textarea {
   border-color: color-mix(in srgb, var(--m-rec) 55%, transparent);
   color: var(--m-rec);
 }
-.mclip__tool:focus-visible {
+/* THE GLOBAL FOCUS RING IS --go-text, which is a deep green chosen to be seen
+   on ivory - it measures near 2:1 against the mass and is a ring you cannot
+   find. Every control this lane puts ON the mass takes the accent instead.
+   .mclip__face is in the list because an OPEN row is a mass card too. */
+.mclip__tool:focus-visible,
+.mclip__row[data-open] .mclip__face:focus-visible,
+.mnudge__dismiss:focus-visible {
   outline: 2px solid var(--m-accent);
   outline-offset: 2px;
 }
@@ -991,4 +1002,14 @@ html[data-uiscale='fine'] textarea {
 .mnudge__act:focus-visible {
   outline: 2px solid var(--m-accent);
   outline-offset: 2px;
+}
+
+/* The iOS share icon inside the instruction. It used to wear
+   `.installnudge__glyph`, whose rules in styles.css are dead now that the card
+   is `.mnudge` - so it carries its own, and inherits the instruction's colour
+   rather than the old --go-text, which was a green icon on a mass card. */
+.mnudge__glyph {
+  display: inline-block;
+  vertical-align: -2px;
+  color: inherit;
 }

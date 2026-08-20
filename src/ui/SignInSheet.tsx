@@ -30,8 +30,13 @@ export function SignInSheet(props: { onClose: () => void }) {
         PDF export are always free.
       </p>
 
+      {/* `--bad` was never defined anywhere, so the error line always rendered
+          its raw-hex fallback: a colour outside the palette, on a sheet the
+          repaint has to survive in both themes. --rec-text IS the house error
+          register (5.69:1 on paper, and aliased to the bright value on night,
+          so one token covers both grounds). */}
       {error && (
-        <p className="camnote" role="alert" style={{ color: 'var(--bad, #ff6b6b)' }}>
+        <p className="camnote" role="alert" style={{ color: 'var(--rec-text)' }}>
           {error}
         </p>
       )}

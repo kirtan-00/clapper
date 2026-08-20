@@ -117,7 +117,7 @@ async function countTakes(): Promise<number | null> {
 function ShareGlyph() {
   return (
     <svg
-      className="installnudge__glyph"
+      className="mnudge__glyph"
       width="14"
       height="14"
       viewBox="0 0 24 24"
