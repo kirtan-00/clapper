@@ -40,6 +40,11 @@
   --roll-notch: 16px;
 
   background: var(--roll-ground);
+  /* Re-applied, not inherited. `color` is set on <body> and resolves there, so
+     a screen-scoped ink ramp (night's chalk cap, below) would never reach the
+     text unless the screen re-reads the variable itself. In day this resolves
+     to the same value it already had. */
+  color: var(--text);
 }
 
 /* ---------------------------------------------------------------- NIGHT ---
@@ -67,6 +72,34 @@
   --roll-brass-edge: #413611;
   --roll-ring: #c7332a;
   --roll-ring-glow: 0 0 26px rgba(199, 51, 42, 0.3), inset 0 0 18px rgba(199, 51, 42, 0.12);
+
+  /* CHALK, CAPPED. The app's night ink is #ECE9E1 on a blue-black ground; the
+     approved night form is #D6D4C8 on a green-biased charcoal, and the cap is
+     the whole argument - at 3am a near-white glyph glows almost as hard as the
+     ivory sheet the night theme exists to switch off. Still 13.1:1 on the
+     ground and 11.8:1 on the mass, so nothing is bought with legibility.
+
+     Each alias is restated rather than just its source: `--chalk: var(--text)`
+     is declared at :root, so it was already substituted before it inherited
+     down here and moving --text alone would not move it. Scoped to .roll, so
+     no other screen's ramp is touched by this lane. */
+  --text: #d6d4c8;
+  --text-dim: #8b928a;
+  --text-faint: #575e57;
+  --chalk: #d6d4c8;
+  --chalk-dim: #8b928a;
+  --chalk-faint: #575e57;
+  --hairline: #232a25;
+  --hairline-soft: #1b211d;
+  --line: #232a25;
+  --line-soft: #1b211d;
+  --surface: #151b17;
+  --surface-raised: #1f2721;
+  --surface-sunk: #1f2721;
+  --ink-950: #0a0d0b;
+  --ink-900: #151b17;
+  --ink-850: #1f2721;
+  --ink-800: #1f2721;
 }
 
 /* The red wash under the live screen is retired. It existed to carry state
@@ -77,6 +110,12 @@
    arrives, which is what makes its arrival readable. */
 .roll--live {
   background: var(--roll-ground);
+  /* The toast climbs past MARK IN, not just past CUT. --tray-lift already
+     clears the big button; the mark row is sticky directly above it and now
+     carries GOLD as well, so "GOLD marked" was landing on the two controls it
+     was reporting. Same shape as the original: CUT's own height at whatever
+     size the operator picked, plus the row above it. */
+  --tray-lift: calc(var(--cut-base) * var(--cut-scale, 1) + 84px);
 }
 .roll--live::after {
   border-color: var(--roll-ring);
@@ -794,14 +833,29 @@
     0 0 0 #3b3878,
     0 2px 5px rgba(0, 0, 0, 0.4);
 }
+/* CUT is a different part and keeps its own metal: anodised black, a chalk
+   legend, and the red dot at full value doing the flagging. Its box-shadow has
+   to be restated because the night ROLL rule above outranks styles.css's
+   `.bigbtn.hw--cut .hw__face` - without this, CUT inherits ROLL's violet
+   under-edge and grows a lavender line along its bottom at 3am. */
 [data-theme="night"] .roll .bigbtn.hw--cut .hw__face {
   background: linear-gradient(#20261f 0%, #171d17 70%);
   color: var(--roll-mass-ink);
   text-shadow: 0 0 14px rgba(214, 212, 200, 0.2);
+  box-shadow:
+    inset 0 1.5px 0 rgba(214, 212, 200, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 4px 0 #000,
+    0 14px 22px rgba(0, 0, 0, 0.55);
 }
 [data-theme="night"] .roll .bigbtn.hw--cut:active .hw__face,
 [data-theme="night"] .roll .bigbtn.hw--cut.is-pressed .hw__face {
   background: linear-gradient(#2a322a 0%, #20261f 70%);
+  box-shadow:
+    inset 0 1px 0 rgba(214, 212, 200, 0.05),
+    inset 0 3px 6px rgba(0, 0, 0, 0.6),
+    0 0 0 #000,
+    0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
 /* ==========================================================================
