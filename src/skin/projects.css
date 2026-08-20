@@ -19,58 +19,52 @@
    notch, so ground is a token here and the screen repaints itself with it.
 
    Round 3's night palette lands here rather than in styles.css because these
-   four screens are the lane that owns it: ground #011207, mass #012F13 a step
+   four screens are the lane that owns it: ground #0A0D0B, mass #151B17 a step
    ABOVE the ground (so a card is an object sitting on something, never a hole),
-   and pale-green ink #E2F0CC — measured 16.11:1 on ground, 12.40:1 on the
-   mass, and used flat rather than brightened, which at 3am glows almost as
-   hard as a white sheet. Night's own --m-* half (the wells) is already
-   designed in styles.css and is consumed unchanged. */
+   and chalk ink #D6D4C8 — measured 13.1:1 on ground, 11.8:1 on the mass, and
+   deliberately not white, which at 3am glows almost as hard as an ivory sheet.
+   Night's own --m-* half (the wells) is already designed in styles.css and is
+   consumed unchanged. */
 .pj {
   --pj-ground: var(--m-sheet);
   --pj-mass: var(--m-mass);
-  /* A key standing ON the mass — a filed shoot inside its folder. Same value
-     as --m-raised: the mass here is --m-mass too, so the same "proud of the
-     near-black mass" step applies. */
-  --pj-key: #0f3e17;
-  --pj-key-lift: #2e6021;
+  /* A key standing ON the mass — a filed shoot inside its folder. */
+  --pj-key: #18201C;
+  --pj-key-lift: #202A25;
   --pj-mass-ink: var(--m-mass-ink);
-  --pj-mass-dim: #9DB59A;
-  --pj-mass-faint: #6F8570;
-  --pj-mass-rule: rgba(226, 240, 204, 0.10); /* --m-mass-ink's channels */
+  --pj-mass-dim: #97A19A;
+  --pj-mass-faint: #6E7A72;
+  --pj-mass-rule: rgba(241, 240, 234, 0.10);
 
-  --pj-ink: #011207;
-  --pj-ink-dim: #3D5442;
-  --pj-ink-faint: #6B7F6A;
-  --pj-rule: rgba(1, 18, 7, 0.10); /* --pj-ink's channels */
-  --pj-tile: #dbeac3;
+  --pj-ink: #16181A;
+  --pj-ink-dim: #5E6660;
+  --pj-ink-faint: #96999A;
+  --pj-rule: rgba(22, 24, 26, 0.10);
+  --pj-tile: #EDEBE1;
 
   --pj-accent: var(--m-accent);
   --pj-accent-ink: var(--m-accent-ink);
-  /* The accent as a HAIRLINE on the wash. --m-accent is a fill colour picked
-     to carry dark type; at 1.5px on a light ground it disappears, so the
-     focus ring and the lifted card's edge get the deep value instead. */
+  /* The accent as a HAIRLINE on ivory. --m-accent is a fill colour picked to
+     carry dark type; at 1.5px on a light ground it disappears, so the focus
+     ring and the lifted card's edge get the deep value instead. */
   --pj-accent-edge: var(--m-accent-deep);
 }
 
 [data-theme='night'] .pj {
-  --pj-ground: #011207;
-  --pj-mass: #012F13;
-  /* The mass here is the deep green, not the near-black one --m-raised sits
-     on, so the "proud key" step is derived fresh rather than reusing
-     --m-raised - reusing it would sit only 1.2:1 off the mass instead of a
-     real step. */
-  --pj-key: #1a4a1b;
-  --pj-key-lift: #2a5c20;
-  --pj-mass-ink: #E2F0CC;
-  --pj-mass-dim: #9DB59A;
-  --pj-mass-faint: #6F8570;
-  --pj-mass-rule: rgba(226, 240, 204, 0.10);
+  --pj-ground: #0A0D0B;
+  --pj-mass: #151B17;
+  --pj-key: #1B221D;
+  --pj-key-lift: #232B26;
+  --pj-mass-ink: #D6D4C8;
+  --pj-mass-dim: #8E978F;
+  --pj-mass-faint: #6E7870;
+  --pj-mass-rule: rgba(214, 212, 200, 0.10);
 
-  --pj-ink: #E2F0CC;
-  --pj-ink-dim: #9DB59A;
-  --pj-ink-faint: #6F8570;
-  --pj-rule: rgba(226, 240, 204, 0.12);
-  --pj-tile: #04220E;
+  --pj-ink: #D6D4C8;
+  --pj-ink-dim: #8E978F;
+  --pj-ink-faint: #6E7870;
+  --pj-rule: rgba(214, 212, 200, 0.12);
+  --pj-tile: #1F2721;
   /* On near-black the fill value IS the legible edge; the deep one vanishes. */
   --pj-accent-edge: var(--m-accent);
 }
@@ -93,12 +87,10 @@
   pointer-events: none;
 }
 
-/* Ink on the repainted ground. The app's own --text now resolves to the same
-   family this lane's --pj-ink carries (both are the client's four colours),
-   which was not true when this rule was written - --text used to be mixed
-   against a different, BLUE-tinted ground and needed forcing into agreement.
-   The rule stays: it is cheap insurance against the two drifting apart again,
-   not a fix for an active clash. */
+/* Ink on the repainted ground. The app's own --text is mixed against a
+   different ground in both themes (#fbfaf7 / #0c0d10), and at night that is a
+   BLUE-black against this green-black — two off-whites in one column reads as
+   a rendering fault. One rule, both themes, no drift. */
 .pj,
 .pj .ltitle {
   color: var(--pj-ink);
@@ -266,11 +258,11 @@
   flex: 1;
   height: 22px;
   border-radius: 5px;
-  background: rgba(226, 240, 204, 0.07); /* --m-mass-ink's channels */
+  background: rgba(241, 240, 234, 0.07);
 }
 .pj-cov__seg--on { background: var(--pj-accent); }
-[data-theme='night'] .pj-cov__seg { background: #04220E; }
-[data-theme='night'] .pj-cov__seg--on { background: var(--pj-accent); } /* was a hardcoded lavender left over from the pitch accent */
+[data-theme='night'] .pj-cov__seg { background: #1B211C; }
+[data-theme='night'] .pj-cov__seg--on { background: #8A86D8; }
 .pj-cov__cap {
   margin-top: var(--sp-2);
   color: var(--pj-mass-faint);
@@ -862,10 +854,10 @@
 
 /* ================================================= MATERIAL, ON THIS GROUND
    The app mixes every frosted surface from ONE place in styles.css, against
-   the ground that file owns (#F2F8E6 / #011207). This lane repainted its own
+   the ground that file owns (#fbfaf7 / #0c0d10). This lane repainted its own
    ground, so those mixes now arrive as a visibly different rectangle sitting on
-   it if the two grounds ever drift apart — the material has to be re-mixed
-   from this screen's own ground rather than assumed to match.
+   it — worst at night, where a BLUE-charcoal bar on a GREEN-black page reads as
+   a rendering fault rather than as depth.
 
    So the material is re-mixed here, from `--pj-ground`, and nowhere else. Same
    recipe, same translucency, same blur (inherited): only the pigment moves. */
@@ -887,16 +879,15 @@
 
    Night needs a third step for this, not a reuse of one of the two it has: the
    sheet has to sit ABOVE the page ground so it reads as covering it, and BELOW
-   the mass so the units on it still read as objects. #01210D is that step -
-   the near-black ground and the deep-green mass mixed exactly evenly, on the
-   same four-colour family as both. */
+   the mass so the units on it still read as objects. #0F1310 is that step, on
+   the same green bias as both. */
 .pj .sheet { --pj-ground: var(--surface); }
 [data-theme='night'] .pj .sheet,
 [data-theme='night'] .pj .sheet__head {
-  --pj-ground: #01210D;
-  background: #01210D;
+  --pj-ground: #0F1310;
+  background: #0F1310;
 }
-[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, #01210D 86%, transparent); }
+[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, #0F1310 86%, transparent); }
 
 /* -------------------------------------------------- the unit badge --------
    A is the master unit: it is the one whose clip fields the project also
@@ -954,6 +945,5 @@
 .pj-slot > .pj-key { margin-top: -1.5px; }
 
 /* The clapper stripe is drawn from --stripe, which is mixed against the app's
-   own ground, not this screen's repainted one - forced into agreement here so
-   the two grounds cannot drift apart under it. */
+   own ground. On this one it arrives BLUE-black under a green-black page. */
 .pj .rail { background-color: var(--pj-ground); }

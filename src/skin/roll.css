@@ -17,7 +17,7 @@
    deck and keycap below is one or the other, and the notch is what proves it:
    you can only cut a slot of ground INTO something that is a solid object.
    These are roll-screen-local names because styles.css owns `--m-*` and this
-   file may only consume it — night's mass (#012F13) has no `--m-*` home, so
+   file may only consume it — night's mass (#151B17) has no `--m-*` home, so
    it gets one here rather than a second definition over there.
    ========================================================================== */
 .roll {
@@ -26,12 +26,10 @@
   --roll-mass-raised: var(--m-raised);   /* a key standing on the mass    */
   --roll-mass-pressed: var(--m-pressed); /* that key, bottomed out        */
   --roll-mass-ink: var(--m-mass-ink);
-  --roll-mass-dim: #9DB59A;   /* pale green, dimmed - 8.72:1 on the mass,
-                                  which is now the same near-black green as
-                                  --m-mass on day too */
-  --roll-mass-faint: #6F8570;
-  --roll-mass-rule: #0C3D1C;
-  --roll-key-under: #010c05;              /* the 3px a keycap stands on   */
+  --roll-mass-dim: #96a099;
+  --roll-mass-faint: #5e6a63;
+  --roll-mass-rule: #26302a;
+  --roll-key-under: #060a08;              /* the 3px a keycap stands on   */
   --roll-brass: var(--m-brass);
   --roll-brass-edge: #4a3e14;
   /* The ring, at day value. Night drops it one stop below. */
@@ -51,62 +49,57 @@
 
 /* ---------------------------------------------------------------- NIGHT ---
    Round 3's second instrument. The object logic survives and the light
-   leaves: the ground drops to near-black green and the mass sits a step
-   ABOVE it, so a card is still an object rather than a hole. Ink is the
-   pale green, flat, never white — at 3am a white glyph on near-black glows
-   almost as hard as the wash it replaced.
+   leaves: the ground drops to near-black and the mass sits a step ABOVE it,
+   so a card is still an object rather than a hole. Ink is chalk (#D6D4C8),
+   never white — at 3am a white glyph on near-black glows almost as hard as
+   the ivory sheet it replaced.
 
-   The ring drops one stop below full REC. It is the same hue and the same
+   The ring drops one stop to #C7332A. It is the same hue and the same
    meaning, 43% less emitted light: 7px of lit perimeter at full #FF453A is
    the brightest lamp on the cart, an arm from the operator's face. The REC
-   DOTS keep full #FF453A — they are 7px of area, not 7px of perimeter. REC
-   itself is untouched by the brand-palette pass; it is the one colour the
-   client's four were never going to replace. */
+   DOTS keep full #FF453A — they are 7px of area, not 7px of perimeter. */
 [data-theme="night"] .roll {
-  --roll-ground: #011207;
-  --roll-mass: #012F13;
-  --roll-mass-raised: #0f3e17;  /* same value as --m-raised: proud of the
-                                    mass, lighter than it */
-  --roll-mass-pressed: #04220E; /* bottomed out - darker than the mass, the
-                                    same in-between step --m-pressed uses */
-  --roll-mass-ink: #E2F0CC;
-  --roll-mass-dim: #9DB59A;
-  --roll-mass-faint: #6F8570;
-  --roll-mass-rule: #0C3D1C;
-  --roll-key-under: #000502;
+  --roll-ground: #0a0d0b;
+  --roll-mass: #151b17;
+  --roll-mass-raised: #1f2721;
+  --roll-mass-pressed: #28312a;
+  --roll-mass-ink: #d6d4c8;
+  --roll-mass-dim: #8b928a;
+  --roll-mass-faint: #575e57;
+  --roll-mass-rule: #2a322b;
+  --roll-key-under: #030504;
   --roll-brass: #c7a62f;
   --roll-brass-edge: #413611;
   --roll-ring: #c7332a;
   --roll-ring-glow: 0 0 26px rgba(199, 51, 42, 0.3), inset 0 0 18px rgba(199, 51, 42, 0.12);
 
-  /* CHALK, CAPPED, NOW GREEN. The approved night form used to be #D6D4C8 on a
-     green-biased charcoal; the client's own dark table gives the pale green
-     itself for this role (#E2F0CC, 16.11:1 on the ground / 12.40:1 on the
-     mass), used flat rather than brightened toward white for the same reason
-     the old cap existed - at 3am a near-white glyph glows almost as hard as
-     the wash the night theme exists to switch off.
+  /* CHALK, CAPPED. The app's night ink is #ECE9E1 on a blue-black ground; the
+     approved night form is #D6D4C8 on a green-biased charcoal, and the cap is
+     the whole argument - at 3am a near-white glyph glows almost as hard as the
+     ivory sheet the night theme exists to switch off. Still 13.1:1 on the
+     ground and 11.8:1 on the mass, so nothing is bought with legibility.
 
      Each alias is restated rather than just its source: `--chalk: var(--text)`
      is declared at :root, so it was already substituted before it inherited
      down here and moving --text alone would not move it. Scoped to .roll, so
      no other screen's ramp is touched by this lane. */
-  --text: #E2F0CC;
-  --text-dim: #9DB59A;
-  --text-faint: #6F8570;
-  --chalk: #E2F0CC;
-  --chalk-dim: #9DB59A;
-  --chalk-faint: #6F8570;
-  --hairline: #0C3D1C;
-  --hairline-soft: #082c14;
-  --line: #0C3D1C;
-  --line-soft: #082c14;
-  --surface: #012F13;
-  --surface-raised: #04220E;
-  --surface-sunk: #04220E;
-  --ink-950: #011207;
-  --ink-900: #012F13;
-  --ink-850: #04220E;
-  --ink-800: #04220E;
+  --text: #d6d4c8;
+  --text-dim: #8b928a;
+  --text-faint: #575e57;
+  --chalk: #d6d4c8;
+  --chalk-dim: #8b928a;
+  --chalk-faint: #575e57;
+  --hairline: #232a25;
+  --hairline-soft: #1b211d;
+  --line: #232a25;
+  --line-soft: #1b211d;
+  --surface: #151b17;
+  --surface-raised: #1f2721;
+  --surface-sunk: #1f2721;
+  --ink-950: #0a0d0b;
+  --ink-900: #151b17;
+  --ink-850: #1f2721;
+  --ink-800: #1f2721;
 }
 
 /* The red wash under the live screen is retired. It existed to carry state
@@ -685,7 +678,7 @@
   color: var(--roll-mass-ink);
   border-radius: 14px;
   box-shadow:
-    inset 0 1px 0 rgba(226, 240, 204, 0.07), /* --roll-mass-ink's channels */
+    inset 0 1px 0 rgba(241, 240, 234, 0.07),
     0 3px 0 var(--roll-key-under);
   transition:
     transform 140ms cubic-bezier(0.34, 1.4, 0.64, 1),
@@ -705,7 +698,7 @@
 /* Night: the cap stops reflecting and the legend starts emitting, like a
    camera's backlit controls. */
 [data-theme="night"] .roll--live .keycap {
-  text-shadow: 0 0 10px rgba(226, 240, 204, 0.16); /* --roll-mass-ink's channels */
+  text-shadow: 0 0 10px rgba(214, 212, 200, 0.16);
 }
 
 /* The tally badge, and it POPS: a tag tapped without looking needs a receipt
@@ -833,55 +826,51 @@
 }
 
 /* ---------------------------------------------------- ROLL / CUT at night --
-   Same well, same travel, same overshoot - the 3D treatment itself is
-   unchanged here, only its colour. What changes is the material: the face
-   stops reflecting light and the LEGEND lights, because a bright fill at
-   3am out-glows the tally ring it is supposed to sit under. The press
+   Same well, same travel, same overshoot. What changes is the material: the
+   face stops reflecting light and the LEGEND lights, because a lavender fill
+   at 3am out-glows the tally ring it is supposed to sit under. The press
    acknowledges by brightening the legend rather than darkening the face — a
-   backlit key answers with light. Retinted from lavender to the brand's
-   vibrant green; the gradients and shadows below are the same structure,
-   just var()-driven where a central token already carries the right value
-   instead of a second hardcoded hex. */
+   backlit key answers with light. */
 [data-theme="night"] .roll .bigbtn.hw .hw__face {
-  background: linear-gradient(var(--roll-mass-raised) 0%, var(--roll-mass) 60%);
+  background: linear-gradient(#262534 0%, #201f2c 60%);
   color: var(--m-accent);
-  text-shadow: 0 0 16px rgba(139, 197, 61, 0.32); /* --m-accent's channels */
+  text-shadow: 0 0 16px rgba(201, 198, 247, 0.32);
   box-shadow:
-    inset 0 1px 0 rgba(139, 197, 61, 0.14),
+    inset 0 1px 0 rgba(201, 198, 247, 0.14),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-    0 3px 0 var(--m-accent-deep),
+    0 3px 0 #3b3878,
     0 10px 18px rgba(0, 0, 0, 0.5);
 }
 [data-theme="night"] .roll .bigbtn.hw:active .hw__face,
 [data-theme="night"] .roll .bigbtn.hw.is-pressed .hw__face {
-  background: linear-gradient(#28591f 0%, var(--roll-mass-raised) 60%);
-  color: #bfdf94; /* --m-accent lightened toward white - the pressed legend's glow */
+  background: linear-gradient(#2c2b3c 0%, #262534 60%);
+  color: #dddbfa;
   box-shadow:
-    inset 0 1px 0 rgba(139, 197, 61, 0.08),
+    inset 0 1px 0 rgba(201, 198, 247, 0.08),
     inset 0 2px 4px rgba(0, 0, 0, 0.5),
-    0 0 0 var(--m-accent-deep),
+    0 0 0 #3b3878,
     0 2px 5px rgba(0, 0, 0, 0.4);
 }
 /* CUT is a different part and keeps its own metal: anodised black, a chalk
    legend, and the red dot at full value doing the flagging. Its box-shadow has
    to be restated because the night ROLL rule above outranks styles.css's
-   `.bigbtn.hw--cut .hw__face` - without this, CUT inherits ROLL's accent
-   under-edge and grows a green line along its bottom at 3am. */
+   `.bigbtn.hw--cut .hw__face` - without this, CUT inherits ROLL's violet
+   under-edge and grows a lavender line along its bottom at 3am. */
 [data-theme="night"] .roll .bigbtn.hw--cut .hw__face {
-  background: linear-gradient(var(--roll-mass-raised) 0%, var(--roll-mass) 70%);
+  background: linear-gradient(#20261f 0%, #171d17 70%);
   color: var(--roll-mass-ink);
-  text-shadow: 0 0 14px rgba(226, 240, 204, 0.2); /* --roll-mass-ink's channels */
+  text-shadow: 0 0 14px rgba(214, 212, 200, 0.2);
   box-shadow:
-    inset 0 1.5px 0 rgba(226, 240, 204, 0.1),
+    inset 0 1.5px 0 rgba(214, 212, 200, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5),
     0 4px 0 #000,
     0 14px 22px rgba(0, 0, 0, 0.55);
 }
 [data-theme="night"] .roll .bigbtn.hw--cut:active .hw__face,
 [data-theme="night"] .roll .bigbtn.hw--cut.is-pressed .hw__face {
-  background: linear-gradient(var(--roll-mass-pressed) 0%, var(--roll-mass-raised) 70%);
+  background: linear-gradient(#2a322a 0%, #20261f 70%);
   box-shadow:
-    inset 0 1px 0 rgba(226, 240, 204, 0.05),
+    inset 0 1px 0 rgba(214, 212, 200, 0.05),
     inset 0 3px 6px rgba(0, 0, 0, 0.6),
     0 0 0 #000,
     0 2px 5px rgba(0, 0, 0, 0.45);

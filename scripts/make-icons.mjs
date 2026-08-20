@@ -6,14 +6,8 @@
 //
 //   node scripts/make-icons.mjs
 //
-// Motif: near-black rounded square, a warm off-white diagonal clapper-stripe
-// band across the upper third, and a bold green "C".
-//
-// The C used to match --go, the old signal green. It follows the BRAND now:
-// the identity is green, so the icon's green must be the identity's, not a
-// state colour that happens to be nearby. An app icon is the one piece of a
-// product people see before they see anything else, and it was the last thing
-// still wearing the old palette after the app and the site had both moved.
+// Motif: near-black rounded square, a white diagonal clapper-stripe band across
+// the upper third, and a bold green "C" (matching --go #38d178 from styles.css).
 
 import { mkdir } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
@@ -27,9 +21,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const OUT_DIR = join(ROOT, 'public');
 
-const INK = '#011207'; // the brand's near-black ground
-const GO = '#8BC53D'; // the brand accent, the one green in the identity
-const CHALK = '#E2F0CC'; // the brand's pale green, never pure #fff
+const INK = '#0c0d10'; // --ink-950 background
+const GO = '#38d178'; // --go signal green (matched from src/styles.css)
+const CHALK = '#ece9e1'; // warm off-white, never pure #fff
 
 // ---- SVG (512 viewBox, scaled to the target size) -------------------------
 

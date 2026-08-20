@@ -112,20 +112,19 @@ html[data-uiscale='fine'] textarea {
 }
 
 /* ======================================================= night ground =====
-   Client-approved palette, as additive names. The mass sits a STEP ABOVE
+   Round 3's measured palette, as additive names. The mass sits a STEP ABOVE
    the ground rather than below it, so a card still reads as an object you
    could pick up rather than a hole cut in the page — which is the whole
-   difference between a night form and an inverted one. Ink is the pale
-   green, used flat rather than brightened, for the same reason chalk used
-   to be capped: white on near-black glows almost as hard as the wash it is
-   replacing.
+   difference between a night form and an inverted one. Ink is chalk and
+   capped at #D6D4C8; white on near-black glows almost as hard as the ivory
+   sheet it is replacing.
 
-     ground  #011207   the near-black green
-     mass    #012F13   the deep green, one step lighter than ground
-     ink     #E2F0CC   the pale green
-     dim     #9DB59A   8.72:1 on ground / 6.71:1 on mass */
+     ground  #0A0D0B
+     mass    #151B17   13.1:1 chalk on ground, 11.8:1 on mass
+     chalk   #D6D4C8
+     dim     #8B928A   6.1:1 / 5.5:1 */
 :root {
-  /* Day is the shipped wash, deliberately: --m-ground aliasing --bg means
+  /* Day is the shipped ivory, deliberately: --m-ground aliasing --bg means
      the repainted screens and the ones this lane has not reached are on the
      SAME ground, so there is no seam to see while the redesign lands screen
      by screen. Only night has a new ground, and it has one because round 3
@@ -134,16 +133,12 @@ html[data-uiscale='fine'] textarea {
      --m-card is the mass a card is cut from. It aliases --m-mass on day and
      is redefined on night; the alias exists so this lane can move the CARD
      without moving the rolling screen's CUT key, which another lane is
-     dressing out of the same --m-mass right now. On day --m-card is now the
-     same near-black green as --m-mass itself (the client's mapping sends
-     "dark ground" to --m-mass), so a card is a dark object on the wash in
-     BOTH themes, not just at night - which is the machined language working
-     as designed, not a regression. */
+     dressing out of the same --m-mass right now. */
   --m-ground: var(--bg);
   --m-card: var(--m-mass);
   --m-card-ink: var(--m-mass-ink);
-  --m-card-dim: #9DB59A;
-  --m-card-line: rgba(226, 240, 204, 0.14); /* --m-mass-ink's channels */
+  --m-card-dim: #9aa39c;
+  --m-card-line: rgba(241, 240, 234, 0.14);
   /* The raised keycap, and the legend a backlit control emits rather than
      reflects. Only night uses these; day's selected object is the mass. */
   --m-keycap: var(--m-raised);
@@ -151,12 +146,12 @@ html[data-uiscale='fine'] textarea {
 }
 
 [data-theme='night'] {
-  --m-ground: #011207;
-  --m-card: #012F13;
-  --m-card-ink: #E2F0CC;
-  --m-card-dim: #9DB59A;
-  --m-card-line: rgba(226, 240, 204, 0.13);
-  --m-keycap: #04220E;
+  --m-ground: #0a0d0b;
+  --m-card: #151b17;
+  --m-card-ink: #d6d4c8;
+  --m-card-dim: #8b928a;
+  --m-card-line: rgba(214, 212, 200, 0.13);
+  --m-keycap: #1f2721;
 }
 
 /* The ground is painted only under the screens this lane has repainted.
@@ -176,24 +171,22 @@ html[data-uiscale='fine'] textarea {
    there, against html's --paper, and what inherits down is the finished
    colour. Moving --paper on a descendant moves nothing. Re-declaring the
    alias here re-substitutes it against THIS element's primitive, which is why
-   both halves are present. Measured: without the second half, --bg stayed the
-   old ground under a ground of the new one and the cards kept the stale cast.
+   both halves are present. Measured: without the second half, --bg stayed
+   #0c0d10 under a ground of #0a0d0b and the cards kept the old blue cast.
 
-   The value that matters is that mass sits a step ABOVE ground - here that is
-   the deep green (#012F13) one step up from the near-black one (#011207),
-   the same pair styles.css's own :root now carries for night, restated here
-   because a descendant cannot reach up and move a primitive it did not
-   declare. */
+   The value that matters is that mass sits a step ABOVE ground. Night's
+   shipped card is #121319 on #0c0d10 — barely a step — and a card whose edge
+   you cannot find stops being an object and becomes a region. */
 [data-theme='night'] .mscreen {
-  --paper: #011207;
-  --paper-raised: #012F13;  /* mass: 12.40:1 for the pale-green ink */
-  --paper-sunk: #04220E;    /* the raised keycap */
-  --paper-sunk-deep: #093216;
-  --ink: #E2F0CC;           /* the pale green, flat - see round 3 */
-  --ink-dim: #9DB59A;       /* 8.72:1 ground / 6.71:1 mass */
-  --ink-faint: #6F8570;
-  --rule: #0C3D1C;
-  --rule-soft: #082c14;
+  --paper: #0a0d0b;
+  --paper-raised: #151b17;  /* mass: 11.8:1 for chalk */
+  --paper-sunk: #1f2721;    /* the raised keycap */
+  --paper-sunk-deep: #26302a;
+  --ink: #d6d4c8;           /* chalk. NEVER #fff — see round 3 */
+  --ink-dim: #8b928a;       /* 6.1:1 ground / 5.5:1 mass */
+  --ink-faint: #6d746c;
+  --rule: #2c352f;
+  --rule-soft: #222a24;
 
   --bg: var(--paper);
   --surface: var(--paper-raised);
@@ -218,9 +211,9 @@ html[data-uiscale='fine'] textarea {
   --chalk-faint: var(--text-faint);
 
   /* The material chrome mixes from the ground it sits on, or the large-title
-     bar arrives in the wrong green and the screen carries two night ramps at
-     once. --paper's channels at this scope. */
-  --material-bg: rgba(1, 18, 7, 0.82);
+     bar arrives in the old blue-charcoal and the screen carries two night
+     ramps at once. */
+  --material-bg: rgba(21, 27, 23, 0.82);
   --material-solid: var(--paper);
   --material-hairline: var(--hairline);
 
@@ -306,7 +299,7 @@ html[data-uiscale='fine'] textarea {
 }
 
 /* THE ONE FILLED PILL. Accent ground, dark ink — the pair is a closed system
-   at 9.31:1 (see --m-accent-ink in styles.css) and does not care what is
+   at 8.6:1 (see --m-accent-ink in styles.css) and does not care what is
    behind the pod, which is what lets one rule serve both themes. */
 .mnav__tab--on {
   width: auto;
@@ -353,8 +346,8 @@ html[data-uiscale='fine'] textarea {
 }
 
 /* The global focus ring is --go-text, which measures ~2:1 against the pod's
-   mass and would be a ring you cannot see. The accent on the mass, and the
-   wash on the accent pill, so both land above 3:1 in both themes. */
+   mass and would be a ring you cannot see. Lavender on the mass, and the
+   ivory sheet on the lavender pill, so both land above 3:1 in both themes. */
 .mnav__tab:focus-visible {
   outline: 2px solid var(--m-accent);
   outline-offset: 2px;

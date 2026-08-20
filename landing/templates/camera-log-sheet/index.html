@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="theme-color" content="#F2F8E6" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#011207" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#FDFFF8" />
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
@@ -51,23 +50,12 @@
 
 <style>
   :root{
-    --ivory:#F2F8E6; --ink:#011207; --grey:#3D5442; --hair:#C9DDAE;
-    --green:#8BC53D; --gold:#E3B24A; --paper:#FFFFFF; --card:#FFFFFF;
+    --ivory:#FDFFF8; --ink:#151414; --grey:#5A5A5A; --hair:#E6E7DF;
+    --green:#38D178; --gold:#E3B24A; --paper:#FFFFFF;
     --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
     --sans:"Hanken Grotesk",-apple-system,system-ui,"Helvetica Neue",Arial,sans-serif;
     --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
     --ease:cubic-bezier(.4,0,.2,1);
-  }
-  /* --paper stays a single pinned value in both blocks below: it is the physical sheet
-     preview, not page chrome, and a printed page reads the same whether the screen
-     around it is light or dark. */
-  @media(prefers-color-scheme:dark){
-    :root:not([data-theme="light"]){
-      --ivory:#011207; --ink:#E2F0CC; --grey:#9DB59A; --hair:#0C3D1C; --card:#012F13;
-    }
-  }
-  :root[data-theme="dark"]{
-    --ivory:#011207; --ink:#E2F0CC; --grey:#9DB59A; --hair:#0C3D1C; --card:#012F13;
   }
   *,*::before,*::after{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -99,7 +87,7 @@
 
   section{padding:52px 0}
   .hero{padding:60px 0 34px}
-  .lede{font-size:clamp(18px,2vw,21px);color:var(--grey);max-width:60ch}
+  .lede{font-size:clamp(18px,2vw,21px);color:#333;max-width:60ch}
   .dl-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px;align-items:center}
   .dl-note{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--grey);margin:6px 0 0;width:100%}
 
@@ -109,24 +97,24 @@
   .field-list{list-style:none;margin:0;padding:0}
   .field-list li{padding:11px 0;border-bottom:1px solid var(--hair);display:flex;gap:12px;align-items:baseline}
   .field-list li b{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);flex:0 0 132px}
-  .field-list li span{color:var(--grey);font-size:15.5px}
+  .field-list li span{color:#444;font-size:15.5px}
 
   ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
   ol.steps li{position:relative;padding:0 0 22px 52px;counter-increment:s}
   ol.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:34px;height:34px;border-radius:50%;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px}
   ol.steps li h3{margin-bottom:3px}
-  ol.steps li p{margin:0;color:var(--grey);font-size:15.5px}
+  ol.steps li p{margin:0;color:#444;font-size:15.5px}
 
-  .sheet-frame{border:1px solid var(--hair);border-radius:16px;background:var(--ivory);padding:16px;box-shadow:0 30px 60px -40px rgba(1,18,7,.35)}
+  .sheet-frame{border:1px solid var(--hair);border-radius:16px;background:var(--ivory);padding:16px;box-shadow:0 30px 60px -40px rgba(21,20,20,.35)}
   .sheet-scroll{overflow-x:auto}
-  #printSheet{background:var(--paper);color:#011207;min-width:1040px;padding:20px 22px;border-radius:8px}
-  .sh-mast{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #011207;padding-bottom:8px}
+  #printSheet{background:var(--paper);color:#141313;min-width:1040px;padding:20px 22px;border-radius:8px}
+  .sh-mast{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #141313;padding-bottom:8px}
   .sh-mast .t{font-family:var(--serif);font-size:24px}
   .sh-mast .s{font-family:var(--mono);font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--grey);margin-top:3px}
   .sh-brand{font-family:var(--serif);font-size:13px;text-align:right}
   .sh-brand .u{display:block;font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;color:var(--grey);margin-top:2px}
   .sh-accent{height:3px;background:var(--green);margin:0 0 10px}
-  .sh-head{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #011207;margin-bottom:10px}
+  .sh-head{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #141313;margin-bottom:10px}
   .sh-head .f{border-right:1px solid #d3d4cc;border-bottom:1px solid #d3d4cc;padding:6px 8px;min-height:34px}
   .sh-head .f:nth-child(4n){border-right:0}
   .sh-head .f label{font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--grey);display:block}
@@ -136,29 +124,29 @@
   table.sh tbody td{height:26px;padding:2px 4px}
   table.sh tbody tr:nth-child(even) td{background:#fafbf6}
   td.chk{text-align:center}
-  .box{display:inline-block;width:12px;height:12px;border:1.4px solid #011207;border-radius:2px;margin-top:3px}
+  .box{display:inline-block;width:12px;height:12px;border:1.4px solid #141313;border-radius:2px;margin-top:3px}
   .sh-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);align-items:center}
 
   /* paper vs clapper comparison */
-  .cmp-wrap{border:1px solid var(--hair);border-radius:16px;overflow-x:auto;margin-top:24px;background:var(--card)}
+  .cmp-wrap{border:1px solid var(--hair);border-radius:16px;overflow-x:auto;margin-top:24px;background:var(--paper)}
   table.cmp{width:100%;min-width:520px;border-collapse:collapse;font-size:15.5px}
   table.cmp th,table.cmp td{text-align:left;padding:14px 18px;border-bottom:1px solid var(--hair);vertical-align:top}
   table.cmp tbody tr:last-child td{border-bottom:0}
   table.cmp thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--grey);font-weight:400}
   table.cmp thead th.col-clap{color:var(--ink)}
   table.cmp .feat{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink);width:24%}
-  table.cmp .paper{color:var(--grey);width:38%}
+  table.cmp .paper{color:#5A5A5A;width:38%}
   table.cmp td.col-clap{width:38%;color:var(--ink);font-weight:500}
-  table.cmp .col-clap{background:rgba(139,197,61,.09)}
+  table.cmp .col-clap{background:rgba(56,209,120,.09)}
 
-  .cta{background:#011207;color:#E2F0CC;border-radius:22px;padding:clamp(34px,5vw,60px);margin:20px 0}
-  .cta .kicker{color:#9DB59A}
-  .cta h2{color:#E2F0CC}
-  .cta p{color:#E2F0CC;max-width:56ch}
-  .cta .btn{background:#E2F0CC;color:#011207;border-color:#E2F0CC;margin-top:10px}
+  .cta{background:var(--ink);color:var(--ivory);border-radius:22px;padding:clamp(34px,5vw,60px);margin:20px 0}
+  .cta .kicker{color:#9fb7a8}
+  .cta h2{color:var(--ivory)}
+  .cta p{color:#d7d9d2;max-width:56ch}
+  .cta .btn{background:var(--ivory);color:var(--ink);border-color:var(--ivory);margin-top:10px}
   .cta ul{margin:18px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px 22px}
-  .cta ul li{font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;color:#9DB59A;display:flex;align-items:center;gap:7px}
-  .cta ul li::before{content:"";width:6px;height:6px;border-radius:50%;background:#8BC53D}
+  .cta ul li{font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;color:#b9d9c8;display:flex;align-items:center;gap:7px}
+  .cta ul li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
 
   .more{border-top:1px solid var(--hair)}
   .more h2{font-size:22px}
@@ -175,7 +163,7 @@
   footer.foot .flinks a{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--grey);text-decoration:none;margin-left:18px}
   footer.foot .flinks a:first-child{margin-left:0}
   footer.foot .flinks a:hover{color:var(--ink)}
-  footer.foot .made{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey)}
+  footer.foot .made{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#a7a89f}
   footer.foot .copy{max-width:1060px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--hair);font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--grey)}
 
   @media print{
@@ -214,7 +202,7 @@
   <header class="topbar">
     <div class="wrap">
       <a class="brandmark" href="https://clapboard.duckdns.org/">
-        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="var(--ink)"/><rect x="150" y="470" width="724" height="372" rx="34" fill="var(--ink)"/><circle cx="792" cy="748" r="52" fill="var(--green)"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="var(--ivory)"/></g><circle cx="214" cy="432" r="30" fill="var(--green)"/></svg>
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
         Clapper
       </a>
       <a class="topnav" href="https://clapboard.duckdns.org/">Open the app &rarr;</a>
@@ -241,7 +229,7 @@
       <div class="wrap">
         <h2>What a camera log sheet is</h2>
         <p class="lede" style="max-width:70ch">A camera log, or camera report, is the record the camera department keeps of what each card holds. It ties every clip file name to a scene, setup, and take, and notes the technical detail, timecode, frame rate, resolution, lens, so the DIT can offload cleanly and the editor can match footage to the script without opening every clip to check.</p>
-        <p style="max-width:70ch;color:var(--grey)">The one rule that matters most: the clip name on the sheet has to match the clip name on the card exactly. Get that right and the whole downstream chain, offload, sync, edit, lines up on its own.</p>
+        <p style="max-width:70ch;color:#444">The one rule that matters most: the clip name on the sheet has to match the clip name on the card exactly. Get that right and the whole downstream chain, offload, sync, edit, lines up on its own.</p>
       </div>
     </section>
 
@@ -278,14 +266,14 @@
     <section style="padding-top:8px">
       <div class="wrap">
         <h2>When to use it</h2>
-        <p style="max-width:70ch;color:var(--grey)">Use it any time you are shooting to cards and someone has to account for them: narrative, documentary, commercial, or multi-camera. Start a fresh sheet for every card, keep it with the camera or the DIT cart, and hand it off at wrap with the media. When a card comes up short or a clip goes missing, this sheet is the paper trail that finds it.</p>
+        <p style="max-width:70ch;color:#444">Use it any time you are shooting to cards and someone has to account for them: narrative, documentary, commercial, or multi-camera. Start a fresh sheet for every card, keep it with the camera or the DIT cart, and hand it off at wrap with the media. When a card comes up short or a clip goes missing, this sheet is the paper trail that finds it.</p>
       </div>
     </section>
 
     <section class="sheet-section" style="padding-top:8px">
       <div class="wrap">
         <h2>Preview and print</h2>
-        <p style="color:var(--grey);margin-bottom:22px">This is the exact sheet in the PDF. Print it as is, or hit Print this sheet above.</p>
+        <p style="color:#444;margin-bottom:22px">This is the exact sheet in the PDF. Print it as is, or hit Print this sheet above.</p>
         <div class="sheet-frame">
           <div class="sheet-scroll">
             <div id="printSheet">
@@ -344,7 +332,7 @@
       <div class="wrap">
         <p class="kicker">Paper vs Clapper</p>
         <h2 class="serif">The log is free. Re-keying every clip number is the tax.</h2>
-        <p style="max-width:64ch;color:var(--grey)">Download the camera log and it does the job on paper. This is only the part that disappears when Clapper numbers your clips for you. The sheet stays free to print as often as you like.</p>
+        <p style="max-width:64ch;color:#444">Download the camera log and it does the job on paper. This is only the part that disappears when Clapper numbers your clips for you. The sheet stays free to print as often as you like.</p>
         <div class="cmp-wrap">
           <table class="cmp">
             <thead>
@@ -399,7 +387,7 @@
   <footer class="foot">
     <div class="wrap">
       <span class="fm">
-        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="var(--ink)"/><rect x="150" y="470" width="724" height="372" rx="34" fill="var(--ink)"/><circle cx="792" cy="748" r="52" fill="var(--green)"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="var(--ivory)"/></g><circle cx="214" cy="432" r="30" fill="var(--green)"/></svg>
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
         Clapper
       </span>
       <span class="flinks">

@@ -10,19 +10,12 @@
 
 /* ---------- tokens ---------- */
 :root{
-  /* clapper green — light (client-approved, verbatim) */
-  --ivory:#F2F8E6; --surface:#E2F0CC; --card:#FFFFFF;
-  --ink:#011207; --grey:#3D5442; --grey3:#6B7F6A; --hair:#C9DDAE;
-  --accent:#8BC53D; --accent-ink:#012F13;
-  --mint:#CFE9DA; --blush:#F3D9DB; --butter:#F0E4BE; --lav:#E2F0CC; --slate:#D3DEEC;
-  /* pinned dark stage: the "how it works" band, the closing CTA, the footer, and the
-     app-mockup screenshot all stay dark regardless of site theme, like a film leader.
-     these values equal the dark palette's ground/surface tiers, so they read as one
-     coherent system rather than a bolted-on black band. */
-  --stage:#011207;
-  --a-ground:#011207; --a-p1:#04220E; --a-p2:#012F13; --a-hair:#0C3D1C;
-  --a-chalk:#E2F0CC; --a-dim:#9DB59A; --a-brass:#E3B24A; --a-green:#8BC53D; --a-red:#FF3B30;
-  --stagemint:#8BC53D;
+  --ivory:#FDFFF8; --ink:#151414; --grey:#5A5A5A; --hair:#E6E7DF;
+  --mint:#CFE9DA; --blush:#F3D9DB; --butter:#F0E4BE; --lav:#E0DCF0; --slate:#D3DEEC;
+  --stage:#0B0B0C;
+  --a-ground:#0C0D10; --a-p1:#121319; --a-p2:#181A21; --a-hair:#2B2E39;
+  --a-chalk:#ECE9E1; --a-dim:#9A9DA7; --a-brass:#E3B24A; --a-green:#38D178; --a-red:#FF3B30;
+  --stagemint:#86E3B5;
   --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
   --sans:"Hanken Grotesk",-apple-system,system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
@@ -30,24 +23,9 @@
   --wrap:1120px;
   --stickh:clamp(60px,9vw,104px);
 }
-/* system dark preference flips the page chrome. the pinned --stage/--a-* tokens above are
-   deliberately NOT redefined here or below: they're a fixed "dark stage" design device that
-   reads the same whether the page around it is light or dark. */
-@media(prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --ivory:#011207; --surface:#012F13; --card:#012F13;
-    --ink:#E2F0CC; --grey:#9DB59A; --grey3:#6F8570; --hair:#0C3D1C;
-    --accent:#8BC53D; --accent-ink:#8BC53D;
-  }
-}
-:root[data-theme="dark"]{
-  --ivory:#011207; --surface:#012F13; --card:#012F13;
-  --ink:#E2F0CC; --grey:#9DB59A; --grey3:#6F8570; --hair:#0C3D1C;
-  --accent:#8BC53D; --accent-ink:#8BC53D;
-}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--ivory)}
+body{margin:0}
 .clapper-page{
   background:var(--ivory); color:var(--ink);
   font-family:var(--sans); font-size:17px; line-height:1.4;
@@ -70,7 +48,7 @@ a{color:inherit}
 .btn:hover{transform:translateY(-1px);background:#000}
 .btn .arw{transition:transform .35s var(--ease)}
 .btn:hover .arw{transform:translateX(3px)}
-.btn-ivory{background:var(--a-chalk);color:#011207}
+.btn-ivory{background:var(--ivory);color:var(--ink)}
 .btn-ivory:hover{background:#fff}
 
 /* reveal */
@@ -85,7 +63,7 @@ a{color:inherit}
 .br-bars i:nth-child(2){left:38%;top:-1%;width:58%;height:41%;transform-origin:right center}
 .br-bars i:nth-child(3){left:1%;top:33%;width:97%;height:41%;transform-origin:left center}
 .br-bars i:nth-child(4){left:7%;top:67%;width:88%;height:39%;transform-origin:right center}
-.cta-big .br-bars i{background:var(--a-chalk)}
+.cta-big .br-bars i{background:var(--ivory)}
 .cta-big .br-bars i:nth-child(1){left:2%;top:-4%;width:62%;height:58%;transform-origin:left center}
 .cta-big .br-bars i:nth-child(2){left:30%;top:46%;width:68%;height:58%;transform-origin:right center}
 @media(prefers-reduced-motion:reduce){.br-bars{display:none}}
@@ -93,11 +71,11 @@ a{color:inherit}
 /* stripe-band assembly blocks */
 .band-track{position:absolute;inset:0;pointer-events:none}
 .band-blk{position:absolute;top:0;bottom:0;display:block;will-change:transform;transform:skewX(-45deg)}
-.bb-ink{background:var(--ink)}
-.bb-ivory{background:var(--ivory)}
+.bb-ink{background:#0B0B0C}
+.bb-ivory{background:#FDFFF8}
 
 /* ---------- loader splash ---------- */
-.splash{position:fixed;inset:0;background:var(--stage);z-index:9999;display:flex;align-items:center;justify-content:center;
+.splash{position:fixed;inset:0;background:#0B0B0C;z-index:9999;display:flex;align-items:center;justify-content:center;
   transition:opacity .5s var(--ease)}
 .splash.out{opacity:0;pointer-events:none}
 
@@ -125,8 +103,8 @@ a{color:inherit}
 /* chips */
 .chip{display:inline-flex;align-items:center;gap:9px;padding:7px 15px 7px 7px;border-radius:999px;
   font-family:var(--sans);font-size:14px;font-weight:500;color:var(--ink);
-  border:1px solid rgba(1,18,7,.05);box-shadow:0 1px 0 rgba(1,18,7,.03);white-space:nowrap}
-.chip .tile{width:26px;height:26px;flex:0 0 26px;border-radius:8px;background:#011207;
+  border:1px solid rgba(21,20,20,.05);box-shadow:0 1px 0 rgba(21,20,20,.03);white-space:nowrap}
+.chip .tile{width:26px;height:26px;flex:0 0 26px;border-radius:8px;background:var(--ink);
   display:flex;align-items:center;justify-content:center}
 .chip .tile svg{display:block}
 .c-mint{background:var(--mint)} .c-blush{background:var(--blush)}
@@ -160,8 +138,8 @@ a{color:inherit}
 .scrollcue svg{animation:nudge 1.5s ease-in-out infinite}
 @keyframes nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
 .app{width:min(390px,92vw);background:var(--a-ground);color:var(--a-chalk);
-  border:1px solid var(--a-hair);border-radius:26px;overflow:hidden;
-  box-shadow:0 30px 60px -30px rgba(1,18,7,.35);font-family:var(--sans)}
+  border:1px solid var(--ink);border-radius:26px;overflow:hidden;
+  box-shadow:0 30px 60px -30px rgba(21,20,20,.35);font-family:var(--sans)}
 .app-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--a-hair)}
 .app-scene{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;color:var(--a-dim)}
 .app-scene b{color:var(--a-chalk);font-weight:600}
@@ -175,14 +153,14 @@ a{color:inherit}
 .crow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .pill{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;padding:7px 12px;border-radius:8px;
   border:1px solid var(--a-hair);background:var(--a-p1);color:var(--a-dim)}
-.pill.on{color:var(--a-chalk);background:var(--a-p2);border-color:#0C3D1C}
+.pill.on{color:var(--a-chalk);background:var(--a-p2);border-color:#3a3e4a}
 .pill.gold{color:var(--a-brass);border-color:rgba(227,178,74,.4);background:rgba(227,178,74,.08)}
 .pill.beat{color:var(--a-chalk);background:var(--a-p2)}
-.roll{display:block;width:100%;margin-top:6px;background:#04220E;border:1.5px solid var(--a-green);color:var(--a-green);
+.roll{display:block;width:100%;margin-top:6px;background:#20242e;border:1.5px solid var(--a-green);color:var(--a-green);
   font-family:var(--mono);font-size:15px;letter-spacing:.28em;padding:18px 0;border-radius:14px;text-align:center;font-weight:600;
   cursor:pointer;-webkit-appearance:none;appearance:none;transition:background .2s var(--ease)}
-.roll:hover{background:#012F13}
-.roll:active{background:#0C3D1C}
+.roll:hover{background:#262b37}
+.roll:active{background:#2b3140}
 .tickstrip{height:8px;display:flex;gap:3px;margin-top:14px}
 .tickstrip i{flex:1;background:var(--a-hair);border-radius:1px}
 .tickstrip i.b{background:var(--a-brass)}
@@ -190,8 +168,8 @@ a{color:inherit}
 /* ---------- slate divider ---------- */
 .slate{position:relative;overflow:visible;line-height:0;height:clamp(66px,9vw,112px);margin-top:72px;background:var(--ivory);z-index:2}
 .slate-fill{position:absolute;top:0;bottom:0;left:-52px;right:-52px;
-  background:repeating-linear-gradient(45deg,var(--ink) 0 34px,var(--ivory) 34px 68px)}
-@media(max-width:759px){ .slate{height:clamp(64px,18vw,80px)} .slate-fill{background:repeating-linear-gradient(45deg,var(--ink) 0 26px,var(--ivory) 26px 52px)} }
+  background:repeating-linear-gradient(45deg,#0B0B0C 0 34px,#FDFFF8 34px 68px)}
+@media(max-width:759px){ .slate{height:clamp(64px,18vw,80px)} .slate-fill{background:repeating-linear-gradient(45deg,#0B0B0C 0 26px,#FDFFF8 26px 52px)} }
 @media(prefers-reduced-motion:reduce){ .slate-fill{transform:none!important} }
 
 /* ---------- trust strip ---------- */
@@ -231,9 +209,9 @@ a{color:inherit}
 
 /* outcomes */
 .oc-desktop{display:none}
-.statcard{position:relative;border:1px solid var(--hair);border-radius:18px;background:var(--card);max-width:960px;margin:0 auto;
+.statcard{position:relative;border:1px solid var(--hair);border-radius:18px;background:#fff;max-width:960px;margin:0 auto;
   cursor:pointer;transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
-.statcard:hover{transform:translateY(-2px);box-shadow:0 18px 40px -22px rgba(1,18,7,.28)}
+.statcard:hover{transform:translateY(-2px);box-shadow:0 18px 40px -22px rgba(21,20,20,.28)}
 .statcard-tab{position:absolute;top:-1px;left:26px;transform:translateY(-50%);background:var(--ink);color:var(--ivory);
   font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;padding:7px 13px;border-radius:8px;z-index:3}
 .statcard-grid{display:grid;grid-template-columns:1fr 1fr;border-radius:18px;overflow:hidden}
@@ -253,7 +231,7 @@ a{color:inherit}
 .t-rot{position:relative;min-height:420px}
 .tq{position:absolute;inset:0;opacity:0;transition:opacity .6s var(--ease)}
 .tq.on{opacity:1;position:relative}
-.qg{font-family:var(--serif);font-weight:300;font-size:56px;line-height:.5;color:var(--accent-ink);display:block;height:34px}
+.qg{font-family:var(--serif);font-weight:300;font-size:56px;line-height:.5;color:#9ec9b4;display:block;height:34px}
 .qt{font-family:var(--serif);font-weight:400;letter-spacing:-.01em;font-size:clamp(17px,1.35vw,20px);line-height:1.34;margin:12px 0 18px}
 .oc-cell.long .qt{font-size:17px;line-height:1.4}
 .qn{font-family:var(--sans);font-weight:600;font-size:15px}
@@ -274,7 +252,7 @@ a{color:inherit}
 .oc-cell .stat-rot{min-height:150px}
 
 /* ---------- how it works ---------- */
-.how{background:var(--stage);color:var(--a-chalk);overflow:clip}
+.how{background:var(--stage);color:#EDEDEA;overflow:clip}
 .how-root{position:relative;height:820svh}
 .how-stage{position:sticky;top:0;height:100lvh;overflow:hidden}
 .how-inner{position:absolute;left:0;right:0;top:0;height:100svh;
@@ -282,9 +260,9 @@ a{color:inherit}
           calc(24px + env(safe-area-inset-bottom)) calc(22px + env(safe-area-inset-left))}
 .how-nodes{position:absolute;inset:0;pointer-events:none}
 .node{position:absolute;display:flex;align-items:center;gap:8px;font-family:var(--sans);font-size:12px;letter-spacing:.02em;
-  color:#6F8570;opacity:0;transition:color .4s var(--ease),opacity .4s var(--ease)}
+  color:#6d7079;opacity:0;transition:color .4s var(--ease),opacity .4s var(--ease)}
 .node i{width:11px;height:11px;border-radius:3px;display:block;filter:saturate(.45) brightness(.65);transition:filter .4s var(--ease)}
-.node.act{color:#E2F0CC} .node.act i{filter:none}
+.node.act{color:#ECE9E1} .node.act i{filter:none}
 .node.n1{top:8%;left:7%} .node.n2{top:8%;right:7%;flex-direction:row-reverse}
 .node.n3{bottom:10%;left:7%} .node.n4{bottom:10%;right:7%;flex-direction:row-reverse}
 .node-links{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .5s var(--ease)}
@@ -304,24 +282,24 @@ a{color:inherit}
 .vig .press.show{animation:pressflash .55s var(--ease)}
 @keyframes pressflash{0%{opacity:.9;transform:scale(.55)}100%{opacity:0;transform:scale(1.6)}}
 .chap{position:absolute;top:50%;right:5%;transform:translate(46px,-50%);width:min(360px,40vw);
-  background:#012F13;border:1px solid #0C3D1C;border-radius:16px;padding:24px;opacity:0;
+  background:#0f1013;border:1px solid #23252c;border-radius:16px;padding:24px;opacity:0;
   transition:opacity .5s var(--ease),transform .5s var(--ease);pointer-events:none}
 .chap.on{opacity:1;transform:translate(0,-50%)}
 .chap-num{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-size:13px;color:#011207;font-weight:600;margin-bottom:16px}
-.chap h3{font-family:var(--serif);font-weight:300;letter-spacing:-.03em;font-size:29px;margin:0 0 8px;color:#E2F0CC}
-.chap .desc{color:#9DB59A;font-size:15px;margin:0 0 16px}
+  font-family:var(--mono);font-size:13px;color:#0B0B0C;font-weight:600;margin-bottom:16px}
+.chap h3{font-family:var(--serif);font-weight:300;letter-spacing:-.03em;font-size:29px;margin:0 0 8px;color:#F3F2EE}
+.chap .desc{color:#9a9da7;font-size:15px;margin:0 0 16px}
 .chap ul{list-style:none;margin:0;padding:0}
-.chap li{font-family:var(--sans);font-size:14px;color:#9DB59A;padding:12px 0;border-top:1px solid #0C3D1C;display:flex;gap:10px;align-items:center}
-.chap li .rn{width:14px;height:14px;border-radius:4px;flex:0 0 14px;display:flex;align-items:center;justify-content:center;background:#0C3D1C}
+.chap li{font-family:var(--sans);font-size:14px;color:#c7c8cd;padding:12px 0;border-top:1px solid #23252c;display:flex;gap:10px;align-items:center}
+.chap li .rn{width:14px;height:14px;border-radius:4px;flex:0 0 14px;display:flex;align-items:center;justify-content:center;background:#23252c}
 .chap li .rn i{width:5px;height:5px;border-radius:1px;display:block}
 .how-dots{position:absolute;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:8px;z-index:4}
-.how-dots i{width:7px;height:7px;border-radius:50%;background:#0C3D1C;transition:background .3s}
-.how-dots i.on{background:#8BC53D}
+.how-dots i{width:7px;height:7px;border-radius:50%;background:#2f313a;transition:background .3s}
+.how-dots i.on{background:#c9cbd2}
 
 /* camera agnostic */
 .tiles{display:grid;grid-template-columns:1fr;gap:12px;max-width:840px;margin:0 auto 30px}
-.ptile{border:1px solid var(--hair);border-radius:12px;padding:24px 20px;text-align:center;background:var(--card)}
+.ptile{border:1px solid var(--hair);border-radius:12px;padding:24px 20px;text-align:center;background:#fff}
 .ptile .nm{font-family:var(--mono);font-size:13px;letter-spacing:.04em;color:var(--ink)}
 .ptile .ex{display:block;font-family:var(--sans);font-size:13.5px;line-height:1.45;color:var(--grey);margin-top:10px}
 .closing{text-align:center;color:var(--grey);font-size:15px}
@@ -331,15 +309,15 @@ a{color:inherit}
 .clap-zone{position:relative;height:calc(var(--stickh) + min(36vw,600px));background:var(--ivory);overflow:visible}
 .clap-stick{position:absolute;left:0;right:0;bottom:0;height:var(--stickh);overflow:hidden;
   transform-origin:left bottom;transform:rotate(-20deg);will-change:transform;
-  border:1px solid rgba(1,18,7,.5);border-left:0;border-right:0}
+  border:1px solid rgba(11,11,12,.5);border-left:0;border-right:0}
 .clap-stick.blocks{overflow:visible;border-color:transparent}
-.clap-board{position:relative;height:var(--stickh);overflow:hidden;margin-bottom:72px;border-bottom:1px solid #0C3D1C}
-.clap-fill{position:absolute;inset:0 -60px;background:repeating-linear-gradient(45deg,var(--ink) 0 34px,var(--ivory) 34px 68px)}
+.clap-board{position:relative;height:var(--stickh);overflow:hidden;margin-bottom:72px;border-bottom:1px solid #1c1c1f}
+.clap-fill{position:absolute;inset:0 -60px;background:repeating-linear-gradient(45deg,#0B0B0C 0 34px,#FDFFF8 34px 68px)}
 .close-body{position:relative;z-index:2}
-@media(max-width:759px){ .clap-fill{background:repeating-linear-gradient(45deg,var(--ink) 0 26px,var(--ivory) 26px 52px)} .clap-board{margin-bottom:56px} }
+@media(max-width:759px){ .clap-fill{background:repeating-linear-gradient(45deg,#0B0B0C 0 26px,#FDFFF8 26px 52px)} .clap-board{margin-bottom:56px} }
 @media(prefers-reduced-motion:reduce){ .clap-zone{height:var(--stickh)} }
 .imsg-wrap{max-width:360px;margin:0 auto;text-align:right}
-.imsg-time{font-family:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;font-size:11.5px;color:#6F8570;
+.imsg-time{font-family:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;font-size:11.5px;color:#8a8d96;
   margin:0 0 7px;text-align:center;letter-spacing:.01em}
 .imsg{position:relative;display:inline-block;background:#0A84FF;color:#fff;border-radius:18px;
   padding:11px 15px;max-width:78%;text-align:left;
@@ -348,24 +326,24 @@ a{color:inherit}
   background:#0A84FF;border-bottom-left-radius:15px}
 .imsg::after{content:"";position:absolute;z-index:1;bottom:0;right:-10px;width:10px;height:20px;
   background:var(--stage);border-bottom-left-radius:10px}
-.close-cap{color:#9DB59A;font-size:14px;margin:16px 0 44px}
+.close-cap{color:#9a9da7;font-size:14px;margin:16px 0 44px}
 .cta-big{font-family:var(--serif);font-weight:300;letter-spacing:-.03em;font-size:clamp(32px,6.4vw,56px);
   line-height:1.08;max-width:18ch;margin:0 auto 30px;color:var(--a-chalk)}
 .close .btn-lg{min-height:62px;font-size:18px;padding:0 34px;border-radius:999px}
-.cta-fine{color:#6F8570;font-size:13px;margin-top:24px;font-family:var(--mono);letter-spacing:.04em}
+.cta-fine{color:#8a8d96;font-size:13px;margin-top:24px;font-family:var(--mono);letter-spacing:.04em}
 @media(min-width:760px){ .close .btn-lg{min-height:74px;font-size:21px;padding:0 46px} }
 
-.foot{background:var(--stage);color:#9DB59A;border-top:1px solid #0C3D1C}
+.foot{background:var(--stage);color:#c9c7c0;border-top:1px solid #1c1c1f}
 .foot .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;min-height:72px;padding-top:16px;padding-bottom:16px}
-.foot .fm{font-family:var(--serif);font-weight:300;letter-spacing:-.03em;font-size:20px;color:var(--a-chalk);display:flex;align-items:center;gap:9px}
+.foot .fm{font-family:var(--serif);font-weight:300;letter-spacing:-.03em;font-size:20px;color:var(--ivory);display:flex;align-items:center;gap:9px}
 .foot .fm svg{display:block}
 .foot .flinks{display:flex;gap:18px;font-family:var(--sans);font-size:13.5px}
-.foot .flinks a{color:#9DB59A;text-decoration:none}
-.foot .flinks a:hover{color:#E2F0CC}
-.foot .made{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:#6F8570}
-.foot .phlaunch{display:flex;justify-content:center;padding:24px 0 6px;border-bottom:1px solid #0C3D1C}
+.foot .flinks a{color:#c9c7c0;text-decoration:none}
+.foot .flinks a:hover{color:#fff}
+.foot .made{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:#8a887f}
+.foot .phlaunch{display:flex;justify-content:center;padding:24px 0 6px;border-bottom:1px solid #1c1c1f}
 .foot .phlaunch img{display:block;width:250px;height:54px}
-.foot .copy{max-width:var(--wrap);margin:0 auto;padding:0 22px 18px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:#6F8570}
+.foot .copy{max-width:var(--wrap);margin:0 auto;padding:0 22px 18px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:#6f6d65}
 
 /* ---------- desktop ---------- */
 @media(min-width:760px){
@@ -431,7 +409,7 @@ a{color:inherit}
 .rm .how-nodes,.rm .how-dots{display:none}
 .rm .how-title{position:relative;top:auto;transform:none;padding:20px 22px 10px}
 .rm .how-title .wt{transform:none!important}
-.rm .how-chapter{position:relative;inset:auto;display:block;max-width:640px;margin:0 auto;padding:44px 22px;border-top:1px solid #0C3D1C}
+.rm .how-chapter{position:relative;inset:auto;display:block;max-width:640px;margin:0 auto;padding:44px 22px;border-top:1px solid #23252c}
 .rm .how-chapter .vig{position:relative;left:auto;right:auto;top:auto;height:auto;opacity:1;padding:0 0 26px;justify-content:flex-start}
 .rm .how-chapter .vig svg{max-width:100%;max-height:none}
 .rm .how-chapter .chap{position:relative;top:auto;right:auto;left:auto;bottom:auto;transform:none;opacity:1;width:auto;margin:0;border-radius:16px}
@@ -446,35 +424,35 @@ a{color:inherit}
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
     <defs>
       <pattern id="cm-teeth" width="128" height="260" patternUnits="userSpaceOnUse">
-        <rect width="128" height="260" fill="var(--ink)"/>
-        <polygon points="46,0 112,0 66,260 0,260" fill="var(--ivory)"/>
+        <rect width="128" height="260" fill="#151414"/>
+        <polygon points="46,0 112,0 66,260 0,260" fill="#FDFFF8"/>
       </pattern>
       <pattern id="cm-teeth-light" width="128" height="260" patternUnits="userSpaceOnUse">
-        <rect width="128" height="260" fill="#F2F8E6"/>
-        <polygon points="46,0 112,0 66,260 0,260" fill="#011207"/>
+        <rect width="128" height="260" fill="#FDFFF8"/>
+        <polygon points="46,0 112,0 66,260 0,260" fill="#151414"/>
       </pattern>
       <clipPath id="cm-tile"><rect width="1024" height="1024" rx="230"/></clipPath>
       <symbol id="clapper-mark" viewBox="0 0 1024 1024">
-        <rect x="150" y="470" width="724" height="372" rx="34" fill="var(--ink)"/>
+        <rect x="150" y="470" width="724" height="372" rx="34" fill="#151414"/>
         <line x1="222" y1="572" x2="802" y2="572" stroke="#5a5a58" stroke-width="18" stroke-linecap="round"/>
         <line x1="222" y1="660" x2="690" y2="660" stroke="#5a5a58" stroke-width="18" stroke-linecap="round"/>
         <line x1="222" y1="748" x2="600" y2="748" stroke="#5a5a58" stroke-width="18" stroke-linecap="round"/>
-        <circle cx="792" cy="748" r="52" fill="#8BC53D"/>
+        <circle cx="792" cy="748" r="52" fill="#38D178"/>
         <g transform="rotate(-16 214 432)">
           <rect x="150" y="330" width="772" height="176" rx="26" fill="url(#cm-teeth)"/>
         </g>
-        <circle cx="214" cy="432" r="30" fill="#8BC53D"/>
+        <circle cx="214" cy="432" r="30" fill="#38D178"/>
       </symbol>
       <symbol id="clapper-mark-light" viewBox="0 0 1024 1024">
-        <rect x="150" y="470" width="724" height="372" rx="34" fill="#F2F8E6"/>
+        <rect x="150" y="470" width="724" height="372" rx="34" fill="#FDFFF8"/>
         <line x1="222" y1="572" x2="802" y2="572" stroke="#C9C6BE" stroke-width="18" stroke-linecap="round"/>
         <line x1="222" y1="660" x2="690" y2="660" stroke="#C9C6BE" stroke-width="18" stroke-linecap="round"/>
         <line x1="222" y1="748" x2="600" y2="748" stroke="#C9C6BE" stroke-width="18" stroke-linecap="round"/>
-        <circle cx="792" cy="748" r="52" fill="#8BC53D"/>
+        <circle cx="792" cy="748" r="52" fill="#38D178"/>
         <g transform="rotate(-16 214 432)">
           <rect x="150" y="330" width="772" height="176" rx="26" fill="url(#cm-teeth-light)"/>
         </g>
-        <circle cx="214" cy="432" r="30" fill="#8BC53D"/>
+        <circle cx="214" cy="432" r="30" fill="#38D178"/>
       </symbol>
     </defs>
   </svg>
@@ -500,12 +478,12 @@ a{color:inherit}
   <!-- hero -->
   <section class="hero">
     <div class="halo">
-      <span class="chip c-slate h-wide"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="1.5" y="3.5" width="11" height="7" rx="1" fill="none" stroke="#F2F8E6" stroke-width="1.2"/></svg></span>WIDE</span>
+      <span class="chip c-slate h-wide"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="1.5" y="3.5" width="11" height="7" rx="1" fill="none" stroke="#FDFFF8" stroke-width="1.2"/></svg></span>WIDE</span>
       <span class="chip c-butter h-gold"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2.4 L8.4 5.3 L11.6 5.7 L9.3 7.9 L9.9 11 L7 9.5 L4.1 11 L4.7 7.9 L2.4 5.7 L5.6 5.3 Z" fill="#E3B24A"/></svg></span><span class="chip-star">GOLD &#9733;</span></span>
-      <span class="chip c-blush h-sip"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 3 C9 5 9.5 7 7 10 C4.5 7 5 5 7 3 Z" fill="#F2F8E6"/></svg></span>she laughs</span>
-      <span class="chip c-mint h-cu"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="none" stroke="#F2F8E6" stroke-width="1.2"/></svg></span>CU</span>
-      <span class="chip c-lav h-door"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="4" y="2.5" width="6" height="9" rx="1" fill="none" stroke="#F2F8E6" stroke-width="1.2"/><circle cx="8.4" cy="7" r="0.9" fill="#F2F8E6"/></svg></span>door slam</span>
-      <span class="chip c-slate h-glass"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M4 2.5 h6 l-1 5.5 h-4 z M7 8 v3 M5.5 11.5 h3" fill="none" stroke="#F2F8E6" stroke-width="1.1" stroke-linejoin="round"/></svg></span>glass breaks</span>
+      <span class="chip c-blush h-sip"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 3 C9 5 9.5 7 7 10 C4.5 7 5 5 7 3 Z" fill="#FDFFF8"/></svg></span>she laughs</span>
+      <span class="chip c-mint h-cu"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="none" stroke="#FDFFF8" stroke-width="1.2"/></svg></span>CU</span>
+      <span class="chip c-lav h-door"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="4" y="2.5" width="6" height="9" rx="1" fill="none" stroke="#FDFFF8" stroke-width="1.2"/><circle cx="8.4" cy="7" r="0.9" fill="#FDFFF8"/></svg></span>door slam</span>
+      <span class="chip c-slate h-glass"><span class="tile"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M4 2.5 h6 l-1 5.5 h-4 z M7 8 v3 M5.5 11.5 h3" fill="none" stroke="#FDFFF8" stroke-width="1.1" stroke-linejoin="round"/></svg></span>glass breaks</span>
       <span class="blob b1 blur" aria-hidden="true"></span>
       <span class="blob b2 blur" aria-hidden="true"></span>
       <span class="blob b3 blur" aria-hidden="true"></span>
@@ -538,7 +516,7 @@ a{color:inherit}
         <div class="tickstrip"><i></i><i></i><i class="b"></i><i></i><i></i><i></i><i class="b"></i><i></i><i></i><i></i><i class="b"></i><i></i></div>
       </div>
     </div>
-    <div class="scrollcue" id="scrollCue" aria-hidden="true"><span>Scroll down</span><svg width="16" height="10" viewBox="0 0 16 10" aria-hidden="true"><path d="M2 2 L8 8 L14 2" fill="none" stroke="var(--grey)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="scrollcue" id="scrollCue" aria-hidden="true"><span>Scroll down</span><svg width="16" height="10" viewBox="0 0 16 10" aria-hidden="true"><path d="M2 2 L8 8 L14 2" fill="none" stroke="#5A5A5A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   </div>
 
   <!-- slate divider (clapperboard stripe band) -->
@@ -572,17 +550,17 @@ a{color:inherit}
       <div class="carousel" data-carousel>
         <div class="cols" data-track>
           <div class="col">
-            <div class="col-tile"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="4.5" width="13" height="9" rx="1.4" fill="none" stroke="#011207" stroke-width="1.4"/><circle cx="9" cy="9" r="2.4" fill="#011207"/></svg></div>
+            <div class="col-tile"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="4.5" width="13" height="9" rx="1.4" fill="none" stroke="#151414" stroke-width="1.4"/><circle cx="9" cy="9" r="2.4" fill="#151414"/></svg></div>
             <h3>On set</h3><p>Everything between ROLL and CUT.</p>
             <ul><li><span class="gl"><i></i></span>Tap ROLL when camera rolls</li><li><span class="gl"><i></i></span>Tag coverage: WIDE, CU</li><li><span class="gl"><i></i></span>Star the keeper: GOLD &#9733;</li><li><span class="gl"><i></i></span>Works offline</li></ul>
           </div>
           <div class="col">
-            <div class="col-tile"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="4" y="2.5" width="10" height="13" rx="1" fill="none" stroke="#011207" stroke-width="1.4"/><path d="M6 6h6 M6 9h6 M6 12h4" stroke="#011207" stroke-width="1.2"/></svg></div>
+            <div class="col-tile"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="4" y="2.5" width="10" height="13" rx="1" fill="none" stroke="#151414" stroke-width="1.4"/><path d="M6 6h6 M6 9h6 M6 12h4" stroke="#151414" stroke-width="1.2"/></svg></div>
             <h3>Script Mode</h3><p>Your script becomes buttons.</p>
             <ul><li><span class="gl"><i></i></span>Reads your script PDF</li><li><span class="gl"><i></i></span>Every key moment from every shot</li><li><span class="gl"><i></i></span>Tap the moment as it happens</li><li><span class="gl"><i></i></span>Timecode stamped on every tap</li></ul>
           </div>
           <div class="col">
-            <div class="col-tile"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 9l3 3 7-7" fill="none" stroke="#011207" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="col-tile"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 9l3 3 7-7" fill="none" stroke="#151414" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
             <h3>At wrap</h3><p>One tap. Three files.</p>
             <ul><li><span class="gl"><i></i></span>Premiere XML with markers</li><li><span class="gl"><i></i></span>PDF shot log, GOLD highlighted</li><li><span class="gl"><i></i></span>CSV of every take</li><li><span class="gl"><i></i></span>Clip numbers that match your cards</li></ul>
           </div>
@@ -665,9 +643,9 @@ a{color:inherit}
         <div class="how-inner">
           <div class="how-nodes" id="howNodes">
             <svg class="node-links" id="nodeLinks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <polygon points="10,12 90,8 92,92 8,88" fill="none" stroke="#0C3D1C" stroke-width=".3"/>
-              <line x1="10" y1="12" x2="92" y2="92" stroke="#0C3D1C" stroke-width=".25"/>
-              <line x1="90" y1="8" x2="8" y2="88" stroke="#0C3D1C" stroke-width=".25"/>
+              <polygon points="10,12 90,8 92,92 8,88" fill="none" stroke="#2f313a" stroke-width=".3"/>
+              <line x1="10" y1="12" x2="92" y2="92" stroke="#26282f" stroke-width=".25"/>
+              <line x1="90" y1="8" x2="8" y2="88" stroke="#26282f" stroke-width=".25"/>
             </svg>
             <div class="node n1" data-node="1"><i style="background:var(--mint)"></i><span>Set</span></div>
             <div class="node n2" data-node="2"><i style="background:var(--lav)"></i><span>Script</span></div>
@@ -681,14 +659,14 @@ a{color:inherit}
           <div class="how-chapter">
             <div class="vig" data-vig="1">
               <svg viewBox="74 8 388 302" aria-hidden="true" font-family="IBM Plex Mono,monospace">
-                <g fill="none" stroke="rgba(226,240,204,.24)" stroke-width="1"><path d="M84 30 L100 18 M234 30 L244 18 M84 300 L100 288 M234 300 L244 288" data-draw="0.1"/><rect x="100" y="18" width="144" height="270" rx="12" data-draw="0.1"/></g>
-                <rect x="84" y="30" width="150" height="270" rx="12" fill="#04220E" stroke="rgba(226,240,204,.6)" stroke-width="1.2" pathLength="1" data-draw="0.04"/>
-                <g data-at="0.2"><rect x="96" y="44" width="126" height="30" rx="6" fill="none" stroke="rgba(226,240,204,.4)"/><text id="v1tc" x="106" y="64" font-size="14" fill="#8BC53D">00;04;12;22</text></g>
-                <g data-at="0.5"><rect x="96" y="88" width="40" height="22" rx="6" fill="none" stroke="rgba(226,240,204,.45)"/><text x="104" y="103" font-size="10" fill="#9DB59A">CU</text></g>
-                <g data-at="0.6"><rect x="142" y="88" width="80" height="22" rx="6" fill="none" stroke="#8BC53D"/><text x="150" y="103" font-size="10" fill="#8BC53D">she laughs</text><circle class="press" data-at="0.6" cx="182" cy="99" r="15" fill="none" stroke="#8BC53D" stroke-width="1.5"/></g>
+                <g fill="none" stroke="rgba(236,233,225,.24)" stroke-width="1"><path d="M84 30 L100 18 M234 30 L244 18 M84 300 L100 288 M234 300 L244 288" data-draw="0.1"/><rect x="100" y="18" width="144" height="270" rx="12" data-draw="0.1"/></g>
+                <rect x="84" y="30" width="150" height="270" rx="12" fill="#0e0f13" stroke="rgba(236,233,225,.6)" stroke-width="1.2" pathLength="1" data-draw="0.04"/>
+                <g data-at="0.2"><rect x="96" y="44" width="126" height="30" rx="6" fill="none" stroke="rgba(236,233,225,.4)"/><text id="v1tc" x="106" y="64" font-size="14" fill="#86E3B5">00;04;12;22</text></g>
+                <g data-at="0.5"><rect x="96" y="88" width="40" height="22" rx="6" fill="none" stroke="rgba(236,233,225,.45)"/><text x="104" y="103" font-size="10" fill="#c9cbd2">CU</text></g>
+                <g data-at="0.6"><rect x="142" y="88" width="80" height="22" rx="6" fill="none" stroke="#86E3B5"/><text x="150" y="103" font-size="10" fill="#86E3B5">she laughs</text><circle class="press" data-at="0.6" cx="182" cy="99" r="15" fill="none" stroke="#86E3B5" stroke-width="1.5"/></g>
                 <g data-at="0.72"><rect x="96" y="116" width="66" height="22" rx="6" fill="rgba(227,178,74,.14)" stroke="#E3B24A"/><text x="104" y="131" font-size="10" fill="#E3B24A">GOLD &#9733;</text></g>
-                <g data-at="0.38"><rect x="96" y="256" width="126" height="34" rx="8" fill="#012F13" stroke="#8BC53D"/><text x="140" y="278" font-size="12" fill="#8BC53D" letter-spacing="3">ROLL</text></g>
-                <g data-at="0.66"><rect x="252" y="128" width="200" height="54" rx="8" fill="#04220E" stroke="#0C3D1C"/><rect id="v1sq" x="266" y="146" width="10" height="10" fill="#8BC53D"/><text id="v1toast" x="286" y="149" font-size="10" fill="#E2F0CC">MARKED &middot; she laughs</text><text id="v1toast2" x="286" y="167" font-size="10" fill="#9DB59A">00;04;12;22</text></g>
+                <g data-at="0.38"><rect x="96" y="256" width="126" height="34" rx="8" fill="#1c6b47" stroke="#86E3B5"/><text x="140" y="278" font-size="12" fill="#86E3B5" letter-spacing="3">ROLL</text></g>
+                <g data-at="0.66"><rect x="252" y="128" width="200" height="54" rx="8" fill="#141519" stroke="#2c2e36"/><rect id="v1sq" x="266" y="146" width="10" height="10" fill="#86E3B5"/><text id="v1toast" x="286" y="149" font-size="10" fill="#c9cbd2">MARKED &middot; she laughs</text><text id="v1toast2" x="286" y="167" font-size="10" fill="#8a8d96">00;04;12;22</text></g>
               </svg>
             </div>
             <div class="chap" data-chap="1">
@@ -706,17 +684,17 @@ a{color:inherit}
           <div class="how-chapter">
             <div class="vig" data-vig="2">
               <svg viewBox="44 14 398 288" aria-hidden="true" font-family="IBM Plex Mono,monospace">
-                <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="none" stroke="rgba(226,240,204,.6)"/></marker></defs>
-                <rect x="54" y="24" width="196" height="252" rx="4" fill="#04220E" stroke="rgba(226,240,204,.6)" stroke-width="1.2" pathLength="1" data-draw="0.04"/>
-                <text x="70" y="48" font-size="9" fill="#9DB59A" data-at="0.12">SC 12 &middot; INT. KITCHEN - NIGHT</text>
-                <g stroke="rgba(226,240,204,.2)" stroke-width="5" data-at="0.18"><line x1="70" y1="72" x2="234" y2="72"/><line x1="70" y1="112" x2="226" y2="112"/><line x1="70" y1="128" x2="234" y2="128"/><line x1="70" y1="168" x2="214" y2="168"/><line x1="70" y1="208" x2="234" y2="208"/><line x1="70" y1="224" x2="198" y2="224"/></g>
-                <g data-at="0.30"><rect x="67" y="82" width="80" height="17" rx="4" fill="rgba(139,197,61,.34)"/><text x="74" y="95" font-size="10" font-weight="500" fill="#E2F0CC">door slam</text></g>
-                <g data-at="0.46"><rect x="67" y="140" width="84" height="17" rx="4" fill="rgba(139,197,61,.34)"/><text x="74" y="153" font-size="10" font-weight="500" fill="#E2F0CC">she laughs</text></g>
-                <g data-at="0.60"><rect x="67" y="180" width="92" height="17" rx="4" fill="rgba(139,197,61,.34)"/><text x="74" y="193" font-size="10" font-weight="500" fill="#E2F0CC">glass breaks</text></g>
-                <g data-at="0.82"><text x="243" y="290" font-size="9" fill="#6F8570" text-anchor="middle">PDF &rarr; buttons</text></g>
-                <g data-at="0.35"><rect x="312" y="72" width="120" height="26" rx="8" fill="none" stroke="#8BC53D"/><text x="324" y="89" font-size="10" fill="#8BC53D">door slam</text></g>
-                <g data-at="0.5"><rect x="312" y="106" width="120" height="26" rx="8" fill="none" stroke="#8BC53D"/><text x="324" y="123" font-size="10" fill="#8BC53D">she laughs</text></g>
-                <g data-at="0.66"><rect x="312" y="140" width="120" height="26" rx="8" fill="none" stroke="#8BC53D"/><text x="324" y="157" font-size="10" fill="#8BC53D">glass breaks</text></g>
+                <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="none" stroke="rgba(236,233,225,.6)"/></marker></defs>
+                <rect x="54" y="24" width="196" height="252" rx="4" fill="#0e0f13" stroke="rgba(236,233,225,.6)" stroke-width="1.2" pathLength="1" data-draw="0.04"/>
+                <text x="70" y="48" font-size="9" fill="#9a9da7" data-at="0.12">SC 12 &middot; INT. KITCHEN - NIGHT</text>
+                <g stroke="rgba(236,233,225,.2)" stroke-width="5" data-at="0.18"><line x1="70" y1="72" x2="234" y2="72"/><line x1="70" y1="112" x2="226" y2="112"/><line x1="70" y1="128" x2="234" y2="128"/><line x1="70" y1="168" x2="214" y2="168"/><line x1="70" y1="208" x2="234" y2="208"/><line x1="70" y1="224" x2="198" y2="224"/></g>
+                <g data-at="0.30"><rect x="67" y="82" width="80" height="17" rx="4" fill="rgba(185,174,234,.34)"/><text x="74" y="95" font-size="10" font-weight="500" fill="#ECE9E1">door slam</text></g>
+                <g data-at="0.46"><rect x="67" y="140" width="84" height="17" rx="4" fill="rgba(185,174,234,.34)"/><text x="74" y="153" font-size="10" font-weight="500" fill="#ECE9E1">she laughs</text></g>
+                <g data-at="0.60"><rect x="67" y="180" width="92" height="17" rx="4" fill="rgba(185,174,234,.34)"/><text x="74" y="193" font-size="10" font-weight="500" fill="#ECE9E1">glass breaks</text></g>
+                <g data-at="0.82"><text x="243" y="290" font-size="9" fill="#8a8d96" text-anchor="middle">PDF &rarr; buttons</text></g>
+                <g data-at="0.35"><rect x="312" y="72" width="120" height="26" rx="8" fill="none" stroke="#B9AEEA"/><text x="324" y="89" font-size="10" fill="#B9AEEA">door slam</text></g>
+                <g data-at="0.5"><rect x="312" y="106" width="120" height="26" rx="8" fill="none" stroke="#B9AEEA"/><text x="324" y="123" font-size="10" fill="#B9AEEA">she laughs</text></g>
+                <g data-at="0.66"><rect x="312" y="140" width="120" height="26" rx="8" fill="none" stroke="#B9AEEA"/><text x="324" y="157" font-size="10" fill="#B9AEEA">glass breaks</text></g>
               </svg>
             </div>
             <div class="chap" data-chap="2">
@@ -734,19 +712,19 @@ a{color:inherit}
           <div class="how-chapter">
             <div class="vig" data-vig="3">
               <svg viewBox="86 40 320 282" aria-hidden="true" font-family="IBM Plex Mono,monospace">
-                <g fill="none" stroke="rgba(226,240,204,.24)" stroke-width="1" data-draw="0.1"><path d="M96 66 l20 -16 M376 66 l20 -16 M96 210 l20 -16 M376 210 l20 -16"/><rect x="116" y="50" width="280" height="144" rx="8"/></g>
-                <rect x="96" y="66" width="280" height="144" rx="8" fill="#04220E" stroke="rgba(226,240,204,.6)" stroke-width="1.2" pathLength="1" data-draw="0.04"/>
-                <rect x="124" y="88" width="224" height="64" rx="6" fill="none" stroke="rgba(226,240,204,.3)" data-at="0.18"/>
-                <text id="v3ct" x="150" y="132" font-size="30" fill="#8BC53D" data-at="0.2">C0247</text>
+                <g fill="none" stroke="rgba(236,233,225,.24)" stroke-width="1" data-draw="0.1"><path d="M96 66 l20 -16 M376 66 l20 -16 M96 210 l20 -16 M376 210 l20 -16"/><rect x="116" y="50" width="280" height="144" rx="8"/></g>
+                <rect x="96" y="66" width="280" height="144" rx="8" fill="#0e0f13" stroke="rgba(236,233,225,.6)" stroke-width="1.2" pathLength="1" data-draw="0.04"/>
+                <rect x="124" y="88" width="224" height="64" rx="6" fill="none" stroke="rgba(236,233,225,.3)" data-at="0.18"/>
+                <text id="v3ct" x="150" y="132" font-size="30" fill="#86E3B5" data-at="0.2">C0247</text>
                 <text id="v3cut" x="300" y="82" font-size="12" fill="#E9A6AB" data-at="0.38">CUT</text>
-                <g data-at="0.15" font-size="8" fill="#9DB59A">
-                  <g id="v3t0"><rect x="96" y="226" width="52" height="24" rx="5" fill="none" stroke="rgba(226,240,204,.4)"/><text x="108" y="242">SONY</text></g>
-                  <g id="v3t1"><rect x="154" y="226" width="52" height="24" rx="5" fill="none" stroke="rgba(226,240,204,.4)"/><text x="162" y="242">IPHONE</text></g>
-                  <g id="v3t2"><rect x="212" y="226" width="52" height="24" rx="5" fill="none" stroke="rgba(226,240,204,.4)"/><text x="228" y="242">RED</text></g>
-                  <g id="v3t3"><rect x="270" y="226" width="52" height="24" rx="5" fill="none" stroke="rgba(226,240,204,.4)"/><text x="282" y="242">ARRI</text></g>
-                  <g id="v3t4"><rect x="328" y="226" width="60" height="24" rx="5" fill="none" stroke="rgba(226,240,204,.4)"/><text x="340" y="242">GOPRO</text></g>
+                <g data-at="0.15" font-size="8" fill="#c9cbd2">
+                  <g id="v3t0"><rect x="96" y="226" width="52" height="24" rx="5" fill="none" stroke="rgba(236,233,225,.4)"/><text x="108" y="242">SONY</text></g>
+                  <g id="v3t1"><rect x="154" y="226" width="52" height="24" rx="5" fill="none" stroke="rgba(236,233,225,.4)"/><text x="162" y="242">IPHONE</text></g>
+                  <g id="v3t2"><rect x="212" y="226" width="52" height="24" rx="5" fill="none" stroke="rgba(236,233,225,.4)"/><text x="228" y="242">RED</text></g>
+                  <g id="v3t3"><rect x="270" y="226" width="52" height="24" rx="5" fill="none" stroke="rgba(236,233,225,.4)"/><text x="282" y="242">ARRI</text></g>
+                  <g id="v3t4"><rect x="328" y="226" width="60" height="24" rx="5" fill="none" stroke="rgba(236,233,225,.4)"/><text x="340" y="242">GOPRO</text></g>
                 </g>
-                <g data-at="0.7"><rect x="96" y="264" width="292" height="48" rx="8" fill="#04220E" stroke="#0C3D1C"/><text x="108" y="285" font-size="10" fill="#E2F0CC">A001_C002 &harr; SC12_T04_CU</text><text x="108" y="301" font-size="9" fill="#9DB59A">matches the card &middot; no drift</text></g>
+                <g data-at="0.7"><rect x="96" y="264" width="292" height="48" rx="8" fill="#141519" stroke="#2c2e36"/><text x="108" y="285" font-size="10" fill="#c9cbd2">A001_C002 &harr; SC12_T04_CU</text><text x="108" y="301" font-size="9" fill="#8a8d96">matches the card &middot; no drift</text></g>
               </svg>
             </div>
             <div class="chap" data-chap="3">
@@ -764,17 +742,17 @@ a{color:inherit}
           <div class="how-chapter">
             <div class="vig" data-vig="4">
               <svg viewBox="30 12 420 196" aria-hidden="true" font-family="IBM Plex Mono,monospace">
-                <defs><marker id="a4" markerWidth="8" markerHeight="8" refX="3" refY="6" orient="auto"><path d="M0 0 L3 6 L6 0" fill="none" stroke="rgba(226,240,204,.6)"/></marker></defs>
+                <defs><marker id="a4" markerWidth="8" markerHeight="8" refX="3" refY="6" orient="auto"><path d="M0 0 L3 6 L6 0" fill="none" stroke="rgba(236,233,225,.6)"/></marker></defs>
                 <!-- xml drop-in -->
-                <g data-at="0.08"><rect x="177" y="18" width="126" height="26" rx="6" fill="#04220E" stroke="#0C3D1C"/><text x="189" y="35" font-size="10" fill="#E2F0CC">sunday_shoot.xml</text><path d="M240 48 v8" fill="none" stroke="rgba(226,240,204,.4)" marker-end="url(#a4)"/></g>
+                <g data-at="0.08"><rect x="177" y="18" width="126" height="26" rx="6" fill="#141519" stroke="#2c2e36"/><text x="189" y="35" font-size="10" fill="#c9cbd2">sunday_shoot.xml</text><path d="M240 48 v8" fill="none" stroke="rgba(236,233,225,.4)" marker-end="url(#a4)"/></g>
                 <!-- DF ruler: baseline + ticks -->
-                <line x1="40" y1="88" x2="440" y2="88" stroke="rgba(226,240,204,.3)" stroke-width="1" pathLength="1" data-draw="0.05"/>
-                <g stroke="rgba(226,240,204,.16)" data-at="0.10"><line x1="64" y1="81" x2="64" y2="88"/><line x1="88" y1="81" x2="88" y2="88"/><line x1="112" y1="81" x2="112" y2="88"/><line x1="136" y1="81" x2="136" y2="88"/><line x1="160" y1="81" x2="160" y2="88"/><line x1="184" y1="81" x2="184" y2="88"/><line x1="208" y1="81" x2="208" y2="88"/><line x1="232" y1="81" x2="232" y2="88"/><line x1="256" y1="81" x2="256" y2="88"/><line x1="280" y1="81" x2="280" y2="88"/><line x1="304" y1="81" x2="304" y2="88"/><line x1="328" y1="81" x2="328" y2="88"/><line x1="352" y1="81" x2="352" y2="88"/><line x1="376" y1="81" x2="376" y2="88"/><line x1="400" y1="81" x2="400" y2="88"/></g>
-                <!-- video lane: four clips, now green not lavender -->
-                <g data-at="0.18"><rect x="40" y="94" width="96" height="48" rx="4" fill="#E2F0CC"/><rect x="40" y="94" width="96" height="14" rx="4" fill="#8BC53D"/><rect x="40" y="104" width="96" height="4" fill="#8BC53D"/><text x="46" y="104" font-size="7" fill="#011207" font-weight="500">SC12_T01_WIDE</text><rect x="40" y="145" width="96" height="10" rx="2" fill="#8BC53D"/></g>
-                <g data-at="0.28"><rect x="140" y="94" width="96" height="48" rx="4" fill="#E2F0CC"/><rect x="140" y="94" width="96" height="14" rx="4" fill="#8BC53D"/><rect x="140" y="104" width="96" height="4" fill="#8BC53D"/><text x="146" y="104" font-size="7" fill="#011207" font-weight="500">SC12_T02_WIDE</text><rect x="140" y="145" width="96" height="10" rx="2" fill="#8BC53D"/></g>
-                <g data-at="0.38"><rect x="240" y="94" width="96" height="48" rx="4" fill="#E2F0CC"/><rect x="240" y="94" width="96" height="14" rx="4" fill="#8BC53D"/><rect x="240" y="104" width="96" height="4" fill="#8BC53D"/><text id="v4lbl" x="246" y="104" font-size="7" fill="#011207" font-weight="500">C0247.MOV</text><rect x="240" y="145" width="96" height="10" rx="2" fill="#8BC53D"/></g>
-                <g data-at="0.48"><rect x="340" y="94" width="96" height="48" rx="4" fill="#E2F0CC"/><rect x="340" y="94" width="96" height="14" rx="4" fill="#8BC53D"/><rect x="340" y="104" width="96" height="4" fill="#8BC53D"/><text x="346" y="104" font-size="7" fill="#011207" font-weight="500">SC12_T07_INSERT</text><rect x="340" y="145" width="96" height="10" rx="2" fill="#8BC53D"/></g>
+                <line x1="40" y1="88" x2="440" y2="88" stroke="rgba(236,233,225,.3)" stroke-width="1" pathLength="1" data-draw="0.05"/>
+                <g stroke="rgba(236,233,225,.16)" data-at="0.10"><line x1="64" y1="81" x2="64" y2="88"/><line x1="88" y1="81" x2="88" y2="88"/><line x1="112" y1="81" x2="112" y2="88"/><line x1="136" y1="81" x2="136" y2="88"/><line x1="160" y1="81" x2="160" y2="88"/><line x1="184" y1="81" x2="184" y2="88"/><line x1="208" y1="81" x2="208" y2="88"/><line x1="232" y1="81" x2="232" y2="88"/><line x1="256" y1="81" x2="256" y2="88"/><line x1="280" y1="81" x2="280" y2="88"/><line x1="304" y1="81" x2="304" y2="88"/><line x1="328" y1="81" x2="328" y2="88"/><line x1="352" y1="81" x2="352" y2="88"/><line x1="376" y1="81" x2="376" y2="88"/><line x1="400" y1="81" x2="400" y2="88"/></g>
+                <!-- video lane: four lavender clips -->
+                <g data-at="0.18"><rect x="40" y="94" width="96" height="48" rx="4" fill="#A99BE0"/><rect x="40" y="94" width="96" height="14" rx="4" fill="#8A79C9"/><rect x="40" y="104" width="96" height="4" fill="#8A79C9"/><text x="46" y="104" font-size="7" fill="#1a1526" font-weight="500">SC12_T01_WIDE</text><rect x="40" y="145" width="96" height="10" rx="2" fill="#2FA666"/></g>
+                <g data-at="0.28"><rect x="140" y="94" width="96" height="48" rx="4" fill="#A99BE0"/><rect x="140" y="94" width="96" height="14" rx="4" fill="#8A79C9"/><rect x="140" y="104" width="96" height="4" fill="#8A79C9"/><text x="146" y="104" font-size="7" fill="#1a1526" font-weight="500">SC12_T02_WIDE</text><rect x="140" y="145" width="96" height="10" rx="2" fill="#2FA666"/></g>
+                <g data-at="0.38"><rect x="240" y="94" width="96" height="48" rx="4" fill="#B9ACEC"/><rect x="240" y="94" width="96" height="14" rx="4" fill="#9384D6"/><rect x="240" y="104" width="96" height="4" fill="#9384D6"/><text id="v4lbl" x="246" y="104" font-size="7" fill="#1a1526" font-weight="500">C0247.MOV</text><rect x="240" y="145" width="96" height="10" rx="2" fill="#2FA666"/></g>
+                <g data-at="0.48"><rect x="340" y="94" width="96" height="48" rx="4" fill="#A99BE0"/><rect x="340" y="94" width="96" height="14" rx="4" fill="#8A79C9"/><rect x="340" y="104" width="96" height="4" fill="#8A79C9"/><text x="346" y="104" font-size="7" fill="#1a1526" font-weight="500">SC12_T07_INSERT</text><rect x="340" y="145" width="96" height="10" rx="2" fill="#2FA666"/></g>
                 <!-- brass pentagon markers on the ruler -->
                 <g data-at="0.58"><path d="M164 74 h12 v6 l-6 5 l-6 -5 z" fill="#E3B24A"/></g>
                 <g data-at="0.64"><path d="M290 74 h12 v6 l-6 5 l-6 -5 z" fill="#E3B24A"/></g>
@@ -782,7 +760,7 @@ a{color:inherit}
                 <!-- red playhead parked on the GOLD marker -->
                 <g data-at="0.80"><circle cx="296" cy="76" r="3.5" fill="#FF3B30"/><line x1="296" y1="76" x2="296" y2="162" stroke="#FF3B30" stroke-width="1.6"/><text x="296" y="176" font-size="8" fill="#E3B24A" text-anchor="middle">she laughs &#9733;</text></g>
                 <!-- export row -->
-                <g data-at="0.9"><text x="40" y="196" font-size="9" fill="#6F8570">shotlog.pdf &middot; takes.csv</text></g>
+                <g data-at="0.9"><text x="40" y="196" font-size="9" fill="#8a8d96">shotlog.pdf &middot; takes.csv</text></g>
               </svg>
             </div>
             <div class="chap" data-chap="4">
@@ -1070,12 +1048,12 @@ a{color:inherit}
     function p2(n){return (n<10?"0":"")+n;}
     function tcFrom(base,add){ var t=base+add,f=t%30; t=(t-f)/30; var s=t%60; t=(t-s)/60; var m=t%60,h=(t-m)/60; return p2(h)+";"+p2(m)+";"+p2(s)+";"+p2(f); }
     function setTile(idx){ v3tiles.forEach(function(g,n){ if(!g)return; var r=g.querySelector("rect"),t=g.querySelector("text"),on=(n===idx);
-      r.setAttribute("stroke",on?"#E9A6AB":"rgba(226,240,204,.4)"); r.setAttribute("stroke-width",on?"1.4":"1"); if(t)t.setAttribute("fill",on?"#E9A6AB":"#9DB59A"); }); }
+      r.setAttribute("stroke",on?"#E9A6AB":"rgba(236,233,225,.4)"); r.setAttribute("stroke-width",on?"1.4":"1"); if(t)t.setAttribute("fill",on?"#E9A6AB":"#c9cbd2"); }); }
     function chapContent(a,sp){
       if(a===1){ if(v1tc)v1tc.textContent=tcFrom(4*3600+12*30+22,Math.floor(sp*150));
-        if(v1sq&&v1toast){ if(sp>=0.82){v1sq.setAttribute("fill","#E3B24A");v1toast.textContent="MARKED \u00B7 she laughs \u2605";} else {v1sq.setAttribute("fill","#8BC53D");v1toast.textContent="MARKED \u00B7 she laughs";} } }
+        if(v1sq&&v1toast){ if(sp>=0.82){v1sq.setAttribute("fill","#E3B24A");v1toast.textContent="MARKED \u00B7 she laughs \u2605";} else {v1sq.setAttribute("fill","#86E3B5");v1toast.textContent="MARKED \u00B7 she laughs";} } }
       else if(a===3){ if(v3ct){ v3ct.textContent=sp<0.4?"C0247":(sp<0.6?"C0248":"A001_C002"); v3ct.setAttribute("font-size",sp<0.6?"30":"22"); } setTile(sp<0.55?0:2); }
-      else if(a===4){ if(v4lbl){ if(sp>=0.55){v4lbl.textContent="SC12_T04_CU";v4lbl.setAttribute("fill","#011207");} else {v4lbl.textContent="C0247.MOV";v4lbl.setAttribute("fill","rgba(1,18,7,.55)");} } }
+      else if(a===4){ if(v4lbl){ if(sp>=0.55){v4lbl.textContent="SC12_T04_CU";v4lbl.setAttribute("fill","#1a1526");} else {v4lbl.textContent="C0247.MOV";v4lbl.setAttribute("fill","#4a4066");} } }
     }
 
     var dirty=true, target=0, cur=0, lastActive=-1;
