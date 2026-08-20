@@ -1128,8 +1128,16 @@
   position: relative;
   overflow: hidden;
   border-radius: 28px;
-  -webkit-mask-image: linear-gradient(#000 0%, #000 78%, transparent 100%);
-  mask-image: linear-gradient(#000 0%, #000 78%, transparent 100%);
+  /* Pushed from 78% to 87%: at PEEK 96 (see ShotDeck.tsx) the old 78% stop
+     started fading before the peeked card's own description had even begun,
+     which is how a taller peek still rendered as description-less - it was
+     the fade eating the text, not the description missing. 87% clears the
+     row (code/spec/takes) and the description's first line before the taper
+     starts, so the fade reads as the same "fading toward the ground" the
+     card's own .shotdeck__card--off mask already promises, not a second,
+     earlier cutoff working against it. */
+  -webkit-mask-image: linear-gradient(#000 0%, #000 87%, transparent 100%);
+  mask-image: linear-gradient(#000 0%, #000 87%, transparent 100%);
 }
 /* The stack: every visible card, absolutely positioned by its own shot
    index (see ShotDeck.tsx's `top: i * STEP` inline style) and moved as ONE

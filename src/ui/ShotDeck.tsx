@@ -45,8 +45,16 @@ import { sizeInWords } from './shotlist';
 const CARD_H = 172;
 const CARD_GAP = 12;
 const STEP = CARD_H + CARD_GAP;
-/** How much of the next card peeks under the current one, at rest. */
-const PEEK = 96;
+/** How much of the next card peeks under the current one, at rest. 96 was
+ *  tall enough to show the row (code/spec/takes) and not one pixel more - the
+ *  approved pitch's own peek shows the start of the next setup's DESCRIPTION
+ *  fading out, which is what earns the peek its vertical space at all (it
+ *  previews what you are about to shoot, not just proves another card
+ *  exists). At 96 the description's own first line starts past where the
+ *  viewport's mask has already faded it to nothing, so it never became
+ *  visible in the first place - not a fade, an absence. 128 buys back enough
+ *  room for that first line or two before the mask (below) takes over. */
+const PEEK = 128;
 const VIEWPORT_H = CARD_H + PEEK;
 /** Past the first or last shot, the drag still moves but at this fraction of
  *  finger travel — the pitch's own "rubber-band at 0.35x travel". */
