@@ -273,7 +273,7 @@ export function parseShotlist(raw: string): ParsedShotlist | null {
 
   // The document title, when it's usable. A letter-spaced title arrives with
   // its word gaps already destroyed, so we reject it rather than name the
-  // project something like "L E T ' SMEETDOBAARA" — the caller falls back to
+  // project something like "K EEPTHETAKE" — the caller falls back to
   // the filename, which is always readable.
   const titleLine = text.slice(0, 400).match(/^\s*([^\n·]{4,80}?)\s*(?:—|--|\|)/);
   const title = titleLine && !isLetterSpaced(titleLine[1]) ? titleLine[1].trim() : undefined;

@@ -46,7 +46,7 @@ describe('repairLigatures', () => {
 
 describe('isLetterSpaced', () => {
   it('detects a letter-spaced title, whose word gaps are unrecoverable', () => {
-    expect(isLetterSpaced("L E T ' S  M E E T")).toBe(true);
+    expect(isLetterSpaced('T H E  L O N G')).toBe(true);
   });
   it('leaves an ordinary title alone', () => {
     expect(isLetterSpaced('THE LONG WAY HOME — SHOTLIST')).toBe(false);

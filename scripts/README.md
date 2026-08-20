@@ -75,8 +75,8 @@ It never touches your own browser profile.
 
 ### The frames it walks
 
-The ones §11 of the premium standard names, seeded with the real 137-shot
-"Let's Meet Dobaara" pack (Home → *Shotlist · from a PDF* → the example), because
+The ones §11 of the premium standard names, seeded with the bundled 137-shot
+"Keep The Take" pack (Home → *Shotlist · from a PDF* → the example), because
 at rest there is nothing to blur and the effect is unprovable:
 
 - `project-midscroll`, `project-deep` — the scene list passing under `.topbar`

@@ -1,0 +1,1475 @@
+{
+  "clapperScriptPack": 1,
+  "project": {
+    "name": "Keep The Take",
+    "coverageTags": [
+      "WIDE",
+      "MID",
+      "CLOSEUP"
+    ]
+  },
+  "scenes": [
+    {
+      "scriptRef": "E1",
+      "name": "EP 1 · EXT. DEV'S TERRACE — NIGHT",
+      "summary": "string lights, ring light glow, quiet rooftop above the city",
+      "order": 1,
+      "coverageTags": [
+        "WIDE",
+        "MID",
+        "CLOSEUP"
+      ],
+      "keyMomentTags": [],
+      "shots": [
+        {
+          "code": "1.1",
+          "size": "XWS",
+          "move": "STATIC, low",
+          "action": "Establisher: the terrace at night, string lights strung along the railing, a ring light glowing on its stand. Traffic hum below.",
+          "keyMoments": [
+            "ring light glow"
+          ],
+          "order": 1
+        },
+        {
+          "code": "1.2",
+          "size": "MWS",
+          "move": "Slow PUSH IN",
+          "action": "Master two-shot: Maya crouched by the phone rig checking the frame, Dev cross-legged behind her shuffling a stack of handwritten cue cards.",
+          "keyMoments": [
+            "Maya checks frame"
+          ],
+          "order": 2
+        },
+        {
+          "code": "1.3",
+          "size": "CU",
+          "move": "STATIC, eyeline L",
+          "action": "MAYA, holding up a cue card, dead serious.",
+          "dialogue": "Okay. Card six. Worst one we've got.",
+          "keyMoments": [
+            "\"Card six...\""
+          ],
+          "order": 3
+        },
+        {
+          "code": "1.4",
+          "size": "CU",
+          "move": "STATIC, eyeline R",
+          "action": "DEV, flat.",
+          "dialogue": "We agreed no ranking mid-shoot.",
+          "keyMoments": [
+            "\"We agreed no ranking...\""
+          ],
+          "order": 4
+        },
+        {
+          "code": "1.5",
+          "size": "OTS (over Dev)",
+          "move": "STATIC",
+          "action": "Maya, unbothered, already turning the card around.",
+          "dialogue": "I'm not ranking. I'm forecasting.",
+          "keyMoments": [
+            "\"I'm forecasting.\""
+          ],
+          "order": 5
+        },
+        {
+          "code": "1.6",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev pinches the bridge of his nose, phone forgotten in his other hand.",
+          "dialogue": "That's the same thing with extra syllables.",
+          "keyMoments": [
+            "Dev pinches nose"
+          ],
+          "order": 6
+        },
+        {
+          "code": "1.7",
+          "size": "ECU",
+          "move": "STATIC",
+          "action": "Insert: the cue card, corner curling from three nights of rehearsal.",
+          "keyMoments": [
+            "cue card insert"
+          ],
+          "order": 7
+        },
+        {
+          "code": "1.8",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, reading it straight-faced.",
+          "dialogue": "Are you a parking ticket? Because you've got fine written all over you.",
+          "keyMoments": [
+            "\"Are you a parking ticket...\""
+          ],
+          "order": 8
+        },
+        {
+          "code": "1.9",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Dev, staring at her, unmoved.",
+          "dialogue": "Nobody has said that out loud since 2009.",
+          "keyMoments": [
+            "\"Nobody has said that...\""
+          ],
+          "order": 9
+        },
+        {
+          "code": "1.10",
+          "size": "CU",
+          "move": "Slight PUSH IN",
+          "action": "Maya leans toward the lens, delighted with herself.",
+          "dialogue": "It's a classic. Classics don't die.",
+          "keyMoments": [
+            "Maya leans to lens",
+            "\"Classics don't die.\""
+          ],
+          "order": 10
+        },
+        {
+          "code": "1.11",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev, instantly.",
+          "dialogue": "This channel might, if we keep using it.",
+          "keyMoments": [
+            "\"This channel might...\""
+          ],
+          "order": 11
+        },
+        {
+          "code": "1.12",
+          "size": "MS",
+          "move": "HANDHELD, drifting",
+          "action": "Maya sets the card down, suddenly serious in a different way, turns to actually face him.",
+          "keyMoments": [
+            "Maya turns serious"
+          ],
+          "order": 12
+        },
+        {
+          "code": "1.13",
+          "size": "MWS",
+          "move": "STATIC two-shot",
+          "action": "Dev notices the shift, half-smiles, wary.",
+          "keyMoments": [
+            "Dev notices shift"
+          ],
+          "order": 13
+        },
+        {
+          "code": "1.14",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, quieter.",
+          "dialogue": "Okay, real question. Off-camera voice, camera's still rolling though.",
+          "keyMoments": [
+            "\"Off-camera voice...\""
+          ],
+          "order": 14
+        },
+        {
+          "code": "1.15",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev, caught off guard, sets the cue cards down slowly.",
+          "dialogue": "That's not how off-camera works.",
+          "keyMoments": [
+            "Dev sets cards down",
+            "\"That's not how...\""
+          ],
+          "order": 15
+        },
+        {
+          "code": "1.16",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, already asking anyway.",
+          "dialogue": "If we hadn't started this stupid channel, would you still be my best friend?",
+          "keyMoments": [
+            "\"...still be my best friend?\""
+          ],
+          "order": 16
+        },
+        {
+          "code": "1.17",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev, actually thinking about it, which is its own answer.",
+          "keyMoments": [
+            "Dev actually thinks"
+          ],
+          "order": 17
+        },
+        {
+          "code": "1.18",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Maya watching him think, the joke gone out of her face entirely.",
+          "keyMoments": [
+            "joke gone from face"
+          ],
+          "order": 18
+        },
+        {
+          "code": "1.19",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev, finally.",
+          "dialogue": "Obviously.",
+          "keyMoments": [
+            "\"Obviously.\""
+          ],
+          "order": 19
+        },
+        {
+          "code": "1.20",
+          "size": "WS",
+          "move": "STATIC → slow PULL OUT",
+          "action": "Wide on the terrace: the ring light still glowing, the two of them just sitting in it, the cue cards forgotten between them.",
+          "keyMoments": [
+            "ring light still glowing"
+          ],
+          "order": 20
+        },
+        {
+          "code": "1.21",
+          "move": "Superimpose over 1.20",
+          "action": "Superimposed caption card: KEEP THE TAKE — Episode One FADE OUT",
+          "order": 21
+        }
+      ]
+    },
+    {
+      "scriptRef": "E2",
+      "name": "EP 2 · EXT. COLLEGE GROUND — EVENING",
+      "summary": "golden hour, open ground, a scooter parked where it shouldn't be",
+      "order": 2,
+      "coverageTags": [
+        "WIDE",
+        "MID",
+        "CLOSEUP"
+      ],
+      "keyMomentTags": [],
+      "shots": [
+        {
+          "code": "2.1",
+          "size": "WS",
+          "move": "STATIC / slow PAN",
+          "action": "New location, college ground at evening, golden light. Maya sets up the tripod at the edge of the running track.",
+          "keyMoments": [
+            "Maya sets up tripod"
+          ],
+          "order": 1
+        },
+        {
+          "code": "2.2",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Maya checks the framing on her phone, gives a thumbs-up toward off-frame.",
+          "keyMoments": [
+            "thumbs-up"
+          ],
+          "order": 2
+        },
+        {
+          "code": "2.3",
+          "size": "MS",
+          "move": "Low, TILT UP",
+          "action": "A scooter rounds the corner of the ground, engine revving harder than a scooter needs to.",
+          "keyMoments": [
+            "scooter rounds corner"
+          ],
+          "order": 3
+        },
+        {
+          "code": "2.4",
+          "size": "MS → MWS",
+          "move": "SLO-MO, low angle",
+          "action": "Dev's entrance, helmet under one arm, walking it like a red carpet. Slow motion, dramatic score sting.",
+          "keyMoments": [
+            "Dev's slow-mo entrance"
+          ],
+          "order": 4
+        },
+        {
+          "code": "2.5",
+          "size": "WS",
+          "move": "STATIC",
+          "action": "Wider reveal: the scooter behind him is parked dead centre of the running track. He hasn't noticed.",
+          "keyMoments": [
+            "scooter on running track"
+          ],
+          "order": 5
+        },
+        {
+          "code": "2.6",
+          "size": "MS",
+          "move": "HANDHELD",
+          "action": "SECURITY GUARD jogs in from the side, waving both arms.",
+          "dialogue": "Beta scooter hataao, coach ka round aane wala hai.",
+          "keyMoments": [
+            "\"Beta scooter hataao...\""
+          ],
+          "order": 6
+        },
+        {
+          "code": "2.7",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev's entrance completely deflates mid-stride.",
+          "keyMoments": [
+            "entrance deflates"
+          ],
+          "order": 7
+        },
+        {
+          "code": "2.8",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Maya, behind the tripod, already laughing, unable to hold the frame steady.",
+          "keyMoments": [
+            "Maya laughing"
+          ],
+          "order": 8
+        },
+        {
+          "code": "2.9",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "She gestures for him to just go move it.",
+          "dialogue": "Go, go, I'll cut around it.",
+          "keyMoments": [
+            "\"Go, go, I'll cut...\""
+          ],
+          "order": 9
+        },
+        {
+          "code": "2.10",
+          "action": "MATCH CUT on the clap →",
+          "order": 10
+        }
+      ]
+    },
+    {
+      "scriptRef": "E3",
+      "name": "EP 3 · INT. GARAGE STUDIO — CONTINUOUS",
+      "summary": "",
+      "order": 3,
+      "coverageTags": [
+        "WIDE",
+        "MID",
+        "CLOSEUP"
+      ],
+      "keyMomentTags": [],
+      "shots": [
+        {
+          "code": "3.1",
+          "size": "WS",
+          "move": "STATIC",
+          "action": "Match-cut landing: the garage studio, egg-crate foam on the walls, a mic stand, both now seated across a small table.",
+          "keyMoments": [
+            "Dev and Maya seated"
+          ],
+          "order": 1
+        },
+        {
+          "code": "3.2",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya.",
+          "dialogue": "Okay. Scene two. Camera's rolling.",
+          "keyMoments": [
+            "\"Camera's rolling.\""
+          ],
+          "order": 2
+        },
+        {
+          "code": "3.3",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Dev snaps into the bit, produces a paper flower from behind his back.",
+          "dialogue": "For you. I made it out of last month's electricity bill.",
+          "keyMoments": [
+            "Dev produces paper flower",
+            "\"I made it out of...\""
+          ],
+          "order": 3
+        },
+        {
+          "code": "3.4",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, flat.",
+          "dialogue": "That's not romantic, that's a fire hazard.",
+          "keyMoments": [
+            "\"That's not romantic...\""
+          ],
+          "order": 4
+        },
+        {
+          "code": "3.5",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev, wounded, staying in character.",
+          "dialogue": "Don't break the bit.",
+          "keyMoments": [
+            "\"Don't break the bit.\""
+          ],
+          "order": 5
+        },
+        {
+          "code": "3.6",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, not having it, phone buzzing in her pocket.",
+          "dialogue": "Dev.",
+          "keyMoments": [
+            "\"Dev.\""
+          ],
+          "order": 6
+        },
+        {
+          "code": "3.7",
+          "size": "MWS",
+          "move": "STATIC / slight PAN",
+          "action": "She checks the phone instead of the camera. Her face changes.",
+          "keyMoments": [
+            "Maya checks phone",
+            "face changes"
+          ],
+          "order": 7
+        },
+        {
+          "code": "3.8",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev, still holding the paper flower, watching her go somewhere he can't follow.",
+          "dialogue": "What.",
+          "keyMoments": [
+            "\"What.\""
+          ],
+          "order": 8
+        },
+        {
+          "code": "3.9",
+          "size": "WS",
+          "move": "STATIC",
+          "action": "She turns the phone screen toward him. A confirmation email, subject line visible in frame.",
+          "keyMoments": [
+            "shows phone screen"
+          ],
+          "order": 9
+        },
+        {
+          "code": "3.10",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Dev, caught.",
+          "dialogue": "That was supposed to be a maybe.",
+          "keyMoments": [
+            "\"That was supposed to be a maybe.\""
+          ],
+          "order": 10
+        },
+        {
+          "code": "3.11",
+          "size": "MCU",
+          "move": "Slow PUSH IN",
+          "action": "Maya, quiet, the joke completely gone.",
+          "dialogue": "You interviewed. On a Tuesday. You told me you had a dentist thing.",
+          "keyMoments": [
+            "\"You interviewed...\""
+          ],
+          "order": 11
+        },
+        {
+          "code": "3.12",
+          "size": "MS",
+          "move": "HANDHELD",
+          "action": "Dev stands, paper flower forgotten on the table.",
+          "dialogue": "I didn't want to make it a whole thing before I even knew.",
+          "keyMoments": [
+            "Dev stands"
+          ],
+          "order": 12
+        },
+        {
+          "code": "3.13",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, sharp.",
+          "dialogue": "It became a whole thing the second you sat across from someone and didn't call me.",
+          "keyMoments": [
+            "\"It became a whole thing...\""
+          ],
+          "order": 13
+        },
+        {
+          "code": "3.14",
+          "size": "MS",
+          "move": "HANDHELD, TRACK",
+          "action": "Dev paces to the mic stand and back, agitated.",
+          "dialogue": "I was going to tell you once it was real.",
+          "keyMoments": [
+            "Dev paces"
+          ],
+          "order": 14
+        },
+        {
+          "code": "3.15",
+          "size": "MS",
+          "move": "HANDHELD",
+          "action": "Maya stands too, gathering the cue cards off the table without looking at them.",
+          "keyMoments": [
+            "gathers cue cards"
+          ],
+          "order": 15
+        },
+        {
+          "code": "3.16",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya.",
+          "dialogue": "It's been real for three weeks. I checked the email header.",
+          "keyMoments": [
+            "\"It's been real for three weeks.\""
+          ],
+          "order": 16
+        },
+        {
+          "code": "3.17",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev, quiet.",
+          "dialogue": "Maya.",
+          "keyMoments": [
+            "\"Maya.\""
+          ],
+          "order": 17
+        },
+        {
+          "code": "3.18",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, imitating his earlier line, dead serious now.",
+          "dialogue": "Don't break the bit, right?",
+          "keyMoments": [
+            "\"Don't break the bit, right?\""
+          ],
+          "order": 18
+        },
+        {
+          "code": "3.19",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Dev has nothing to say to that. Beat. He looks at the paper flower instead of her.",
+          "keyMoments": [
+            "looks at paper flower"
+          ],
+          "order": 19
+        },
+        {
+          "code": "3.20",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Maya, quieter, already packing the tripod.",
+          "dialogue": "Just tell me next time. That's all I ever ask.",
+          "keyMoments": [
+            "\"Just tell me next time.\""
+          ],
+          "order": 20
+        },
+        {
+          "code": "3.21",
+          "size": "WS",
+          "move": "STATIC, symmetrical",
+          "action": "Both leave through opposite doors of the garage, the paper flower left alone on the table.",
+          "keyMoments": [
+            "leave opposite doors"
+          ],
+          "order": 21
+        },
+        {
+          "code": "3.22",
+          "move": "Superimpose",
+          "action": "Superimposed caption card: KEEP THE TAKE — Episode Three FADE OUT",
+          "order": 22
+        }
+      ]
+    },
+    {
+      "scriptRef": "E4",
+      "name": "EP 4 · EXT. MAYA'S HOME STREET — MORNING",
+      "summary": "hard morning light, quiet residential street",
+      "order": 4,
+      "coverageTags": [
+        "WIDE",
+        "MID",
+        "CLOSEUP"
+      ],
+      "keyMomentTags": [],
+      "shots": [
+        {
+          "code": "4.1",
+          "size": "WS",
+          "move": "STATIC",
+          "action": "Quiet residential street, morning light long across the road. A scooter pulls up.",
+          "keyMoments": [
+            "scooter pulls up"
+          ],
+          "order": 1
+        },
+        {
+          "code": "4.2",
+          "size": "MS",
+          "move": "TRACK / low",
+          "action": "Dev parking, RIA riding pillion, hopping off with a tripod bag slung over one shoulder.",
+          "keyMoments": [
+            "Ria hops off with tripod bag"
+          ],
+          "order": 2
+        },
+        {
+          "code": "4.3",
+          "size": "WS",
+          "move": "Low, TILT UP",
+          "action": "He glances up at a first-floor balcony. Reveal: it's MAYA'S balcony, curtains still drawn.",
+          "keyMoments": [
+            "glances at balcony"
+          ],
+          "order": 3
+        },
+        {
+          "code": "4.4",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev checks his phone, no reply to his last three messages, then the balcony again.",
+          "keyMoments": [
+            "checks phone"
+          ],
+          "order": 4
+        },
+        {
+          "code": "4.5",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Dev briefing Ria in a low, hurried voice.",
+          "dialogue": "I just need five minutes of her actually listening. That's it.",
+          "keyMoments": [
+            "\"I just need five minutes...\""
+          ],
+          "order": 5
+        },
+        {
+          "code": "4.6",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Ria, unpacking the tripod, dry.",
+          "dialogue": "You could've just called.",
+          "keyMoments": [
+            "\"You could've just called.\""
+          ],
+          "order": 6
+        },
+        {
+          "code": "4.7",
+          "size": "WS",
+          "move": "STATIC",
+          "action": "They wait. Beat. Movement on the balcony above.",
+          "keyMoments": [
+            "movement on balcony"
+          ],
+          "order": 7
+        },
+        {
+          "code": "4.8",
+          "size": "MS",
+          "move": "Low angle / UP to balcony",
+          "action": "MAYA steps out with her coffee — her ordinary morning, no idea what's below.",
+          "keyMoments": [
+            "Maya steps onto balcony"
+          ],
+          "order": 8
+        },
+        {
+          "code": "4.9",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev clocks her instantly, straightens up.",
+          "dialogue": "There.",
+          "keyMoments": [
+            "\"There.\""
+          ],
+          "order": 9
+        },
+        {
+          "code": "4.10",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Ria, hoisting the tripod onto her shoulder, businesslike.",
+          "dialogue": "Camera's up whenever you are.",
+          "keyMoments": [
+            "\"Camera's up...\""
+          ],
+          "order": 10
+        },
+        {
+          "code": "4.11",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev, a beat too late, nerves showing.",
+          "dialogue": "Okay. Okay, go.",
+          "keyMoments": [
+            "\"Okay. Okay, go.\""
+          ],
+          "order": 11
+        },
+        {
+          "code": "4.12",
+          "size": "MWS",
+          "move": "STATIC",
+          "action": "Ria lifts the camera to her eye, businesslike and quick — a total stranger to Maya from this distance.",
+          "keyMoments": [
+            "Ria lifts camera"
+          ],
+          "order": 12
+        },
+        {
+          "code": "4.13",
+          "size": "CU",
+          "move": "Low, PUSH IN",
+          "action": "Maya freezes mid-sip. Confusion tightening into something else in under two seconds.",
+          "keyMoments": [
+            "Maya freezes"
+          ],
+          "order": 13
+        },
+        {
+          "code": "4.14",
+          "size": "MS",
+          "move": "High / from balcony",
+          "action": "She sets the coffee down hard enough that it slops over, storms back inside without a word.",
+          "keyMoments": [
+            "coffee slops",
+            "storms inside"
+          ],
+          "order": 14
+        },
+        {
+          "code": "4.15",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Dev, still holding up a hand mid-wave, no one left to wave at.",
+          "keyMoments": [
+            "hand mid-wave"
+          ],
+          "order": 15
+        },
+        {
+          "code": "4.16",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Beat of dread on Dev. He looks at Ria.",
+          "keyMoments": [
+            "dread on Dev"
+          ],
+          "order": 16
+        },
+        {
+          "code": "4.17",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Ria, already lowering the camera.",
+          "dialogue": "That didn't look like listening.",
+          "keyMoments": [
+            "\"That didn't look like listening.\""
+          ],
+          "order": 17
+        },
+        {
+          "code": "4.18",
+          "size": "WS",
+          "move": "HANDHELD, TRACK",
+          "action": "MAYA comes out of the building gate fast, still in her pyjamas, phone in hand like evidence.",
+          "keyMoments": [
+            "Maya comes out fast"
+          ],
+          "order": 18
+        },
+        {
+          "code": "4.19",
+          "size": "MS",
+          "move": "HANDHELD",
+          "action": "Dev, hands up before she's even said anything.",
+          "dialogue": "It's not what it looks like.",
+          "keyMoments": [
+            "\"It's not what it looks like.\""
+          ],
+          "order": 19
+        },
+        {
+          "code": "4.20",
+          "size": "CU",
+          "move": "HANDHELD",
+          "action": "Maya.",
+          "dialogue": "You brought a whole crew? To replace me you needed a crew?",
+          "keyMoments": [
+            "\"To replace me you needed a crew?\""
+          ],
+          "order": 20
+        },
+        {
+          "code": "4.21",
+          "size": "CU",
+          "move": "HANDHELD",
+          "action": "Dev, eyeing the tripod like it's suddenly a liability.",
+          "dialogue": "Ria's not — this isn't a replacement shoot.",
+          "keyMoments": [
+            "\"This isn't a replacement shoot.\""
+          ],
+          "order": 21
+        },
+        {
+          "code": "4.22",
+          "size": "CU",
+          "move": "HANDHELD",
+          "action": "Maya.",
+          "dialogue": "Then what is it, Dev? Because from up there it looked exactly like a replacement shoot.",
+          "keyMoments": [
+            "\"...it looked exactly like...\""
+          ],
+          "order": 22
+        },
+        {
+          "code": "4.23",
+          "size": "MCU",
+          "move": "HANDHELD",
+          "action": "Ria, stepping in, hand raised.",
+          "dialogue": "I'm his junior from the internship. I hold tripods for a living. That's the whole résumé.",
+          "keyMoments": [
+            "\"I hold tripods for a living.\""
+          ],
+          "order": 23
+        },
+        {
+          "code": "4.24",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Maya stops mid-sentence, some of the fury draining out, replaced by confusion.",
+          "keyMoments": [
+            "fury drains"
+          ],
+          "order": 24
+        },
+        {
+          "code": "4.25",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, quieter but still raw.",
+          "dialogue": "Then why is there a camera at all, at seven in the morning?",
+          "keyMoments": [
+            "\"...camera at all...\""
+          ],
+          "order": 25
+        },
+        {
+          "code": "4.26",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev, out of moves, just says it.",
+          "dialogue": "Because I couldn't figure out how to tell you the real thing without one running.",
+          "keyMoments": [
+            "\"...without one running.\""
+          ],
+          "order": 26
+        },
+        {
+          "code": "4.27",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya.",
+          "dialogue": "Tell me what real thing.",
+          "keyMoments": [
+            "\"Tell me what real thing.\""
+          ],
+          "order": 27
+        },
+        {
+          "code": "4.28",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev.",
+          "dialogue": "I took the job. I leave in nine days.",
+          "keyMoments": [
+            "\"I took the job...\""
+          ],
+          "order": 28
+        },
+        {
+          "code": "4.29",
+          "size": "MCU",
+          "move": "Slow PUSH IN",
+          "action": "Maya, still. Something deflates — anger draining into something rawer.",
+          "keyMoments": [
+            "something deflates"
+          ],
+          "order": 29
+        },
+        {
+          "code": "4.30",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya.",
+          "dialogue": "Nine days. And you were going to make a video about it before you told me in person.",
+          "keyMoments": [
+            "\"Nine days...\""
+          ],
+          "order": 30
+        },
+        {
+          "code": "4.31",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev misreads the stillness as her being fine with it, relief flashing across his face.",
+          "keyMoments": [
+            "relief flashes"
+          ],
+          "order": 31
+        },
+        {
+          "code": "4.32",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev, relieved.",
+          "dialogue": "Right? I figured a proper episode would say it better than I could.",
+          "keyMoments": [
+            "\"...say it better than I could.\""
+          ],
+          "order": 32
+        },
+        {
+          "code": "4.33",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya just looks at him. Eyes well up — not anger anymore. Hold.",
+          "keyMoments": [
+            "eyes well up"
+          ],
+          "order": 33
+        },
+        {
+          "code": "4.34",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "She shakes her head slowly.",
+          "dialogue": "Nothing says it better than you actually saying it.",
+          "keyMoments": [
+            "\"Nothing says it better...\""
+          ],
+          "order": 34
+        },
+        {
+          "code": "4.35",
+          "size": "CU",
+          "move": "Slow PUSH IN",
+          "action": "The words land. Dev's face changes completely — realisation, too late, as always.",
+          "keyMoments": [
+            "words land",
+            "face changes"
+          ],
+          "order": 35
+        },
+        {
+          "code": "4.36",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev.",
+          "dialogue": "Yeah.",
+          "keyMoments": [
+            "\"Yeah.\""
+          ],
+          "order": 36
+        },
+        {
+          "code": "4.37",
+          "move": "Superimpose",
+          "action": "Superimposed caption card: KEEP THE TAKE — Episode Four FADE OUT",
+          "order": 37
+        }
+      ]
+    },
+    {
+      "scriptRef": "E5",
+      "name": "EP 5 · EXT. RIVERFRONT PROMENADE — NIGHT",
+      "summary": "dim lamp posts, water reflections, warm pools in cold dark",
+      "order": 5,
+      "coverageTags": [
+        "WIDE",
+        "MID",
+        "CLOSEUP"
+      ],
+      "keyMomentTags": [],
+      "shots": [
+        {
+          "code": "5.1",
+          "size": "WS",
+          "move": "STATIC",
+          "action": "Quiet promenade, dim lamp posts, river reflections. Maya alone at the railing, staring at the water.",
+          "keyMoments": [
+            "Maya at railing"
+          ],
+          "order": 1
+        },
+        {
+          "code": "5.2",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Maya in profile, unmoving.",
+          "order": 2
+        },
+        {
+          "code": "5.3",
+          "size": "MS",
+          "move": "TRACK with",
+          "action": "Dev walks in carrying two takeaway cups.",
+          "keyMoments": [
+            "Dev walks in"
+          ],
+          "order": 3
+        },
+        {
+          "code": "5.4",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev.",
+          "dialogue": "Figured you'd be here. You always come here when you're done being mad at me.",
+          "keyMoments": [
+            "\"Figured you'd be here.\""
+          ],
+          "order": 4
+        },
+        {
+          "code": "5.5",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Nothing from her.",
+          "order": 5
+        },
+        {
+          "code": "5.6",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev, again.",
+          "dialogue": "Maya.",
+          "keyMoments": [
+            "\"Maya.\""
+          ],
+          "order": 6
+        },
+        {
+          "code": "5.7",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Softer, trying to coax a reaction. Lifts one cup.",
+          "dialogue": "It's the cheap chai. Your favourite kind of bad.",
+          "keyMoments": [
+            "lifts cup",
+            "\"...your favourite kind of bad.\""
+          ],
+          "order": 7
+        },
+        {
+          "code": "5.8",
+          "size": "MWS",
+          "move": "HANDHELD, TRACK",
+          "action": "Maya walks away down the promenade; Dev rushes after her.",
+          "keyMoments": [
+            "Maya walks away"
+          ],
+          "order": 8
+        },
+        {
+          "code": "5.9",
+          "size": "MS",
+          "move": "HANDHELD",
+          "action": "Dev.",
+          "dialogue": "Maya, please, just say something.",
+          "keyMoments": [
+            "\"...just say something.\""
+          ],
+          "order": 9
+        },
+        {
+          "code": "5.10",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, finally, sharp.",
+          "dialogue": "You had nine days of chances and you used all of them on a script.",
+          "keyMoments": [
+            "\"...you used all of them on a script.\""
+          ],
+          "order": 10
+        },
+        {
+          "code": "5.11",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "It actually stings.",
+          "dialogue": "I didn't know how else to get through it without falling apart in front of you.",
+          "keyMoments": [
+            "\"...falling apart in front of you.\""
+          ],
+          "order": 11
+        },
+        {
+          "code": "5.12",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "Maya turns to argue.",
+          "keyMoments": [
+            "Maya turns"
+          ],
+          "order": 12
+        },
+        {
+          "code": "5.13",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya.",
+          "dialogue": "So instead you got Ria to film it, so it could be neat. Edited.",
+          "keyMoments": [
+            "\"...so it could be neat.\""
+          ],
+          "order": 13
+        },
+        {
+          "code": "5.14",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev, instant, easy.",
+          "dialogue": "Because you deserved neat. You didn't deserve me crying into a mic stand.",
+          "keyMoments": [
+            "\"...you deserved neat.\""
+          ],
+          "order": 14
+        },
+        {
+          "code": "5.15",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya shakes her head.",
+          "dialogue": "I deserved you telling me. Messy is fine. Messy is us.",
+          "keyMoments": [
+            "\"Messy is us.\""
+          ],
+          "order": 15
+        },
+        {
+          "code": "5.16",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "He opens his mouth. Nothing comes out.",
+          "keyMoments": [
+            "opens mouth, nothing"
+          ],
+          "order": 16
+        },
+        {
+          "code": "5.17",
+          "size": "MWS",
+          "move": "TRACK with",
+          "action": "Maya keeps walking, slower now, not really trying to lose him.",
+          "keyMoments": [
+            "Maya keeps walking"
+          ],
+          "order": 17
+        },
+        {
+          "code": "5.18",
+          "size": "MS",
+          "move": "HANDHELD",
+          "action": "Dev calls after her — defensive, deflecting first.",
+          "dialogue": "What do you want me to say, that the channel doesn't work without you? That I don't work without you?",
+          "keyMoments": [
+            "\"...I don't work without you?\""
+          ],
+          "order": 18
+        },
+        {
+          "code": "5.19",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya stops. Looks at him properly for the first time all night. The turn — she starts listening. THE SPEECH — 5.20 to 5.33.",
+          "keyMoments": [
+            "Maya stops"
+          ],
+          "order": 19
+        },
+        {
+          "code": "5.20",
+          "size": "MCU",
+          "move": "Slow PUSH IN (begins)",
+          "action": "Dev, quiet. Drops the defence. Movement 1 — the admission.",
+          "dialogue": "I applied to that job the week my dad got sick again. I panicked and I didn't want it to be real until it had to be.",
+          "keyMoments": [
+            "\"I applied that job the week...\""
+          ],
+          "order": 20
+        },
+        {
+          "code": "5.21",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, listening. Not softened yet.",
+          "order": 21
+        },
+        {
+          "code": "5.22",
+          "size": "MCU",
+          "move": "PUSH IN (cont.)",
+          "action": "Movement 2 — the memory. He's half-smiling at it despite himself.",
+          "dialogue": "First video we ever posted, you made me redo the intro nineteen times. I still know it word for word. Nineteen.",
+          "keyMoments": [
+            "\"...I still know it word for word.\""
+          ],
+          "order": 22
+        },
+        {
+          "code": "5.23",
+          "size": "ECU",
+          "move": "STATIC",
+          "action": "Insert: his hands, absently miming the old intro gesture.",
+          "keyMoments": [
+            "hands mime old gesture"
+          ],
+          "order": 23
+        },
+        {
+          "code": "5.24",
+          "size": "MWS",
+          "move": "Slow PUSH IN",
+          "action": "Two-shot. The physical distance between them, still not closed.",
+          "order": 24
+        },
+        {
+          "code": "5.25",
+          "size": "MCU",
+          "move": "PUSH IN (cont.)",
+          "action": "Movement 3 — the inventory. The small production things. This is where it stops being a speech.",
+          "dialogue": "You know my shot list before I write it. You know which take I'll pick before I pick it. I don't know how to make anything without you calling it first.",
+          "order": 25
+        },
+        {
+          "code": "5.26",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya. Something behind her eyes changes.",
+          "order": 26
+        },
+        {
+          "code": "5.27",
+          "size": "MCU",
+          "move": "PUSH IN (cont.)",
+          "action": "His voice catches. He's not performing anymore — the first unscripted thing he's said all night.",
+          "order": 27
+        },
+        {
+          "code": "5.28",
+          "size": "ECU",
+          "move": "STATIC",
+          "action": "Insert: he sets both cups down on the railing, hands finally free.",
+          "keyMoments": [
+            "sets cups down"
+          ],
+          "order": 28
+        },
+        {
+          "code": "5.29",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Her eyes await.",
+          "order": 29
+        },
+        {
+          "code": "5.30",
+          "size": "MCU",
+          "move": "PUSH IN (cont.)",
+          "action": "Movement 4 — the reframe. He answers a question she didn't ask.",
+          "dialogue": "I kept thinking the question was how do I leave without it ending us. Wrong question. The question is who I even am on a set without you next to me.",
+          "order": 30
+        },
+        {
+          "code": "5.31",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, mid-speech. Eyes going.",
+          "order": 31
+        },
+        {
+          "code": "5.32",
+          "size": "MCU",
+          "move": "PUSH IN (tightest)",
+          "action": "The landing.",
+          "dialogue": "Nine days isn't enough to fix five years of being bad at this. But I'd rather be bad at it in front of you than good at it anywhere else.",
+          "keyMoments": [
+            "\"...good at it anywhere else.\""
+          ],
+          "order": 32
+        },
+        {
+          "code": "5.33",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "The real line, thrown away quietly.",
+          "dialogue": "(beat) You're not losing your co-host. You're just getting a worse one, long-distance.",
+          "keyMoments": [
+            "\"...a worse one, long-distance.\""
+          ],
+          "order": 33
+        },
+        {
+          "code": "5.34",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya says nothing for a long moment. Her eyes are wet — this time it isn't anger.",
+          "order": 34
+        },
+        {
+          "code": "5.35",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev panics at his own sincerity and undercuts it.",
+          "dialogue": "Too much? That was too much, wasn't it. Delete that whole take.",
+          "keyMoments": [
+            "\"Delete that whole take.\""
+          ],
+          "order": 35
+        },
+        {
+          "code": "5.36",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, barely audible.",
+          "dialogue": "No. Keep it. Keep all of it. That's the first honest thing you've said in nine days.",
+          "keyMoments": [
+            "\"Keep all of it.\""
+          ],
+          "order": 36
+        },
+        {
+          "code": "5.37",
+          "size": "MS",
+          "move": "STATIC",
+          "action": "She leans in; Dev leans in assuming a hug — she grabs the spare battery pack out of his jacket pocket instead.",
+          "keyMoments": [
+            "grabs battery pack"
+          ],
+          "order": 37
+        },
+        {
+          "code": "5.38",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya, battery pack in hand, delighted with herself.",
+          "dialogue": "Camera's been on ninety percent for ten minutes. Someone has to think about b-roll.",
+          "keyMoments": [
+            "\"Someone has to think about b-roll.\""
+          ],
+          "order": 38
+        },
+        {
+          "code": "5.39",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Dev looks at her, disappointed.",
+          "order": 39
+        },
+        {
+          "code": "5.40",
+          "size": "MS",
+          "move": "HANDHELD",
+          "action": "Maya laughs, then finally hugs him properly, battery pack still in her fist against his back.",
+          "keyMoments": [
+            "Maya laughs",
+            "hugs him"
+          ],
+          "order": 40
+        },
+        {
+          "code": "5.41",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Maya over his shoulder, meaning it this time.",
+          "dialogue": "I'm really going to miss you, idiot.",
+          "keyMoments": [
+            "\"I'm really going to miss you.\""
+          ],
+          "order": 41
+        },
+        {
+          "code": "5.42",
+          "size": "CU",
+          "move": "STATIC",
+          "action": "Dev.",
+          "dialogue": "Only nine days left to prove it.",
+          "keyMoments": [
+            "\"Only nine days left...\""
+          ],
+          "order": 42
+        },
+        {
+          "code": "5.43",
+          "size": "MWS",
+          "move": "STATIC",
+          "action": "Both laugh.",
+          "keyMoments": [
+            "Both laugh"
+          ],
+          "order": 43
+        },
+        {
+          "code": "5.44",
+          "size": "MCU",
+          "move": "STATIC",
+          "action": "Maya, already scheming.",
+          "dialogue": "New segment. Long-distance co-host. I've got a whiteboard at home.",
+          "keyMoments": [
+            "\"New segment...\""
+          ],
+          "order": 44
+        },
+        {
+          "code": "5.45",
+          "size": "MS",
+          "move": "HANDHELD",
+          "action": "Dev, seriously alarmed, throws up his hands.",
+          "keyMoments": [
+            "Dev throws up hands"
+          ],
+          "order": 45
+        },
+        {
+          "code": "5.46",
+          "size": "WS → XWS",
+          "move": "DRONE PULL BACK / rise",
+          "action": "Camera pulls back and up off the promenade; the two of them shrink into the string of riverside lights. Their banter continues as VO, score swells.",
+          "keyMoments": [
+            "camera pulls back"
+          ],
+          "order": 46
+        },
+        {
+          "code": "5.47",
+          "move": "Superimpose",
+          "action": "Superimposed caption card: KEEP THE TAKE — Episode Five FADE OUT PRODUCTION SUMMARY EP EPISODE LOCATION TIME SHOTS CAST KEY REQUIREMENTS 1 1 TERRACE",
+          "dialogue": "Don't break the bit",
+          "order": 47
+        }
+      ]
+    }
+  ]
+}

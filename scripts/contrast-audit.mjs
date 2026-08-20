@@ -397,7 +397,7 @@ async function openApp({ browser, theme, devices }) {
 async function seed(page) {
   await page.getByText(/Shotlist . from a PDF/i).first().click();
   await page.waitForTimeout(800);
-  await page.locator('.sp-example', { hasText: /Dobaara/i }).first().click();
+  await page.locator('.sp-example', { hasText: /Keep The Take/i }).first().click();
   await page.waitForTimeout(1400);
   const start = page.getByRole('button', { name: /start the shoot/i }).first();
   if (await start.count()) { await start.click(); await page.waitForTimeout(1400); }
