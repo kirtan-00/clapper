@@ -254,6 +254,12 @@ button.lamp.primary:active:not(:disabled) {
   button.lamp, button.lamp::before { transition: none; }
 }
 
+.hint--blocked {
+  color: var(--accent-type);
+  font-weight: 600;
+}
+.sub-note.is-bad { color: var(--danger); font-weight: 600; }
+
 /* ---------- form elements ---------- */
 label.field-label {
   display: block;
@@ -802,7 +808,15 @@ footer.foot {
     if (!root || !sampleOld) {
       el.previewBlock.style.display = 'none';
       el.downloadBtn.disabled = true;
-      el.rootHint.textContent = root ? '' : 'Type the folder path to see the exact string that will be written, before you commit to it.';
+      // A greyed-out button that will not say what it is waiting for is the
+      // worst state this page can be in: everything LOOKS done, the folder has
+      // been read, the report is full of green numbers, and the one thing still
+      // missing is a text field further up the page that nobody scrolled back
+      // to. Say it, loudly, right where the dead button is.
+      el.rootHint.textContent = picked
+        ? 'Almost. The folder is read — now type in A above where "' + picked.rootName + '" lives on the edit machine, and this button lights up.'
+        : 'Type the folder path in A to see the exact string that will be written, before you commit to it.';
+      el.rootHint.className = 'hint hint--blocked';
       return;
     }
     // Preview a clip the folder can actually answer for, not merely the first
@@ -824,6 +838,7 @@ footer.foot {
     el.previewNew.textContent = buildPathurl(root, rel || filename);
     el.previewBlock.style.display = '';
     el.downloadBtn.disabled = false;
+    el.rootHint.className = 'hint';
 
     // The one mistake this tool cannot catch for you. A picked folder gives
     // paths INSIDE it, so the line you type has to end at that same folder. If
@@ -1051,29 +1066,65 @@ footer.foot {
     updatePreview();
   }
 
-  async function walkDir(dirHandle, prefix) {
+  // A card folder off a two-day shoot is thousands of entries on a spinning USB
+  // drive, and this walk yields one at a time. Silent, it looks like the button
+  // did nothing; people click it again, or give up. Report as it goes.
+  async function walkDir(dirHandle, prefix, onCount) {
     let out = [];
     for await (const [name, handle] of dirHandle.entries()) {
       const rel = prefix ? prefix + '/' + name : name;
       if (handle.kind === 'file') {
         out.push(rel);
+        if (onCount && out.length % 50 === 0) onCount(out.length);
       } else if (handle.kind === 'directory') {
-        out = out.concat(await walkDir(handle, rel));
+        const sub = await walkDir(handle, rel, function (n) { if (onCount) onCount(out.length + n); });
+        out = out.concat(sub);
       }
     }
     return out;
   }
 
+  function sayStatus(text, bad) {
+    clearChildren(el.verifyReport);
+    const pEl = document.createElement('p');
+    pEl.className = bad ? 'sub-note is-bad' : 'sub-note';
+    pEl.textContent = text;
+    el.verifyReport.appendChild(pEl);
+    el.verifyReport.style.display = '';
+  }
+
   el.pickFolderBtn.addEventListener('click', async function () {
     if (!loadedXmlText || docType !== 'xmeml') return;
     if ('showDirectoryPicker' in window) {
+      let dirHandle;
       try {
-        const dirHandle = await window.showDirectoryPicker();
-        const relPaths = await walkDir(dirHandle, '');
+        dirHandle = await window.showDirectoryPicker();
+      } catch (err) {
+        // Cancelled, or the browser refused the picker outright (some do, inside
+        // certain window modes). Cancelling is not an error; anything else falls
+        // through to the plain file input, which every browser has.
+        if (err && err.name === 'AbortError') return;
+        el.folderFallbackInput.click();
+        return;
+      }
+      try {
+        el.pickFolderBtn.disabled = true;
+        sayStatus('Reading the folder\u2026');
+        const relPaths = await walkDir(dirHandle, '', function (n) {
+          sayStatus('Reading the folder\u2026 ' + n.toLocaleString() + ' files so far');
+        });
+        if (!relPaths.length) {
+          sayStatus('That folder is empty, or the browser was not allowed to read inside it. Try again and choose "View files" when Chrome asks.', true);
+          return;
+        }
         verifyFiles(relPaths, dirHandle.name);
       } catch (err) {
-        if (err && err.name === 'AbortError') return;
-        console.error(err);
+        // NEVER console.error and leave the page looking idle. On a real drive
+        // this is a permission refusal or a read error on a bad card, and the
+        // person needs to know which.
+        sayStatus('Could not read that folder: ' + (err && err.message ? err.message : String(err)), true);
+      } finally {
+        el.pickFolderBtn.disabled = false;
       }
     } else {
       el.folderFallbackInput.click();
@@ -1082,7 +1133,7 @@ footer.foot {
 
   el.folderFallbackInput.addEventListener('change', function (e) {
     const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+    if (!files.length) { sayStatus('No files came back from that folder. If it is on an external drive, check the drive is mounted and try again.', true); return; }
     const raw = files.map(function (f) { return f.webkitRelativePath || f.name; });
     const rootName = raw[0].indexOf('/') >= 0 ? raw[0].split('/')[0] : '';
     // webkitRelativePath is prefixed with the picked folder's OWN name; the
