@@ -437,6 +437,12 @@ export function TakeEditSheet(props: {
 
   return (
     <Sheet title={`Edit shot ${take.number}`} onClose={props.onClose}>
+      {/* `.dt-sheet` re-materials the camera-unit badge, the Good/No good
+          toggle and the tag chips below (see skin/detail.css) — this sheet
+          is reachable from RollingScreen and ClipLogScreen, neither of
+          which carries `.pj`, so it reads the global `--m-*` pair rather
+          than a `--pj-*` one that would resolve to nothing here. */}
+      <div className="dt-sheet">
       <p className="camnote" style={{ marginTop: 0 }}>
         Fix a mis-logged clip{soundEditable ? ' or sound file' : ''} number, status, tags or note.
         Correcting a number also shifts every LATER shot on that camera{soundEditable ? ' or recorder' : ''}{' '}
@@ -551,6 +557,7 @@ export function TakeEditSheet(props: {
         <button type="button" className="btn btn--go" disabled={saving} onClick={() => void requestSave()}>
           Save shot
         </button>
+      </div>
       </div>
 
     </Sheet>

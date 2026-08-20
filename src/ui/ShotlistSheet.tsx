@@ -257,6 +257,10 @@ function SetupStep(props: { pack: ScriptPack; onClose: () => void; onImported: (
 
   return (
     <Sheet title="Set up the shoot" onClose={busy ? undefined : props.onClose}>
+      {/* `.dt-sheet` re-materials the camera-preset badge below (see
+          skin/detail.css) — the sheet's grabber, title and slide stay the
+          shared <Sheet> chrome, untouched. */}
+      <div className="dt-sheet">
       {/* A count, not a paragraph. What used to follow it - that clip
           numbering, extra cameras and sound are all editable afterwards - is a
           reassurance nobody needs before they have hit a wall. */}
@@ -334,6 +338,7 @@ function SetupStep(props: { pack: ScriptPack; onClose: () => void; onImported: (
         <button type="button" className="btn btn--go" disabled={!canStart} onClick={() => void create()}>
           {busy ? 'Loading scenes…' : 'Start the shoot'}
         </button>
+      </div>
       </div>
     </Sheet>
   );

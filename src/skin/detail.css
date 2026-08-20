@@ -131,18 +131,42 @@
  * saturated colour because nothing else was on hand. The accent already
  * carries "the thing that changed" everywhere else in this lane (the folder
  * key's LIVE word, the size picker's chosen stop), so a covered scene gets
- * the same fill instead, and a scene still to shoot keeps the quiet ring. */
+ * the same fill instead, and a scene still to shoot keeps the quiet ring.
+ *
+ * FILL, NOT EDGE — everything below sits ON the card, i.e. on `--pj-key`,
+ * never on the ivory ground. `--pj-accent-edge` is projects.css's own
+ * hairline-on-ivory variant (its comment says so directly: "at 1.5px on a
+ * light ground it disappears, so the focus ring... get the deep value
+ * instead" — night's half of that pair even reverses because the deep value
+ * "vanishes" the other way, on near-black). `.pj-key__live` and
+ * `.pj-units .camunit__badge` are the two places projects.css itself puts
+ * the accent directly on the mass, and both reach for the plain fill
+ * (`--pj-accent`, with `--pj-accent-ink` where the fill needs to carry
+ * text) — this follows that precedent instead of the ivory one. */
 .pj .scene-dot {
   border-color: var(--pj-mass-faint);
 }
 .pj .scene-dot--done {
   background: var(--pj-accent);
-  border-color: var(--pj-accent-edge);
+  border-color: var(--pj-accent);
 }
 /* The left edge that used to repeat the same message in --go-text. One
  * accent bar, not two signals fighting for the word "done". */
 .pj .card--done {
-  border-left: 3px solid var(--pj-accent-edge);
+  border-left: 3px solid var(--pj-accent);
+}
+
+/* The TODAY badge (a scene flagged by an uploaded call sheet). `.cambadge`'s
+ * base rule is green by default — a scene shooting today is a scheduling
+ * fact, not a statement the camera can roll, and it sits right beside the
+ * card's own scene-dot, which already spent the accent on "covered". Badge
+ * gets the same fill-plus-ink pairing `.pj-units .camunit__badge` already
+ * draws for its own filled badge on the mass; `.cambadge--approx` (brass,
+ * used elsewhere for an inexact camera preset) is untouched. */
+.pj .cambadge:not(.cambadge--approx) {
+  color: var(--pj-accent-ink);
+  border-color: var(--pj-accent);
+  background: var(--pj-accent);
 }
 
 /* Take / shot count. It is a NUMBER on the card, not a selection — the same
@@ -261,9 +285,25 @@
 }
 
 /* -------------------------------------------------------------- Shotlist ---
- * The two example cards and the upload button are shared `.sp-example` /
- * `.btn--go` — house-wide classes untouched here, so this sheet needed no
- * further work beyond the wrapper's inherited tone. */
+ * The two example cards and the upload button (ReadStep) are shared
+ * `.sp-example` / `.btn--go` — house-wide classes, no wrapper needed there.
+ * SetupStep's camera-preset preview is the one thing on this sheet that
+ * carried the green default: "exact" was `--go-text` on `--go-tint`, an
+ * accident of "this control needs a positive colour and green was the only
+ * one in the room" rather than a rolling-ready claim. Reads on the sheet's
+ * own ivory/dark surface (never the mass), so it takes the same deep/fill
+ * split `--pj-accent-edge` uses, restated against the global `--m-*` pair
+ * since this sheet has no `.pj` to read it from. */
+.dt-sheet .cambadge:not(.cambadge--approx) {
+  color: var(--m-accent-ink);
+  border-color: var(--m-accent-deep);
+  background: color-mix(in srgb, var(--m-accent) 20%, transparent);
+}
+[data-theme='night'] .dt-sheet .cambadge:not(.cambadge--approx) {
+  color: var(--m-accent);
+  border-color: var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 14%, transparent);
+}
 
 /* -------------------------------------------------------------- Sign in ----
  * Same story: `.btn--go` is the standing "primary action" colour across the
