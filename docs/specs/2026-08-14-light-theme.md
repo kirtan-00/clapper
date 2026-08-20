@@ -1,6 +1,6 @@
 # Clapper: the clear theme
 
-Direction change from Kirtan, 2026-08-14, mid-build:
+Direction change from the owner, 2026-08-14, mid-build:
 
 > "ui like apple blurry translucent not glass ui but clear theme this dark
 > theme looks bad for outside part"
@@ -223,7 +223,7 @@ Contrast numbers are necessary, not sufficient. The claim being made is
 
 ## The iOS idiom
 
-Kirtan, same session: *"frosted look ios style sleek all icon and other things
+the owner, same session: *"frosted look ios style sleek all icon and other things
 ios app style minimal nd good"*, *"sleak smart elegant"*.
 
 Read as: it should feel native, and the throughline is **restraint**. Anything

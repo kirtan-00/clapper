@@ -1,7 +1,7 @@
 # Clapper — Accounts, Quotas & Abuse Protection (design spec)
 
 Date: 2026-07-15
-Status: approved (Kirtan), ready to build
+Status: approved (the owner), ready to build
 Owner: Clapper (kirtan-00/clapper), Supabase project `sqqdivfgdfaztfzrzkhu`
 
 ## 1. Goal
@@ -177,7 +177,7 @@ users collected, per-`ref` conversion.
 ## 11. Error handling & offline
 
 - Offline gated action: `You're offline — Script Mode and Premiere/CSV export need a connection. Logging takes and PDF export work offline.`
-- Cap: `Free limit reached — more coming soon.` + `cap_hit` event. (No CTA — per Kirtan.)
+- Cap: `Free limit reached — more coming soon.` + `cap_hit` event. (No CTA — per the owner.)
 - Rate-limited: `Too fast — give it a moment and try again.`
 - Groq paused (kill-switch/daily cap): `Script Mode is taking a breather — try again later.`
 - Auth error: graceful, offer retry sign-in. Core logging + PDF never blocked by any of this.
@@ -193,7 +193,7 @@ users collected, per-`ref` conversion.
 6. service-role key only in edge secrets; never in client bundle or repo.
 7. Turnstile verified server-side, hostname checked; token single-use.
 
-## 13. Human setup (Kirtan — I supply exact values)
+## 13. Human setup (the owner — I supply exact values)
 
 - **Google Cloud:** OAuth consent screen (External; scopes openid/email/profile — non-sensitive, no
   verification); Web OAuth client; Authorized redirect URI `https://sqqdivfgdfaztfzrzkhu.supabase.co/auth/v1/callback`;
@@ -216,7 +216,7 @@ Contract above is frozen so agents don't diverge. Disjoint file sets in phase 1.
   + set `TURNSTILE_SECRET`. Build (`npm run build`) green.
 - **P4 — Fable security review** against §12 + a correctness pass; fix findings.
 - **P5 — Verify:** `npm run dev`, click through gated + free paths (dummy Turnstile), then hand
-  Kirtan the §13 setup and deploy to gh-pages on his go.
+  the owner the §13 setup and deploy to gh-pages on his go.
 
 ## 15. Out of scope (YAGNI for v1)
 

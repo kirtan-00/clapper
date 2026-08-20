@@ -3,7 +3,7 @@
 Plan, 2026-08-14. Two phases live. Folders, podcast mode, payments and the new
 logo are sketched at the end and deliberately not in this build.
 
-Scope came from Kirtan: "solve ui and the llm thing which did not allow last
+Scope came from the owner: "solve ui and the llm thing which did not allow last
 shoot's shot division", shell first, then features.
 
 ---
@@ -109,7 +109,7 @@ service worker has produced a wrong "verified" once before.
 
 ### The actual failure
 
-Hu Kon Chu's own breakdown was rejected on set. `shotlist.ts` is strict by
+the example film’s own breakdown was rejected on set. `shotlist.ts` is strict by
 design and that strictness is the selling point: on-device, free, instant,
 offline, exact, nothing uploaded. It is not the thing to loosen. It rejects at:
 
@@ -153,7 +153,7 @@ Prompt rules taken from the real document, not invented:
 - Accept `1.1`, `1-1`, `S1-01`, `Scene 1 / Shot 1`, bare tables, plain text.
 - **Never fabricate a size or a move.** No size column means `size: undefined`.
 - Per-shot location must survive. Real breakdowns change location inside one
-  scene number (Hu Kon Chu scene 1 runs Rahul's Home, then Bedroom, then
+  scene number (the example film scene 1 runs Rahul's Home, then Bedroom, then
   Transition). Clapper holds one name per scene, so the location goes at the
   **start** of `action`, because `action` truncates at 160 chars and a trailing
   location gets cut.
@@ -181,7 +181,7 @@ true the moment this ships on a rejected file.
 
 ### Done means both of these, not one
 
-1. `~/Desktop/HuKonChu-shotlist-clapper.pdf` imports end to end through the
+1. `~/Desktop/ExampleFilm-shotlist-clapper.pdf` imports end to end through the
    fallback. Ground truth already exists: the hand-built
    `src/ui/packs/hu-kon-chu.json`, 10 scenes and 76 shots. The output should
    match it structurally.
@@ -210,7 +210,7 @@ film. This is the cheapest possible addition the codebase supports: no schema
 bump, no migration, no sync change, because a Project is already stored and
 synced whole. The only real work is the UI branch.
 
-**Parked.** Payment gateway (Razorpay) and the new logo, both on Kirtan's word.
+**Parked.** Payment gateway (Razorpay) and the new logo, both on the owner's word.
 Note that `is_pro` is already server-authoritative and only writable by
 service_role, so until billing exists the gate is a SQL update, which is fine
 for the first paying users.

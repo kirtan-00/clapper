@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-17
 **Status:** approved (structural + aesthetic direction), building.
-**Owner:** Kirtan (via Claude)
+**Owner:** the owner (via Claude)
 
 ## Purpose
 
@@ -96,13 +96,13 @@ a button says exactly what happens.
 - Build as a self-contained body fragment (`<style>` + markup + `<script>`, no
   html/head/body wrapper) so it publishes directly as an Artifact for phone preview
   and slots cleanly into `<body>` of the repo's SEO-laden index.html on ship.
-- Preview loop: publish Artifact → Kirtan scrolls on phone → revise → redeploy same URL.
+- Preview loop: publish Artifact → the owner scrolls on phone → revise → redeploy same URL.
 - On approval: becomes landing `index.html`, app moves to `/app/`, PWA start_url +
   scope updated, `./deploy.sh` ships both.
 - Quality floor: responsive to mobile, visible keyboard focus, reduced-motion respected,
   no broken links, app link points at `/app/`.
 
-## Build/review split (Kirtan's pattern)
+## Build/review split (the owner's pattern)
 - One Opus subagent builds the full page (single file needs unified art direction).
 - One Fable subagent reviews adversarially: AI-slop tells, drop-frame TC correctness,
   real Premiere colors, phone safe-area, broken links, `/app/` link.

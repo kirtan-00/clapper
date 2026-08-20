@@ -1,6 +1,6 @@
 # Clapper landing v2 — "One Continuous Take"
 
-**Date:** 2026-07-18 · **Status:** approved direction (Kirtan picked Lane 1) · **Supersedes** the 5-beat page (2026-07-17 spec) as the creative direction; URL architecture and delivery mechanics from that spec still stand (landing at `/`, app at `/app/`, body-fragment artifact→repo flow).
+**Date:** 2026-07-18 · **Status:** approved direction (the owner picked Lane 1) · **Supersedes** the 5-beat page (2026-07-17 spec) as the creative direction; URL architecture and delivery mechanics from that spec still stand (landing at `/`, app at `/app/`, body-fragment artifact→repo flow).
 
 ## The concept in one line
 The page is a night shoot you scroll through; the scroll is the dolly; at "CUT." the
@@ -128,7 +128,7 @@ motion). Grain static. Everything legible, nothing mid-animation.
 
 **CTA:** `/app/`. Voice: dry, concrete, second person; headlines end with a period.
 
-## Feature text (Kirtan: "showing features with text required wherever")
+## Feature text (the owner: "showing features with text required wherever")
 The story carries the pitch, but the product must be EXPLAINED in text at the right
 moments — short mono kicker + one chalk line each, one idea per frame, never a grid:
 - In the shot (beat 3): `VOICE TRIGGER` — "Say 'roll'. Hands stay on the camera."
@@ -139,7 +139,7 @@ moments — short mono kicker + one chalk line each, one idea per frame, never a
 - Near CTA: `ALSO` — "PDF shot log. CSV. Works offline in a basement. Free."
 Each appears/holds with its scroll range; copy voice rules apply.
 
-## Hover + cursor (Kirtan's ask; desktop only, touch never depends on it)
+## Hover + cursor (the owner's ask; desktop only, touch never depends on it)
 - **Cursor moment:** replace the cursor with a small chalk **viewfinder ring** (12px,
   1px hairline, tiny center dot; mix-blend-difference so it reads on night and daylight).
   It trails position with a 120ms weighted follow (single rAF, transform-only). Over

@@ -1,6 +1,6 @@
 # Clapper: the premium standard
 
-Kirtan, 2026-08-15, on seeing the rebuilt UI:
+the owner, 2026-08-15, on seeing the rebuilt UI:
 
 > "i am talking about ios app style frosted ui glassy and fine ass not indie app
 > style this looks claude generated ... all the menus tabs burger menu elegant
@@ -73,7 +73,7 @@ de-AI-ification.
 
 ## 3. Glass: what it is, and the rule that keeps it readable
 
-**Kirtan asked for glassy. The tension with midday sun is real and it resolves
+**the owner asked for glassy. The tension with midday sun is real and it resolves
 cleanly, because opacity is the ONLY lever that spends contrast.**
 
 - **Vibrancy** (saturate/brightness on the blur composite) — costs nothing.
@@ -357,10 +357,10 @@ It gets its own section because it is the product.
 - **ROLL sits mid-screen while CUT sits at the bottom.** The single most-pressed
   control in the app **changes physical position between the two states it
   toggles**. Anchor the deck to the bottom in both states. This is the one change
-  Kirtan will feel in his hand.
+  the owner will feel in his hand.
 - The idle screen is **density-inverted**: controls crowd the top third, then a
   dead void below ROLL. The void belongs *above* the controls, in the stage.
-- **CUT button size is user-adjustable** (Kirtan's explicit request,
+- **CUT button size is user-adjustable** (the owner's explicit request,
   2026-08-15). A Settings row, a scale factor, persisted like the theme. **The
   hard constraint: `RollingScreen`'s written contract that CUT is never off
   screen must hold at every size**, including the largest, with the keyboard up,

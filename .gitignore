@@ -16,3 +16,7 @@ dist-site
 .env.*
 !.env.example
 .superpowers/
+
+# Business planning that names the owner, his agency and his pricing strategy.
+# Stays on disk, never in a public repo.
+docs/validation-and-willingness-to-pay-plan.md

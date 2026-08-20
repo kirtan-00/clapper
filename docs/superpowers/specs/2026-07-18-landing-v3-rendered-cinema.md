@@ -87,5 +87,5 @@ images; final deploy on clapboard.duckdns.org = real image files, no CSP limit.
 Fonts: Bricolage Grotesque + IBM Plex Mono (embedded) + Courier stack for screenplay.
 
 ## Render pipeline note
-Higgsfield (nano_banana_pro fallback per Kirtan's standing preference). Render #1
+Higgsfield (nano_banana_pro fallback per the owner's standing preference). Render #1
 first → approve → img2img the children. One LUT pass after.

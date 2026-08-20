@@ -1,6 +1,6 @@
 # Clapper landing v4 — "The Editor's Monday"
 
-**Date:** 2026-07-18 · **Status:** approved (Kirtan: #1 + #3's timecode rail as spine).
+**Date:** 2026-07-18 · **Status:** approved (the owner: #1 + #3's timecode rail as spine).
 **Why every prior version failed:** dark + cinematic + dramatic scroll IS the AI look in
 2026, and you cannot out-cinema filmmakers. v4 flips it: LIGHT mode, real interfaces,
 deadpan honesty. The mind-blow is the product's actual magic in its native habitat —
