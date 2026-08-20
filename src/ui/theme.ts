@@ -21,8 +21,8 @@ export const THEME_KEY = 'clapper.theme';
 
 /** Ground colour per theme: --paper in src/styles.css. Also in index.html. */
 const THEME_COLOR: Record<Theme, string> = {
-  light: '#fbfaf7',
-  night: '#0c0d10',
+  light: '#F2F8E6',
+  night: '#011207',
 };
 
 // Storage throws outright in Safari private mode and with cookies blocked. A

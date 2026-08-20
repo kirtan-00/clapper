@@ -25,8 +25,8 @@ export default defineConfig({
         orientation: 'portrait',
         // The PWA splash, which cannot follow a runtime toggle: it takes the
         // default theme. --paper from src/styles.css.
-        background_color: '#fbfaf7',
-        theme_color: '#fbfaf7',
+        background_color: '#F2F8E6',
+        theme_color: '#F2F8E6',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },

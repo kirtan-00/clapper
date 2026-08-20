@@ -14,7 +14,7 @@
     <!-- Kept in sync with the theme by the script below and by src/ui/theme.ts.
          Without that the iOS status bar and the PWA splash stay the other
          theme's colour. -->
-    <meta name="theme-color" content="#fbfaf7" />
+    <meta name="theme-color" content="#F2F8E6" />
 
     <!--
       Theme, applied BEFORE first paint. Doing this in React means a white
@@ -33,7 +33,7 @@
           if (t !== 'night') return; // absent, 'light', or anything unexpected
           document.documentElement.setAttribute('data-theme', 'night');
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', '#0c0d10');
+          if (m) m.setAttribute('content', '#011207');
         } catch (e) {
           /* light is the default and is already in the markup */
         }
