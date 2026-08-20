@@ -376,6 +376,56 @@
   --scrim-bg: rgba(4, 5, 7, 0.66);
   --scrim-blur: blur(2px);
 
+  /* ---- Machined layer (docs/specs round-2 repaint) -----------------------
+     AN ADDITIVE NAMESPACE, NOT A REPLACEMENT. Every name here is `--m-*` and
+     nothing above redefines itself in terms of one, so a screen opts in by
+     using the `.hw` classes at the bottom of this file and opts out by
+     dropping them. That is deliberate: the repaint lands screen by screen,
+     the old tokens still dress the four screens it has not reached, and 228
+     tests plus the whole night ramp have to survive every intermediate state.
+
+     The palette is the approved one. The distinction that matters is SHEET vs
+     MASS: the app's ground is milled ivory, and a control is either a well
+     cut INTO that ivory (ROLL) or a block of dark metal set into it (CUT).
+     Those are different materials, so they get different wells and different
+     travel, not one button with two fills. */
+  --m-sheet: #f7f6f2;         /* the ivory a well is milled into */
+  --m-mass: #101714;          /* the dark block CUT is cut from */
+  --m-raised: #1c2420;        /* a key standing on the mass */
+  --m-pressed: #242d28;       /* that key, bottomed out */
+  --m-accent: #c9c6f7;        /* the ONE accent, where the thumb lands */
+  --m-accent-press: #afabe8;
+  --m-accent-ink: #22204a;    /* type on the accent, 8.6:1 */
+  --m-accent-deep: #8d89cf;   /* the accent's machined under-edge */
+  --m-rec: #ff453a;           /* recording ONLY: the ring. Never a button fill */
+  --m-brass: #d8b23c;         /* GOLD and nothing else */
+  --m-brass-deep: #8a6d14;
+
+  /* The two wells. A well is RECESSED, so it is always darker than the
+     surface it is cut from, with a lit lip along its bottom edge where the
+     milling catches the light. Those two shadows are what the eye actually
+     reads as "machined"; the fill alone reads as a second rectangle. */
+  --m-well-sheet: #eae7dc;
+  --m-well-sheet-shade: rgba(22, 24, 26, 0.20);
+  --m-well-sheet-lip: rgba(255, 255, 255, 0.85);
+  --m-well-mass: #030605;
+  --m-well-mass-shade: rgba(0, 0, 0, 0.90);
+  --m-well-mass-lip: rgba(241, 240, 234, 0.13);
+  /* What a proud face casts onto the sheet below it. Light keeps this soft -
+     the existing --key-shadow note applies, a black slab on ivory is wrong. */
+  --m-cast: rgba(20, 22, 40, 0.16);
+  --m-cast-mass: rgba(0, 0, 0, 0.50);
+
+  /* The tally ring's corner. Follows the DEVICE, not the radius family above:
+     it traces the phone's own corner, so it is geometry like the grabber pill
+     and the stripe rail, not a member of the 10/14/20 ramp. */
+  --m-ring-radius: 44px;
+  --m-ring-weight: 3px;
+  /* How far the ring stands off the safe area. Small on purpose: the ring has
+     to sit BETWEEN the screen edge and the content inset (--inset, 16px), or
+     it crosses the clock and the chips. */
+  --m-ring-standoff: 4px;
+
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -450,6 +500,23 @@
      is that 190% on near-black turns REC and brass neon, and that a dark iOS
      material sits LIGHTER than its ground. */
   --material-blur: saturate(150%) brightness(1.02) blur(18px);
+
+  /* ---- Machined layer on night ------------------------------------------
+     THE APPROVED DESIGN IS SINGLE-THEME, so this half is designed here rather
+     than ported. Only the SHEET side moves. The ivory well (#eae7dc) on a
+     #0c0d10 ground would be a lit slab floating under the button - the exact
+     opposite of a recess - so the sheet well drops below the ground and its
+     lip stops being white, because a specular highlight that bright at 5am is
+     the thing you are holding the phone away from your face to avoid.
+
+     The MASS side needs nothing: #030605 is already below night's ground, so
+     CUT reads recessed in both themes for free. The accent needs nothing
+     either - #c9c6f7 was picked to carry --m-accent-ink on it, and that pair
+     is a closed system that does not care what is behind the button. */
+  --m-well-sheet: #06070a;
+  --m-well-sheet-shade: rgba(0, 0, 0, 0.80);
+  --m-well-sheet-lip: rgba(236, 233, 225, 0.10);
+  --m-cast: rgba(0, 0, 0, 0.45);
 }
 
 * { box-sizing: border-box; }
