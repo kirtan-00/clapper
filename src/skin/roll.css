@@ -708,19 +708,26 @@
   background: var(--roll-mass-pressed);
   box-shadow: none;
 }
-/* Night: the cap stops reflecting and the legend starts emitting, like a
-   camera's backlit controls. */
-[data-theme="night"] .roll--live .keycap {
-  text-shadow: 0 0 10px rgba(214, 212, 200, 0.16);
+/* THE LAMP ON THE MASS. The mechanism and the no-glow rule are stated once in
+   styles.css beside `.keypad .keycap::before`; this is only what the two
+   colours are when the key is sitting on dark metal instead of on the sheet.
+   Unlit is the mass's own hairline, so an unlit lamp reads as part of the key
+   rather than as a dark smear on it; lit is the mass-borne brass, the same
+   value the tally ring and the armed MARK OUT already use, so everything on
+   this deck that means "this take" is one colour. */
+.roll--live .keypad .keycap {
+  --lamp-on: var(--roll-accent);
+}
+.roll--live .keypad .keycap::before {
+  background: var(--roll-mass-rule);
 }
 
 /* The tally badge, and it POPS: a tag tapped without looking needs a receipt
-   sized for arm's length. It rides the row's right end rather than the cap's
-   top corner — the pitch's caps are a 3-up grid with room above them, and in
-   the list layout this app uses (which is what keeps a six-word script beat
-   readable) a corner badge lands on the cap above it. The row already has that
-   end reserved: `.keypad--list .keycap` is justify-content: space-between. */
-.roll--live .keypad--list .keycap__count {
+   sized for arm's length. Two layouts share it now - a 3-across tag key
+   centres it beside the label, a full-width key-moment row parks it at the far
+   end (`.keypad--list .keycap` is justify-content: space-between) - and it is
+   the same ring in both, because it answers the same question in both. */
+.roll--live .keypad .keycap__count {
   padding: 2px 7px;
   border-radius: var(--radius-pill);
   /* AN OUTLINE, NOT A FILL. It was a filled accent pill, and a filled accent
@@ -742,40 +749,15 @@
   100% { transform: scale(1); }
 }
 .roll--live .keycap.chip--flash {
-  /* The old green flash fought the badge for the same instant. The travel and
+  /* The old green flash fought the badge for the same instant. The lamp and
      the pop are the receipt now. */
   animation: none;
 }
-/* A tallied cap keeps a lit edge after the pop has gone. */
-.roll--live .keypad--list .keycap:has(.keycap__count) {
+/* A tallied cap keeps a lit edge after the pop has gone - and now the lamp
+   down its leading edge is still on too, which is the part that reads from
+   across the room. */
+.roll--live .keypad .keycap:has(.keycap__count) {
   border-color: var(--roll-accent);
-}
-
-/* Tier 1 (coverage sizes) is the quiet strip it always was — recoloured onto
-   the mass, never given the keycap's travel. Its job is high-frequency and
-   low-stakes; the weight belongs to the moments below it. */
-.roll--live .keypad--segmented {
-  background: var(--roll-mass-rule);
-  border-color: var(--roll-mass-rule);
-}
-.roll--live .keycap--coverage {
-  background: var(--roll-mass-raised);
-  color: var(--roll-mass-ink);
-  border: none;
-  box-shadow: none;
-}
-.roll--live .keycap--coverage.chip.keycap:active,
-.roll--live .keycap--coverage.chip.keycap.is-pressed {
-  transform: none;
-  box-shadow: none;
-  background: var(--roll-mass-pressed);
-}
-.roll--live .keycap--coverage .keycap__count {
-  position: static;
-  background: none;
-  color: var(--roll-accent);
-  padding: 0;
-  animation: none;
 }
 
 /* MARK IN / MARK OUT: an outline pill on the mass. Not a slab — CUT below is
@@ -1441,7 +1423,7 @@
   .drum__col {
     transition: none;
   }
-  .roll--live .keypad--list .keycap__count {
+  .roll--live .keypad .keycap__count {
     animation: none;
     transform: none;
   }

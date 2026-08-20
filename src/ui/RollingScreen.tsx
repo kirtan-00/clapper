@@ -1940,24 +1940,29 @@ export function RollingScreen(props: {
               </div>
             ) : scriptMode ? (
               <>
-                {/* Tier 1: sizes, a compact segmented control - the highest-
-                    frequency, lowest-stakes tap, so it costs the least
-                    visual weight. Still a fixed single row so a key never
-                    changes position scene to scene. Guarded on length, same
+                {/* Tier 1: sizes, THE THREE-ACROSS TAG GRID. It used to be a
+                    joined segmented strip, which meant this screen drew its
+                    tag keys one way in Script Mode and another way without a
+                    breakdown - one deck, two layouts, and a thumb that had to
+                    learn both. There is one tag grid now (.keypad--tags) and
+                    the quick-tag set below uses the same one. Fixed columns,
+                    never flex-wrap: that is what stops keys reflowing scene to
+                    scene, so the muscle memory a 2-3 week shoot builds up
+                    survives a script-mode label swap. Guarded on length, same
                     as tier 2 below it: GOLD used to sit in this grid and kept
                     it non-empty even when a scene carried no coverage tags of
-                    its own, so an empty segmented strip never had to be a
-                    case. Now that GOLD lives by MARK IN, an ungated map()
-                    left a stray empty bar behind for exactly that scene. */}
+                    its own, so an empty grid never had to be a case. Now that
+                    GOLD lives by MARK IN, an ungated map() left a stray empty
+                    bar behind for exactly that scene. */}
                 {coverageChips.length > 0 && (
-                  <div className="keypad keypad--segmented" aria-label="Coverage">
+                  <div className="keypad keypad--tags" aria-label="Coverage">
                     {coverageChips.map((tag) => {
                       const n = flashes[tag] ?? 0;
                       return (
                         <button
                           key={`${tag}:${n}`}
                           type="button"
-                          className={`chip keycap keycap--coverage${n > 0 ? ' chip--flash' : ''}`}
+                          className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
                           onPointerDown={beginTagHold}
                           onPointerMove={moveTagHold}
                           onPointerUp={cancelTagHold}
@@ -1999,10 +2004,16 @@ export function RollingScreen(props: {
                 )}
               </>
             ) : (
-              // No breakdown: the flat quick-tag set reads as the same tier 2
-              // list. GOLD is filtered out here too - it moved to its own
-              // grade action by MARK IN, see goldAvailable below.
-              <div className="keypad keypad--list" aria-label="Quick tags">
+              // No breakdown: the flat quick-tag set is THE SAME TAG GRID the
+              // coverage tier above uses. It was a full-width stacked list,
+              // which is how seven tags came to fill the whole deck and slid
+              // the last one under MARK IN. Three across is what a thumb wants
+              // and what the reference draws, and it is now the only tag
+              // layout on this screen - regardless of how many units are
+              // joined or whether the scene carries a breakdown. GOLD is
+              // filtered out here too: it moved to its own grade action by
+              // MARK IN, see goldAvailable below.
+              <div className="keypad keypad--tags" aria-label="Quick tags">
                 {project.tags.filter((tag) => tag !== 'GOLD').map((tag) => {
                   const n = flashes[tag] ?? 0;
                   return (

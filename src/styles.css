@@ -2377,30 +2377,31 @@ select.field {
 }
 
 /* --------------------------------------------------------- keypad -------
-   Three tiers, told apart by WEIGHT AND SHAPE rather than by decoration -
-   colour stays a signal, not a rank, so GOLD is the only chip below allowed
-   to carry one (the spec's signal list: rolling / GOLD / discarded / sound).
-   Tapping a flat wall of identical cards gave a 5am thumb no eye path; these
-   three read as three different kinds of control on sight, the way a real
-   keypad, a segmented switch and a grade button never get confused for
-   each other on a physical deck:
+   ONE TAG DECK, ONE LAYOUT. The tags are three across, always:
 
-     1. SIZES (coverage) - .keypad--segmented: one quiet strip, no travel.
-        The highest tap-frequency, lowest-stakes tier (tap it again if wrong),
-        so it costs the least visual weight.
-     2. MOMENTS (key beats, or the flat quick-tag set with no breakdown) -
-        .keypad--list: full-width rows, the keycap hardware-key travel kept
-        (see .bigbtn) because these ARE the record of what happened in the
-        take. Still greyscale - brass used to mean "key moment" AND "GOLD",
-        which spent the one colour that is supposed to say "this take".
+     1. TAGS (coverage sizes, or the flat quick-tag set when a scene carries
+        no breakdown) - .keypad--tags: a fixed 3-column grid of keys, each one
+        a tally lamp. This is the layout regardless of how many units are
+        joined and regardless of whether a breakdown exists, because it is the
+        same vocabulary doing the same job either way.
+     2. MOMENTS (key beats - "She turns to camera") - .keypad--list:
+        full-width rows, because a six-word sentence is not a keycap. A grid
+        cell would clamp it to two lines of nothing; a row reads at a glance
+        and leaves its far end for the running count.
      3. GOLD - not in a keypad at all any more. See .goldbtn by the mark row:
         a grade action belongs beside the controls that end a take, not
         buried in a grid of tags competing with everything else on it.
 
-   Both surviving grids are still fixed, not flex-wrap: that is what stopped
-   keys reflowing scene to scene, so the muscle memory a 2-3 week shoot builds
-   up survives a script-mode label swap. Long coverage labels ("A · Wide
-   dolly-in") ellipsis/wrap INSIDE their fixed cell; the grid never reflows. */
+   What died here was a THIRD shape: a joined `.keypad--segmented` strip that
+   drew the coverage tier one way while the quick-tag set drew the same seven
+   words as a stack of full-width rows. That was one screen speaking two
+   dialects - and the stack is what let the seventh tag slide under MARK IN,
+   because seven 44px rows do not fit in a deck that also has to hold CUT.
+
+   Both grids are fixed, not flex-wrap: that is what stopped keys reflowing
+   scene to scene, so the muscle memory a 2-3 week shoot builds up survives a
+   script-mode label swap. Long labels ("A · Wide dolly-in") ellipsis/wrap
+   INSIDE their fixed cell; the grid never reflows. */
 .keypad {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2456,45 +2457,57 @@ select.field {
   opacity: 0.95;
 }
 
-/* ---- tier 1: sizes, as a compact segmented control ----------------------
-   One continuous strip instead of separate cards: hairline dividers via the
-   1px background gap, no keycap shadow, a lighter background-tint press (the
-   list-row press, not the hardware-key travel) because this tier is quiet by
-   design. Still a single row in a fixed left-to-right order, so it never
-   reflows any more than the grid it replaces did. */
-.keypad--segmented {
-  display: flex;
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+/* ---- tier 1: the tag grid ------------------------------------------------
+   Three across, one row per three tags. Seven tags is three rows and about
+   180px of deck, where seven full-width rows was 400px and did not fit above
+   MARK IN. The columns are declared here rather than left to `.keypad`'s
+   default so the class states its own contract. */
+.keypad--tags {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* EVERY TAG KEY IS A TALLY LAMP, the same mechanism as `.btn` and
+   `.bigbtn.hw` - quiet surface, hairline, and a strip down the leading edge
+   that is dark until the thing it reports is true. On a tag key "true" is not
+   a press that lasts 90ms; it is THIS TAG IS ON THIS TAKE. So the lamp lights
+   under the thumb AND stays lit for as long as the tag carries a count, which
+   is what a tally lamp does on a camera and is the one piece of state an
+   operator needs back from a tag they tapped without looking.
+
+   NO GLOW. `--lamp-glow` is a spread shadow and a key clips its own overflow,
+   so the spread bleeds INWARD across the face and reads as a bevel - exactly
+   the raised-key look this screen is not allowed to have. The strip is a flat
+   line of brass. A FILL would mean GOLD; this is a LINE, which is emphasis.
+
+   7px of lamp sits inside 12px of padding, so the label never touches it and
+   the type stays centred in the cell rather than nudged off-axis. */
+.keypad .keycap {
+  position: relative;
   overflow: hidden;
 }
-.keycap--coverage {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: var(--tap);
-  padding: var(--sp-1) var(--sp-2);
-  border: none;
-  border-radius: 0;
-  background: var(--ink-800);
-  color: var(--chalk);
-  font-weight: 600;
-  font-size: var(--t-caption);
-  flex-direction: column;
-  gap: 0;
-  line-height: 1.2;
-  box-shadow: none;
+.keypad .keycap::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--lamp-width);
+  background: var(--lamp-off);
+  pointer-events: none;
+  transition: background var(--dur-state) linear;
 }
-.keycap--coverage.chip.keycap:active { transform: none; box-shadow: none; background: color-mix(in srgb, var(--text) 8%, transparent); }
-.keycap--coverage .keycap__label { -webkit-line-clamp: 1; line-clamp: 1; }
-.keycap--coverage .keycap__count { font-size: var(--t-caps); }
+.keypad .keycap:active::before,
+.keypad .keycap.is-pressed::before,
+.keypad .keycap:has(.keycap__count)::before {
+  background: var(--lamp-on, var(--m-accent));
+}
 
 /* ---- tier 2: moments, as a scannable list --------------------------------
-   Full-width rows (the fixed grid becomes a fixed single column) so a label
-   and its running count sit at opposite ends of one line rather than
-   competing for a square cell - "scannable" per the spec, and the keycap
-   hardware-key travel stays because these are the taps that matter. */
+   KEY BEATS ONLY. Full-width rows (the fixed grid becomes a fixed single
+   column) so a six-word sentence and its running count sit at opposite ends
+   of one line rather than competing for a square cell - "scannable" per the
+   spec. The flat quick-tag set used to land here too and that was the bug:
+   WIDE is a keycap, "She turns to camera" is a row, and giving both the row
+   is how seven single words came to fill an entire deck. The tag grid above
+   owns every short tag now; this owns the sentences. */
 .keypad--list {
   display: flex;
   flex-direction: column;
@@ -2940,24 +2953,35 @@ select.field {
 .takebar {
   display: flex;
   align-items: stretch;
-  gap: 1px;
+  gap: 2px;
   width: 100%;
   max-width: 420px;
-  height: 14px;
+  /* WAS 14px, and at that height sixty ticks read as a texture rather than as
+     a bar - close enough to a hairline that the eye filed it as a rule and
+     stopped looking. The point of this strip is to be readable from the corner
+     of an eye that is on the actors, so it has to have some body. Twenty-six is
+     the height at which a lit tick is a MARK rather than a scratch, and it is
+     also, not coincidentally, about the proportion of a film perforation. */
+  height: 26px;
   margin: var(--sp-3) auto 0;
 }
 .takebar__tick {
   flex: 1 1 0;
   min-width: 0;
-  border-radius: 1px;
+  border-radius: 2px;
   /* Unlit is a real mark, not empty space: the strip has to read as sixty
      places whether or not any of them is lit yet, or the first second of a
-     take looks like a rendering failure. */
-  background: var(--hairline);
+     take looks like a rendering failure. Held one step darker than --hairline
+     so the unlit run still reads as a track at this new height instead of
+     dissolving into the ground. */
+  background: color-mix(in srgb, var(--text) 14%, transparent);
   transition: background var(--dur-state) linear;
 }
+/* Brass, because a second that has gone by is emphasis and emphasis is brass.
+   NOT a fill in the GOLD sense - these are sixty separate marks on a track,
+   which is the accent behaving as a segment, exactly as the rule allows. */
 .takebar__tick.is-on {
-  background: var(--text);
+  background: var(--m-accent);
 }
 
 .stage__hint {
