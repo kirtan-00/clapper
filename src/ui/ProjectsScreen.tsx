@@ -953,7 +953,7 @@ function HeroMass(props: { row: Row; folderName?: string; onOpen: () => void }) 
       </span>
       {/* Where it is filed, when it is filed. It is an EYEBROW rather than a
           fourth clause on the fact line below: appended there it truncated the
-          line it was appended to, and "8 scenes · CrayWi…" reads as a broken
+          line it was appended to, and "8 scenes · Riverside…" reads as a broken
           sentence where a caps line above the title reads as a heading. It
           exists at all because this shoot is ALSO drawn inside that folder's
           count further down, and the two have to be visibly the same thing. */}

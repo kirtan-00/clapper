@@ -176,7 +176,7 @@ function shotTake(id: string, number: number, extra: Partial<Take> = {}): Take {
 }
 
 describe('pdf.ts — the shot description prints once per shot', () => {
-  const DESC = 'RUHI turns to the window and waits';
+  const DESC = 'MEERA turns to the window and waits';
 
   it('prints it once above four takes of the same shot, not once per take', async () => {
     const takes = [1, 2, 3, 4].map((n) => shotTake(`t${n}`, n));
@@ -262,8 +262,8 @@ describe('pdf.ts — a long shot description wraps instead of overflowing', () =
   // is meant to be updated in lockstep.
   const DESC_WIDTH = 595.28 - 54 * 2 - 8;
   const LONG =
-    'RUHI walks the length of the empty rooftop while the city lights come up behind her, ' +
-    'stops at the parapet, looks down at the traffic and then back over her shoulder at ANSH';
+    'MEERA walks the length of the empty rooftop while the city lights come up behind her, ' +
+    'stops at the parapet, looks down at the traffic and then back over her shoulder at DEV';
 
   async function helvetica(): Promise<PDFFont> {
     const doc = await PDFDocument.create();
@@ -283,7 +283,7 @@ describe('pdf.ts — a long shot description wraps instead of overflowing', () =
     // Wrapped, not cut: no line was truncated away with an ellipsis, and the
     // last word of the description still survives on the page.
     expect(block.desc.some((l) => l.endsWith('...'))).toBe(false);
-    expect(block.desc.join(' ')).toContain('ANSH');
+    expect(block.desc.join(' ')).toContain('DEV');
   });
 
   it('measures taller for a wrapped description and exactly the bare line without one', async () => {

@@ -200,8 +200,8 @@ export function SparkMark() {
 /**
  * How many characters of previous-screen name fit beside a title before the
  * title starts losing words. Measured on an iPhone 14 viewport against the
- * longest real title in the app ("SC 1 · EXT. GIFT CITY — LATE NIGHT"): at 18
- * characters of label the title truncated at "EXT. GIFT CIT...".
+ * longest real title in the app ("SC 10 · INT./EXT. TUNING WORKSHOP / STREET
+ * · DAY"): past this many characters of label, the title starts truncating.
  */
 const BACK_LABEL_MAX = 14;
 

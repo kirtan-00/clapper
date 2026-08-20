@@ -60,7 +60,7 @@ export function isLetterSpaced(text: string): boolean {
 
 const SIZES = ['XWS', 'MWS', 'ECU', 'MCU', 'OTS', 'POV', 'WS', 'MS', 'CU'];
 const SIZE_ALT = SIZES.join('|');
-// A size cell: a size, optionally with a parenthetical ("OTS (over Ansh)") or a
+// A size cell: a size, optionally with a parenthetical ("OTS (over Dev)") or a
 // transition to another size ("WS->XWS"), or an em dash for shots with no size
 // (title cards, superimpositions).
 const SIZE_CELL = `(?:(?:${SIZE_ALT})(?:\\s*\\(over[^)]{0,24}\\))?(?:\\s*(?:—|->|→)\\s*(?:${SIZE_ALT}))?|—)`;
@@ -74,7 +74,7 @@ const MOVE_LEAD = new Set([
 /**
  * The upper-case vocabulary of a MOVE cell. This list is what stops the move
  * from eating into the action: an ACTION cell routinely opens with a character
- * name in caps ("RUHI turns to him"), which is indistinguishable from a move
+ * name in caps ("MEERA turns to him"), which is indistinguishable from a move
  * keyword by shape alone. Anything upper-case and NOT in here ends the move.
  */
 const MOVE_VOCAB = new Set([
@@ -126,8 +126,8 @@ function extractDialogue(text: string): string | undefined {
 const PAGE_FURNITURE = /(#\s+SIZE\b|\bEPISODE\s+\d|\bACT\s+[IVX\d]|\bSC\s*\d{1,3}\s*[·:.\-–—]\s*(?:INT|EXT)|\bLook:)/;
 
 /**
- * A "Look:" note often runs on into blocking ("...empty city. Ruhi on the car
- * hood, Ansh leaning against..."). The first sentence is the look; the rest is
+ * A "Look:" note often runs on into blocking ("...empty city. Meera on the car
+ * hood, Dev leaning against..."). The first sentence is the look; the rest is
  * staging the operator can read off the shot rows. Keep the first sentence when
  * the note is long, the whole thing when it is already short.
  */
@@ -175,7 +175,7 @@ export interface ParsedShotlist {
 export function parseShotlist(raw: string): ParsedShotlist | null {
   const text = repairLigatures(raw);
 
-  // Scene headings: "SC 1 · EXT. GIFT CITY — LATE NIGHT". Tolerate the various
+  // Scene headings: "SC 1 · EXT. ROOFTOP — DAWN". Tolerate the various
   // separators productions use between the number and the slugline.
   const headings: { no: number; name: string; look?: string }[] = [];
   const sceneRe = /\bSC\s*(\d{1,3})\s*[·:.\-–—]?\s*((?:INT|EXT)[^\n]{0,90}?)(?=\s+Look:|\s+#\s+SIZE|\s+\(|\s{2}|$)/g;

@@ -208,7 +208,7 @@ export interface Shot {
   id: string;
   code: string;            // "5.31" — as printed on the shotlist
   order: number;           // position within the scene
-  size?: string;           // "MCU", "XWS", "OTS (over Ansh)"
+  size?: string;           // "MCU", "XWS", "OTS (over Dev)"
   move?: string;           // "STATIC, low", "HANDHELD, drifting", "Slow PUSH IN"
   action?: string;         // one-line recognizer shown on the roll screen
   dialogue?: string;       // the line, when the shotlist carries one

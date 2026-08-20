@@ -29,7 +29,7 @@ import aRoomThatRemembers from './packs/a-room-that-remembers.json';
 export interface ScriptPackShot {
   code: string;             // "5.31" — as printed on the shotlist
   order: number;            // position within the scene
-  size?: string;            // "MCU", "XWS", "OTS (over Ansh)"
+  size?: string;            // "MCU", "XWS", "OTS (over Dev)"
   move?: string;            // "STATIC, low", "Slow PUSH IN"
   action?: string;          // one-line recognizer for the operator
   dialogue?: string;        // the line, when the shotlist carries one
