@@ -77,12 +77,18 @@ export function useScrolled(threshold = 12) {
  * The hairline under the bar appears only once there is content behind it, so
  * a screen at rest is a title on paper rather than a title in a box.
  */
-export function ScreenHeader(props: { title: string }) {
+export function ScreenHeader(props: { title: string; trailing?: ReactNode }) {
   const scrolled = useScrolled();
 
   return (
     <header className="ltop" data-scrolled={scrolled ? '' : undefined}>
       <h1 className="ltitle">{props.title}</h1>
+      {/* OPTIONAL, and absent by default, so every existing call renders the
+          bar it always did. A tab root that has a standing STATUS - not an
+          action, and never a control - can hang it off the title here rather
+          than inventing a second bar under the first. `.ltop` shrinks the
+          title on scroll (list.css), and the slot rides along with it. */}
+      {props.trailing && <div className="ltop__trail">{props.trailing}</div>}
     </header>
   );
 }

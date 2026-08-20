@@ -13,7 +13,7 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import type { Project } from '../types';
 import { restoreBackup } from '../store/restore';
 import { parseBackupText } from '../export';
-import { Sheet, SheetClose } from './common';
+import { Sheet, SheetClose, SyncPill } from './common';
 import { Section, Row, LinkRow, ReadRow, ScreenHeader } from './glist';
 import { HowToScreen } from './HowToScreen';
 import { ThemeToggleRow } from './ThemeToggleRow';
@@ -70,7 +70,7 @@ export function SettingsScreen(props: { nav: Nav }) {
 
   return (
     <div className="app mscreen">
-      <ScreenHeader title="Settings" />
+      <ScreenHeader title="Settings" trailing={<SyncPill />} />
 
       {/* First, above Help, on purpose: this is the one setting a crew member
           changes on the day, so it must not sit under documentation.

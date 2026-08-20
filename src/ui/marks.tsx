@@ -118,6 +118,69 @@ export function SpeakerMark() {
 }
 
 /**
+ * Edit. The pen the app has been spelling as the literal character U+270E, in
+ * five places, inside 44px boxes — which is exactly the failure the header of
+ * this file describes: a glyph with its own side bearings, sitting on a
+ * baseline, centred as though it were a box. It also renders as a different
+ * pen on every platform and as a colour EMOJI on some, which no `currentColor`
+ * can reach.
+ *
+ * Drawn as the nib and the barrel, plus the short rule the nib sits on, so it
+ * reads as "write on this" rather than as a generic diagonal at 17px.
+ */
+export function EditMark() {
+  return (
+    <svg {...SVG} className="mark mark--edit">
+      <path d="M16.2 4.6a2 2 0 0 1 2.8 2.8L9.4 17H6.6v-2.8z" {...STROKE} />
+      <path d="M13.9 6.9 16.7 9.7" {...STROKE} />
+      <path d="M5 20.2h14" {...STROKE} />
+    </svg>
+  );
+}
+
+/**
+ * Done / in step. The one mark in this file drawn HEAVIER than the house 1.75,
+ * for the same reason the back chevron is: it renders at 11px inside a status
+ * pill beside 11px caps, and a 1.75 tick at that size lands under one device
+ * pixel and greys out while the word next to it stays solid.
+ */
+export function CheckMark() {
+  return (
+    <svg {...SVG} className="mark mark--check">
+      <path d="M5 12.8 9.8 17.6 19 6.9" {...STROKE} strokeWidth={2.4} />
+    </svg>
+  );
+}
+
+/** Queued to leave. An arrow standing on the line it is waiting to cross —
+ *  the outbox, drawn, rather than a spinner pretending something is happening
+ *  right now. Same heavier weight as CheckMark and for the same reason. */
+export function UpMark() {
+  return (
+    <svg {...SVG} className="mark mark--up">
+      <path d="M12 18.5V6" {...STROKE} strokeWidth={2.4} />
+      <path d="M6.4 11.6 12 6l5.6 5.6" {...STROKE} strokeWidth={2.4} />
+    </svg>
+  );
+}
+
+/**
+ * The one loud mark in the app. A held write is the single moment the log and
+ * reality could diverge, and it is the only thing besides the tally ring
+ * allowed to raise its voice — in amber, never in red, because red is
+ * recording and nothing else is ever allowed to borrow it.
+ */
+export function AlertMark() {
+  return (
+    <svg {...SVG} className="mark mark--alert">
+      <path d="M12 4.2 21.2 20H2.8z" {...STROKE} strokeWidth={1.9} />
+      <path d="M12 10v4.4" {...STROKE} strokeWidth={2.2} />
+      <path d="M12 17.4h.01" {...STROKE} strokeWidth={2.4} />
+    </svg>
+  );
+}
+
+/**
  * How many characters of previous-screen name fit beside a title before the
  * title starts losing words. Measured on an iPhone 14 viewport against the
  * longest real title in the app ("SC 1 · EXT. GIFT CITY — LATE NIGHT"): at 18

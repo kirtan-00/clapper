@@ -18,6 +18,7 @@
 
 import { useEffect, useState } from 'react';
 import { Section, Row, ReadRow, ScreenHeader } from './glist';
+import { SyncPill } from './common';
 import { ProCta } from './ProCta';
 import type { Nav } from './nav';
 import { useSession, signInWithGoogle, signOut } from '../net/auth';
@@ -68,7 +69,7 @@ export function AccountScreen(_props: { nav: Nav }) {
 
   return (
     <div className="app mscreen">
-      <ScreenHeader title="Account" />
+      <ScreenHeader title="Account" trailing={<SyncPill />} />
 
       {loading ? (
         <div className="empty">Checking your account</div>

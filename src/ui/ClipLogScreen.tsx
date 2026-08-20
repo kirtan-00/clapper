@@ -17,15 +17,53 @@
 // actually rolled. The rolling screen only ever reaches the last few takes of
 // the setup it has open; this screen is what lets a take from this morning, or
 // two setups ago, get the same correction without hunting for it first.
+//
+// ---------------------------------------------------------------------------
+// THE REPAINT (round 1, screen 3) — THIS IS THE RECOVERY SCREEN, so it is
+// designed as one. Three things changed, and each fixes something real:
+//
+//   ONE ROW OPENS, AND ONLY THEN CAN IT BE DESTROYED. Move and Delete used to
+//   sit permanently beside the row's own tap target — the same mis-tap
+//   architecture the rolling screen's `minitakes` still has, where the delete
+//   glyph is adjacent to the edit target in the thumb zone. The row is now a
+//   disclosure: tap it and it becomes a card carrying its three actions, with
+//   the destructive one on its own line, in its own colour, behind two taps
+//   and a confirmation instead of one twitch. (The `minitakes` row itself
+//   lives in RollingScreen, which is another lane's file this round.)
+//
+//   A GOLD TAKE GETS ITS NUMBER CIRCLED. That is the literal slate practice: a
+//   loader circles the take number on the sheet for the one the director
+//   wants, and an editor reading the sheet finds it without reading anything
+//   else. Clapper has no "circled take" field and one is not being invented —
+//   this is the app's OWN existing GOLD tag, drawn the way a slate draws it.
+//   GOLD is stored as a tagged MOMENT on the take (see TakeEditSheet), not as
+//   a field, so the bundle's moments are what this screen reads.
+//
+//   SCENE RUN-HEADERS, WITHOUT REORDERING ANYTHING. A header appears wherever
+//   the scene CHANGES going down the list. The order is still strictly
+//   chronological — the same reason as ever — so a scene you came back to
+//   after lunch legitimately gets a second header, because that is what
+//   actually happened.
 
 import { useEffect, useMemo, useState } from 'react';
-import type { Project, Shot, Slate, Take } from '../types';
+import type { Moment, Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
 import { nextTakeNumber } from '../store/util';
 import { tc } from '../export/timecode';
-import { Sheet, SheetClose, Rail, Toast, Confirm } from './common';
+import {
+  Sheet,
+  SheetClose,
+  Rail,
+  Toast,
+  Confirm,
+  SyncPill,
+  HeldWriteRow,
+  useHeldWrites,
+  reportHeldWrite,
+  clearHeldWrite,
+} from './common';
 import { useScrolled } from './glist';
-import { BackButton, SpeakerMark } from './marks';
+import { BackButton, SpeakerMark, EditMark } from './marks';
 import { TakeEditSheet } from './TakeEditSheet';
 import * as haptics from './haptics';
 
@@ -60,6 +98,8 @@ interface ClipRow {
   take: Take;
   slate: Slate;
   shot?: Shot;
+  /** The take carries a GOLD tag, so its number is circled. */
+  gold: boolean;
 }
 
 export function ClipLogScreen(props: {
@@ -75,27 +115,44 @@ export function ClipLogScreen(props: {
   const [project, setProject] = useState<Project>(props.project);
   const [slates, setSlates] = useState<Slate[] | null>(null);
   const [takes, setTakes] = useState<Take[] | null>(null);
+  const [moments, setMoments] = useState<Moment[]>([]);
   const [query, setQuery] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
   const [moving, setMoving] = useState<ClipRow | null>(null);
   const [editing, setEditing] = useState<ClipRow | null>(null);
   const [deleting, setDeleting] = useState<ClipRow | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const held = useHeldWrites();
 
   async function refresh() {
-    // The project comes back too, not just the rows: a delete hands a clip
+    // ONE READ, not four. `getBundle` is the exporters' own path: it returns
+    // the project, its scenes in order, every take, AND every moment - and the
+    // moments are the only place a GOLD tag lives, so the alternative was this
+    // read plus one listMoments per take. The project comes back with it,
+    // which matters for the same reason it always did: a delete hands a clip
     // number back and moves that camera's live counter (reclaimClipNumbers),
-    // and the next sheet opened from this screen is handed this copy. Same
-    // reason RollingScreen re-reads it in refreshMeta.
-    const [fresh, list] = await Promise.all([store.getProject(project.id), store.listSlates(project.id)]);
-    const perSlate = await Promise.all(list.map((s) => store.listTakes(s.id)));
-    if (fresh) setProject(fresh);
-    setSlates(list);
-    // Newest first. `startedAt` is when the camera rolled, which is the order
-    // the day actually happened in; id breaks the tie so two takes stamped in
-    // the same millisecond never swap places between renders.
-    setTakes(
-      perSlate.flat().sort((a, b) => b.startedAt - a.startedAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0)),
-    );
+    // and the next sheet opened from this screen is handed this copy.
+    try {
+      const bundle = await store.getBundle(project.id);
+      setProject(bundle.project);
+      setSlates(bundle.slates);
+      // Newest first. `startedAt` is when the camera rolled, which is the order
+      // the day actually happened in; id breaks the tie so two takes stamped in
+      // the same millisecond never swap places between renders.
+      setTakes(
+        [...bundle.takes].sort(
+          (a, b) => b.startedAt - a.startedAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+        ),
+      );
+      setMoments(bundle.moments);
+    } catch (err) {
+      // The project was deleted out from under this screen, or storage is
+      // unavailable. An empty log is the honest render of both.
+      console.error('Clapper: could not read the clip log', err);
+      setSlates([]);
+      setTakes([]);
+      setMoments([]);
+    }
   }
 
   useEffect(() => {
@@ -104,6 +161,13 @@ export function ClipLogScreen(props: {
   }, [project.id]);
 
   const slateById = useMemo(() => new Map((slates ?? []).map((s) => [s.id, s])), [slates]);
+
+  /** Take ids carrying a GOLD moment. Built once per read, not per row. */
+  const goldTakeIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of moments) if (m.tag === 'GOLD') set.add(m.takeId);
+    return set;
+  }, [moments]);
 
   const rows: ClipRow[] | null = useMemo(() => {
     if (!takes || !slates) return null;
@@ -116,10 +180,10 @@ export function ClipLogScreen(props: {
       // anything there means the breakdown changed under this take. Then we
       // show the scene alone rather than borrowing a code from another scene.
       const shot = take.shotId !== undefined ? findShot(slate, take.shotId) : undefined;
-      built.push({ take, slate, ...(shot ? { shot } : {}) });
+      built.push({ take, slate, gold: goldTakeIds.has(take.id), ...(shot ? { shot } : {}) });
     }
     return built;
-  }, [takes, slates, slateById]);
+  }, [takes, slates, slateById, goldTakeIds]);
 
   // Search is one field over everything on the row you might remember: the clip
   // name(s) first (that is the point of the screen), then the sound file, the
@@ -136,6 +200,20 @@ export function ClipLogScreen(props: {
     );
   }, [rows, query]);
 
+  /** What the two cards at the top say. Every number here is counted off the
+   *  rows on screen - nothing is a field this app does not have. */
+  const tally = useMemo(() => {
+    if (!rows) return null;
+    const kept = rows.filter((r) => r.take.status !== 'discarded');
+    return {
+      clips: rows.length,
+      discarded: rows.length - kept.length,
+      inTheCan: kept.reduce((ms, r) => ms + r.take.durationMs, 0),
+      scenes: new Set(kept.map((r) => r.slate.id)).size,
+      gold: rows.filter((r) => r.gold).length,
+    };
+  }, [rows]);
+
   async function move(row: ClipRow, destination: { slateId: string; shotId?: string }) {
     haptics.tap();
     try {
@@ -144,14 +222,27 @@ export function ClipLogScreen(props: {
       const destShot =
         destSlate && destination.shotId !== undefined ? findShot(destSlate, destination.shotId) : undefined;
       setMoving(null);
+      clearHeldWrite(`move:${row.take.id}`);
       await refresh();
       setToast(`Moved to ${destShot?.code ?? destSlate?.name ?? 'scene'} take ${moved.number}`);
     } catch (err) {
       // A rejected reassignTake must not leave the sheet open on a dead Move
-      // button, so close it and say so, same as every other failed write here.
+      // button, so close it and say so. It gets a HELD WRITE rather than a
+      // toast because a toast is gone in 1.4 seconds and this is a write that
+      // did not land - it has to stay on screen until someone deals with it.
+      // The copy is this call site's own: nothing moved, so nothing is at
+      // risk, and saying "nothing lost yet" here would be borrowed drama.
       console.error('Clapper: failed to move take', err);
       setMoving(null);
-      setToast('Could not move that clip, try again');
+      reportHeldWrite({
+        id: `move:${row.take.id}`,
+        title: `Take ${row.take.number} did not move`,
+        detail: `${takeClipLabel(row.take)} is still filed under ${row.shot?.code ?? row.slate.name}`,
+        onRetry: () => {
+          clearHeldWrite(`move:${row.take.id}`);
+          setMoving(row);
+        },
+      });
     }
   }
 
@@ -165,12 +256,22 @@ export function ClipLogScreen(props: {
     try {
       await store.deleteTake(row.take.id);
       setDeleting(null);
+      setOpenId(null);
+      clearHeldWrite(`delete:${row.take.id}`);
       await refresh();
       setToast('Take deleted');
     } catch (err) {
       console.error('Clapper: failed to delete take', err);
       setDeleting(null);
-      setToast('Could not delete that take, try again');
+      reportHeldWrite({
+        id: `delete:${row.take.id}`,
+        title: `Take ${row.take.number} did not delete`,
+        detail: `${takeClipLabel(row.take)} is exactly where it was, and so is every number after it`,
+        onRetry: () => {
+          clearHeldWrite(`delete:${row.take.id}`);
+          setDeleting(row);
+        },
+      });
     }
   }
 
@@ -179,7 +280,7 @@ export function ClipLogScreen(props: {
   const scrolled = useScrolled();
 
   return (
-    <div className="app">
+    <div className="app mscreen mclip">
       <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
         <BackButton label={props.backLabel} onClick={props.onBack} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -200,21 +301,56 @@ export function ClipLogScreen(props: {
       <Rail thin />
 
       <section className="section">
-        <div className="section__head">
-          <span className="label">Every clip rolled</span>
-          {filtered && query.trim() !== '' && (
-            <span className="section__note">{filtered.length} matching</span>
-          )}
+        {/* The write's status belongs on the screen you come to when you think
+            something has gone wrong. Its own line, right-aligned, at hairline
+            volume - never inside the nav bar, where at 390px it competes with
+            the project name for the same twelve characters. */}
+        <div className="mstatusline">
+          <SyncPill />
         </div>
 
         <input
-          className="field field--mono"
+          className="field field--mono mclip__find"
           type="search"
           aria-label="Find a clip"
-          placeholder="Find a clip e.g. C0184"
+          placeholder="Find a clip · number or scene"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+
+        {/* A held write sits ABOVE the log, not inside it: the writes that fail
+            here are a move and a delete, and in both cases the take still has
+            its own row further down. It stays until it is dealt with. */}
+        {held.map((w) => (
+          <HeldWriteRow key={w.id} write={w} />
+        ))}
+
+        {tally && rows && rows.length > 0 && query.trim() === '' && (
+          <div className="mtally">
+            <div className="mtally__card">
+              <span className="mtally__cap">In the log</span>
+              <span className="mtally__n tnum">{tally.clips}</span>
+              <span className="mtally__sub">
+                {tally.discarded > 0 ? `${tally.discarded} discarded` : 'none discarded'}
+                {tally.gold > 0 ? ` · ${tally.gold} circled` : ''}
+              </span>
+            </div>
+            <div className="mtally__card">
+              <span className="mtally__cap">In the can</span>
+              <span className="mtally__n tnum">{tc.msToClock(tally.inTheCan)}</span>
+              <span className="mtally__sub">
+                across {tally.scenes} {tally.scenes === 1 ? 'scene' : 'scenes'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {filtered && query.trim() !== '' && (
+          <div className="section__head">
+            <span className="label">Every clip rolled</span>
+            <span className="section__note">{filtered.length} matching</span>
+          </div>
+        )}
 
         {filtered === null ? (
           <div className="empty">Loading clips</div>
@@ -226,62 +362,109 @@ export function ClipLogScreen(props: {
               : 'Every clip you roll lands here.'}
           </div>
         ) : (
-          <div className="cliplog">
-            {filtered.map((row) => {
-              const { take, slate, shot } = row;
+          <div className="mclip__list">
+            {filtered.map((row, i) => {
+              const { take, slate, shot, gold } = row;
+              const open = openId === take.id;
+              // The run header breaks wherever the scene changes going DOWN
+              // the list. Chronological order is untouched, so the same scene
+              // can head two runs, which is what actually happened.
+              const heads = i === 0 || filtered[i - 1].slate.id !== slate.id;
+              const clip = takeClipLabel(take);
               return (
-                <div key={take.id} className={`cliprow${take.status === 'discarded' ? ' cliprow--discarded' : ''}`}>
-                  {/* Primary tap target: the correction sheet, reachable here
-                      exactly like it is from the rolling screen's recent takes,
-                      just not limited to the last few. */}
-                  <button
-                    type="button"
-                    className="cliprow__main"
-                    aria-label={`${takeClipLabel(take)}${
-                      take.sound ? `, sound ${take.sound.fileName}` : ''
-                    }, ${slate.name}${
-                      shot ? `, shot ${shot.code}` : ''
-                    }, take ${take.number}. Tap to fix a clip number, status, tags or note.`}
-                    onClick={() => setEditing(row)}
+                <div key={take.id}>
+                  {heads && <h2 className="mclip__head">{slate.name}</h2>}
+                  <div
+                    className={`mclip__row${take.status === 'discarded' ? ' mclip__row--discarded' : ''}`}
+                    data-open={open ? '' : undefined}
                   >
-                    <span className="cliprow__names">
-                      <span className="cliprow__clip">{takeClipLabel(take)}</span>
-                      {take.sound && (
-                        <span className="cliprow__snd">
-                          <SpeakerMark /> {take.sound.fileName}
+                    <button
+                      type="button"
+                      className="mclip__face"
+                      aria-expanded={open}
+                      aria-label={`${clip}${take.sound ? `, sound ${take.sound.fileName}` : ''}, ${
+                        slate.name
+                      }${shot ? `, shot ${shot.code}` : ''}, take ${take.number}${
+                        gold ? ', gold' : ''
+                      }${take.status === 'discarded' ? ', discarded' : ''}. ${
+                        open ? 'Hide' : 'Show'
+                      } fix, move and delete.`}
+                      onClick={() => {
+                        haptics.tap();
+                        setOpenId(open ? null : take.id);
+                      }}
+                    >
+                      {/* The circled take. Brass, and only ever brass - the
+                          signal list is rolling / GOLD / discarded / sound,
+                          and this is the GOLD one. */}
+                      <span className={`mclip__num tnum${gold ? ' mclip__num--gold' : ''}`}>
+                        {take.number}
+                        {gold && <span className="visually-hidden"> gold</span>}
+                      </span>
+                      <span className="mclip__body">
+                        <span className="mclip__clip">{clip}</span>
+                        <span className="mclip__meta">
+                          {take.sound && (
+                            <span className="mclip__snd">
+                              <SpeakerMark /> {take.sound.fileName}
+                            </span>
+                          )}
+                          {shot && <span className="mclip__shot">{shot.code}</span>}
+                          <span className="mclip__take">take {take.number}</span>
+                          {take.status === 'discarded' && (
+                            <span className="mclip__flag">discarded</span>
+                          )}
                         </span>
-                      )}
-                    </span>
-                    <span className="cliprow__where">
-                      <span className="cliprow__scene">{slate.name}</span>
-                      {/* No shot line for a take that has none. A scene-level
-                          take is a real thing, not missing data. */}
-                      {shot && <span className="cliprow__shot">{shot.code}</span>}
-                      <span className="cliprow__take tnum">take {take.number}</span>
-                      {take.status === 'discarded' && <span className="cliprow__flag">discarded</span>}
-                    </span>
-                    <span className="cliprow__times">
-                      <span className="tnum">{wallClock(take.startedAt)}</span>
-                      <span className="tnum">{tc.msToClock(take.durationMs)}</span>
-                    </span>
-                  </button>
-                  <div className="cliprow__toolbar">
-                    <button
-                      type="button"
-                      className="cliprow__tool"
-                      aria-label={`Move ${takeClipLabel(take)} to another scene or shot`}
-                      onClick={() => setMoving(row)}
-                    >
-                      Move
+                      </span>
+                      <span className="mclip__times">
+                        <span className="tnum">{tc.msToClock(take.durationMs)}</span>
+                        <span className="tnum mclip__clock">{wallClock(take.startedAt)}</span>
+                      </span>
                     </button>
-                    <button
-                      type="button"
-                      className="cliprow__tool cliprow__tool--danger"
-                      aria-label={`Delete take ${take.number} (${takeClipLabel(take)})`}
-                      onClick={() => setDeleting(row)}
-                    >
-                      Delete
-                    </button>
+
+                    {/* DISCLOSED, NEVER ADJACENT. Nothing here can be reached
+                        without opening the row first, which is the whole fix:
+                        the destructive action is no longer one twitch away
+                        from the thing you were aiming at. */}
+                    {open && (
+                      <div className="mclip__tools">
+                        <button
+                          type="button"
+                          className="mclip__tool mclip__tool--fix"
+                          onClick={() => {
+                            haptics.tap();
+                            setEditing(row);
+                          }}
+                        >
+                          <EditMark />
+                          Fix clip, status or tags
+                        </button>
+                        <div className="mclip__tools2">
+                          <button
+                            type="button"
+                            className="mclip__tool"
+                            aria-label={`Move ${clip} to another scene or shot`}
+                            onClick={() => {
+                              haptics.tap();
+                              setMoving(row);
+                            }}
+                          >
+                            Move to shot
+                          </button>
+                          <button
+                            type="button"
+                            className="mclip__tool mclip__tool--danger"
+                            aria-label={`Delete take ${take.number} (${clip}), which renumbers later clips`}
+                            onClick={() => {
+                              haptics.tap();
+                              setDeleting(row);
+                            }}
+                          >
+                            Delete · renumbers
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

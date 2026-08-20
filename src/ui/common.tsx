@@ -5,10 +5,14 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
 } from 'react';
 import type { ClipParts } from './cameras';
+import { AlertMark, CheckMark, UpMark } from './marks';
+import { useSession } from '../net/auth';
+import { getSyncStatus, onSyncStatusChange, type SyncStatus } from '../net/sync';
 
 /**
  * A clip name with its running number driven bright and the boilerplate around
@@ -263,5 +267,209 @@ export function Rail(props: { thin?: boolean; clap?: boolean }) {
       className={`rail${props.thin ? ' rail--thin' : ''}${props.clap ? ' rail--clap' : ''}`}
       aria-hidden="true"
     />
+  );
+}
+
+// ===========================================================================
+// THE SYNC PILL — four states, all of them quiet.
+// ===========================================================================
+//
+// Clapper writes to the phone first and sync is an outbox that drains when it
+// can. So OFFLINE IS NOT AN ERROR: on a basement set it is Tuesday, and it
+// must never wear red, because red in this app means recording and a colour
+// that means two things means neither. No spinner, no progress bar, no
+// "reconnecting…" theatre either — the outbox drains itself and the pill
+// counts down.
+//
+// The four faces are read off what the engine ACTUALLY does (src/net/sync.ts,
+// src/store/outbox.ts), not off a wish:
+//
+//   this phone only        no session. `flush()` returns early with no token,
+//                          so nothing is queued because nothing is syncing.
+//   offline · logging      a session, but navigator says offline or the engine
+//   locally                last set state 'offline' for the same reason.
+//   n queued               `pendingCount()` — dirty projects plus queued
+//                          tombstones — is above zero. INCLUDES the engine's
+//                          'error' state on purpose: a failed push leaves
+//                          every row queued and retries with backoff, so
+//                          "queued" is the true and quiet rendering of it.
+//                          Deliberately "3 queued" and not "3 takes queued":
+//                          the count is projects and tombstones, not takes.
+//   synced                 a session, online, nothing pending.
+//
+// The one loud state in the whole system is NOT here. It is a failed LOCAL
+// write, which is a row that holds the take's slot in the list — see
+// HeldWriteRow below.
+
+export type SyncFace = 'synced' | 'queued' | 'offline' | 'local';
+
+// A seam for screenshots and for anyone who has to look at the other three
+// faces without a Supabase session. DEV ONLY: `import.meta.env.DEV` is a
+// compile-time constant, so the whole block is dropped from the bundle.
+let devFace: { face: SyncFace; queued: number } | null = null;
+const devFaceListeners = new Set<() => void>();
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__clapperSyncFace = (
+    face: SyncFace | null,
+    queued = 0,
+  ) => {
+    devFace = face ? { face, queued } : null;
+    for (const fn of devFaceListeners) fn();
+  };
+}
+
+/** The face to show, or null while the session is still being resolved — one
+ *  frame of "this phone only" before the session lands would be a lie told
+ *  quickly, which is the worst kind. */
+export function useSyncFace(): { face: SyncFace; queued: number } | null {
+  const { session, loading } = useSession();
+  const [status, setStatus] = useState<SyncStatus>(getSyncStatus);
+  const [online, setOnline] = useState(
+    () => typeof navigator === 'undefined' || navigator.onLine !== false,
+  );
+  const [, bump] = useState(0);
+
+  useEffect(() => onSyncStatusChange(setStatus), []);
+
+  useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => {
+      window.removeEventListener('online', up);
+      window.removeEventListener('offline', down);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const fn = () => bump((n) => n + 1);
+    devFaceListeners.add(fn);
+    return () => {
+      devFaceListeners.delete(fn);
+    };
+  }, []);
+
+  if (devFace) return devFace;
+  if (loading) return null;
+  if (!session) return { face: 'local', queued: 0 };
+  if (!online || status.state === 'offline') return { face: 'offline', queued: status.pending };
+  if (status.pending > 0) return { face: 'queued', queued: status.pending };
+  return { face: 'synced', queued: 0 };
+}
+
+/**
+ * The pill itself. Presentational and exported separately so a screen can
+ * render a face it is not currently in (and so this is drawable in a
+ * screenshot without a session).
+ */
+export function SyncPillFace(props: { face: SyncFace; queued?: number }) {
+  const { face, queued = 0 } = props;
+  const label =
+    face === 'synced'
+      ? 'Synced'
+      : face === 'queued'
+        ? `${queued} queued`
+        : face === 'offline'
+          ? 'Offline · logging locally'
+          : 'This phone only';
+  return (
+    <span className={`mpill mpill--${face}`} role="status">
+      {face === 'synced' && <CheckMark />}
+      {face === 'queued' && <UpMark />}
+      <span className="mpill__t">{label}</span>
+    </span>
+  );
+}
+
+/** The live pill. Renders nothing until the session is known. */
+export function SyncPill() {
+  const state = useSyncFace();
+  if (!state) return null;
+  return <SyncPillFace face={state.face} queued={state.queued} />;
+}
+
+// ===========================================================================
+// A HELD WRITE — the one thing in this app allowed to be loud.
+// ===========================================================================
+//
+// A failed LOCAL write is the single moment the log and reality can diverge:
+// the camera rolled, the operator saw a take number, and the phone did not
+// keep it. So this one wears amber (never red — red is recording), it HOLDS
+// THE SLOT where it happened rather than vanishing so the gap is visible, it
+// says what is actually true, and it never dismisses itself. It offers the one
+// action that helps.
+//
+// AN OPEN API, ON PURPOSE. Any screen that has just failed a local write calls
+// `reportHeldWrite` with its OWN two lines, because only the call site knows
+// what is true there: a take that failed to save is "held in memory, nothing
+// lost yet"; a delete that failed to commit left the take exactly where it
+// was and must say so instead. Copy that is nearly true is worse here than no
+// copy at all.
+
+export interface HeldWrite {
+  /** Stable per failed operation, so a retry that fails again replaces its own
+   *  row rather than stacking a second one under it. */
+  id: string;
+  /** What did not happen. "Take 3 didn't write". */
+  title: string;
+  /** What is therefore still true. "Held in memory, nothing lost yet". */
+  detail: string;
+  /** The one action that helps. */
+  onRetry: () => void;
+}
+
+let heldList: readonly HeldWrite[] = [];
+const heldListeners = new Set<() => void>();
+
+function emitHeld(): void {
+  for (const fn of heldListeners) fn();
+}
+
+export function reportHeldWrite(write: HeldWrite): void {
+  heldList = [write, ...heldList.filter((w) => w.id !== write.id)];
+  emitHeld();
+}
+
+export function clearHeldWrite(id: string): void {
+  const next = heldList.filter((w) => w.id !== id);
+  if (next.length === heldList.length) return;
+  heldList = next;
+  emitHeld();
+}
+
+function subscribeHeld(fn: () => void): () => void {
+  heldListeners.add(fn);
+  return () => {
+    heldListeners.delete(fn);
+  };
+}
+
+function heldSnapshot(): readonly HeldWrite[] {
+  return heldList;
+}
+
+/** Every write currently being held, newest first. */
+export function useHeldWrites(): readonly HeldWrite[] {
+  return useSyncExternalStore(subscribeHeld, heldSnapshot, heldSnapshot);
+}
+
+/** One held write, as the row that holds its slot. */
+export function HeldWriteRow(props: { write: HeldWrite }) {
+  const { write } = props;
+  return (
+    <div className="mheld" role="alert">
+      <span className="mheld__mark" aria-hidden="true">
+        <AlertMark />
+      </span>
+      <span className="mheld__say">
+        <b className="mheld__title">{write.title}</b>
+        <span className="mheld__detail">{write.detail}</span>
+      </span>
+      <button type="button" className="mheld__retry" onClick={write.onRetry}>
+        Retry
+      </button>
+    </div>
   );
 }

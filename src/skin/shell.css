@@ -459,3 +459,433 @@ html[data-uiscale='fine'] textarea {
     transform: none;
   }
 }
+
+/* ========================================================== sync pill ======
+   Four states, all of them quiet. The rules for what each one MEANS are in
+   ui/common.tsx; this is only how they look, and how they look is: like the
+   least important thing on the screen.
+
+   NONE OF THEM IS RED. Round 1 promised that red means recording, and a colour
+   that means two things means neither - so "offline" wears the same hairline
+   outline as "synced". The only loud state in the system is a held local
+   write, and that is a row (.mheld), not this. */
+.mpill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: 0 0 auto;
+  max-width: 46%;
+  padding: 4px var(--sp-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.mpill__t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mpill .mark {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+}
+/* Synced is the only one that gets a tick, and the tick is the whole message -
+   the word beside it could go and nothing would be lost. */
+.mpill--synced {
+  border-color: var(--hairline-soft);
+}
+/* "This phone only" is a FACT about the account, not a warning, and it is the
+   state most of this app's users are in. It reads at the same volume as the
+   rest; the case for signing in is made once, on a card, not shouted from the
+   corner of every screen. */
+.mpill--local {
+  border-style: dashed;
+}
+
+/* ======================================================== a held write =====
+   THE ONE LOUD THING. Amber, never red. It holds its place in the list rather
+   than fading, says only what is actually true, offers the one action that
+   helps, and never dismisses itself. */
+.mheld {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0;
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--brass-edge);
+  background: var(--brass-tint);
+}
+.mheld__mark {
+  display: flex;
+  flex: 0 0 auto;
+  color: var(--brass-text);
+}
+.mheld__mark .mark {
+  width: 22px;
+  height: 22px;
+}
+.mheld__say {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.mheld__title {
+  font-size: var(--t-secondary);
+  font-weight: 700;
+  color: var(--text);
+}
+.mheld__detail {
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+}
+.mheld__retry {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius-pill);
+  background: var(--m-card);
+  color: var(--m-card-ink);
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+/* =========================================================== clip log ======
+   The recovery screen. See the header of ui/ClipLogScreen.tsx for why each of
+   these shapes exists; this file only draws them. */
+
+/* One search box, and it looks like a well milled into the sheet rather than a
+   bordered rectangle - the same idiom as every other input on the machined
+   layer. */
+.mclip__find {
+  border-radius: var(--radius-pill);
+  padding: 0 var(--sp-4);
+  min-height: var(--tap);
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline-soft);
+  box-shadow: inset 0 2px 3px rgba(20, 22, 26, 0.06);
+}
+[data-theme='night'] .mclip__find {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55);
+}
+
+/* The two counts. Both are counted off the rows on screen; nothing here is a
+   field the app does not have (there is no "shoot day" on a log that spans
+   every day, so it does not claim one). */
+.mtally {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 var(--sp-5);
+}
+.mtally__card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-4);
+  background: var(--m-card);
+  color: var(--m-card-ink);
+  /* The bite. The two cards read as one object with a notch cut between them,
+     which is the machined layer's own joint - so the INNER top corners take
+     the big radius and the outer ones stay on the family. */
+  border-radius: var(--radius-lg);
+}
+.mtally__card:first-child {
+  border-top-right-radius: var(--sp-2);
+  border-bottom-right-radius: var(--sp-2);
+}
+.mtally__card:last-child {
+  border-top-left-radius: var(--sp-2);
+  border-bottom-left-radius: var(--sp-2);
+}
+.mtally__cap {
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--m-card-dim);
+}
+.mtally__n {
+  font-size: var(--t-display);
+  font-weight: 300;
+  letter-spacing: var(--track-tight);
+  line-height: 1.1;
+}
+.mtally__sub {
+  font-size: var(--t-caption);
+  color: var(--m-card-dim);
+}
+
+/* The scene run-header. It breaks where the scene CHANGES going down, so the
+   list stays chronological and a scene returned to after lunch honestly heads
+   two runs. */
+.mclip__head {
+  margin: var(--sp-5) 0 var(--sp-2);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.mclip__list > div:first-child .mclip__head {
+  margin-top: 0;
+}
+
+.mclip__row {
+  border-bottom: 1px solid var(--hairline-soft);
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    border-radius var(--dur-state) var(--ease-out);
+}
+/* OPEN, the row becomes an object: it lifts off the sheet as a mass card and
+   its actions appear inside it. That is the disclosure - and the reason the
+   destructive action cannot be hit by a thumb aiming at the row. */
+.mclip__row[data-open] {
+  background: var(--m-card);
+  color: var(--m-card-ink);
+  border-radius: var(--radius-lg);
+  border-bottom-color: transparent;
+  box-shadow: 0 10px 24px var(--m-cast);
+}
+
+.mclip__face {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: var(--sp-3) var(--sp-2);
+  text-align: left;
+}
+.mclip__row[data-open] .mclip__face {
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+}
+.mclip__face:active {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-radius: var(--radius-sm);
+}
+.mclip__row[data-open] .mclip__face:active {
+  background: transparent;
+}
+
+/* THE TAKE NUMBER, and for a GOLD take, THE CIRCLED TAKE NUMBER - the literal
+   slate practice. Brass and only brass: the app's signal list is rolling /
+   GOLD / discarded / sound, and this is the GOLD one. --brass-text, not the
+   bright --brass, because bright brass measures 1.94:1 on paper and fails even
+   the 3:1 non-text bar; night aliases the two together and needs no rule. */
+.mclip__num {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.mclip__row[data-open] .mclip__num {
+  color: var(--m-card-dim);
+}
+.mclip__num--gold {
+  border: 2px solid var(--brass-edge);
+  border-radius: 50%;
+  color: var(--brass-text);
+}
+[data-theme='night'] .mclip__num--gold,
+.mclip__row[data-open] .mclip__num--gold {
+  color: var(--brass);
+  border-color: var(--brass);
+}
+
+.mclip__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mclip__clip {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-row);
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mclip__row[data-open] .mclip__clip {
+  font-size: var(--t-title);
+}
+.mclip__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-2);
+  font-size: var(--t-secondary);
+  color: var(--text-dim);
+}
+.mclip__row[data-open] .mclip__meta {
+  color: var(--m-card-dim);
+}
+.mclip__snd {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.mclip__snd .mark {
+  width: 13px;
+  height: 13px;
+}
+.mclip__shot {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--brass-text);
+}
+[data-theme='night'] .mclip__shot,
+.mclip__row[data-open] .mclip__shot {
+  color: var(--brass);
+}
+.mclip__flag {
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  padding: 1px var(--sp-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+}
+.mclip__times {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: var(--t-secondary);
+}
+.mclip__clock {
+  font-size: var(--t-caps);
+  color: var(--text-faint);
+}
+.mclip__row[data-open] .mclip__clock {
+  color: var(--m-card-dim);
+}
+
+/* A discarded take keeps its slot and its number - a gap in a camera report is
+   worse than a struck line - and the strike IS the message, which is why this
+   is the one place --text-faint is still the right token. */
+.mclip__row--discarded .mclip__clip,
+.mclip__row--discarded .mclip__num,
+.mclip__row--discarded .mclip__meta {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+.mclip__row--discarded .mclip__flag {
+  text-decoration: none;
+}
+
+.mclip__tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-4) var(--sp-4);
+  border-top: 1px solid var(--m-card-line);
+  margin-top: var(--sp-1);
+  padding-top: var(--sp-3);
+}
+.mclip__tools2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+.mclip__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--tap);
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--m-card-line);
+  color: var(--m-card-ink);
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  text-align: center;
+}
+.mclip__tool .mark {
+  width: 17px;
+  height: 17px;
+}
+.mclip__tool:active {
+  background: color-mix(in srgb, var(--m-card-ink) 12%, transparent);
+}
+/* The one you came for. It carries the accent because this is the action the
+   screen exists to offer - the correction. */
+.mclip__tool--fix {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
+}
+/* The destructive one names its consequence rather than its verb: "Delete"
+   alone hides that the clip number is handed back and every later take on that
+   camera slides down one. */
+.mclip__tool--danger {
+  border-color: color-mix(in srgb, var(--m-rec) 55%, transparent);
+  color: var(--m-rec);
+}
+.mclip__tool:focus-visible {
+  outline: 2px solid var(--m-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mclip__row {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------- the status slot -------
+   The large-title bar's optional trailing slot (glist.tsx). Only ever laid
+   out when something is actually IN it, via :has(), so the three tab roots
+   that pass nothing render exactly the bar they always did - which matters
+   this round, because one of them belongs to another lane. */
+.ltop:has(.ltop__trail) {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.ltop:has(.ltop__trail) .ltitle {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ltop__trail {
+  flex: 0 0 auto;
+  /* .ltop has no horizontal padding by contract - .ltitle carries --inset -
+     so the slot carries its own, or the pill sits on the screen edge. */
+  padding-right: var(--inset);
+}
+
+/* On a pushed screen the status gets its own line rather than the nav bar.
+   At 390 the bar is already carrying a back button, a title and a project
+   name; a fourth thing in it truncates the one you came to read. */
+.mstatusline {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--sp-2);
+}
