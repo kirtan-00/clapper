@@ -1231,16 +1231,36 @@
 
 /* The rail: a tick per shot, evenly spaced, the current one longer and lit.
    Deliberately not a scrollbar — it states "you are the Nth of M" at a
-   glance, the same fact the old .shotstrip__pos gave in digits. */
+   glance, the same fact the old .shotstrip__pos gave in digits. A shape only
+   reads as a count up to about five ticks though, and the approved pitch's
+   own rail carries a "1 / 7" numeral alongside it for exactly that reason -
+   the digits pin to the TOP of the column (shotdeck__count below) rather
+   than centering with the ticks, so they read as a label for the rail, not
+   another tick fighting the others for the eye. */
 .shotdeck__rail {
   flex: 0 0 auto;
-  width: 20px;
+  width: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+}
+.shotdeck__count {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  margin-bottom: var(--sp-2);
+}
+.shotdeck__ticks {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 9px;
-  padding: 4px 0;
 }
 .shotdeck__tick {
   width: 14px;

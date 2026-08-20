@@ -247,15 +247,28 @@ export function ShotDeck(props: {
         </div>
       </div>
       {shotList.length > 1 && (
+        // The rail states "you are the Nth of M" as a shape - reads at a
+        // glance for the five or six shots most scenes carry. Past that a
+        // shape stops being countable on its own (the approved pitch itself
+        // pairs its rail with a "1 / 7" numeral), so the digits ride along
+        // too rather than replacing the rail - position AND count, the same
+        // pairing a scrollbar-with-page-number gives you. Tracks the drag
+        // the same live way the lit tick does, so the two never disagree
+        // mid-gesture.
         <div className="shotdeck__rail" aria-hidden="true">
-          {shotList.map((s, i) => (
-            <span
-              key={s.id}
-              className={`shotdeck__tick${
-                i === Math.round(shotIndex - dragPx / STEP) ? ' is-cur' : ''
-              }`}
-            />
-          ))}
+          <span className="shotdeck__count tnum">
+            {Math.round(shotIndex - dragPx / STEP) + 1}/{shotList.length}
+          </span>
+          <div className="shotdeck__ticks">
+            {shotList.map((s, i) => (
+              <span
+                key={s.id}
+                className={`shotdeck__tick${
+                  i === Math.round(shotIndex - dragPx / STEP) ? ' is-cur' : ''
+                }`}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
