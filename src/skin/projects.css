@@ -9,3 +9,726 @@
  * the same-specificity rule there, which is the point — adoption is opt-in per
  * screen and reverting is deleting a block, never untangling a merge.
  */
+
+/* ================================================== THE PROJECTS GROUND ====
+   `--m-*` gave the app a MASS and a SHEET. These screens need a third fact the
+   roll screen never did: the sheet has to be a colour this file can also PAINT,
+   because the notch is a slot of ground cut into the mass and the two have to
+   be the same pigment to the pixel. A seam at the slot's mouth is the one
+   failure that makes the whole move read as a drawing of a notch rather than a
+   notch, so ground is a token here and the screen repaints itself with it.
+
+   Round 3's night palette lands here rather than in styles.css because these
+   four screens are the lane that owns it: ground #0A0D0B, mass #151B17 a step
+   ABOVE the ground (so a card is an object sitting on something, never a hole),
+   and chalk ink #D6D4C8 — measured 13.1:1 on ground, 11.8:1 on the mass, and
+   deliberately not white, which at 3am glows almost as hard as an ivory sheet.
+   Night's own --m-* half (the wells) is already designed in styles.css and is
+   consumed unchanged. */
+.pj {
+  --pj-ground: var(--m-sheet);
+  --pj-mass: var(--m-mass);
+  /* A key standing ON the mass — a filed shoot inside its folder. */
+  --pj-key: #18201C;
+  --pj-key-lift: #202A25;
+  --pj-mass-ink: var(--m-mass-ink);
+  --pj-mass-dim: #97A19A;
+  --pj-mass-faint: #6E7A72;
+  --pj-mass-rule: rgba(241, 240, 234, 0.10);
+
+  --pj-ink: #16181A;
+  --pj-ink-dim: #5E6660;
+  --pj-ink-faint: #96999A;
+  --pj-rule: rgba(22, 24, 26, 0.10);
+  --pj-tile: #EDEBE1;
+
+  --pj-accent: var(--m-accent);
+  --pj-accent-ink: var(--m-accent-ink);
+  /* The accent as a HAIRLINE on ivory. --m-accent is a fill colour picked to
+     carry dark type; at 1.5px on a light ground it disappears, so the focus
+     ring and the lifted card's edge get the deep value instead. */
+  --pj-accent-edge: var(--m-accent-deep);
+}
+
+[data-theme='night'] .pj {
+  --pj-ground: #0A0D0B;
+  --pj-mass: #151B17;
+  --pj-key: #1B221D;
+  --pj-key-lift: #232B26;
+  --pj-mass-ink: #D6D4C8;
+  --pj-mass-dim: #8E978F;
+  --pj-mass-faint: #6E7870;
+  --pj-mass-rule: rgba(214, 212, 200, 0.10);
+
+  --pj-ink: #D6D4C8;
+  --pj-ink-dim: #8E978F;
+  --pj-ink-faint: #6E7870;
+  --pj-rule: rgba(214, 212, 200, 0.12);
+  --pj-tile: #1F2721;
+  /* On near-black the fill value IS the legible edge; the deep one vanishes. */
+  --pj-accent-edge: var(--m-accent);
+}
+
+/* The ground, painted across the whole viewport rather than onto `.app`.
+   `.app` is `min-height:100%` inside a 560px-max column, so painting it leaves
+   the gutters and the strip under the tab tray on the OLD ground — and the
+   notch would then be matching a colour that is only true in the middle of the
+   screen. Fixed and full-bleed is the only version of this that cannot seam.
+
+   Scoped to `.pj` so it exists exactly as long as one of these screens is
+   mounted: the roll screen and the shell are other people's lanes and neither
+   inherits a repaint from here. */
+.pj::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--pj-ground);
+  pointer-events: none;
+}
+
+/* Ink on the repainted ground. The app's own --text is mixed against a
+   different ground in both themes (#fbfaf7 / #0c0d10), and at night that is a
+   BLUE-black against this green-black — two off-whites in one column reads as
+   a rendering fault. One rule, both themes, no drift. */
+.pj,
+.pj .ltitle {
+  color: var(--pj-ink);
+}
+
+/* ========================================================== THE NOTCH ======
+   A slot of ground cut UP into the dark mass, its mouth flared by two concave
+   quarter-discs. Ported from the approved pitch essentially verbatim, and
+   deliberately built from nothing but a rectangle and two radial gradients: no
+   mask, no SVG, no clip-path.
+
+   WHY THAT MATTERS. The flare is the whole illusion — a bare rectangle butting
+   into a card reads as a missing chunk, and the two curves are what turn it
+   into milled metal. A mask would do it in one element, but `mask-image` on a
+   scrolling list is a per-frame composite on exactly the mid-range Android
+   phones this app is held on, and an SVG would need the mass colour baked into
+   markup where the theme cannot reach it.
+
+   THE GRADIENT. Each tile is 16×16 with a 16px circle pinned to the corner
+   nearest the slot: transparent to 15px, ground from 15.7px out. The
+   transparent quarter-disc lets the mass show through; the ground fills the
+   corner around it, so the mass appears to sweep away from the slot's mouth.
+   The 0.7px ramp between the two stops is load-bearing — a hard stop aliases
+   into a visible staircase on a 2x screen, which is what a hand-drawn curve
+   never does. */
+.pj-notch {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 14px;
+  margin-left: -7px;
+  background: var(--pj-ground);
+  /* Radius on the CLOSED end only. The mouth is open, so it has no corners. */
+  border-radius: 7px 7px 0 0;
+  pointer-events: none;
+}
+.pj-notch::before,
+.pj-notch::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+}
+.pj-notch::before {
+  left: -16px;
+  background: radial-gradient(circle 16px at 0% 0%, rgba(0, 0, 0, 0) 15px, var(--pj-ground) 15.7px);
+}
+.pj-notch::after {
+  right: -16px;
+  background: radial-gradient(circle 16px at 100% 0%, rgba(0, 0, 0, 0) 15px, var(--pj-ground) 15.7px);
+}
+
+/* The same joint turned on its side: a slot biting in from the LEFT, which is
+   how camera units A and B are joined on the setup screen. Same two tiles,
+   rotated a quarter turn, so there is one geometry in the app and not two. */
+.pj-notch--h {
+  bottom: auto;
+  left: 0;
+  top: 50%;
+  width: auto;
+  right: 58%;
+  height: 14px;
+  margin-left: 0;
+  margin-top: -7px;
+  border-radius: 0 7px 7px 0;
+}
+.pj-notch--h::before,
+.pj-notch--h::after {
+  left: 0;
+  right: auto;
+  bottom: auto;
+}
+.pj-notch--h::before {
+  top: -16px;
+  background: radial-gradient(circle 16px at 100% 0%, rgba(0, 0, 0, 0) 15px, var(--pj-ground) 15.7px);
+}
+.pj-notch--h::after {
+  bottom: -16px;
+  top: auto;
+  background: radial-gradient(circle 16px at 100% 100%, rgba(0, 0, 0, 0) 15px, var(--pj-ground) 15.7px);
+}
+
+/* ============================================================ THE MASS =====
+   One block of dark metal set into the ground. Never `overflow: hidden` — the
+   notch tiles live 16px outside the slot and clipping them takes the flare off
+   and leaves the bare rectangle the flare exists to fix. */
+.pj-mass {
+  position: relative;
+  background: var(--pj-mass);
+  color: var(--pj-mass-ink);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 14px 30px var(--m-cast);
+  text-align: left;
+  width: 100%;
+  display: block;
+}
+
+/* ---------------------------------------------------------- today's mass --
+   The one shoot that is happening. Everything below it on this screen is a
+   quiet ivory row, so the hierarchy is carried by MATERIAL rather than by size
+   — which survives a director who has forty projects and one shoot day. */
+.pj-hero {
+  padding: var(--sp-5) var(--sp-4) 0;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.pj-hero:active { transform: scale(0.992); }
+
+.pj-hero__top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.pj-hero__name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-title);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pj-hero__chev {
+  flex: none;
+  color: var(--pj-mass-dim);
+  display: inline-flex;
+}
+.pj-hero__meta {
+  margin-top: var(--sp-2);
+  color: var(--pj-mass-dim);
+  font-size: var(--t-secondary);
+}
+
+/* Coverage, as the strip of scenes it is: one tile per scene, lit once the
+   scene has a keeper. A percentage would be a smaller thing to read and a
+   worse one — an AD counts scenes, and eight tiles can be counted at a glance
+   without reading anything at all. */
+.pj-cov {
+  display: flex;
+  gap: 5px;
+  margin-top: var(--sp-4);
+}
+.pj-cov__seg {
+  flex: 1;
+  height: 22px;
+  border-radius: 5px;
+  background: rgba(241, 240, 234, 0.07);
+}
+.pj-cov__seg--on { background: var(--pj-accent); }
+[data-theme='night'] .pj-cov__seg { background: #1B211C; }
+[data-theme='night'] .pj-cov__seg--on { background: #8A86D8; }
+.pj-cov__cap {
+  margin-top: var(--sp-2);
+  color: var(--pj-mass-faint);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+/* The two numbers, and the joint between them. `.pj-stats` runs to the card's
+   own bottom edge (the card carries no bottom padding — this does) precisely so
+   the notch's mouth lands ON that edge and opens into the ground below. */
+.pj-stats {
+  position: relative;
+  display: flex;
+  margin-top: var(--sp-5);
+  padding-bottom: var(--sp-5);
+}
+.pj-stat {
+  flex: 1;
+  min-width: 0;
+}
+.pj-stat + .pj-stat { padding-left: var(--sp-5); }
+.pj-stat__k {
+  display: block;
+  color: var(--pj-mass-dim);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+.pj-stat__v {
+  display: block;
+  margin-top: 2px;
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+/* Room for the joint, so a four-digit take count can never run into it. */
+.pj-stats > .pj-notch { height: calc(100% - var(--sp-3)); }
+
+/* ======================================================== THE QUIET ROW ====
+   Every project that is not today. A rule, a name, a line of facts and a date
+   — no card, no border, no chrome. The list's job below the fold is to be
+   scanned, and forty bordered cards is forty boxes to look past. */
+.pj-band { margin-top: var(--sp-6); }
+.pj-band__hdr {
+  margin: 0 0 var(--sp-2);
+  padding: 0 var(--sp-1);
+  color: var(--pj-ink-faint);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.pj-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 62px;
+  padding: var(--sp-3) var(--sp-1);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--pj-rule);
+  color: inherit;
+  text-align: left;
+}
+.pj-band .pj-row:first-of-type { border-top: none; }
+.pj-row:active { background: var(--pj-rule); }
+.pj-row__text { flex: 1; min-width: 0; }
+.pj-row__name {
+  display: block;
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--pj-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pj-row__meta {
+  display: block;
+  margin-top: 3px;
+  color: var(--pj-ink-dim);
+  font-size: var(--t-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pj-row__when {
+  flex: none;
+  color: var(--pj-ink-faint);
+  font-size: var(--t-caption);
+}
+
+/* ⋯ — the one-handed path to "File under…". A separate hit target from the row
+   it sits on, at the full 44px floor, because the alternative is a long-press
+   and a long-press is not discoverable and not one-handed on a 6.7" phone. */
+.pj-more {
+  flex: none;
+  width: 34px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--pj-ink-faint);
+  background: transparent;
+}
+.pj-more:active { background: var(--pj-rule); }
+.pj-mass .pj-more { color: var(--pj-mass-faint); }
+.pj-mass .pj-more:active { background: var(--pj-mass-rule); }
+
+/* =========================================================== FOLDERS =======
+   An OPEN folder is the dark mass and its shoots are raised keys on it; a
+   COLLAPSED one is a quiet ivory row. That asymmetry is the whole model: what
+   you have open is a place, and what you have closed is a line in a list.
+
+   An EMPTY folder stays quiet even when open (see the pitch's Personal),
+   because a mass with nothing on it is a slab, and a slab says "broken" where
+   a dashed slot says "put something here". */
+.pj-fhead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--sp-3) var(--sp-1);
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+}
+.pj-fhead__name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-row);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pj-fhead__count {
+  flex: none;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--pj-ink-faint);
+}
+.pj-fhead__mark { flex: none; display: inline-flex; color: var(--pj-ink-dim); }
+.pj-fhead__chev { flex: none; display: inline-flex; color: var(--pj-ink-faint); }
+.pj-fhead:active { background: var(--pj-rule); }
+
+/* The same head, on the mass. */
+.pj-folder { padding: var(--sp-4) var(--sp-3) var(--sp-3); }
+.pj-folder .pj-fhead {
+  padding: 0 var(--sp-1) var(--sp-1);
+  min-height: 0;
+}
+.pj-folder .pj-fhead:active { background: transparent; }
+.pj-folder .pj-fhead__count { color: var(--pj-mass-dim); }
+.pj-folder .pj-fhead__mark { color: var(--pj-mass-dim); }
+.pj-folder .pj-fhead__chev { color: var(--pj-mass-faint); }
+
+/* A shoot filed in a folder: a key standing on the mass. */
+.pj-key {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  margin-top: var(--sp-2);
+  padding: 13px var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--pj-key);
+  color: var(--pj-mass-ink);
+  text-align: left;
+  /* Only the LIFT is animated. Position while dragging is written straight to
+     transform each frame and must never be eased, or the card swims behind the
+     finger. See `.pj-key--lifted`. */
+  transition: background var(--dur-state) var(--ease-out);
+}
+.pj-key:active { background: var(--pj-key-lift); }
+.pj-key__text { flex: 1; min-width: 0; }
+.pj-key__name {
+  display: block;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pj-key__meta {
+  display: block;
+  margin-top: 3px;
+  color: var(--pj-mass-dim);
+  font-size: var(--t-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The only accent WORD on the screen. Everything else the accent touches is a
+   surface; this is the one place it is language, and it is spent on the single
+   fact worth interrupting a scan for. */
+.pj-key__live {
+  flex: none;
+  color: var(--pj-accent);
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+/* The grip is always visible. A hint label ("hold to move") is a sentence that
+   has to be read once and then wasted forever; six dots are read once and
+   never again. */
+.pj-grip {
+  flex: none;
+  display: grid;
+  grid-template-columns: 4px 4px;
+  gap: 3px;
+  opacity: 0.45;
+  /* The drag starts here and only here, so a swipe anywhere else on the key
+     still scrolls the list. */
+  touch-action: none;
+}
+.pj-grip i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--pj-mass-dim);
+}
+
+/* Lifted: tilted off the grid, thrown up on a shadow, edged in the accent.
+   Three signals rather than one because this state has to survive being read
+   past a thumb that is sitting on top of the card. */
+.pj-key--lifted {
+  background: var(--pj-key-lift);
+  border-color: var(--pj-accent);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+  /* The finger owns the position; the tilt is composited on top of it. */
+  transition: none;
+  will-change: transform;
+}
+
+/* Where it will land. */
+.pj-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  margin-top: var(--sp-2);
+  border: 1.5px dashed var(--pj-mass-faint);
+  border-radius: var(--radius);
+  color: var(--pj-mass-faint);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+/* The empty-folder version sits on the SHEET, not on the mass, so it takes the
+   ground's rule colour instead of the mass's. */
+.pj-drop--sheet {
+  margin-top: 2px;
+  border-color: var(--pj-ink-faint);
+  color: var(--pj-ink-faint);
+}
+
+/* Archive is a different kind of move, so it gets a rule above it and the
+   bottom of the list. */
+.pj-archive {
+  margin-top: var(--sp-6);
+  border-top: 1px solid var(--pj-rule);
+  padding-top: var(--sp-1);
+}
+
+/* ==================================================== THE FILE-UNDER SHEET =
+   The one-handed path. Drag is faster and needs two hands and a steady arm;
+   this is what the same move looks like from inside a glove, holding a slate.
+   Rides the app's own <Sheet>, so the scrim, the grabber, the enter and the
+   exit are the shared ones and cannot drift. */
+.pj-filehead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.pj-filehead__chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 62%;
+  padding: 7px 13px;
+  border-radius: var(--radius-pill);
+  background: var(--pj-mass);
+  color: var(--pj-mass-ink);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pj-filehead__label {
+  color: var(--pj-ink-faint);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.pj-filerow {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 52px;
+  padding: var(--sp-3) var(--sp-1);
+  border: 1.5px solid transparent;
+  border-top-color: var(--pj-rule);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.pj-filerow:first-of-type { border-top-color: transparent; }
+.pj-filerow:active { background: var(--pj-rule); }
+.pj-filerow__ic {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--pj-tile);
+  color: var(--pj-ink-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pj-filerow__name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--pj-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pj-filerow__name--quiet { color: var(--pj-ink-dim); }
+.pj-filerow__count {
+  flex: none;
+  color: var(--pj-ink-faint);
+  font-size: var(--t-caption);
+  font-weight: 600;
+}
+.pj-filerow__tick { flex: none; display: inline-flex; color: var(--pj-accent-edge); }
+/* Where it is filed NOW, pre-checked. Bounded so the answer to "where is this"
+   is legible before the answer to "where could it go". */
+.pj-filerow--here {
+  border-color: var(--pj-accent-edge);
+  border-radius: 14px;
+  padding-left: var(--sp-3);
+  padding-right: var(--sp-3);
+}
+.pj-filerow--here + .pj-filerow { border-top-color: transparent; }
+.pj-filerow--cut { border-top-color: var(--pj-rule); margin-top: var(--sp-2); }
+
+/* ==================================================== SETUP · DEPARTMENTS ==
+   Video and Audio as two departments, and the accent spent on exactly one
+   thing: the field the cursor is in. */
+.pj .field:focus,
+.pj .field:focus-visible {
+  border-color: var(--pj-accent-edge);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pj-accent) 45%, transparent);
+}
+
+/* Camera units A and B as ONE mass bitten apart by the joint. The units keep
+   their own `.camunit` internals — this only re-materials the box and welds the
+   pair — so every field, preset and counter inside them is untouched. */
+.pj-units { position: relative; }
+.pj-units .camunit {
+  background: var(--pj-mass);
+  border-color: transparent;
+  color: var(--pj-mass-ink);
+}
+.pj-units .camunit + .camunit { margin-top: 0; }
+/* The joint sits in the gap the stack already leaves between two units, so the
+   two boxes read as one block with a slot milled between them rather than as
+   two cards that happen to touch. */
+.pj-units .pj-joint {
+  position: relative;
+  height: var(--sp-3);
+  background: var(--pj-mass);
+}
+.pj-units .camunit:first-of-type { border-radius: var(--radius) var(--radius) 0 0; }
+.pj-units .camunit:last-of-type { border-radius: 0 0 var(--radius) var(--radius); }
+.pj-units .camunit__eg { color: var(--pj-mass-ink); }
+.pj-units .camunit__operator,
+.pj-units .camunit__also { color: var(--pj-mass-dim); }
+.pj-units .label { color: var(--pj-mass-dim); }
+.pj-units .field {
+  background: rgba(0, 0, 0, 0.28);
+  border-color: var(--pj-mass-rule);
+  color: var(--pj-mass-ink);
+}
+.pj-units .field::placeholder { color: var(--pj-mass-faint); }
+.pj-units select.field {
+  background-image: linear-gradient(45deg, transparent 50%, var(--pj-mass-dim) 50%),
+                    linear-gradient(135deg, var(--pj-mass-dim) 50%, transparent 50%);
+}
+
+/* The honest badge, already carried by cameras.ts. It is BRASS, not red: an
+   approximate file name is not an error, it is a camera that stamps a
+   timestamp nobody can know in advance, and the operator needs to be told that
+   once and not warned about it forever. */
+.pj-approx {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  min-height: var(--tap);
+  margin-top: var(--sp-3);
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--pj-rule);
+  border-radius: var(--radius-pill);
+  color: var(--pj-ink-dim);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+.pj-approx__eg {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--pj-ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.pj-approx__flag { color: var(--brass-text); }
+
+/* ==================================================== EMPTY / FIRST RUN ====
+   Round 3: a project with nothing in it yet is not an error state and must not
+   look like one. It says the ONE thing that is true — the day opens itself on
+   the first take — and then gets out of the way. */
+.pj-empty {
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+  border: 1.5px dashed var(--pj-rule);
+  border-radius: var(--radius-lg);
+}
+.pj-empty b {
+  display: block;
+  margin-bottom: var(--sp-2);
+  color: var(--pj-ink);
+  font-size: var(--t-row);
+  font-weight: 600;
+}
+.pj-empty span {
+  display: block;
+  color: var(--pj-ink-dim);
+  font-size: var(--t-secondary);
+}
+/* A day that has not started yet, on the mass. */
+.pj-hero--cold .pj-stat__v { color: var(--pj-mass-faint); }
+.pj-hero__cold {
+  margin-top: var(--sp-2);
+  color: var(--pj-mass-faint);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+/* ============================================================== MOTION =====
+   Everything above animates through transform and opacity only. With travel
+   switched off the states still have to be TELLABLE APART, so the lift keeps
+   its edge and its shadow and loses only its tilt — the signal survives, the
+   movement does not. The app's global reduce block already forces
+   `transition-property: opacity`; these rules only stop the transforms. */
+@media (prefers-reduced-motion: reduce) {
+  .pj-hero:active { transform: none; }
+  .pj-key--lifted { will-change: auto; }
+}
