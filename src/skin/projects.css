@@ -200,6 +200,19 @@
 }
 .pj-hero:active { transform: scale(0.992); }
 
+.pj-hero__filed {
+  display: block;
+  margin-bottom: var(--sp-2);
+  color: var(--pj-mass-faint);
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pj-hero__top {
   display: flex;
   align-items: center;
@@ -221,9 +234,15 @@
   display: inline-flex;
 }
 .pj-hero__meta {
+  display: block;
   margin-top: var(--sp-2);
   color: var(--pj-mass-dim);
   font-size: var(--t-secondary);
+  /* One line, always. The facts are ordered most-load-bearing first, so what
+     falls off the end is the least of them. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Coverage, as the strip of scenes it is: one tile per scene, lit once the
@@ -266,7 +285,11 @@
   flex: 1;
   min-width: 0;
 }
-.pj-stat + .pj-stat { padding-left: var(--sp-5); }
+/* Room for the joint. The slot is 14px wide and each flare tile is another
+   16px, so 30px of clearance either side of centre is the minimum before a
+   four-digit take count starts touching milled metal. */
+.pj-stat:first-child { padding-right: 34px; }
+.pj-stat + .pj-stat { padding-left: 34px; }
 .pj-stat__k {
   display: block;
   color: var(--pj-mass-dim);
@@ -283,14 +306,20 @@
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
-/* Room for the joint, so a four-digit take count can never run into it. */
-.pj-stats > .pj-notch { height: calc(100% - var(--sp-3)); }
+/* The slot's closed end sits just under the two labels rather than beside
+   them: a joint that runs the full height of the block stops reading as a cut
+   between two numbers and starts reading as a column rule. */
+.pj-stats > .pj-notch { height: calc(100% - 20px); }
 
 /* ======================================================== THE QUIET ROW ====
    Every project that is not today. A rule, a name, a line of facts and a date
    — no card, no border, no chrome. The list's job below the fold is to be
    scanned, and forty bordered cards is forty boxes to look past. */
 .pj-band { margin-top: var(--sp-6); }
+/* A row-shaped band is a line in a list, not a section: it takes the rule
+   spacing its neighbours take, and only a mass earns the full gap. */
+.pj-band:has(> .pj-fhead) { margin-top: 0; }
+.pj-band:has(> .pj-fhead) + .pj-band:has(> .pj-fhead) { border-top: 1px solid var(--pj-rule); }
 .pj-band__hdr {
   margin: 0 0 var(--sp-2);
   padding: 0 var(--sp-1);
@@ -316,7 +345,25 @@
   text-align: left;
 }
 .pj-band .pj-row:first-of-type { border-top: none; }
-.pj-row:active { background: var(--pj-rule); }
+
+/* The row is a DIV carrying three targets — grip, open, ⋯ — because a button
+   cannot contain buttons, and all three have to be reachable at the 44px
+   floor. `.pj-line` is the one that opens the project, and it is the one that
+   gets the press state. */
+.pj-line {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+}
+.pj-row:has(.pj-line:active) { background: var(--pj-rule); }
 .pj-row__text { flex: 1; min-width: 0; }
 .pj-row__name {
   display: block;
@@ -429,7 +476,7 @@
      finger. See `.pj-key--lifted`. */
   transition: background var(--dur-state) var(--ease-out);
 }
-.pj-key:active { background: var(--pj-key-lift); }
+.pj-key:has(.pj-line:active) { background: var(--pj-key-lift); }
 .pj-key__text { flex: 1; min-width: 0; }
 .pj-key__name {
   display: block;
@@ -464,14 +511,10 @@
    has to be read once and then wasted forever; six dots are read once and
    never again. */
 .pj-grip {
-  flex: none;
   display: grid;
   grid-template-columns: 4px 4px;
   gap: 3px;
   opacity: 0.45;
-  /* The drag starts here and only here, so a swipe anywhere else on the key
-     still scrolls the list. */
-  touch-action: none;
 }
 .pj-grip i {
   width: 4px;
@@ -479,6 +522,19 @@
   border-radius: 50%;
   background: var(--pj-mass-dim);
 }
+/* The handle around the dots. The drag starts here and ONLY here, so a swipe
+   anywhere else on the card still scrolls the list — which is why the target
+   is padded out to the tap floor rather than being six 4px dots. */
+.pj-handle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-height: 44px;
+  touch-action: none;
+}
+.pj-row .pj-grip i { background: var(--pj-ink-faint); }
 
 /* Lifted: tilted off the grid, thrown up on a shadow, edged in the accent.
    Three signals rather than one because this state has to survive being read
@@ -522,6 +578,14 @@
   margin-top: var(--sp-6);
   border-top: 1px solid var(--pj-rule);
   padding-top: var(--sp-1);
+}
+/* Why the Archive fills itself, said once, under the row it is about — rather
+   than crammed into the count, where at 390px it truncates to "Arc…". */
+.pj-band__note {
+  margin: 0 0 var(--sp-2);
+  padding: 0 var(--sp-1);
+  color: var(--pj-ink-faint);
+  font-size: var(--t-caption);
 }
 
 /* ==================================================== THE FILE-UNDER SHEET =
@@ -732,3 +796,36 @@
   .pj-hero:active { transform: none; }
   .pj-key--lifted { will-change: auto; }
 }
+
+/* ================================================== THE TWO LIST ACTIONS ===
+   NEW PROJECT was a green slab — the app's GO colour, spent on a button that
+   goes nowhere and starts nothing rolling. Green means "the camera can roll"
+   everywhere else in this app, and a list of shoots is the one screen where
+   that is never true. It becomes the mass, which is the same material as the
+   shoot at the top of the list: this is how you make one of those.
+
+   Shotlist import is the same shape in hairline, because it is the same move
+   arrived at from a PDF, and a second filled button would be a second answer
+   to a question with one. */
+.pj .newproject {
+  min-height: 60px;
+  border-radius: var(--radius-lg);
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+.pj .newproject--primary {
+  background: var(--pj-mass);
+  color: var(--pj-mass-ink);
+  border: none;
+  box-shadow: 0 10px 24px var(--m-cast);
+}
+.pj .newproject--primary:active { background: var(--m-raised); }
+.pj .newproject--ghost {
+  background: transparent;
+  border: 1px solid var(--pj-rule);
+  color: var(--pj-ink-dim);
+  box-shadow: none;
+}
+.pj .newproject--ghost:active { background: var(--pj-rule); }
