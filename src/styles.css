@@ -2016,10 +2016,17 @@ select.field {
   gap: var(--sp-3);
   margin-bottom: var(--sp-4);
 }
+/* A FILENAME IS DATA, NOT A STATE.
+   This drew --go-text, which collapses to --go on night, so the next clip
+   name rendered in signal green: the loudest colour the app owns, spent on
+   a string that is never anything other than true. Nothing is going well
+   because the next file will be called C0001.MP4.
+   Signal colours belong on things that CHANGE - armed, rolling, done. Data
+   gets chalk, and the size and weight here already make it findable. */
 .clipwidget__preview .tnum {
   font-size: var(--t-display);
   font-weight: 700;
-  color: var(--go-text);
+  color: var(--chalk);
 }
 .clipgrid { display: grid; grid-template-columns: 1.4fr 1fr 0.8fr; gap: var(--sp-3); }
 
