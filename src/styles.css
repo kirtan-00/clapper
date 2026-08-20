@@ -423,12 +423,19 @@
   /* The tally ring's corner. Follows the DEVICE, not the radius family above:
      it traces the phone's own corner, so it is geometry like the grabber pill
      and the stripe rail, not a member of the 10/14/20 ramp. */
-  --m-ring-radius: 44px;
-  --m-ring-weight: 3px;
-  /* How far the ring stands off the safe area. Small on purpose: the ring has
-     to sit BETWEEN the screen edge and the content inset (--inset, 16px), or
-     it crosses the clock and the chips. */
-  --m-ring-standoff: 4px;
+  --m-ring-radius: 46px;
+  /* Thick, because the ring's job is to be read from across the set and out of
+     the corner of an eye that is on the actors, not on the phone. A hairline
+     is a detail you have to look at; this is signage. */
+  --m-ring-weight: 7px;
+  /* How far the ring stands off the safe area. ZERO once the stroke got heavy:
+     the ring has to live in the gutter BETWEEN the safe area and the content
+     inset (--inset, 16px), and CUT's well already overhangs 6px into that
+     gutter. 7px of stroke fills it, so the ring hugs the safe edge and keeps
+     its clearance from the button rather than standing off and colliding.
+     Kept as a knob because it is the one number that trades the two against
+     each other; measured, not assumed. */
+  --m-ring-standoff: 0px;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -2092,8 +2099,20 @@ select.field {
    .roll--live because there is nothing to tuck inside when nothing is rolling.
    Derived from the ring's own tokens so the two cannot drift apart. */
 .roll--live .tally {
-  border-top-left-radius: calc(var(--m-ring-radius) - var(--m-ring-weight));
-  border-top-right-radius: calc(var(--m-ring-radius) - var(--m-ring-weight));
+  /* Concentric with the ring's INNER curve: that curve has radius R-W with its
+     centre S+W from the glass, so a corner AT the glass matches it at R+S -
+     less however far the ring was already pushed down by the safe area.
+
+     WHICH IS WHY THIS CLAMPS AT ZERO. The band pads itself past the safe area
+     but bleeds to the glass, so on a phone with an island the band already
+     fills the whole status-bar region and the ring floats well inside it -
+     there is nothing left to tuck, and rounding the band there would just cut
+     two ivory wedges into the top corners of a live tally. Square is correct
+     the moment the ring stops meeting the band's corner. Measured both ways
+     (browser env()=0, and env() forced to a 14 Pro's 59px). */
+  --tally-tuck: max(0px, calc(var(--m-ring-radius) + var(--m-ring-standoff) - var(--safe-top)));
+  border-top-left-radius: var(--tally-tuck);
+  border-top-right-radius: var(--tally-tuck);
 }
 
 /* Two-pane wrappers. On phone/portrait they are `display: contents` — they
