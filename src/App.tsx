@@ -17,6 +17,12 @@ import { ShotsScreen } from './ui/ShotsScreen';
 import { ClipLogScreen } from './ui/ClipLogScreen';
 import { RollingScreen } from './ui/RollingScreen';
 import './styles.css';
+// The machined skin, one file per screen family. Split so the redesign can be
+// adopted screen by screen without every change queueing behind one 4,600-line
+// stylesheet. These consume the --m-* namespace; they never define it.
+import './skin/roll.css';
+import './skin/projects.css';
+import './skin/shell.css';
 
 /**
  * What a screen is CALLED when it is the thing you are going back to. iOS

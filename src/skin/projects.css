@@ -1,0 +1,11 @@
+/* projects — machined skin.
+ *
+ * Own lane. This file exists so the redesign can be built screen-by-screen
+ * without three parallel edits colliding in styles.css. Everything here resolves
+ * through the additive `--m-*` namespace defined in styles.css; nothing in this
+ * file may redefine a token, only consume one.
+ *
+ * Load order is App.tsx: styles.css first, then these. So a rule here outranks
+ * the same-specificity rule there, which is the point — adoption is opt-in per
+ * screen and reverting is deleting a block, never untangling a merge.
+ */
