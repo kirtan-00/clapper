@@ -590,6 +590,24 @@
   color: var(--text);
 }
 
+/* The idle stage was always `overflow-y: auto` (see .roll__stage in
+   styles.css) - a tall report (four slate-spec rows, or a kept take with a
+   note and a sound file) was already reachable by scroll. What it never had
+   was a TELL: at rest, scrollTop 0, the box's own edge sliced straight
+   through whatever row happened to land there, and a glyph cut clean in half
+   reads as a rendering fault, not an invitation to scroll. `.roll__stage--
+   clipped` is set from JS the instant there is real content below the fold
+   (see RollingScreen.tsx) and fades the last 32px toward the ground instead
+   - the exact mask-image idiom `.shotdeck__viewport` already uses for its own
+   peeked card, so "there is more below" reads the same way twice on one
+   screen. The class comes off the moment scrolling reaches the true end, so
+   the actual last line is never the thing being faded - only ever a
+   half-shown one standing in for it. */
+.roll:not(.roll--live) .roll__stage.roll__stage--clipped {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 32px), transparent 100%);
+}
+
 /* ==========================================================================
    WHO OWNS THE LIVE SCREEN
    Measured before this block, rolling on a five-tag project: the deck was 745

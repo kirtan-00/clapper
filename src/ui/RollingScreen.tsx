@@ -302,6 +302,21 @@ export function RollingScreen(props: {
    *  current shot's next take number; the shot deck reuses it to show a take
    *  count on the peeked next card without a second read. */
   const [allTakes, setAllTakes] = useState<Take[]>([]);
+  /**
+   * The idle stage (see .roll__stage below) already scrolls — it always has,
+   * `overflow-y: auto` was never missing. What was missing is any sign of
+   * that from the resting state: a tall report (the first-run slate spec, or
+   * a kept take with a note and a sound file) rests with scrollTop 0 and its
+   * last row sliced clean through by the box's own edge, which reads as a
+   * rendering fault rather than "there is more, scroll for it". `stageRef` +
+   * this flag turn that hard edge into the same bottom fade the shot deck's
+   * peeked card already uses (see .shotdeck__stack's mask-image) — one fade
+   * language for "there is more below" everywhere on this screen, and the
+   * fade is OFF the instant scrolling reaches the true end, so the actual
+   * last line is never the thing being faded.
+   */
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [stageClipped, setStageClipped] = useState(false);
 
   const multi = isMultiCam(project);
   // clipUnits() is the same "one shape either way" helper the store uses:
@@ -1127,6 +1142,37 @@ export function RollingScreen(props: {
     if (!rolling) setEditingTags(false);
   }, [rolling]);
 
+  /**
+   * Keeps `stageClipped` honest. A ResizeObserver on the stage box ALONE
+   * misses the case that actually bit this screen: the box's own flex size
+   * does not change when its content grows a row (the Sound line, a note on
+   * the last take) - only its scrollHeight does. So every direct child is
+   * observed too, and scrolling itself re-checks on every event, which is
+   * what turns the fade off the moment the operator actually scrolls to the
+   * true bottom rather than leaving it lit over content that is now fully
+   * in view.
+   */
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) {
+      setStageClipped(false);
+      return;
+    }
+    function recompute() {
+      if (!el) return;
+      setStageClipped(el.scrollHeight - el.clientHeight - el.scrollTop > 1);
+    }
+    recompute();
+    el.addEventListener('scroll', recompute, { passive: true });
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    for (const child of Array.from(el.children)) ro.observe(child);
+    return () => {
+      el.removeEventListener('scroll', recompute);
+      ro.disconnect();
+    };
+  }, [rolling, postCut, report, recentTakes]);
+
   /** 450ms is the pitch's own threshold - long enough that a frantic
    *  mid-take tap can never land in edit mode by accident, short enough
    *  that a deliberate hold does not feel ignored. Cancelled by any
@@ -1322,7 +1368,10 @@ export function RollingScreen(props: {
         <Rail key={clapKey} thin clap={clapKey > 0} />
       </div>
 
-      <div className="roll__stage">
+      <div
+        className={`roll__stage${stageClipped ? ' roll__stage--clipped' : ''}`}
+        ref={stageRef}
+      >
         {/* The clock is the LIVE readout. Idle it always read 00:00, which is
             the least informative thing this screen could put at its largest
             size, and it sat on 448px of measured void. Idle now carries the
