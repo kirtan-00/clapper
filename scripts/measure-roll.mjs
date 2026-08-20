@@ -188,6 +188,18 @@ const SCRIPT_TAGS = [
   { id: 't6', label: 'Big reveal', tier: 'keyMoment', order: 2 },
 ];
 
+/** Click the first row/card whose visible text contains `text`. */
+const CLICK_BY_TEXT = (text) => `
+  (() => {
+    const want = ${JSON.stringify(text)};
+    const els = [...document.querySelectorAll('button, [role="button"], .card, .grow')];
+    const hit = els.find((e) => (e.textContent || '').includes(want));
+    if (!hit) return false;
+    (hit.closest('button') || hit).click();
+    return true;
+  })()
+`;
+
 async function seed(cdp, { cameraCount, soundOn, mode }) {
   const cameras =
     cameraCount >= 2
@@ -280,16 +292,21 @@ async function runMatrix(cdp) {
           const cfg = { cameraCount, soundOn, mode };
           await seed(cdp, cfg);
           await cdp.navigate(BASE_URL);
+          // MATCH ON THE WORDS, NOT THE CLASS. This used to click `.card`,
+          // and the shell has since moved its lists onto grouped `.grow` rows -
+          // so the whole matrix timed out on the first navigation and reported
+          // nothing at all. A name is the one thing about these two rows that
+          // is not going to be renamed by a repaint.
           await cdp.waitForExpr(
-            `document.querySelector('.card') && document.querySelector('.card__name')?.textContent === 'Measure Test'`,
+            `document.body.textContent.includes('Measure Test')`,
             { desc: 'projects list showing seeded project' },
           );
-          await cdp.evaluate(`document.querySelector('.card').click(); true`);
+          await cdp.waitForExpr(CLICK_BY_TEXT('Measure Test'), { desc: 'project row clickable' });
           await cdp.waitForExpr(
-            `document.querySelector('.card__name')?.textContent === 'Scene 1'`,
+            `document.body.textContent.includes('Scene 1')`,
             { desc: 'project screen showing seeded scene' },
           );
-          await cdp.evaluate(`document.querySelector('.card').click(); true`);
+          await cdp.waitForExpr(CLICK_BY_TEXT('Scene 1'), { desc: 'scene row clickable' });
           await cdp.waitForExpr(`document.querySelector('.roll') && document.querySelector('.bigbtn')`, {
             desc: 'rolling screen mounted',
           });
