@@ -829,3 +829,51 @@
   box-shadow: none;
 }
 .pj .newproject--ghost:active { background: var(--pj-rule); }
+
+/* ================================================= MATERIAL, ON THIS GROUND
+   The app mixes every frosted surface from ONE place in styles.css, against
+   the ground that file owns (#fbfaf7 / #0c0d10). This lane repainted its own
+   ground, so those mixes now arrive as a visibly different rectangle sitting on
+   it — worst at night, where a BLUE-charcoal bar on a GREEN-black page reads as
+   a rendering fault rather than as depth.
+
+   So the material is re-mixed here, from `--pj-ground`, and nowhere else. Same
+   recipe, same translucency, same blur (inherited): only the pigment moves. */
+.pj .ltop,
+.pj .topbar {
+  background: color-mix(in srgb, var(--pj-ground) 84%, transparent);
+}
+[data-theme='night'] .pj .ltop,
+[data-theme='night'] .pj .topbar {
+  /* A dark iOS material sits LIGHTER than its ground, never darker — the same
+     note styles.css leaves beside --material-blur. */
+  background: color-mix(in srgb, var(--pj-mass) 82%, transparent);
+}
+
+/* A sheet is an object ABOVE the ground, so night keeps it a step lighter —
+   it just stops being a different hue from the page it is covering. */
+[data-theme='night'] .pj .sheet,
+[data-theme='night'] .pj .sheet__head {
+  background: var(--pj-mass);
+}
+[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, var(--pj-mass) 86%, transparent); }
+
+/* -------------------------------------------------- the unit badge --------
+   A is the master unit: it is the one whose clip fields the project also
+   carries at the top level, it is the one the badge bar quotes, and on a set it
+   is the camera everything else is called "the other one" relative to. So it
+   wears the accent and B, C, D wear the mass — the same hierarchy the approved
+   design draws, and the reason the pair needs no label saying which is which.
+
+   The app's default badge is GREEN, which on this screen would be the fourth
+   meaning green has and the only one that is not "the camera can roll". */
+.pj-units .camunit__badge {
+  background: var(--pj-mass-rule);
+  border-color: var(--pj-mass-rule);
+  color: var(--pj-mass-dim);
+}
+.pj-units .camunit:first-of-type .camunit__badge {
+  background: var(--pj-accent);
+  border-color: var(--pj-accent);
+  color: var(--pj-accent-ink);
+}
