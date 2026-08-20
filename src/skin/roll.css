@@ -26,10 +26,10 @@
   --roll-mass-raised: var(--m-raised);   /* a key standing on the mass    */
   --roll-mass-pressed: var(--m-pressed); /* that key, bottomed out        */
   --roll-mass-ink: var(--m-mass-ink);
-  --roll-mass-dim: #96a099;
-  --roll-mass-faint: #5e6a63;
-  --roll-mass-rule: #26302a;
-  --roll-key-under: #060a08;              /* the 3px a keycap stands on   */
+  --roll-mass-dim: #8f8d87;
+  --roll-mass-faint: #5b5955;
+  --roll-mass-rule: #262626;
+  --roll-key-under: #000000;              /* nothing stands proud any more */
   --roll-brass: var(--m-brass);
   --roll-brass-edge: #4a3e14;
   /* THE ACCENT AS IT APPEARS ON THE MASS. The deck is dark metal at 2pm and at

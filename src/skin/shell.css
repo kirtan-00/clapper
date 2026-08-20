@@ -217,7 +217,7 @@ html[data-uiscale='fine'] textarea {
   /* The material chrome mixes from the ground it sits on, or the large-title
      bar arrives in the old blue-charcoal and the screen carries two night
      ramps at once. */
-  --material-bg: rgba(21, 27, 23, 0.82);
+  --material-bg: rgba(28, 28, 28, 0.82);
   --material-solid: var(--paper);
   --material-hairline: var(--hairline);
 

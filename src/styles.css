@@ -390,9 +390,15 @@
      Those are different materials, so they get different wells and different
      travel, not one button with two fills. */
   --m-sheet: #f7f6f2;         /* the ivory a well is milled into */
-  --m-mass: #101714;          /* the dark block CUT is cut from */
-  --m-raised: #1c2420;        /* a key standing on the mass */
-  --m-pressed: #242d28;       /* that key, bottomed out */
+  /* THE MASS IS NEUTRAL, AND IT IS THE SAME MATERIAL IN BOTH THEMES. It was a
+     green-black (#101714 / #1C2420 / #242D28) and the green went with every
+     other hue on the dark side - a tinted black is the tint you notice first,
+     and this one sat under a brass accent. It no longer needs a night value
+     either: the mass is dark at 2pm and at 5am, which is the same sentence
+     that already explains why its ink is light at 2pm and at 5am. */
+  --m-mass: #131313;          /* the dark block CUT is cut from */
+  --m-raised: #1e1e1e;        /* a key standing on the mass */
+  --m-pressed: #272727;       /* that key, bottomed out */
   /* THE ACCENT IS BRASS. It was lavender, and green before that, and both
      were rejected as an identity rather than as a shade - so this is the last
      hue this app introduces, because it is not a new one. #d8b23c is already
@@ -594,9 +600,14 @@
   --key-shadow: rgba(0, 0, 0, 0.42);
   --lift-shadow: rgba(0, 0, 0, 0.45);
 
-  --material-bg: rgba(18, 19, 25, 0.80);
+  /* NEUTRAL, AND ABOVE TRUE BLACK. These were the last two hardcoded tints on
+     the dark side - a blue-charcoal frosted bar, which on a green-black page
+     used to read as a rendering fault and on a true-black one read as a bar
+     that had been left behind by the repaint. A dark iOS material sits
+     LIGHTER than its ground, which on #000 is the whole job. */
+  --material-bg: rgba(26, 26, 26, 0.80);
   --material-solid: var(--surface);
-  --material-cap-bg: rgba(18, 19, 25, 0.80);
+  --material-cap-bg: rgba(26, 26, 26, 0.80);
   --material-cap-solid: var(--surface);
   /* Half of light's saturation lift, and a hair of brightness rather than
      light's none. See the long note beside the light value; the short version
@@ -682,7 +693,7 @@ input, select, textarea {
 /* The focus ring is a functional indicator, so it takes the deep token: the
    bright --go on paper is 1.91:1 and would be a ring you cannot see. */
 :focus-visible {
-  outline: 2px solid var(--go-text);
+  outline: 2px solid var(--m-accent-text);
   outline-offset: 2px;
 }
 
@@ -847,7 +858,7 @@ input, select, textarea {
    read on a translucent material in either theme. */
 .tabtray__tab:active { background: color-mix(in srgb, var(--text) 10%, transparent); }
 /* Icon + label are TYPE, so they take the deep signal, not the fill one. */
-.tabtray__tab--on { color: var(--go-text); }
+.tabtray__tab--on { color: var(--m-accent-text); }
 
 /* The active mark sits ON the hairline, a short rule rather than a pill —
    pills read as someone else's design system. It is a fill, but it is also the
@@ -863,7 +874,7 @@ input, select, textarea {
   height: 3px;
   margin-left: -13px;
   border-radius: 0 0 2px 2px;
-  background: var(--go-text);
+  background: var(--m-accent-text);
 }
 
 .tabtray__icon {
@@ -941,7 +952,7 @@ input, select, textarea {
   transition: transform var(--dur-move) var(--ease-out);
 }
 .tswitch--on {
-  background: var(--go-fill);
+  background: var(--m-accent-deep);
 }
 .tswitch--on .tswitch__knob {
   transform: translateX(20px);
@@ -987,9 +998,9 @@ input, select, textarea {
 }
 .cutsize__opt:active { transform: scale(0.97); }
 .cutsize__opt--on {
-  color: var(--go-text);
-  background: var(--go-tint);
-  border-color: var(--go-edge);
+  color: var(--m-accent-text);
+  background: var(--brass-tint);
+  border-color: var(--brass-edge);
 }
 
 /* The clapper stripe rail - identity mark + section divider */
@@ -1129,7 +1140,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   color: var(--chalk-dim);
 }
 .rollhint__arrow {
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 600;
 }
 .card__namewrap {
@@ -1158,13 +1169,13 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    glow this used to have is gone - a coloured halo is decoration, and on ivory
    it just smears the edge it needs. */
 .scene-dot--done {
-  background: var(--go);
-  border-color: var(--go-text);
+  background: var(--m-accent);
+  border-color: var(--m-accent-text);
 }
 /* A shot scene gets a green left edge so the "done" read is instant. It is the
  * only mark saying "in the can", so it takes the deep token: as bright --go it
  * measured 1.91:1 on paper, which is the opposite of surviving daylight. */
-.card--done { border-left: 3px solid var(--go-text); }
+.card--done { border-left: 3px solid var(--m-accent-text); }
 .card__meta {
   margin-top: var(--sp-2);
   display: flex;
@@ -1180,7 +1191,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
   font-size: var(--t-row);
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 600;
 }
 /* Subtle "9th in script" hint: shown only once a drag has made shooting order
@@ -1206,7 +1217,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   z-index: 5;
 }
 .cardrow--dragging .card {
-  border-color: var(--go-text);
+  border-color: var(--m-accent-text);
   box-shadow: 0 10px 28px var(--lift-shadow);
   background: var(--ink-850);
 }
@@ -1237,7 +1248,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   user-select: none;
 }
 .scenehandle__grip:active { background: var(--ink-850); color: var(--chalk); }
-.scenehandle__grip:focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
+.scenehandle__grip:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 
 .visually-hidden {
   position: absolute;
@@ -1461,7 +1472,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-weight: 600;
   white-space: nowrap;
 }
-.guide__navchip:active { border-color: var(--go-text); color: var(--chalk); }
+.guide__navchip:active { border-color: var(--m-accent-text); color: var(--chalk); }
 
 .guide__scroll {
   flex: 1;
@@ -1644,7 +1655,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   font-size: var(--t-body);
   line-height: 1.45;
   color: var(--chalk);
-  border-left: 2px solid var(--go-deep);
+  border-left: 2px solid var(--m-accent-text);
   padding-left: var(--sp-3);
 }
 .gsay dd:last-child { margin-bottom: 0; }
@@ -1661,7 +1672,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   vertical-align: middle;
   margin: 0 1px;
 }
-.gdot--done { background: var(--go); border-color: var(--go-text); }
+.gdot--done { background: var(--m-accent); border-color: var(--m-accent-text); }
 
 @media (min-width: 520px) {
   .gsplit { grid-template-columns: 1fr 1fr; }
@@ -1717,7 +1728,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .clipset__preview .tnum {
   font-size: var(--t-display);
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 700;
 }
 
@@ -1780,19 +1791,24 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    compressed shadow and a hair of scale, which is how a real key behaves.
    ROLL and CUT keep their own physics; they are the roll screen's, not this
    screen's, and they are the one place the hardware metaphor is load-bearing. */
+/* NOT A BRASS FILL, and not a raised key either. It was a filled green slab
+   that pressed 2px into a shadow; the green sweep would have made it a filled
+   BRASS slab, which is GOLD's one reserved shape, and the travel was the last
+   3D press left on this screen. It is the mass now - loud because it is the
+   only solid object on a page of paper, which is a cheaper way to be loud and
+   survives a repaint - and the press is a colour. */
 .newproject--primary {
   border: none;
-  background: var(--go-fill);
-  color: var(--go-fill-ink);
-  box-shadow: 0 4px 12px var(--lift-shadow);
-  transition: transform var(--dur-press) var(--ease-out),
-    box-shadow var(--dur-press) var(--ease-out);
+  background: var(--m-mass);
+  color: var(--m-mass-ink);
+  box-shadow: none;
+  transition: background var(--dur-state) var(--ease-out);
 }
 .newproject--primary:active {
-  transform: translateY(2px) scale(0.99);
-  background: var(--go-fill);
-  color: var(--go-fill-ink);
-  box-shadow: 0 1px 4px var(--lift-shadow);
+  transform: none;
+  background: var(--m-pressed);
+  color: var(--m-mass-ink);
+  box-shadow: none;
 }
 
 /* `.rowdel` is GONE. A bounded, boxed, 44px DELETE rendered at rest inside
@@ -1835,7 +1851,7 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 textarea.field { padding: var(--sp-3) var(--sp-3); min-height: 60px; resize: none; line-height: 1.4; }
 .field::placeholder { color: var(--chalk-faint); }
 .field--mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.field:focus { border-color: var(--go-text); outline: none; }
+.field:focus { border-color: var(--m-accent-text); outline: none; }
 select.field {
   appearance: none;
   -webkit-appearance: none;
@@ -1895,9 +1911,9 @@ select.field {
   font-weight: 600;
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
-  color: var(--go-text);
-  border: 1px solid var(--go-edge);
-  background: var(--go-tint);
+  color: var(--m-accent-text);
+  border: 1px solid var(--brass-edge);
+  background: var(--brass-tint);
 }
 .cambadge--approx {
   color: var(--brass-text);
@@ -1961,7 +1977,7 @@ select.field {
    back made the word look like it blinked out. The real confirmation is the
    persistent count badge; this only has to pull the eye to it. */
 @keyframes chipflash {
-  0% { background: var(--go-tint); border-color: var(--go-edge); }
+  0% { background: var(--brass-tint); border-color: var(--brass-edge); }
   100% { background: none; }
 }
 .chip--flash { animation: chipflash var(--dur-state) var(--ease-out); }
@@ -2051,7 +2067,7 @@ select.field {
   flex: none;
   font-size: var(--t-caption);
   font-weight: 600;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   opacity: 0.95;
 }
 
@@ -2715,7 +2731,7 @@ select.field {
   font-size: var(--t-secondary);
 }
 .minitake .tnum { color: var(--chalk); font-weight: 600; }
-.minitake .clip { color: var(--go-text); font-family: var(--font-mono); font-size: var(--t-secondary); }
+.minitake .clip { color: var(--m-accent-text); font-family: var(--font-mono); font-size: var(--t-secondary); }
 .minitake .dur { margin-left: auto; color: var(--chalk-dim); font-family: var(--font-mono); }
 .minitake--discarded { color: var(--chalk-faint); }
 .minitake--discarded .tnum,
@@ -2745,7 +2761,7 @@ select.field {
   font-size: var(--t-secondary);
 }
 .momentrow--gold { border-left-color: var(--brass-text); }
-.momentrow--range { border-left-color: var(--go-text); }
+.momentrow--range { border-left-color: var(--m-accent-text); }
 .momentrow .at { font-family: var(--font-mono); color: var(--chalk); font-weight: 600; }
 .momentrow .tag { font-weight: 600; letter-spacing: var(--track-caps); font-size: var(--t-caps); color: var(--chalk-dim); }
 .momentrow .lbl { color: var(--chalk-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2851,9 +2867,9 @@ select.field {
 .reachbtn:active { transform: scale(0.96); }
 /* Voice, live. Same green the app already spends on "this is on". */
 .reachbtn--on {
-  color: var(--go-text);
-  border-color: var(--go-edge);
-  background: var(--go-tint);
+  color: var(--m-accent-text);
+  border-color: var(--brass-edge);
+  background: var(--brass-tint);
 }
 .reachbtn__pen { color: var(--text-faint); }
 .reachbtn .tnum { color: var(--text); }
@@ -2974,13 +2990,13 @@ select.field {
   transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
 }
 .markbtn:active { transform: scale(0.98); }
-.markbtn--armed { border-color: var(--go-text); color: var(--go-text); }
+.markbtn--armed { border-color: var(--m-accent-text); color: var(--m-accent-text); }
 /* "MARK IN 2" counts marks; a count is not slate language, so it is UI face
    with tabular figures rather than a costume monospace. */
 .markbtn__badge {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 600;
 }
 
@@ -3235,15 +3251,15 @@ select.field {
 }
 .mictoggle:active { transform: scale(0.97); }
 .mictoggle--on {
-  color: var(--go-text);
-  border-color: var(--go-edge);
-  background: var(--go-tint);
+  color: var(--m-accent-text);
+  border-color: var(--brass-edge);
+  background: var(--brass-tint);
 }
 .miclamp { width: 9px; height: 9px; border-radius: 50%; background: var(--chalk-faint); }
 /* The lamp is 9px on a pale wash, so it takes the deep token: the bright fill
    on the light tint is 1.7:1 and the lamp simply is not there. */
 /* Static: the lamp being lit is the state. It does not need to breathe about it. */
-.mictoggle--on .miclamp { background: var(--go-text); }
+.mictoggle--on .miclamp { background: var(--m-accent-text); }
 
 /* ============================================================ SHEET ======= */
 
@@ -3386,7 +3402,7 @@ select.field {
   font-size: var(--t-display);
   font-weight: 700;
 }
-.takesummary__cell .val--clip { color: var(--go-text); }
+.takesummary__cell .val--clip { color: var(--m-accent-text); }
 
 /* toast confirm */
 .toast {
@@ -3574,7 +3590,7 @@ select.field {
 /* Outcome copy. --good is the only place in the app green is used for prose,
    and it is earned: it is the receipt. --bad borrows the same red the CUT
    button and every destructive confirm already use. */
-.procta__msg--good { color: var(--go-text); }
+.procta__msg--good { color: var(--m-accent-text); }
 .procta__msg--bad { color: var(--rec-text); }
 
 /* ------------------------------------------------------- multi-camera ---- */
@@ -3600,9 +3616,9 @@ select.field {
 }
 .camcount__opt:active { transform: scale(0.97); }
 .camcount__opt--on {
-  color: var(--go-text);
-  background: var(--go-tint);
-  border-color: var(--go-edge);
+  color: var(--m-accent-text);
+  background: var(--brass-tint);
+  border-color: var(--brass-edge);
 }
 
 /* Per-camera setup / counter card (New project + project settings). */
@@ -3631,9 +3647,9 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   font-size: var(--t-row);
-  color: var(--go-text);
-  background: var(--go-tint);
-  border: 1px solid var(--go-edge);
+  color: var(--m-accent-text);
+  background: var(--brass-tint);
+  border: 1px solid var(--brass-edge);
 }
 .camunit__eg {
   color: var(--chalk);
@@ -3764,7 +3780,7 @@ select.field {
 .camslot__clip {
   display: block;
   width: 100%;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   font-weight: 700;
   font-size: var(--t-title);
   letter-spacing: var(--track-tight);
@@ -3941,7 +3957,7 @@ select.field {
   font-size: var(--t-caps);
   font-weight: 600;
   letter-spacing: var(--track-caps);
-  color: var(--go-text);
+  color: var(--m-accent-text);
 }
 
 /* The sound section's header row is GONE along with the section. It took a
@@ -3970,7 +3986,7 @@ select.field {
 
 /* Selectable tag chips in the take editor (on = kept, off = dimmed). */
 .chip--off { opacity: 0.42; }
-.chip--on { border-color: var(--go-edge); color: var(--go-text); }
+.chip--on { border-color: var(--brass-edge); color: var(--m-accent-text); }
 .chip--on.chip--gold { border-color: var(--brass-edge); color: var(--brass-text); }
 
 /* Delete-shot control on a recent-take row. */
@@ -4001,7 +4017,7 @@ select.field {
   margin: 0 0 var(--sp-4);
   padding: var(--sp-4);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--go);
+  border-left: 3px solid var(--m-accent);
   border-radius: var(--radius);
   background: var(--ink-900);
   animation: installnudge-in var(--dur-move) var(--ease-out);
@@ -4024,7 +4040,7 @@ select.field {
 .installnudge__glyph {
   display: inline-block;
   vertical-align: -2px;
-  color: var(--go-text);
+  color: var(--m-accent-text);
 }
 .installnudge__actions {
   display: flex;
@@ -4407,7 +4423,7 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-size: var(--t-secondary);
   font-weight: 600;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   overflow-wrap: anywhere;
 }
 .cliprow__snd {
@@ -4507,7 +4523,7 @@ select.field {
   font-variant-numeric: tabular-nums;
   font-size: var(--t-row);
   font-weight: 600;
-  color: var(--go-text);
+  color: var(--m-accent-text);
   overflow-wrap: anywhere;
 }
 .movepreview__snd {
@@ -4566,13 +4582,17 @@ select.field {
   padding: var(--sp-4) var(--sp-5);
   margin: var(--sp-1) 0 0;
   border-radius: var(--radius);
-  background: var(--go-text);
-  color: var(--surface);
+  /* The mass, not the accent: a hero this size filled with brass is a
+     screen-sized GOLD chip, and GOLD's fill is reserved. Same reasoning as
+     .newproject--primary directly above. */
+  background: var(--m-mass);
+  color: var(--m-mass-ink);
   text-align: left;
-  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-move) var(--ease-out);
+  transition: background var(--dur-state) var(--ease-out), opacity var(--dur-move) var(--ease-out);
 }
 .home-hero:active {
-  transform: scale(0.985);
+  transform: none;
+  background: var(--m-pressed);
 }
 .home-hero:disabled {
   opacity: 0.62;

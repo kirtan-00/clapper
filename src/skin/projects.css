@@ -29,8 +29,8 @@
   --pj-ground: var(--m-sheet);
   --pj-mass: var(--m-mass);
   /* A key standing ON the mass — a filed shoot inside its folder. */
-  --pj-key: #18201C;
-  --pj-key-lift: #202A25;
+  --pj-key: #1A1A1A;
+  --pj-key-lift: #232323;
   --pj-mass-ink: var(--m-mass-ink);
   --pj-mass-dim: #97A19A;
   --pj-mass-faint: #6E7A72;
@@ -262,7 +262,7 @@
   background: rgba(241, 240, 234, 0.07);
 }
 .pj-cov__seg--on { background: var(--pj-accent); }
-[data-theme='night'] .pj-cov__seg { background: #1B211C; }
+[data-theme='night'] .pj-cov__seg { background: #1C1C1C; }
 /* The coverage segment was a hardcoded LAVENDER, which is both the retired
    accent and a literal nobody could find by grepping the token. It is a
    SEGMENT, which the accent is allowed to fill, so it reads the accent. */
@@ -883,15 +883,15 @@
 
    Night needs a third step for this, not a reuse of one of the two it has: the
    sheet has to sit ABOVE the page ground so it reads as covering it, and BELOW
-   the mass so the units on it still read as objects. #0F1310 is that step, on
+   the mass so the units on it still read as objects. #0D0D0D is that step, on
    the same green bias as both. */
 .pj .sheet { --pj-ground: var(--surface); }
 [data-theme='night'] .pj .sheet,
 [data-theme='night'] .pj .sheet__head {
-  --pj-ground: #0F1310;
-  background: #0F1310;
+  --pj-ground: #0D0D0D;
+  background: #0D0D0D;
 }
-[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, #0F1310 86%, transparent); }
+[data-theme='night'] .pj .sheet__head { background: color-mix(in srgb, #0D0D0D 86%, transparent); }
 
 /* -------------------------------------------------- the unit badge --------
    A is the master unit: it is the one whose clip fields the project also

@@ -316,10 +316,12 @@
  * picker, neither of which had a green problem; this section exists mainly
  * to keep the picker's icon and text on the mass's own ink rather than the
  * app-wide default, so it reads as part of the same machined screen. */
+/* Flat. The cast shadow was the hero standing proud of the page, which is the
+   3D this repaint retired everywhere else. */
 .pj .home-hero {
   background: var(--pj-mass);
   color: var(--pj-mass-ink);
-  box-shadow: 0 10px 24px var(--m-cast);
+  box-shadow: none;
 }
 .pj .home-hero__sub {
   color: var(--pj-mass-dim);
