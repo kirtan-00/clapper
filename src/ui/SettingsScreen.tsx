@@ -17,7 +17,7 @@ import { Sheet, SheetClose } from './common';
 import { Section, Row, LinkRow, ReadRow, ScreenHeader } from './glist';
 import { HowToScreen } from './HowToScreen';
 import { ThemeToggleRow } from './ThemeToggleRow';
-import { CutSizeRow } from './CutSizeRow';
+import { CutSizeRow, UiSizeRow } from './CutSizeRow';
 import { DefaultTagsRows } from './DefaultTagsRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
@@ -69,7 +69,7 @@ export function SettingsScreen(props: { nav: Nav }) {
   }, [showHelp]);
 
   return (
-    <div className="app">
+    <div className="app mscreen">
       <ScreenHeader title="Settings" />
 
       {/* First, above Help, on purpose: this is the one setting a crew member
@@ -80,7 +80,11 @@ export function SettingsScreen(props: { nav: Nav }) {
           and the one note with a real consequence (a restore lands as a NEW
           project) now appears inside the restore sheet, where the file picker
           is - at the moment of need rather than on every visit. */}
+      {/* Interface size leads the group, above the theme and the CUT key.
+          It is the setting that changes every other row on this screen while
+          you are looking at it, so it goes where it can be seen doing that. */}
       <Section title="Appearance">
+        <UiSizeRow />
         <ThemeToggleRow />
         <CutSizeRow />
       </Section>

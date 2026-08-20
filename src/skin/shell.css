@@ -114,36 +114,100 @@ html[data-uiscale='fine'] textarea {
      chalk   #D6D4C8
      dim     #8B928A   6.1:1 / 5.5:1 */
 :root {
-  /* Day: the ivory the rest of the machined layer is milled from, and the
-     dark block set into it. Both already exist as --m-sheet / --m-mass; these
-     are the SURFACE-role aliases, so night can move the surfaces without
-     moving the rolling screen's key. */
-  --m-ground: var(--m-sheet);
-  --m-ground-ink: var(--ink);
+  /* Day is the shipped ivory, deliberately: --m-ground aliasing --bg means
+     the repainted screens and the ones this lane has not reached are on the
+     SAME ground, so there is no seam to see while the redesign lands screen
+     by screen. Only night has a new ground, and it has one because round 3
+     designed it.
+
+     --m-card is the mass a card is cut from. It aliases --m-mass on day and
+     is redefined on night; the alias exists so this lane can move the CARD
+     without moving the rolling screen's CUT key, which another lane is
+     dressing out of the same --m-mass right now. */
+  --m-ground: var(--bg);
   --m-card: var(--m-mass);
   --m-card-ink: var(--m-mass-ink);
   --m-card-dim: #9aa39c;
   --m-card-line: rgba(241, 240, 234, 0.14);
+  /* The raised keycap, and the legend a backlit control emits rather than
+     reflects. Only night uses these; day's selected object is the mass. */
+  --m-keycap: var(--m-raised);
+  --m-legend: var(--m-accent);
 }
 
 [data-theme='night'] {
   --m-ground: #0a0d0b;
-  --m-ground-ink: #d6d4c8;
   --m-card: #151b17;
   --m-card-ink: #d6d4c8;
   --m-card-dim: #8b928a;
   --m-card-line: rgba(214, 212, 200, 0.13);
+  --m-keycap: #1f2721;
 }
 
-/* The ground is painted only under the screens this lane has repainted, so a
-   screen still wearing the shipped ivory is not left sitting on a different
-   white. `.shell` carries it rather than `.app`, because `.app` is width-
-   capped at 560 and would leave a band down either side on a tablet. */
+/* The ground is painted only under the screens this lane has repainted.
+   `.shell` carries it rather than `.app`, because `.app` is width-capped at
+   560 and would leave a band down either side on a tablet. */
 .shell:has(.mscreen) {
   background: var(--m-ground);
 }
-.mscreen {
-  color: var(--m-ground-ink);
+
+/* NIGHT, SCOPED TO THE REPAINTED SCREENS.
+   Round 3's measured ramp, restated onto the shipped names for this subtree
+   only, so not one byte of it reaches the screens the other two lanes are
+   repainting right now.
+
+   THE SEMANTIC LAYER HAS TO BE RESTATED TOO, and that is not belt-and-braces.
+   styles.css declares `--bg: var(--paper)` on :root, so --bg is SUBSTITUTED
+   there, against html's --paper, and what inherits down is the finished
+   colour. Moving --paper on a descendant moves nothing. Re-declaring the
+   alias here re-substitutes it against THIS element's primitive, which is why
+   both halves are present. Measured: without the second half, --bg stayed
+   #0c0d10 under a ground of #0a0d0b and the cards kept the old blue cast.
+
+   The value that matters is that mass sits a step ABOVE ground. Night's
+   shipped card is #121319 on #0c0d10 — barely a step — and a card whose edge
+   you cannot find stops being an object and becomes a region. */
+[data-theme='night'] .mscreen {
+  --paper: #0a0d0b;
+  --paper-raised: #151b17;  /* mass: 11.8:1 for chalk */
+  --paper-sunk: #1f2721;    /* the raised keycap */
+  --paper-sunk-deep: #26302a;
+  --ink: #d6d4c8;           /* chalk. NEVER #fff — see round 3 */
+  --ink-dim: #8b928a;       /* 6.1:1 ground / 5.5:1 mass */
+  --ink-faint: #6d746c;
+  --rule: #2c352f;
+  --rule-soft: #222a24;
+
+  --bg: var(--paper);
+  --surface: var(--paper-raised);
+  --surface-raised: var(--paper-sunk);
+  --surface-sunk: var(--paper-sunk-deep);
+  --text: var(--ink);
+  --text-dim: var(--ink-dim);
+  --text-faint: var(--ink-faint);
+  --hairline: var(--rule);
+  --hairline-soft: var(--rule-soft);
+
+  /* The legacy tonal bridge, for the rules in styles.css that still say
+     --ink-800 or --chalk-dim. Same aliases, same reason. */
+  --ink-950: var(--bg);
+  --ink-900: var(--surface);
+  --ink-850: var(--surface-raised);
+  --ink-800: var(--surface-sunk);
+  --line: var(--hairline);
+  --line-soft: var(--hairline-soft);
+  --chalk: var(--text);
+  --chalk-dim: var(--text-dim);
+  --chalk-faint: var(--text-faint);
+
+  /* The material chrome mixes from the ground it sits on, or the large-title
+     bar arrives in the old blue-charcoal and the screen carries two night
+     ramps at once. */
+  --material-bg: rgba(21, 27, 23, 0.82);
+  --material-solid: var(--paper);
+  --material-hairline: var(--hairline);
+
+  color: var(--text);
 }
 
 /* ========================================================= floating nav ===
@@ -280,4 +344,118 @@ html[data-uiscale='fine'] textarea {
 }
 .mnav__tab--on:focus-visible {
   outline-color: var(--m-sheet);
+}
+
+/* ==================================================== interface-size row ===
+   Three cards, each rendering its own scale. The control demonstrates itself:
+   "Fine" is a word you have to trust, an Aa at 0.9 beside one at 1.25 is a
+   decision you can make. --opt-scale arrives per card from the component, so
+   the multiplication stays in CSS with every other size in the app.
+
+   NOT scaled by --ui-scale itself. A picker that resized as you looked at it
+   would move the option you were aiming at out from under the thumb, and the
+   whole point of the cards is that all three are visible at once at their own
+   sizes for comparison. */
+.msize__set {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+}
+
+.msize__opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* Taller than --tap because the card carries three lines. The floor still
+     applies and still tracks Glove; this only ever adds to it. */
+  min-height: calc(var(--tap) + var(--sp-6));
+  padding: var(--sp-3) var(--sp-1);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--surface-raised);
+  color: var(--text-dim);
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.msize__opt:active {
+  transform: scale(0.97);
+}
+
+/* The chosen stop is the mass, the way every other selected object in the
+   machined layer is: a dark block set into the ivory, not a tinted rectangle. */
+.msize__opt--on {
+  background: var(--m-card);
+  border-color: var(--m-card);
+  color: var(--m-card-ink);
+}
+
+/* NIGHT INVERTS THE MECHANISM, NOT THE COLOURS. A dark block on a dark ground
+   is not a selection - it is the same card again. Round 3's answer is that at
+   night a machined control stops REFLECTING light and starts EMITTING its
+   legend, which is what the phone's own backlit buttons do: the chosen stop
+   rises to the keycap step and lights its own type and edge. */
+[data-theme='night'] .msize__opt--on {
+  background: var(--m-keycap);
+  border-color: var(--m-legend);
+  color: var(--m-legend);
+}
+[data-theme='night'] .msize__opt--on .msize__aa {
+  color: var(--m-legend);
+}
+[data-theme='night'] .msize__opt--on .msize__note {
+  color: var(--text-dim);
+}
+
+.msize__aa {
+  /* 22px is the base specimen; the card's own stop multiplies it. Line-height
+     is fixed so the three cards' baselines do not drift apart by the same
+     ratio the type is being compared at. */
+  font-size: calc(22px * var(--opt-scale, 1));
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: var(--track-tight);
+  color: var(--text);
+}
+.msize__opt--on .msize__aa {
+  color: var(--m-card-ink);
+}
+
+.msize__name {
+  font-size: var(--t-caption);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.msize__x {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.msize__note {
+  font-size: var(--t-caps);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.msize__opt--on .msize__note {
+  color: var(--m-card-dim);
+}
+
+/* The CUT-size control below it grew a fourth stop (S / Standard / Large / XL)
+   while its grid stayed at three columns, so XL wrapped onto a second row on
+   its own. One line, four cells - it is a segmented control, and a segmented
+   control that wraps is two controls. */
+.cutsize {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msize__opt:active {
+    transform: none;
+  }
 }

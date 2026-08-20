@@ -67,7 +67,7 @@ export function AccountScreen(_props: { nav: Nav }) {
   }
 
   return (
-    <div className="app">
+    <div className="app mscreen">
       <ScreenHeader title="Account" />
 
       {loading ? (
