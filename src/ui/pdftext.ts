@@ -4,7 +4,18 @@
 
 import { repairLigatures } from './shotlist';
 
-export async function extractPdfText(file: File): Promise<string> {
+/**
+ * Told after every page, with how many there are in total.
+ *
+ * WHY THIS EXISTS: reading a 40-page shot division on a phone takes real
+ * seconds, and the honest thing to put in front of an operator during them is
+ * what has actually been read so far — not a spinner, which says only that
+ * something is happening. Optional, so the one caller that wants a tally opts
+ * in and nothing else has to care.
+ */
+export type PdfProgress = (page: number, pages: number) => void;
+
+export async function extractPdfText(file: File, onProgress?: PdfProgress): Promise<string> {
   const [pdfjs, workerMod] = await Promise.all([
     import('pdfjs-dist'),
     import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
@@ -22,6 +33,18 @@ export async function extractPdfText(file: File): Promise<string> {
       .join(' ');
     pages.push(line);
     page.cleanup();
+    // After the page, not before it: the number is a count of what is read,
+    // and a tally that runs ahead of the work is the spinner problem again.
+    if (onProgress) {
+      onProgress(i, doc.numPages);
+      // Yield a whole task so the tally actually PAINTS between pages. The
+      // awaits above only hand control back to the worker; a render queued
+      // from them can still land after the next page starts, which puts every
+      // count on screen at once and looks exactly like the spinner this
+      // replaced. Costs a frame per page and buys the only thing the tally is
+      // for. Nobody who did not ask for progress pays it.
+      await new Promise<void>((r) => setTimeout(r, 0));
+    }
   }
   await doc.destroy();
   const joined = pages.join('\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();

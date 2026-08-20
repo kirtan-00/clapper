@@ -1,8 +1,24 @@
 // SHOTLIST — upload a shot division as a PDF and stand it up as a project.
 //
-// Two steps in one sheet: READ the document, then SET UP the shoot. The read is
-// the interesting half and none of it is written here — every piece of it is
-// the same module the projects list has always called:
+// A STAGED FLOW, not a form. Five stages, one decision each, a position
+// indicator, and forward/back in the footer where a thumb already is:
+//
+//   1 DOCUMENT    choose the PDF (or an example pack). The gate, the sign-in
+//                 and the free-tier counter all live HERE, because here is
+//                 where they bite.
+//   2 WHAT WE READ  the scenes and shots found, scannable, with a way out if
+//                 the parse read the wrong document.
+//   3 FRAME RATE  eight big targets. It lands in every exported timecode, so
+//                 it is the one value that is painful to correct later.
+//   4 CAMERA      the presets as cards showing the clip name each produces.
+//   5 NAME AND GO the name, a receipt of the four decisions, one action.
+//
+// The parse is on-device and takes real seconds, so stage 1 spends that wait
+// showing what it has FOUND — pages read, then scenes and shots — rather than
+// a spinner. See PdfProgress in pdftext.ts.
+//
+// ALL the parsing logic is imported, none of it is written here — every piece
+// is the same module the projects list has always called:
 //
 //   pdftext.extractPdfText   the text off the PDF, on the device
 //   shotlist.parseShotlist   the scene/shot table, on the device, exactly
@@ -12,18 +28,19 @@
 // So the structure of your document never leaves the phone. Only the parsed
 // shot division goes out, and only to write the tappable chips.
 //
-// WHY THIS FILE EXISTS AT ALL: the same flow is currently a private component
-// inside ProjectsScreen.tsx, which was locked for edits while Home was built.
-// The LOGIC is shared to the last line; only this JSX is new. Folding the two
-// back together is a follow-up, and it belongs in ProjectsScreen's file.
+// THIS IS NOW THE ONLY COPY. ProjectsScreen.tsx used to carry a private
+// near-duplicate of the read half (ScriptPackSheet) that handed its pack to
+// the fourteen-field New project sheet; it is gone, and the projects list
+// mounts this component instead. Two flows that looked different for the same
+// job was the whole problem.
 //
-// The setup step is deliberately three fields, not the fourteen of the New
+// The setup stages are deliberately three values, not the fourteen of the New
 // project sheet. Name, frame rate, camera — the ones that are painful to
-// correct after the fact (frame rate lands in every exported timecode). Clip
-// prefix, padding, multi-cam and sound are all editable on the project screen
-// the moment this closes, so asking for them here would be ceremony.
+// correct after the fact. Clip prefix, padding, multi-cam and sound are all
+// editable on the project screen the moment this closes, so asking for them
+// here would be ceremony.
 
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react';
 import type { Fps, Project } from '../types';
 import { Sheet, SheetClose } from './common';
 import { CAMERA_PRESETS, findPreset, renderClip } from './cameras';
@@ -38,31 +55,238 @@ import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
-const FPS_OPTIONS: Fps[] = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
+// Every stop on the frame-rate stage, and the second line each one carries.
+// The label is what a camera menu calls it; nobody on set says "29.97" without
+// meaning NTSC, and a bare column of decimals is the dropdown this replaces.
+const FPS_OPTIONS: { fps: Fps; note: string }[] = [
+  { fps: 23.976, note: 'NTSC film' },
+  { fps: 24, note: 'Film' },
+  { fps: 25, note: 'PAL' },
+  { fps: 29.97, note: 'NTSC video' },
+  { fps: 30, note: 'Video' },
+  { fps: 50, note: 'PAL, high' },
+  { fps: 59.94, note: 'NTSC, high' },
+  { fps: 60, note: 'High frame rate' },
+];
 
-export function ShotlistSheet(props: { onClose: () => void; onImported: (project: Project) => void }) {
-  const [pack, setPack] = useState<ScriptPack | null>(null);
+type Stage = 'document' | 'read' | 'fps' | 'camera' | 'name';
 
-  if (pack) {
-    return <SetupStep pack={pack} onClose={props.onClose} onImported={props.onImported} />;
-  }
-  return <ReadStep onClose={props.onClose} onPack={setPack} />;
+const STAGES: readonly Stage[] = ['document', 'read', 'fps', 'camera', 'name'];
+
+const STAGE_TITLE: Record<Stage, string> = {
+  document: 'Shotlist',
+  read: 'What we read',
+  fps: 'Frame rate',
+  camera: 'Camera',
+  name: 'Name and go',
+};
+
+// ===========================================================================
+// A SEAM FOR SCREENSHOTS. DEV ONLY.
+// ===========================================================================
+//
+// Three states of stage one cannot be reached without a real Supabase session:
+// signed in with a counter, and signed in with the counter exhausted. Same
+// move `__clapperSyncFace` in common.tsx makes for the sync pill, and for the
+// same reason — the states that matter most are the ones hardest to stand in
+// front of. `import.meta.env.DEV` is a compile-time constant, so the whole
+// block is dropped from the shipped bundle.
+interface DocOverride {
+  signedIn?: boolean;
+  left?: number;
+  capped?: boolean;
+}
+let devDoc: DocOverride | null = null;
+const devDocListeners = new Set<() => void>();
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__clapperShotlistGate = (o: DocOverride | null) => {
+    devDoc = o;
+    for (const fn of devDocListeners) fn();
+  };
 }
 
-// ----------------------------------------------------------- step one -----
+function useDevDoc(): DocOverride | null {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const fn = () => bump((n) => n + 1);
+    devDocListeners.add(fn);
+    return () => {
+      devDocListeners.delete(fn);
+    };
+  }, []);
+  return import.meta.env.DEV ? devDoc : null;
+}
 
-function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => void }) {
+// ===========================================================================
+
+export function ShotlistSheet(props: { onClose: () => void; onImported: (project: Project) => void }) {
+  const [stage, setStage] = useState<Stage>('document');
+  // Which way the last move went, so the stage animates in from the side it
+  // came from. Purely presentational; the reduce-motion rules erase it.
+  const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
+
+  const [pack, setPack] = useState<ScriptPack | null>(null);
+  const [name, setName] = useState('');
+  const [fps, setFps] = useState<Fps>(24);
+  const [camera, setCamera] = useState('custom');
+  const [creating, setCreating] = useState(false);
+  // A 401 anywhere in stage one swaps the whole sheet for the sign-in sheet.
+  const [showSignIn, setShowSignIn] = useState(false);
+
+  const index = STAGES.indexOf(stage);
+
+  function go(next: Stage) {
+    const forward = STAGES.indexOf(next) > index;
+    setDir(forward ? 'fwd' : 'back');
+    haptics.tap();
+    setStage(next);
+  }
+
+  function onPack(next: ScriptPack) {
+    setPack(next);
+    setName(next.project.name);
+    setDir('fwd');
+    setStage('read');
+  }
+
+  /** Back out of the result and read a different document. */
+  function startOver() {
+    setPack(null);
+    setDir('back');
+    setStage('document');
+  }
+
+  async function create() {
+    if (!pack || creating || name.trim().length === 0) return;
+    setCreating(true);
+    const preset = findPreset(camera);
+    try {
+      const project = await importScriptPack(pack, {
+        name: name.trim(),
+        fps,
+        camera,
+        clipPrefix: preset?.prefix ?? 'C',
+        clipSuffix: preset?.suffix ?? '',
+        clipExt: preset?.ext ?? '.MP4',
+        clipPadding: preset?.digits ?? 4,
+        nextClipNumber: 1,
+      });
+      track('project_created', { mode: 'script', cameras: 1, sound: false });
+      haptics.tap();
+      props.onImported(project);
+    } catch {
+      setCreating(false);
+    }
+  }
+
+  if (showSignIn) return <SignInSheet onClose={props.onClose} />;
+
+  return (
+    <Sheet title={STAGE_TITLE[stage]} onClose={creating ? undefined : props.onClose}>
+      {/* `.dt-sheet` re-materials the camera-preset badge (see skin/detail.css);
+          the sheet's grabber, title and slide stay the shared <Sheet> chrome. */}
+      <div className="dt-sheet sl">
+        <StageRail index={index} title={STAGE_TITLE[stage]} />
+
+        {/* Keyed on the stage so React remounts the panel and the enter
+            animation replays. One <Sheet> for the whole sequence: a sheet that
+            tore itself down between stages would slide out and back in five
+            times for what is one continuous decision. */}
+        <div className="sl-panel" key={stage} data-dir={dir}>
+          {stage === 'document' && (
+            <DocumentStage onPack={onPack} onGated={() => setShowSignIn(true)} onClose={props.onClose} />
+          )}
+
+          {stage === 'read' && pack && (
+            <ReadStage pack={pack} onBack={startOver} onNext={() => go('fps')} onClose={props.onClose} />
+          )}
+
+          {stage === 'fps' && (
+            <FpsStage fps={fps} onPick={setFps} onBack={() => go('read')} onNext={() => go('camera')} />
+          )}
+
+          {stage === 'camera' && (
+            <CameraStage camera={camera} onPick={setCamera} onBack={() => go('fps')} onNext={() => go('name')} />
+          )}
+
+          {stage === 'name' && pack && (
+            <NameStage
+              pack={pack}
+              name={name}
+              fps={fps}
+              camera={camera}
+              busy={creating}
+              onName={setName}
+              onBack={() => go('camera')}
+              onGo={() => void create()}
+            />
+          )}
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// ---------------------------------------------------------------- chrome ---
+
+/**
+ * Where you are, and how much is left.
+ *
+ * Five segments, filled up to and including the one you are standing on. It is
+ * `aria-hidden` and the sentence beside it is not: "Step 3 of 5, Frame rate"
+ * is the thing a screen reader should say, and five div elements are not it.
+ */
+function StageRail(props: { index: number; title: string }) {
+  return (
+    <div className="sl-rail">
+      <div className="sl-rail__bars" aria-hidden="true">
+        {STAGES.map((s, i) => (
+          <span key={s} className="sl-rail__bar" data-on={i <= props.index ? '' : undefined} />
+        ))}
+      </div>
+      <span className="sl-rail__step" aria-hidden="true">
+        {props.index + 1} of {STAGES.length}
+      </span>
+      <p className="visually-hidden" role="status">
+        Step {props.index + 1} of {STAGES.length}: {props.title}
+      </p>
+    </div>
+  );
+}
+
+/** The footer every stage ends with: back out on the left, go on the right. */
+function StageActions(props: { children: ReactNode }) {
+  return <div className="sheet__actions sl-actions">{props.children}</div>;
+}
+
+// ================================================================ one ======
+// THE DOCUMENT. The gate, the counter and the wait all live here.
+
+function DocumentStage(props: {
+  onPack: (pack: ScriptPack) => void;
+  onGated: () => void;
+  onClose: () => void;
+}) {
   const { session, loading } = useSession();
+  const dev = useDevDoc();
   const [phase, setPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [showSignIn, setShowSignIn] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
   // True once the breakdown is refused for being out of free uses.
-  const [capped, setCapped] = useState(false);
+  const [capped, setCapped] = useState(dev?.capped ?? false);
+  const [over, setOver] = useState(false);
+  // What has actually been found so far. Nulls are "not known yet" and render
+  // as a dash, which is honest: pages tick as they are read, and the scene and
+  // shot counts cannot exist until the whole document has been.
+  const [pages, setPages] = useState<{ done: number; total: number } | null>(null);
+  const [found, setFound] = useState<{ scenes: number; shots: number } | null>(null);
 
   const busy = phase !== 'idle';
-  const signedIn = !!session;
+  const signedIn = dev?.signedIn ?? !!session;
+  const left = dev?.left ?? usage?.script.left;
+  const showCap = dev?.capped ?? capped;
 
   useEffect(() => {
     if (!signedIn) {
@@ -78,15 +302,14 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
     };
   }, [signedIn]);
 
-  async function onPickPdf(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // let the same file be picked again after an error
-    if (!file) return;
+  async function read(file: File) {
     setError(null);
     setCapped(false);
+    setPages(null);
+    setFound(null);
     try {
       setPhase('reading');
-      const text = await extractPdfText(file);
+      const text = await extractPdfText(file, (done, total) => setPages({ done, total }));
       if (text.trim().length < 40) {
         throw new Error('That PDF had no readable text. A scan or photo will not work. Use a text PDF.');
       }
@@ -99,6 +322,7 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
       }
       const parsed = shotlistToPack(shotlist, file.name);
       const shotCount = parsed.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0);
+      setFound({ scenes: parsed.scenes.length, shots: shotCount });
       track('shotlist_parsed', { scenes: parsed.scenes.length, shots: shotCount });
 
       // The structure is already ours and already correct. Chips are the only
@@ -110,8 +334,10 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
       props.onPack(enriched);
     } catch (err) {
       setPhase('idle');
+      setPages(null);
+      setFound(null);
       if (err instanceof SignInRequiredError) {
-        setShowSignIn(true);
+        props.onGated();
         return;
       }
       if (err instanceof Error && err.message === 'CAP') {
@@ -122,6 +348,21 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
       }
       setError(err instanceof Error ? err.message : 'Could not read that PDF.');
     }
+  }
+
+  function onPickPdf(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be picked again after an error
+    if (!file) return;
+    void read(file);
+  }
+
+  function onDrop(e: DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setOver(false);
+    if (busy) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) void read(file);
   }
 
   async function startSignIn() {
@@ -135,40 +376,43 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
     }
   }
 
-  // A gated (401) upload swaps the whole sheet for the dedicated sign-in sheet.
-  if (showSignIn) return <SignInSheet onClose={props.onClose} />;
-
   return (
-    <Sheet title="Shotlist" onClose={props.onClose}>
-      {/* One line. The four-line version of this (what a numbered shot looks
-          like, what the size column is, what happens to the document, what the
-          key moments are for) is in the guide under "Setting up a project". */}
-      <p className="camnote">Every scene and numbered shot, read off the PDF.</p>
-
+    <>
       {loading ? (
         <div className="empty">Checking your account</div>
+      ) : busy ? (
+        <Tally phase={phase} pages={pages} found={found} />
       ) : signedIn ? (
         <>
-          <label className={`btn btn--go btn--full sp-upload${busy ? ' btn--disabled' : ''}`}>
-            {phase === 'reading'
-              ? 'Reading shotlist…'
-              : phase === 'thinking'
-                ? 'Finding key moments…'
-                : 'Upload shotlist PDF'}
-            <input type="file" accept="application/pdf,.pdf" hidden disabled={busy} onChange={onPickPdf} />
+          <label
+            className={`sl-drop${over ? ' sl-drop--over' : ''}`}
+            data-testid="sl-drop"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOver(true);
+            }}
+            onDragLeave={() => setOver(false)}
+            onDrop={onDrop}
+          >
+            <span className="sl-drop__title">Choose your shotlist PDF</span>
+            <span className="sl-drop__sub">
+              Every scene and numbered shot, read off the document on this phone.
+            </span>
+            <input type="file" accept="application/pdf,.pdf" hidden onChange={onPickPdf} />
           </label>
-          {usage && (
-            <p className="camnote" style={{ textAlign: 'center', marginBottom: 0 }}>
-              {usage.script.left} of {FREE_LIMITS.script} breakdowns left
+          {typeof left === 'number' && (
+            <p className="camnote sl-quota">
+              <span className="tnum">{left}</span> of <span className="tnum">{FREE_LIMITS.script}</span>{' '}
+              breakdowns left
             </p>
           )}
         </>
       ) : (
         <>
+          <p className="camnote sl-lede">Every scene and numbered shot, read off the PDF.</p>
           <button
             type="button"
-            className="btn btn--go btn--full"
-            style={{ marginTop: 14 }}
+            className="btn btn--go btn--full sl-signin"
             disabled={signingIn}
             onClick={() => void startSignIn()}
           >
@@ -181,95 +425,274 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
       )}
 
       {error && <span className="tnum tnum--bad sp-error">{error}</span>}
-      {capped && <ProCta gate="script" />}
+      {showCap && <ProCta gate="script" />}
 
-      <div className="sp-or">
-        <span>or try an example</span>
+      {!busy && (
+        <>
+          <div className="sp-or">
+            <span>or try an example</span>
+          </div>
+
+          <div className="sl-examples">
+            {EXAMPLE_PACKS.map((ex) => (
+              <button
+                key={ex.key}
+                type="button"
+                className="btn sp-example"
+                onClick={() => {
+                  track('example_loaded', { which: ex.key });
+                  haptics.tap();
+                  props.onPack(ex.pack); // bundled: no server, no account, no network
+                }}
+              >
+                <b>{ex.label}</b>
+                <span>{ex.blurb}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <StageActions>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
+          Close
+        </SheetClose>
+      </StageActions>
+    </>
+  );
+}
+
+/**
+ * The wait, spent saying what has been found.
+ *
+ * Three counts, filled in as they become true. The first ticks per page; the
+ * other two land together the instant the table has been parsed, and then sit
+ * there through the one server call, which is the part that has nothing to
+ * show. That is the whole trick: by the time there is genuinely nothing to
+ * report, there is already something on screen worth reading.
+ */
+function Tally(props: {
+  phase: 'reading' | 'thinking';
+  pages: { done: number; total: number } | null;
+  found: { scenes: number; shots: number } | null;
+}) {
+  const { phase, pages, found } = props;
+  return (
+    <div className="sl-tally" role="status" aria-live="polite">
+      <p className="sl-tally__act">
+        {phase === 'reading' ? 'Reading the document' : 'Finding the key moments'}
+      </p>
+      <dl className="sl-tally__rows">
+        <div className="sl-tally__row" data-on={pages ? '' : undefined}>
+          <dt>Pages read</dt>
+          <dd className="tnum">{pages ? `${pages.done} of ${pages.total}` : '—'}</dd>
+        </div>
+        <div className="sl-tally__row" data-on={found ? '' : undefined}>
+          <dt>Scenes seen</dt>
+          <dd className="tnum">{found ? found.scenes : '—'}</dd>
+        </div>
+        <div className="sl-tally__row" data-on={found ? '' : undefined}>
+          <dt>Shots seen</dt>
+          <dd className="tnum">{found ? found.shots : '—'}</dd>
+        </div>
+      </dl>
+      <p className="camnote">
+        {phase === 'reading'
+          ? 'The document is being read on this phone. Nothing about it is sent anywhere.'
+          : 'Only the parsed shot division goes out, and only to write the tappable chips.'}
+      </p>
+    </div>
+  );
+}
+
+// ================================================================ two ======
+// WHAT WE READ.
+
+function ReadStage(props: {
+  pack: ScriptPack;
+  onBack: () => void;
+  onNext: () => void;
+  onClose: () => void;
+}) {
+  const { pack } = props;
+  const shots = pack.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0);
+
+  return (
+    <>
+      <div className="sl-count">
+        <span className="sl-count__cell">
+          <b className="tnum">{pack.scenes.length}</b>
+          <span className="label">Scenes</span>
+        </span>
+        <span className="sl-count__cell">
+          <b className="tnum">{shots}</b>
+          <span className="label">Shots</span>
+        </span>
       </div>
 
-      <div className="formgrid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        {EXAMPLE_PACKS.map((ex) => (
+      <ol className="sl-scenes">
+        {pack.scenes.map((s) => (
+          <li key={s.scriptRef} className="sl-scene">
+            <span className="sl-scene__ref tnum">{s.scriptRef}</span>
+            <span className="sl-scene__say">
+              <b>{s.name}</b>
+              {s.summary && <span>{s.summary}</span>}
+            </span>
+            <span className="sl-scene__n tnum">{s.shots?.length ?? 0}</span>
+          </li>
+        ))}
+      </ol>
+
+      {/* The honest way out. It is a full-width control and it says what it
+          does, because "the parser read the wrong document" is a thing that
+          happens and burying it under a back chevron would make it the user's
+          fault for not finding it. */}
+      <button type="button" className="sl-wrong" onClick={props.onBack}>
+        Not this document? Choose another
+      </button>
+
+      <StageActions>
+        <SheetClose className="btn btn--ghost" onClose={props.onClose}>
+          Cancel
+        </SheetClose>
+        <button type="button" className="btn btn--go" onClick={props.onNext}>
+          Looks right
+        </button>
+      </StageActions>
+    </>
+  );
+}
+
+// ============================================================== three ======
+// FRAME RATE.
+
+function FpsStage(props: { fps: Fps; onPick: (fps: Fps) => void; onBack: () => void; onNext: () => void }) {
+  return (
+    <>
+      {/* Said once, quietly, and never again. */}
+      <p className="camnote sl-lede">
+        This lands in every timecode you export. It is the one value that hurts to change later.
+      </p>
+
+      <div className="sl-grid" role="group" aria-label="Frame rate">
+        {FPS_OPTIONS.map(({ fps, note }) => (
           <button
-            key={ex.key}
+            key={fps}
             type="button"
-            className="btn sp-example"
-            disabled={busy}
+            className="sl-opt"
+            data-on={props.fps === fps ? '' : undefined}
+            aria-pressed={props.fps === fps}
             onClick={() => {
-              track('example_loaded', { which: ex.key });
               haptics.tap();
-              props.onPack(ex.pack); // bundled: no server, no account, no network
+              props.onPick(fps);
             }}
           >
-            <b>{ex.label}</b>
-            <span>{ex.blurb}</span>
+            <b className="tnum">{fps}</b>
+            <span>{note}</span>
           </button>
         ))}
       </div>
 
-      <div className="sheet__actions">
-        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
-          Close
-        </SheetClose>
-      </div>
-    </Sheet>
+      <StageActions>
+        <button type="button" className="btn btn--ghost" onClick={props.onBack}>
+          Back
+        </button>
+        <button type="button" className="btn btn--go" onClick={props.onNext}>
+          Continue
+        </button>
+      </StageActions>
+    </>
   );
 }
 
-// ----------------------------------------------------------- step two -----
+// =============================================================== four ======
+// CAMERA.
 
-function SetupStep(props: { pack: ScriptPack; onClose: () => void; onImported: (project: Project) => void }) {
-  const [name, setName] = useState(props.pack.project.name);
-  const [fps, setFps] = useState<Fps>(24);
-  const [camera, setCamera] = useState('custom');
-  const [busy, setBusy] = useState(false);
+/** "Sony A7 / FX (C0001)" -> "Sony A7 / FX". The card draws the real clip name
+ *  underneath, so carrying a second, shorter copy of it in the title would be
+ *  the same string twice at two different lengths. */
+function presetName(label: string): string {
+  return label.replace(/\s*\([^()]*\)\s*$/, '');
+}
 
-  const preset = findPreset(camera);
-  const prefix = preset?.prefix ?? 'C';
-  const suffix = preset?.suffix ?? '';
-  const padding = preset?.digits ?? 4;
-  const ext = preset?.ext ?? '.MP4';
-  const example = renderClip(prefix, 1, padding, suffix);
+function CameraStage(props: {
+  camera: string;
+  onPick: (id: string) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const chosen = findPreset(props.camera);
+  return (
+    <>
+      <p className="camnote sl-lede">Pick the camera writing the files. Match it to what is on the card.</p>
 
-  const shotCount = props.pack.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0);
-  const canStart = name.trim().length > 0 && !busy;
+      <div className="sl-cams" role="group" aria-label="Camera">
+        {CAMERA_PRESETS.map((p) => {
+          const on = props.camera === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              className="sl-cam"
+              data-on={on ? '' : undefined}
+              aria-pressed={on}
+              onClick={() => {
+                haptics.tap();
+                props.onPick(p.id);
+              }}
+            >
+              <span className="sl-cam__head">
+                <b>{presetName(p.label)}</b>
+                <span className={`cambadge${p.exact ? '' : ' cambadge--approx'}`}>
+                  {p.exact ? 'exact' : 'approximate'}
+                </span>
+              </span>
+              <span className="sl-cam__eg tnum">
+                {renderClip(p.prefix, 1, p.digits, p.suffix)}
+                {p.ext}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-  async function create() {
-    if (!canStart) return;
-    setBusy(true);
-    try {
-      const project = await importScriptPack(props.pack, {
-        name: name.trim(),
-        fps,
-        camera,
-        clipPrefix: prefix,
-        clipSuffix: suffix,
-        clipExt: ext,
-        clipPadding: padding,
-        nextClipNumber: 1,
-      });
-      track('project_created', { mode: 'script', cameras: 1, sound: false });
-      haptics.tap();
-      props.onImported(project);
-    } catch {
-      setBusy(false);
-    }
-  }
+      {/* The caveat, for the one preset actually chosen. Twelve notes rendered
+          at rest would be a page of small print nobody reads; one, attached to
+          a decision just made, is the moment it means something. */}
+      {chosen?.note && <p className="camnote sl-camnote">{chosen.note}</p>}
+
+      <StageActions>
+        <button type="button" className="btn btn--ghost" onClick={props.onBack}>
+          Back
+        </button>
+        <button type="button" className="btn btn--go" onClick={props.onNext}>
+          Continue
+        </button>
+      </StageActions>
+    </>
+  );
+}
+
+// =============================================================== five ======
+// NAME AND GO.
+
+function NameStage(props: {
+  pack: ScriptPack;
+  name: string;
+  fps: Fps;
+  camera: string;
+  busy: boolean;
+  onName: (name: string) => void;
+  onBack: () => void;
+  onGo: () => void;
+}) {
+  const preset = findPreset(props.camera);
+  const clip = renderClip(preset?.prefix ?? 'C', 1, preset?.digits ?? 4, preset?.suffix ?? '') + (preset?.ext ?? '.MP4');
+  const shots = props.pack.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0);
+  const ready = props.name.trim().length > 0 && !props.busy;
 
   return (
-    <Sheet title="Set up the shoot" onClose={busy ? undefined : props.onClose}>
-      {/* `.dt-sheet` re-materials the camera-preset badge below (see
-          skin/detail.css) — the sheet's grabber, title and slide stay the
-          shared <Sheet> chrome, untouched. */}
-      <div className="dt-sheet">
-      {/* A count, not a paragraph. What used to follow it - that clip
-          numbering, extra cameras and sound are all editable afterwards - is a
-          reassurance nobody needs before they have hit a wall. */}
-      <p className="camnote" style={{ marginTop: 0, marginBottom: 18 }}>
-        <span className="tnum">{props.pack.scenes.length}</span> scenes{' '}
-        <span aria-hidden="true">&middot;</span> <span className="tnum">{shotCount}</span> shots
-        ready
-      </p>
-
+    <>
       <div className="formrow">
         <label className="label" htmlFor="sl-name">
           Project name
@@ -277,69 +700,40 @@ function SetupStep(props: { pack: ScriptPack; onClose: () => void; onImported: (
         <input
           id="sl-name"
           className="field"
-          value={name}
+          value={props.name}
           placeholder="e.g. The Last Monsoon"
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => props.onName(e.target.value)}
         />
       </div>
 
-      <div className="formrow">
-        <label className="label" htmlFor="sl-camera">
-          Camera
-        </label>
-        <select
-          id="sl-camera"
-          className="field"
-          value={camera}
-          onChange={(e) => setCamera(e.target.value)}
-        >
-          {CAMERA_PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-        <div className="campreview">
-          <span className="campreview__eg">
-            <span className="label">Links in Premiere as</span>
-            <span className="tnum">
-              {example}
-              {ext}
-            </span>
-          </span>
-          <span className={`cambadge${preset && !preset.exact ? ' cambadge--approx' : ''}`}>
-            {preset && !preset.exact ? 'approximate' : 'exact'}
-          </span>
+      {/* The receipt: the four things just decided, in one block, before the
+          one action that spends them. */}
+      <dl className="sl-receipt">
+        <div className="sl-receipt__row">
+          <dt>Shot division</dt>
+          <dd>
+            <span className="tnum">{props.pack.scenes.length}</span> scenes{' '}
+            <span aria-hidden="true">&middot;</span> <span className="tnum">{shots}</span> shots
+          </dd>
         </div>
-      </div>
+        <div className="sl-receipt__row">
+          <dt>Frame rate</dt>
+          <dd className="tnum">{props.fps} fps</dd>
+        </div>
+        <div className="sl-receipt__row">
+          <dt>Links in Premiere as</dt>
+          <dd className="tnum">{clip}</dd>
+        </div>
+      </dl>
 
-      <div className="formrow">
-        <label className="label" htmlFor="sl-fps">
-          Frame rate
-        </label>
-        <select
-          id="sl-fps"
-          className="field"
-          value={fps}
-          onChange={(e) => setFps(parseFloat(e.target.value) as Fps)}
-        >
-          {FPS_OPTIONS.map((f) => (
-            <option key={f} value={f}>
-              {f} fps
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="sheet__actions">
-        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
-          Cancel
-        </SheetClose>
-        <button type="button" className="btn btn--go" disabled={!canStart} onClick={() => void create()}>
-          {busy ? 'Loading scenes…' : 'Start the shoot'}
+      <StageActions>
+        <button type="button" className="btn btn--ghost" onClick={props.onBack} disabled={props.busy}>
+          Back
         </button>
-      </div>
-      </div>
-    </Sheet>
+        <button type="button" className="btn btn--go" disabled={!ready} onClick={props.onGo}>
+          {props.busy ? 'Loading scenes…' : 'Start the shoot'}
+        </button>
+      </StageActions>
+    </>
   );
 }

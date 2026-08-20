@@ -1228,6 +1228,364 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 .sp-example b { font-size: var(--t-row); font-weight: 600; }
 .sp-example span { font-size: var(--t-secondary); color: var(--chalk-dim); }
 
+/* ================================================== SHOTLIST, IN STAGES ====
+   src/ui/ShotlistSheet.tsx. Five stages inside ONE sheet: the document, what
+   we read, frame rate, camera, name and go.
+
+   THE SELECTED STATE IS THE ACCENT, NOT GREEN. Every existing segmented
+   control in the app (.camcount__opt--on) marks its choice in --go-tint /
+   --go-text, and on this sheet that would be a lie: --go means rolling-ready,
+   and a highlighted frame rate is a preference, not a camera about to turn
+   over. Same correction .dt-sheet .chip--on and .cambadge already carry (see
+   skin/detail.css). The base rule holds the LIGHT pair — --m-accent-ink is
+   type-legible ink and the bright --m-accent is a fill behind it — and the
+   night block swaps to the bright value as type, which is the split every
+   signal token in this file makes. Neither colour is only ever defined inside
+   the [data-theme] block.
+
+   NO NEW BUTTON. Everything here is a card or a segment; .btn, .btn--go and
+   .btn--ghost are used exactly as shipped so they inherit whatever the button
+   system does next. */
+
+/* ---- where you are ------------------------------------------------------
+   Five bars and a count. Deliberately not five numbered circles: the stages
+   are not addressable, you cannot jump to stage four, and a control-looking
+   indicator that does not respond to a tap is worse than a bar that never
+   claimed to. */
+.sl-rail {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+.sl-rail__bars {
+  display: flex;
+  flex: 1;
+  gap: var(--sp-1);
+}
+.sl-rail__bar {
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunk);
+  transition: background var(--dur-state) var(--ease-out);
+}
+.sl-rail__bar[data-on] { background: var(--m-accent-deep); }
+[data-theme='night'] .sl-rail__bar { background: var(--surface-raised); }
+[data-theme='night'] .sl-rail__bar[data-on] { background: var(--m-accent); }
+.sl-rail__step {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+}
+
+/* ---- the stage itself ---------------------------------------------------
+   Remounted per stage, so this replays. It travels 12px against the direction
+   of travel, which is what makes BACK read as back rather than as another
+   forward step. The global reduce-motion rules kill the animation outright;
+   nothing here is load-bearing. */
+.sl-panel { animation: sl-in var(--dur-move) var(--ease-out); }
+.sl-panel[data-dir='back'] { animation-name: sl-in-back; }
+@keyframes sl-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sl-in-back {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.sl-lede { margin: 0 0 var(--sp-4); }
+
+/* ---- stage one: the document -------------------------------------------
+   A target, not a button in a form. It is the only thing on the stage above
+   the divider, so it gets the height to say so. */
+.sl-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 108px;
+  padding: var(--sp-5);
+  border-radius: var(--radius);
+  border: 1px solid var(--m-accent-deep);
+  background: color-mix(in srgb, var(--m-accent) 16%, transparent);
+  color: var(--m-accent-ink);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur-state) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.sl-drop:active { transform: scale(0.99); }
+.sl-drop--over { background: color-mix(in srgb, var(--m-accent) 30%, transparent); }
+.sl-drop__title { font-size: var(--t-title); font-weight: 650; letter-spacing: var(--track-tight); }
+.sl-drop__sub { font-size: var(--t-secondary); line-height: 1.4; opacity: 0.82; }
+[data-theme='night'] .sl-drop {
+  border-color: var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 12%, transparent);
+  color: var(--m-accent);
+}
+[data-theme='night'] .sl-drop--over { background: color-mix(in srgb, var(--m-accent) 20%, transparent); }
+
+.sl-quota { text-align: center; margin-top: var(--sp-3); }
+.sl-signin { margin-top: var(--sp-2); }
+.sl-examples { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+
+/* ---- the wait, spent counting ------------------------------------------
+   Three rows that fill in. A row that has landed goes to full ink and its
+   number to the accent; a row still waiting keeps a dash and stays dim, so
+   the panel reads top to bottom as a thing in progress without a single
+   moving part. That is the point: there is no spinner here. */
+.sl-tally {
+  padding: var(--sp-5) 0 var(--sp-2);
+}
+.sl-tally__act {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--text);
+}
+.sl-tally__rows { margin: 0 0 var(--sp-4); }
+.sl-tally__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  color: var(--text-faint);
+  transition: color var(--dur-state) var(--ease-out);
+}
+.sl-tally__row:last-child { border-bottom: none; }
+.sl-tally__row dt { font-size: var(--t-secondary); }
+.sl-tally__row dd { margin: 0; font-size: var(--t-row); font-weight: 600; }
+.sl-tally__row[data-on] { color: var(--text-dim); }
+.sl-tally__row[data-on] dd { color: var(--m-accent-text); }
+[data-theme='night'] .sl-tally__row[data-on] dd { color: var(--m-accent); }
+
+/* ---- stage two: what we read -------------------------------------------- */
+.sl-count {
+  display: flex;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+.sl-count__cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+.sl-count__cell b {
+  font-family: var(--font-mono);
+  font-size: var(--t-display);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: var(--track-tighter);
+  color: var(--text);
+}
+
+.sl-scenes {
+  list-style: none;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+}
+.sl-scene {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.sl-scene:last-child { border-bottom: none; }
+.sl-scene__ref {
+  flex: none;
+  min-width: 42px;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.sl-scene__say {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sl-scene__say b {
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sl-scene__say span {
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The shot count is the column the eye runs down, so it is the one thing on
+   the row allowed to be a number and nothing else. */
+.sl-scene__n {
+  flex: none;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.sl-wrong {
+  width: 100%;
+  min-height: var(--tap);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+.sl-wrong:active { background: var(--surface-raised); color: var(--text); }
+
+/* ---- stage three: frame rate -------------------------------------------
+   Eight targets, two up. 66px is not decoration: this is tapped standing,
+   one-handed, in sun, and 23.976 next to 29.97 is the pair that punishes a
+   near-miss for the rest of the shoot. */
+.sl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+.sl-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 66px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--text-dim);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+.sl-opt:active { transform: scale(0.97); }
+.sl-opt b {
+  font-size: var(--t-row);
+  font-weight: 700;
+  color: var(--text);
+}
+.sl-opt span { font-size: var(--t-caption); }
+.sl-opt[data-on] {
+  border-color: var(--m-accent-deep);
+  background: color-mix(in srgb, var(--m-accent) 20%, transparent);
+  color: var(--m-accent-ink);
+}
+.sl-opt[data-on] b { color: var(--m-accent-ink); }
+[data-theme='night'] .sl-opt[data-on] {
+  border-color: var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 14%, transparent);
+  color: var(--m-accent);
+}
+[data-theme='night'] .sl-opt[data-on] b { color: var(--m-accent); }
+
+/* ---- stage four: camera -------------------------------------------------
+   A card per preset, and the card's second line is the FILENAME it produces.
+   That string is the whole decision: nobody knows which of two menu entries
+   their camera is, and everybody recognises A001_C001_* off a card. */
+.sl-cams {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.sl-cam {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+  width: 100%;
+  min-height: 62px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+.sl-cam:active { transform: scale(0.99); }
+.sl-cam__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.sl-cam__head b {
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text);
+}
+.sl-cam__eg {
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+}
+.sl-cam[data-on] {
+  border-color: var(--m-accent-deep);
+  background: color-mix(in srgb, var(--m-accent) 20%, transparent);
+}
+.sl-cam[data-on] .sl-cam__head b { color: var(--m-accent-ink); }
+.sl-cam[data-on] .sl-cam__eg { color: var(--m-accent-ink); opacity: 0.8; }
+[data-theme='night'] .sl-cam[data-on] {
+  border-color: var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 14%, transparent);
+}
+[data-theme='night'] .sl-cam[data-on] .sl-cam__head b,
+[data-theme='night'] .sl-cam[data-on] .sl-cam__eg { color: var(--m-accent); }
+
+.sl-camnote { margin-top: var(--sp-3); }
+
+/* ---- stage five: name and go ------------------------------------------- */
+.sl-receipt {
+  margin: var(--sp-5) 0 0;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+.sl-receipt__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.sl-receipt__row:last-child { border-bottom: none; }
+.sl-receipt__row dt { font-size: var(--t-caption); color: var(--text-dim); }
+.sl-receipt__row dd {
+  margin: 0;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+/* Back is a backout and Continue is the sequence carrying on, so they are not
+   the same size. Same move .sheet__actions--weighted already makes. */
+.sl-actions .btn--ghost { flex: 0 1 34%; }
+
 /* ------------------------------------------------------------- guide ---
    The how-to takes the whole window, not a sheet: it is read standing up,
    on a phone, one-handed. Sticky masthead + jump chips, one internal
