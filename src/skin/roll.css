@@ -894,32 +894,93 @@
 .roll .camslot__elapsed {
   color: var(--m-rec);
 }
-/* Not joined yet: the same block of metal, unlit. Dimming rather than emptying
-   keeps the clip number readable — a camera about to roll is exactly when its
-   next number matters. */
+/* Not joined yet: the same block of metal, unlit. The DIM MOVED OFF THE
+   OBJECT AND ONTO ITS INK. `opacity: 0.62` faded the whole pill, and a dark
+   pill faded over an ivory ground is not a dim object, it is a grey one - the
+   unit stopped reading as the same piece of hardware as the camera rolling
+   beside it, which is the one comparison this row exists to make. Solid metal,
+   quiet type: the same split every signal in this app already uses. */
 .roll .camslot--join {
   background: var(--roll-mass);
-  opacity: 0.62;
+  opacity: 1;
+}
+.roll .camslot--join .camslot__clip {
+  color: var(--roll-mass-dim);
 }
 .roll .camslot--join:active {
   background: var(--roll-mass-raised);
-  opacity: 1;
+}
+.roll .camslot--join:active .camslot__clip {
+  color: var(--roll-mass-ink);
 }
 .roll .camslot__join {
   color: var(--m-accent);
 }
-/* Sound's own zone: the mass, with the recorder's blue kept on the edge so it
-   can never be mistaken for a fifth camera. */
-.soundsection {
-  width: 100%;
-  max-width: 420px;
-  padding: 9px 10px 11px;
-  border: 1px solid var(--sound-edge);
-  border-radius: 18px;
-  background: var(--roll-mass);
+/* ------------------------------------------------------------- COMPACT ----
+   PILLS, NOT ROWS. Every unit used to get a full-width bar of its own: one
+   camera was a 358px slab, two cameras were two slabs, and sound was a THIRD
+   thing below them inside its own titled, blue-edged panel. Four units filled
+   most of a phone with furniture, and the screen's actual job - the clock, the
+   bar, and CUT - had to share what was left.
+
+   The grid is two columns and stays two columns. The rule in styles.css that
+   widens one or two slots back to full width is the thing being overridden:
+   it was written when a slot had to be wide enough to say its own name, and
+   the pill says it in half the space.
+
+   WHAT IS NOT COMPACTED IS THE NUMBER. The clip name keeps its own full-width
+   line under the thin state line, exactly as it has since it was last
+   ellipsised to "A001_C0..." on a rolling camera. Everything above it - the
+   badge, the operator, the running clock - is allowed to truncate, because
+   none of it is read aloud to a loader. The pill got shorter by losing
+   PADDING and type size, never by putting anything back beside the number. */
+.roll .camstack {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
 }
-.soundsection .section__note {
-  color: var(--roll-mass-dim);
+.roll .camstack .camslot {
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 14px;
+}
+.roll .camstack .camslot--edit {
+  padding: 6px 4px 6px 10px;
+}
+.roll .camstack .camslot__main {
+  gap: 1px;
+  /* Was --tap. The PILL is the target and it clears 44px on its own with the
+     padding above; holding the inner button at 44 too made every pill 56. */
+  min-height: 32px;
+}
+.roll .camstack .camslot__top {
+  gap: 6px;
+}
+.roll .camstack .camslot__badge {
+  width: 16px;
+  height: 16px;
+}
+.roll .camstack .camslot__clip {
+  font-size: var(--t-row);
+}
+.roll .camstack .camslot--edit .camslot__top {
+  padding-right: 30px;
+}
+.roll .camstack .camslot__penbtn {
+  top: 3px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+}
+.roll .camstack .camslot__elapsed {
+  font-size: var(--t-caption);
+}
+
+/* SOUND IS A PILL AMONG THE PILLS. What tells it from a camera is the speaker
+   mark where a camera carries its letter - a SHAPE, which is the one thing
+   that survives red set-lighting and a red/green-blind operator. The blue it
+   used to be edged in did neither, and it cost a whole panel to apply. */
+.roll .camslot__badge--sound {
+  color: var(--roll-mass-ink);
 }
 
 /* ==========================================================================

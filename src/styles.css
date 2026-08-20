@@ -2412,11 +2412,23 @@ select.field {
 @container stage (max-height: 88px) {
   .roll__stage > * { display: none; }
 }
+/* THE CLOCK IS THIN, and that is the whole difference between a number and a
+   clock. 700-weight mono was a COUNTER: heavy, boxy, the same voice the clip
+   name and the take number are written in, so at a glance the biggest thing on
+   the screen said "a figure" rather than "time passing". A hairline face says
+   time passing, which is the one fact this screen exists to hold.
+
+   The mono drops with the weight - the same move .lasttake__hero already made
+   on this screen and for the same reason. Mono is slate language, and its
+   400-weight-only availability is exactly why the old rule could not be thin.
+   `tabular-nums` on the system face keeps every digit the same width, which
+   is all the mono was ever load-bearing for: the drums step by 1em and the
+   line cannot reflow under them. */
 .readout {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  letter-spacing: var(--track-tighter);
+  font-weight: 200;
+  letter-spacing: -0.02em;
   line-height: 0.95;
   /* Smaller floor + gentler vw than before so the clock fits a short/narrow
      phone without needing the stage to scroll — the tally band already mirrors
@@ -2429,6 +2441,38 @@ select.field {
    a halo behind type on ivory only softens the edge it needs. */
 .readout--live { color: var(--live-ink); text-shadow: var(--live-glow); }
 .readout--idle { color: var(--chalk-dim); }
+
+/* ============================================================ THE TAKE BAR ==
+   Sixty ticks, one per second of the current minute, filling left to right and
+   starting again on the next. See the TakeBar comment in RollingScreen for why
+   it is a sweep and not a percentage: a take has no end until somebody presses
+   CUT, so a progress bar to a known finish would be a lie drawn precisely.
+
+   One tick lights per second, which is what makes it readable from the corner
+   of an eye that is on the actors rather than on the phone - the thing an
+   operator is checking is not a number, it is whether this is still moving. */
+.takebar {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  width: 100%;
+  max-width: 420px;
+  height: 14px;
+  margin: var(--sp-3) auto 0;
+}
+.takebar__tick {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 1px;
+  /* Unlit is a real mark, not empty space: the strip has to read as sixty
+     places whether or not any of them is lit yet, or the first second of a
+     take looks like a rendering failure. */
+  background: var(--hairline);
+  transition: background var(--dur-state) linear;
+}
+.takebar__tick.is-on {
+  background: var(--text);
+}
 
 .stage__hint {
   min-height: 24px;
@@ -2446,6 +2490,13 @@ select.field {
   font-weight: 800;
   letter-spacing: var(--track-caps);
   font-size: var(--t-caps);
+}
+/* WHICH units, and it opens the line. "A + SOUND ROLLING · 24 FPS" reads in
+   the order the question is asked: the state was already answered by the ring,
+   the pill and the dots before the eye got here. Full ink against the line's
+   own dimmed grey, because this is the part being read. */
+.stage__units {
+  color: var(--text);
 }
 /* Static. It used to run its own 1.2s loop against the tally dot's 1.1s, which
    is two red dots blinking slightly out of step - the least premium thing a
@@ -2770,7 +2821,6 @@ select.field {
   flex: 0 0 auto;
 }
 .roll__deck > .camstack,
-.roll__deck > .soundsection,
 .roll__deck > .roll__markrow,
 .roll__deck > .bigbtn { flex: 0 0 auto; }
 
@@ -3792,24 +3842,12 @@ select.field {
   color: var(--go-text);
 }
 
-/* The sound section's own header row - pulled out of inline styles so the
-   type follows the caps token like every other section label does, rather
-   than a one-off 0.64rem/800 pair invented for this one row. */
-.soundsection__head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin: 0 var(--sp-1) var(--sp-2);
-}
-.soundsection__label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  font-size: var(--t-caps);
-  font-weight: 600;
-  letter-spacing: var(--track-caps);
-  text-transform: uppercase;
-}
+/* The sound section's header row is GONE along with the section. It took a
+   title, a hint line and a tinted border to say "this is also a unit", which
+   is a lot of furniture to spend on a claim the object could just make by
+   being one. Sound is a pill in .camstack now; what tells it from a camera is
+   the speaker mark on its badge, a shape, which survives red set-lighting and
+   a red/green-blind operator in a way the recorder blue never did. */
 
 /* Tap the take row to edit it; the info spans become one big target. */
 .minitake__open {

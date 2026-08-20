@@ -30,13 +30,13 @@ import { tc } from '../export/timecode';
 import {
   clipParts,
   renderUnitClip,
-  soundBadgeStyle,
+  // The recorder's blue survives on the TAKE REPORT, where a sound file name
+  // sits in a list beside camera clip names and the colour is the fastest way
+  // to tell one string from the other. It is gone from the live deck: sound is
+  // a pill among the unit pills there, told apart by the speaker mark on its
+  // badge rather than by a colour a set light can eat.
   soundTextStyle,
-  soundRollingStyle,
   unitClipParts,
-  SOUND_TEXT,
-  SOUND_EDGE,
-  SOUND_TINT,
   type ClipParts,
 } from './cameras';
 import { ClipNumberRows, TakeEditSheet } from './TakeEditSheet';
@@ -199,6 +199,34 @@ function DrumClock(props: { value: string; className?: string }) {
         );
       })}
     </span>
+  );
+}
+
+/**
+ * THE TAKE BAR — sixty ticks, one per second of the current minute.
+ *
+ * A take has no end until somebody presses CUT, so a percentage-to-done bar
+ * would be a lie drawn to three decimal places. What an operator actually
+ * tracks is the SWEEP: how far into this minute we are, and whether the thing
+ * is still moving. So the bar fills left to right across a minute, empties,
+ * and goes again - a second hand unrolled into a strip, which is also what
+ * every meter on a cart already looks like.
+ *
+ * Sixty ticks is not decoration: it means one tick lights per second, so the
+ * bar is visibly ALIVE from the corner of an eye that is on the actors. The
+ * minute count it is inside of is on the clock directly above; between the
+ * two there is nothing about the take's length you cannot read at a glance.
+ */
+const TAKE_BAR_TICKS = 60;
+function TakeBar(props: { elapsedMs: number }) {
+  const seconds = Math.max(0, Math.floor(props.elapsedMs / 1000));
+  const lit = seconds % TAKE_BAR_TICKS;
+  return (
+    <div className="takebar" aria-hidden="true">
+      {Array.from({ length: TAKE_BAR_TICKS }, (_, i) => (
+        <span key={i} className={`takebar__tick${i < lit ? ' is-on' : ''}`} />
+      ))}
+    </div>
   );
 }
 
@@ -1121,6 +1149,23 @@ export function RollingScreen(props: {
       timer.elapsedMs + resumeOffsetMs;
   const rangeArmedMs = markInMs !== null ? Math.max(0, elapsedMs - markInMs) : 0;
   const rollingLetters = (Object.keys(camRolls) as CameraUnitLetter[]).sort();
+  /**
+   * WHAT IS ROLLING, said the way a 1st AC says it: "A and sound, rolling".
+   * The units come FIRST and the state comes after them, because on a set the
+   * question is never "is something rolling" - the ring, the pill and the
+   * dots have already answered that three times at three distances. The
+   * question is WHICH, and it was the last word on a line that opened with
+   * the word everybody already knew.
+   *
+   * Single-cam has no per-camera slot to read the letter off (see the
+   * clipUnits comment above), so it states 'A' here - it is still camera A
+   * that is running, and "A + SOUND" is the line an operator is checking
+   * against the recorder.
+   */
+  const rollingUnits = [
+    ...(multi ? rollingLetters : anyCamRolling || (!useEngine && timer.rolling) ? ['A'] : []),
+    ...(soundRolling ? ['SOUND'] : []),
+  ];
   // The big button's own ROLL/CUT state is NOT the same as `rolling`: sound
   // commonly rolls solo before any camera, and while that is the ONLY thing
   // going the big button must still say ROLL (its job is bringing the camera
@@ -1389,12 +1434,14 @@ export function RollingScreen(props: {
         <div className="stage__hint">
           {rolling ? (
             <span className="stage__reclabel">
-              <span className="recdot" aria-hidden="true" /> ROLLING
-              {multi
-                ? ` · ${rollingLetters.join(', ')}`
-                : hasSoundUnit && soundRolling && !anyCamRolling
-                  ? ' · SOUND'
-                  : ''}
+              {/* The DOT is red because shape plus colour is how this app has
+                  always stated "rolling" under red set-lighting and to a
+                  red/green-blind operator. */}
+              <span className="recdot" aria-hidden="true" />
+              {rollingUnits.length > 0 && (
+                <span className="stage__units">{rollingUnits.join(' + ')}</span>
+              )}
+              {' ROLLING'}
               {/* The frame rate belongs on the live line, not only on the
                   pre-roll slate: it is the one setting that silently ruins a
                   take, and this is the line the operator's eye is already on. */}
@@ -1405,6 +1452,10 @@ export function RollingScreen(props: {
           )}
         </div>
         )}
+
+        {/* THE SEGMENT BAR. Sixty ticks, one per second, filling across the
+            current minute and starting again on the next - see TakeBar. */}
+        {rolling && <TakeBar elapsedMs={elapsedMs} />}
 
         {rolling ? (
           buffered.length > 0 && (
@@ -1694,9 +1745,17 @@ export function RollingScreen(props: {
             the moment the keypad grows it is the stage that shrinks first,
             never this strip. This is the whole fix: on set, camera A rolling
             solo must never take B/C/D off screen with it. */}
-        {multi && (
-          <div className="camstack" aria-label="Every camera - tap one to roll, join, or cut it alone">
-            {cameras.map((u) => {
+        {/* THE UNIT ROW. Every camera AND sound, as compact pills in one wrap
+            grid. Sound used to sit below the cameras inside its own titled,
+            blue-edged panel, which is what made it read as a different KIND of
+            thing that had to be handled separately - it took a heading, a
+            hint line and a border to say "this is also a unit". It is a pill
+            among the pills now, told apart by the speaker mark on its badge:
+            a SHAPE, which survives red set-lighting and a colour-blind
+            operator, where the blue never did. */}
+        {(multi || (hasSoundUnit && soundUnit)) && (
+          <div className="camstack" aria-label="Every unit - tap one to roll, join, or cut it alone">
+            {multi && cameras.map((u) => {
               const camIsRolling = camRolls[u.letter] !== undefined;
               // What this camera's card is actually on right now - past any
               // file it already closed and reopened inside this same take.
@@ -1772,45 +1831,19 @@ export function RollingScreen(props: {
                 </div>
               );
             })}
-          </div>
-        )}
-
-        {hasSoundUnit && soundUnit && (
-          // The box moved out of inline styles and into skin/roll.css, because
-          // an inline background outranks every rule in the skin and this zone
-          // has to change material with the rest of the deck. The recorder's
-          // blue stays on the EDGE, where it does its one job: sound is never
-          // a fifth camera.
-          <div className="soundsection">
-            {/* Its own labelled, tinted zone so the audio roll is unmistakable
-                and never reads as a fifth camera. */}
-            <div className="soundsection__head">
-              <span className="soundsection__label" style={{ color: SOUND_TEXT }}>
-                <SpeakerMark /> Sound
-              </span>
-              <span className="section__note" style={{ marginLeft: 'auto' }}>
-                {soundRolling
-                  ? 'tap to cut'
-                  : soundFinished
-                    ? 'done this shot'
-                    : rolling
-                      ? 'tap to join'
-                      : 'tap to roll'}
-              </span>
-            </div>
-            <div aria-label="Production sound - tap to roll, join, or cut it alone">
+            {hasSoundUnit && soundUnit && (
+            <>
             {soundRolling ? (
               // Rolling: tap to cut just sound. If the cameras are already
               // done, this is the LAST thing going and the shot closes.
               <button
                 type="button"
                 className="camslot camslot--rolling"
-                style={soundRollingStyle}
                 aria-label={`Sound rolling ${renderSoundFile(soundUnit)}, tap to cut it`}
                 onClick={() => void soundSoloCut()}
               >
                 <span className="camslot__top">
-                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
+                  <span className="camslot__badge camslot__badge--sound" aria-hidden="true"><SpeakerMark /></span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                   <span className="camslot__elapsed tnum">
                     <span className="recdot" aria-hidden="true" /> REC {tc.msToClock(elapsedForSound())}
@@ -1825,9 +1858,9 @@ export function RollingScreen(props: {
               // that would refuse the tap (see soundSoloRoll).
               <div className="camslot camslot--spent" aria-label={`Sound recorded ${renderSoundFile(soundUnit)} for this shot`}>
                 <span className="camslot__top">
-                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
+                  <span className="camslot__badge camslot__badge--sound" aria-hidden="true"><SpeakerMark /></span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
-                  <span className="camslot__join" style={soundTextStyle}>DONE</span>
+                  <span className="camslot__join">DONE</span>
                 </span>
                 <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
               </div>
@@ -1841,9 +1874,9 @@ export function RollingScreen(props: {
                 onClick={soundSoloRoll}
               >
                 <span className="camslot__top">
-                  <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
+                  <span className="camslot__badge camslot__badge--sound" aria-hidden="true"><SpeakerMark /></span>
                   {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
-                  <span className="camslot__join" style={soundTextStyle}>JOIN</span>
+                  <span className="camslot__join">JOIN</span>
                 </span>
                 <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
               </button>
@@ -1858,7 +1891,7 @@ export function RollingScreen(props: {
                   onClick={soundSoloRoll}
                 >
                   <span className="camslot__top">
-                    <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
+                    <span className="camslot__badge camslot__badge--sound" aria-hidden="true"><SpeakerMark /></span>
                     {soundUnit.operator && <span className="camslot__operator">{soundUnit.operator}</span>}
                   </span>
                   <ClipNum parts={soundFileParts(soundUnit)} className="camslot__clip tnum" />
@@ -1873,7 +1906,8 @@ export function RollingScreen(props: {
                 </button>
               </div>
             )}
-            </div>
+            </>
+            )}
           </div>
         )}
 
@@ -2570,7 +2604,7 @@ function PostCutSheet(props: {
           aria-label="Sound file recorded"
         >
           <div className="camslot">
-            <span className="camslot__badge" style={soundBadgeStyle} aria-hidden="true"><SpeakerMark /></span>
+            <span className="camslot__badge camslot__badge--sound" aria-hidden="true"><SpeakerMark /></span>
             <span className="camslot__clip tnum" style={soundTextStyle}>{props.take.sound.fileName}</span>
           </div>
         </div>
