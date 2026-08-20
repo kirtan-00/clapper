@@ -18,6 +18,7 @@ import { Section, Row, LinkRow, ReadRow, ScreenHeader } from './glist';
 import { HowToScreen } from './HowToScreen';
 import { ThemeToggleRow } from './ThemeToggleRow';
 import { CutSizeRow, UiSizeRow } from './CutSizeRow';
+import { HapticsRow, WakeLockRow, LeftHandRow, ReduceMotionRow } from './PreferenceRows';
 import { DefaultTagsRows } from './DefaultTagsRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
@@ -96,6 +97,19 @@ export function SettingsScreen(props: { nav: Nav }) {
         <UiSizeRow />
         <ThemeToggleRow />
         <CutSizeRow />
+      </Section>
+
+      {/* Four "how it behaves in the hand" rows, ported from the approved
+          pitch's Settings screen. Its own section, not folded into
+          Appearance: these are not about what the app looks like, they are
+          about how it responds to a press - a real distinction the moment
+          Haptics or Reduce motion sits beside a colour toggle instead of
+          under one. */}
+      <Section title="Controls">
+        <HapticsRow />
+        <WakeLockRow />
+        <LeftHandRow />
+        <ReduceMotionRow />
       </Section>
 
       {/* Under Appearance, above Help: like the CUT size this is set once and

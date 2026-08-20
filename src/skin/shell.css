@@ -25,9 +25,19 @@
  *                   and must not move underneath it.
  *
  * Everything else here is scoped to a class this lane owns (.mnav, .mclip,
- * .msize, .mpill, .mheld, .mnudge, .mpro). Nothing restyles a shared element
- * selector — no bare `.sheet`, `.btn`, `.field`, `.grow` — because those are
- * rendered by screens two other agents are editing right now.
+ * .msize, .mpill, .mheld, .mnudge, .mpro, .mprev, .mprow, .mseg). Nothing
+ * restyles a shared element selector — no bare `.sheet`, `.btn`, `.field`,
+ * `.grow` — because those are rendered by screens two other agents are
+ * editing right now.
+ *
+ * TWO MORE GLOBAL, ATTRIBUTE-SCOPED EXCEPTIONS, for the same reason as the
+ * four above: `[data-lefthand]` (ui/leftHand.ts) and `[data-motion="reduce"]`
+ * (ui/reduceMotion.ts) are settings whose whole point is reaching outside
+ * this lane's own screens, so their rules key off an attribute on <html>
+ * rather than a class any one screen owns. Both default to absent, so the
+ * shipped app is never branched on for an operator who has not opened
+ * Settings. See each rule's own comment below for exactly what it reaches
+ * and, for left-hand mode, what it deliberately does not.
  */
 
 /* ===================================================== interface size =====
@@ -458,6 +468,178 @@ html[data-uiscale='fine'] textarea {
   .msize__opt:active {
     transform: none;
   }
+}
+
+/* ==================================================== interface-size preview
+   The live preview under the three cards - a real shot pill and a real ROLL,
+   not a drawing of them, so the operator judges the choice on the actual
+   controls it changes. `.shotstrip` and `.bigbtn.hw` are shared components
+   from styles.css (RollingScreen renders the only other instance of either);
+   reusing them here rather than drawing lookalikes is what makes the preview
+   "live" - both already read `--ui-scale` through `--cut-base` and the type
+   ramp, so this box needs no scale of its own and cannot drift from the real
+   thing. Sample content only: Settings has no shot in progress to show. */
+.mprev {
+  margin-top: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+  background: var(--surface-raised);
+}
+.mprev__cap {
+  display: block;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.mprev__demo {
+  margin-top: var(--sp-3);
+}
+/* Both children already carry their own top margin as siblings inside
+   `.roll__deck`; reasserted here since this box is not that deck. */
+.mprev__demo .shotstrip {
+  margin-top: 0;
+}
+.mprev__demo .bigbtn.hw {
+  margin-top: var(--sp-4);
+}
+
+/* ============================================================= preferences =
+   Haptics / Keep screen awake / Left-hand mode / Reduce motion, ported from
+   the approved pitch. All four are title-plus-sublabel rows, which `.grow`
+   does not have a shape for - so `.mprow` is its own primitive rather than a
+   forced fit, styled to sit in the same `.glist-card` as `.grow` rows
+   elsewhere without ever touching that shared class. */
+.mprow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--sp-3) var(--inset);
+  text-align: left;
+  background: none;
+  color: var(--text);
+  border-top: 1px solid var(--hairline-soft);
+}
+.mprow:first-child {
+  border-top: none;
+}
+.mprow:active {
+  background: var(--surface-raised);
+}
+.mprow[data-static] {
+  cursor: default;
+}
+.mprow[data-static]:active {
+  background: none;
+}
+.mprow__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mprow__t {
+  font-size: var(--t-row);
+  font-weight: 550;
+  color: var(--text);
+}
+.mprow__s {
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+}
+
+/* The Haptics segmented control. Same "chosen stop is the mass" idiom as
+   `.msize__opt--on` - the machined layer's one way of drawing a selection -
+   restated compact enough to sit as a row's trailing control instead of a
+   full-width card. */
+.mseg {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+.mseg__opt {
+  min-height: calc(var(--tap) - 12px);
+  padding: 0 var(--sp-3);
+  color: var(--text-dim);
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    color var(--dur-state) var(--ease-out);
+}
+.mseg__opt--on {
+  background: var(--m-card);
+  color: var(--m-card-ink);
+}
+/* Night inverts the mechanism the same way `.msize__opt--on` does: the chosen
+   stop stops reflecting light and starts emitting its own legend. */
+[data-theme='night'] .mseg__opt--on {
+  background: var(--m-keycap);
+  color: var(--m-legend);
+}
+
+/* ========================================================= left-hand mode ==
+   `data-lefthand` on <html> (see ui/leftHand.ts). Off is the attribute's
+   absence, so this never runs for the operator who has not opened the row.
+   Mirrors what THIS lane owns: the preference rows' own control column moves
+   from the trailing edge to the leading one, so the thumb crossing in from
+   the left meets Haptics/Wake/Left-hand/Reduce-motion's switches first
+   instead of last.
+
+   IT DOES NOT REACH the rolling screen's real steppers or its MARK IN / GOLD
+   row. `.shotstrip` and `.roll__markrow` are shared classes this lane could
+   technically select from here, but a true mirror of the steppers also has
+   to flip which chevron points which way, and that glyph is drawn inside
+   RollingScreen.tsx - another agent's file, off limits for this pass. A
+   position-only flip there (arrows swap sides, glyphs do not) would ship a
+   real screen looking subtly wrong rather than not mirrored, which is the
+   worse of the two. Left for whoever next touches RollingScreen.tsx to wire
+   up against this same attribute. */
+[data-lefthand] .mprow {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+[data-lefthand] .mprow__body {
+  align-items: flex-end;
+}
+
+/* ========================================================= reduce motion ===
+   `data-motion="reduce"` on <html> (see ui/reduceMotion.ts) - the operator's
+   FORCE, for a phone whose OS setting nobody has touched. The block below is
+   the same rule styles.css already runs under `@media (prefers-reduced-motion:
+   reduce)`, restated against this attribute instead of the media feature.
+   Duplication is deliberate, not drift: an attribute selector cannot live
+   inside that file's media query and still fire from a class this lane owns,
+   and `[data-motion='reduce'] *` outranks the media query's bare `*` on
+   specificity alone (0-1-0 beats 0-0-0), so this holds regardless of which
+   stylesheet happens to load last. */
+[data-motion='reduce'] *,
+[data-motion='reduce'] *::before,
+[data-motion='reduce'] *::after {
+  animation: none !important;
+  transition-property: opacity !important;
+  transition-duration: var(--dur-state) !important;
+}
+/* The two travel-transform exceptions styles.css's own media block carries,
+   restated the same way for the same reason. */
+[data-motion='reduce'] .bigbtn.hw:active .hw__face,
+[data-motion='reduce'] .bigbtn.hw.is-pressed .hw__face,
+[data-motion='reduce'] .bigbtn.hw--cut:active .hw__face,
+[data-motion='reduce'] .bigbtn.hw--cut.is-pressed .hw__face {
+  transform: none;
+}
+[data-motion='reduce'] .msize__opt:active {
+  transform: none;
 }
 
 /* ========================================================== sync pill ======
