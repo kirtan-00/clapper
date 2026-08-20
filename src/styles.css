@@ -2568,24 +2568,35 @@ select.field {
 .takebar {
   display: flex;
   align-items: stretch;
-  gap: 1px;
+  gap: 2px;
   width: 100%;
   max-width: 420px;
-  height: 14px;
+  /* WAS 14px, and at that height sixty ticks read as a texture rather than as
+     a bar - close enough to a hairline that the eye filed it as a rule and
+     stopped looking. The point of this strip is to be readable from the corner
+     of an eye that is on the actors, so it has to have some body. Twenty-six is
+     the height at which a lit tick is a MARK rather than a scratch, and it is
+     also, not coincidentally, about the proportion of a film perforation. */
+  height: 26px;
   margin: var(--sp-3) auto 0;
 }
 .takebar__tick {
   flex: 1 1 0;
   min-width: 0;
-  border-radius: 1px;
+  border-radius: 2px;
   /* Unlit is a real mark, not empty space: the strip has to read as sixty
      places whether or not any of them is lit yet, or the first second of a
-     take looks like a rendering failure. */
-  background: var(--hairline);
+     take looks like a rendering failure. Held one step darker than --hairline
+     so the unlit run still reads as a track at this new height instead of
+     dissolving into the ground. */
+  background: color-mix(in srgb, var(--text) 14%, transparent);
   transition: background var(--dur-state) linear;
 }
+/* Brass, because a second that has gone by is emphasis and emphasis is brass.
+   NOT a fill in the GOLD sense - these are sixty separate marks on a track,
+   which is the accent behaving as a segment, exactly as the rule allows. */
 .takebar__tick.is-on {
-  background: var(--text);
+  background: var(--m-accent);
 }
 
 .stage__hint {
