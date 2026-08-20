@@ -184,7 +184,12 @@ export function HomeScreen(props: { nav: Nav }) {
   }
 
   return (
-    <div className="app home" data-scrolled={scrolled ? '' : undefined}>
+    /* `pj` opts Home into skin/projects.css alongside the projects stack it
+       feeds. It buys one thing here and it is the important one: ONE ground.
+       Home, the list and a project screen are the same journey, and at 5am a
+       ground that shifts hue between two taps of the same tab bar reads as a
+       rendering fault rather than as a transition. */
+    <div className="app home pj" data-scrolled={scrolled ? '' : undefined}>
       {/* No app icon and no wordmark. A logo lockup at the top of a screen is a
           WEBSITE header; the OS already showed the icon on the way in, and the
           tab underneath already says which tab this is. What is left is the

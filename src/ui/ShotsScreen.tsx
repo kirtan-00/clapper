@@ -81,7 +81,8 @@ export function ShotsScreen(props: {
   const scrolled = useScrolled();
 
   return (
-    <div className="app">
+    /* Same ground as the project screen it was pushed from — see HomeScreen. */
+    <div className="app pj">
       <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
         <BackButton label={props.backLabel} onClick={props.onBack} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -114,6 +115,13 @@ export function ShotsScreen(props: {
 
         {stats === null ? (
           <div className="empty">Loading shots</div>
+        ) : stats.length === 0 ? (
+          /* A scene with no breakdown. Round 3: not a fault — it is a scene you
+             roll straight into, and the sentence says which. */
+          <div className="pj-empty">
+            <b>No shot breakdown</b>
+            <span>This scene rolls as one setup. Import a shotlist to split it up.</span>
+          </div>
         ) : (
           <div className="stack">
             {stats.map(({ shot, takeCount, goodCount, totalMs }) => (

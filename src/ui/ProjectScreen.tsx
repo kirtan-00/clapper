@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import type { CameraUnit, Project, Slate } from '../types';
 import { isMultiCam } from '../types';
@@ -340,7 +340,11 @@ export function ProjectScreen(props: {
   const scrolled = useScrolled();
 
   return (
-    <div className="app">
+    /* `pj` opts this screen into skin/projects.css: the ground it repaints, the
+       night palette round 3 approved, the accent focus ring, and the notch the
+       camera units are joined by. Taking the class off puts the old screen back
+       intact — nothing below depends on it structurally. */
+    <div className="app pj">
       <div className="topbar" data-scrolled={scrolled ? '' : undefined}>
         <BackButton label={props.backLabel} onClick={props.onBack} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -388,9 +392,12 @@ export function ProjectScreen(props: {
         {slates === null ? (
           <div className="empty">Loading scenes</div>
         ) : slates.length === 0 ? (
-          <div className="empty">
+          /* FIRST RUN, round 3. A project with nothing in it is a normal state
+             and must not be dressed as an error: one line of what to do, and
+             the one fact nobody has been told yet — the day opens itself. */
+          <div className="pj-empty">
             <b>No scenes yet</b>
-            Add your first setup below.
+            <span>Add your first setup below. Day 1 opens itself with your first take.</span>
           </div>
         ) : (
           <>
@@ -859,10 +866,22 @@ function ShootDaySection(props: {
           {dayLabel}
           {dateLabel && <> &middot; {dateLabel}</>}
         </span>
-        <span className="tnum">
-          {props.dayTakeCount} {takeWord}
-        </span>
+        {/* ROUND 3: a day that has not started yet. "0 takes" is arithmetic
+            about nothing; the day has not begun, and the app already knows
+            that the first take is what begins it. Say that instead. */}
+        {props.dayTakeCount === 0 ? (
+          <span className="section__note">not started</span>
+        ) : (
+          <span className="tnum">
+            {props.dayTakeCount} {takeWord}
+          </span>
+        )}
       </div>
+      {props.dayTakeCount === 0 && (
+        <p className="camnote" style={{ marginTop: -6 }}>
+          {day ? `Day ${day.index}` : 'Day 1'} opens itself with your first take.
+        </p>
+      )}
       <button type="button" className="btn btn--full" onClick={() => setConfirming(true)}>
         {wrapped ? 'Wrapped' : 'Wrap day'}
       </button>
@@ -963,6 +982,14 @@ function ClipCounterSection(props: {
   }
 
   const cameraLabel = findPreset(project.camera)?.label;
+  // The caveat is about the SHOOT, not one camera: one approximate unit makes
+  // the whole rig's file names approximate to whoever is relinking them.
+  const multiApprox = units
+    .slice(0, camCount)
+    .some((u) => {
+      const preset = findPreset(u.camera);
+      return !!preset && !preset.exact;
+    });
 
   const numFields = (u: UnitDraft, i: number, idBase: string) => (
     <>
@@ -1022,8 +1049,18 @@ function ClipCounterSection(props: {
 
   return (
     <section className="section">
+      {/* VIDEO and AUDIO are the two recording DEPARTMENTS, and they are named
+          that here for the same reason they are named that in the new-project
+          sheet: they are separate streams with separate file counters that land
+          on one shared shot, and a crew already thinks of them as two desks.
+          "Camera clip counter" described a control; this describes the desk. */}
+      <div className="formsection">
+        <span className="label">Video</span>
+        <span className="section__note">picture · camera clips</span>
+        <span className="formsection__rule" />
+      </div>
       <div className="section__head">
-        <span className="label">Camera clip counter</span>
+        <span className="label">Clip counter</span>
         {camCount > 1 ? (
           <span className="section__note">{camCount} cameras</span>
         ) : (
@@ -1065,32 +1102,60 @@ function ClipCounterSection(props: {
           </button>
         </div>
       ) : (
-        <div className="stack">
-          {units.slice(0, camCount).map((u, i) => (
-            <div key={UNIT_LETTERS[i]} className="camunit">
-              <div className="camunit__head">
-                <span className="camunit__badge">{UNIT_LETTERS[i]}</span>
-                <span className="camunit__eg tnum">{previewOf(u)}</span>
-              </div>
-              <div style={{ marginTop: 12 }}>{numFields(u, i, `cc-${i}`)}</div>
-              <div className="formrow" style={{ marginTop: 12, marginBottom: 0 }}>
-                <label className="label" htmlFor={`cc-${i}-operator`}>
-                  Operator <span className="section__note">optional</span>
-                </label>
-                <input
-                  id={`cc-${i}-operator`}
-                  className="field"
-                  placeholder="e.g. Rohan"
-                  value={u.operator}
-                  onChange={(e) => setUnit(i, { operator: e.target.value })}
-                />
-              </div>
-            </div>
-          ))}
-          <button type="button" className="btn btn--full" onClick={() => void save()}>
+        <>
+          {/* Two cameras on a shoot are not two settings, they are one rig:
+              they share the frame rate and roll on the same CUT. So they are
+              one mass with a slot milled between them — the same joint the
+              projects list cuts between TAKES and SHOOT DAY, not a divider. */}
+          <div className="pj-units">
+            {units.slice(0, camCount).map((u, i) => (
+              <Fragment key={UNIT_LETTERS[i]}>
+                {i > 0 && (
+                  <div className="pj-joint">
+                    <span className="pj-notch pj-notch--h" aria-hidden="true" />
+                  </div>
+                )}
+                <div className="camunit">
+                  <div className="camunit__head">
+                    <span className="camunit__badge">{UNIT_LETTERS[i]}</span>
+                    <span className="camunit__eg tnum">{previewOf(u)}</span>
+                  </div>
+                  <div style={{ marginTop: 12 }}>{numFields(u, i, `cc-${i}`)}</div>
+                  <div className="formrow" style={{ marginTop: 12, marginBottom: 0 }}>
+                    <label className="label" htmlFor={`cc-${i}-operator`}>
+                      Operator <span className="section__note">optional</span>
+                    </label>
+                    <input
+                      id={`cc-${i}-operator`}
+                      className="field"
+                      placeholder="e.g. Rohan"
+                      value={u.operator}
+                      onChange={(e) => setUnit(i, { operator: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </Fragment>
+            ))}
+          </div>
+          {/* The honest badge, from cameras.ts. An approximate name is not an
+              error — it is a camera stamping a record time nobody can know in
+              advance — so it is brass, and it is said once. */}
+          <div className="pj-approx">
+            <span>Links in Premiere as</span>
+            <span className="pj-approx__eg">{previewOf(units[0])}</span>
+            <span className={multiApprox ? 'pj-approx__flag' : undefined}>
+              {multiApprox ? 'approx' : 'exact'}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn--full"
+            style={{ marginTop: 12 }}
+            onClick={() => void save()}
+          >
             {saved ? 'Saved' : 'Set clip counters'}
           </button>
-        </div>
+        </>
       )}
     </section>
   );
@@ -1150,6 +1215,18 @@ function SoundSection(props: {
 
   return (
     <section className="section">
+      {/* The second department, co-equal with VIDEO above and never a member of
+          it: sound is orthogonal to camera count in the data model, and the
+          header has to say so — a single-cam doc shoot still has its own mixer.
+          Coloured on --sound-text for the same reason the new-project sheet
+          does: it is the one place a second signal colour earns its keep. */}
+      <div className="formsection">
+        <span className="label" style={{ color: 'var(--sound-text)' }}>
+          Audio
+        </span>
+        <span className="section__note">sound · recorder files</span>
+        <span className="formsection__rule" />
+      </div>
       <div className="section__head">
         <span className="label">Production sound</span>
         {on && project.sound?.operator && <span className="section__note">{project.sound.operator}</span>}
