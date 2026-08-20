@@ -14,10 +14,10 @@ import { newId } from '../store/util';
 // shotlist PDF through the same parser the app uses, then merges in the
 // key-moment chips from one server run. Regenerate rather than edit by hand.
 import letsMeetDobaara from './packs/lets-meet-dobaara.json';
-// Hand-built from the revised breakdown PDF in a Claude session, not parsed: the
+// Hand-built from a revised breakdown PDF in a Claude session, not parsed: the
 // source table carries no shot-size or camera-move column, so those stay absent
 // rather than being guessed at on the crew's behalf.
-import huKonChu from './packs/hu-kon-chu.json';
+import aRoomThatRemembers from './packs/a-room-that-remembers.json';
 
 /**
  * One setup inside a pack scene. Present when the source document was a
@@ -415,16 +415,17 @@ export async function importTreelandDemo(): Promise<Project[]> {
 // JSON import widens every literal to string.
 const LETS_MEET_DOBAARA = letsMeetDobaara as unknown as ScriptPack;
 // Same cast, same reason — a JSON import widens every literal to string.
-const HU_KON_CHU = huKonChu as unknown as ScriptPack;
+const A_ROOM_THAT_REMEMBERS = aRoomThatRemembers as unknown as ScriptPack;
 
 export const EXAMPLE_PACKS: { key: string; label: string; blurb: string; pack: ScriptPack }[] = [
-  // First, because it is the one currently shooting: an operator opens the app
-  // on set and the top demo is the film in front of the camera.
+  // First, because it is the fullest Scene > Shot > Take demo at ordinary
+  // scale: an operator opens the app and the top demo is a complete shoot,
+  // not an ad's handful of setups.
   {
-    key: 'hukonchu',
-    label: 'Hu Kon Chu?',
+    key: 'roomremembers',
+    label: 'A Room That Remembers',
     blurb: 'Short film · 10 scenes · 76 shots',
-    pack: HU_KON_CHU,
+    pack: A_ROOM_THAT_REMEMBERS,
   },
   { key: 'grandfather', label: 'Grandfather ad', blurb: 'Family / lifestyle spot · 7 scenes', pack: TREELAND_DEMO[0] },
   {

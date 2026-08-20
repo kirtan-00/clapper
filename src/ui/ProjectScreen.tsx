@@ -653,7 +653,7 @@ export function ProjectScreen(props: {
         />
       )}
 
-      {/* A project called "Hu Kon Chu?" was producing "Delete Hu Kon Chu??". */}
+      {/* A project called "Again?" was producing "Delete Again??". */}
       {deletingProject && (
         <Confirm
           title={`Delete ${project.name.replace(/[?!.]+$/, '')}?`}
@@ -1359,7 +1359,7 @@ function SoundSection(props: {
 //
 // A real 232-clip Premiere import landed EVERY clip offline and had to be
 // located by hand. The cause is in the format, not the app: <pathurl> is an
-// absolute URL, so a bare "crav_0054.MP4" resolves to the root of the boot
+// absolute URL, so a bare "clip_0054.MP4" resolves to the root of the boot
 // volume, where nothing ever is. The phone cannot know the edit machine's disk
 // layout, so somebody has to type it once, and this is where.
 //

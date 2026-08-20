@@ -1,0 +1,600 @@
+{
+  "clapperScriptPack": 1,
+  "project": {
+    "name": "A Room That Remembers",
+    "coverageTags": ["WIDE", "MID", "CLOSEUP"]
+  },
+  "scenes": [
+    {
+      "scriptRef": "SC 1",
+      "name": "SC 1 · INT. TUNING WORKSHOP / STREET · NIGHT",
+      "summary": "Vir gets an urgent late call to tune a piano at a mansion outside town and rides out.",
+      "order": 1,
+      "keyMomentTags": ["Phone rings", "Address given", "Packs kit", "Locks up", "Scooter starts", "Rides into night"],
+      "shots": [
+        {
+          "code": "S1-01",
+          "order": 1,
+          "action": "Vir wipes down a piano key in his small workshop, lit by a single lamp, when his phone buzzes.",
+          "note": "Tuning Workshop"
+        },
+        {
+          "code": "S1-02",
+          "order": 2,
+          "action": "He answers; a woman's voice says the piano must be ready by morning, and gives an address.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Phone rings", "Address given"]
+        },
+        {
+          "code": "S1-03",
+          "order": 3,
+          "action": "Vir hesitates, checking the clock — it is well past a reasonable hour to be called.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Checks clock"]
+        },
+        {
+          "code": "S1-04",
+          "order": 4,
+          "action": "He packs his tuning kit into a worn leather satchel.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Packs kit"]
+        },
+        {
+          "code": "S1-05",
+          "order": 5,
+          "action": "He locks up the workshop, the sign swinging in the wind.",
+          "note": "Street / Workshop Front"
+        },
+        {
+          "code": "S1-06",
+          "order": 6,
+          "action": "Vir kicks his scooter to life on the empty street.",
+          "note": "Street",
+          "keyMoments": ["Scooter starts"]
+        },
+        {
+          "code": "S1-07",
+          "order": 7,
+          "action": "Wide of the scooter's headlight shrinking into the dark road out of town.",
+          "note": "Road Out of Town",
+          "keyMoments": ["Rides into night"]
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 2",
+      "name": "SC 2 · EXT./INT. SCOOTER / ROAD · NIGHT",
+      "summary": "Riding out, Vir remembers his late teacher's advice, then arrives at the gate.",
+      "order": 2,
+      "keyMomentTags": ["Lost in thought", "Memory surfaces", "Remembered line", "Gate appears"],
+      "shots": [
+        {
+          "code": "S2-01",
+          "order": 1,
+          "action": "Close on Vir's face lit by passing streetlights, lost in thought.",
+          "note": "Road"
+        },
+        {
+          "code": "S2-02",
+          "order": 2,
+          "action": "Flash of memory: an old man's hands pressing a single piano key, half-lit.",
+          "note": "Memory / Insert",
+          "keyMoments": ["Memory surfaces"]
+        },
+        {
+          "code": "S2-03",
+          "order": 3,
+          "action": "The old man's remembered voice: \"A room remembers what a person forgets.\"",
+          "note": "Memory / Insert",
+          "keyMoments": ["Remembered line"]
+        },
+        {
+          "code": "S2-04",
+          "order": 4,
+          "action": "Vir blinks back to the present as the mansion's gate appears ahead.",
+          "note": "Road / Mansion Gate",
+          "keyMoments": ["Gate appears"]
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 3",
+      "name": "SC 3 · INT. THE MANSION · NIGHT",
+      "summary": "Let in by the caretaker, Vir finds the piano, begins tuning, and hears an answering note.",
+      "order": 3,
+      "keyMomentTags": ["Mansion in view", "Door opens", "Photo glimpsed", "Piano revealed", "Answering note", "Turns to hallway"],
+      "shots": [
+        {
+          "code": "S3-01",
+          "order": 1,
+          "action": "Vir parks outside the gate, wide of the mansion looming in the dark.",
+          "note": "Mansion Exterior",
+          "keyMoments": ["Mansion in view"]
+        },
+        {
+          "code": "S3-02",
+          "order": 2,
+          "action": "He knocks on a heavy wooden door.",
+          "note": "Mansion Entrance"
+        },
+        {
+          "code": "S3-03",
+          "order": 3,
+          "action": "Nayan, the caretaker, opens the door with a single lantern.",
+          "note": "Mansion Entrance",
+          "keyMoments": ["Door opens"]
+        },
+        {
+          "code": "S3-04",
+          "order": 4,
+          "action": "Vir steps into a dust-sheeted hallway lined with covered furniture.",
+          "note": "Mansion Hallway"
+        },
+        {
+          "code": "S3-05",
+          "order": 5,
+          "action": "Nayan leads him past a wall of framed photographs, most turned to face the wall.",
+          "note": "Mansion Hallway"
+        },
+        {
+          "code": "S3-06",
+          "order": 6,
+          "action": "Close on the one photograph left facing out: a young woman seated at a piano.",
+          "note": "Mansion Hallway",
+          "keyMoments": ["Photo glimpsed"]
+        },
+        {
+          "code": "S3-07",
+          "order": 7,
+          "action": "Vir asks who she is; Nayan only says to hurry, the piano is this way.",
+          "note": "Mansion Hallway"
+        },
+        {
+          "code": "S3-08",
+          "order": 8,
+          "action": "They pass a locked door with a chain across it.",
+          "note": "Mansion Hallway",
+          "keyMoments": ["Locked door"]
+        },
+        {
+          "code": "S3-09",
+          "order": 9,
+          "action": "Vir is shown into the music room, dust sheets pulled off in a cloud.",
+          "note": "Mansion Music Room"
+        },
+        {
+          "code": "S3-10",
+          "order": 10,
+          "action": "The grand piano stands uncovered, already waiting, its lid open.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["Piano revealed"]
+        },
+        {
+          "code": "S3-11",
+          "order": 11,
+          "action": "Nayan leaves a single candle and exits without another word.",
+          "note": "Mansion Music Room"
+        },
+        {
+          "code": "S3-12",
+          "order": 12,
+          "action": "Vir opens his kit and lays out his tools on the piano's felt.",
+          "note": "Mansion Music Room"
+        },
+        {
+          "code": "S3-13",
+          "order": 13,
+          "action": "He strikes the first key; the note rings out flat and hollow.",
+          "note": "Mansion Music Room"
+        },
+        {
+          "code": "S3-14",
+          "order": 14,
+          "action": "He adjusts a tuning pin, listening with his whole body.",
+          "note": "Mansion Music Room"
+        },
+        {
+          "code": "S3-15",
+          "order": 15,
+          "action": "A faint answering note drifts in from somewhere else in the house.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["Answering note"]
+        },
+        {
+          "code": "S3-16",
+          "order": 16,
+          "action": "Vir freezes, tuning fork still ringing in his hand.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["Freezes"]
+        },
+        {
+          "code": "S3-17",
+          "order": 17,
+          "action": "He strikes the same key again; the answering note comes back, closer this time.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["Note repeats", "Sounds closer"]
+        },
+        {
+          "code": "S3-18",
+          "order": 18,
+          "action": "Vir rises from the bench and turns toward the dark hallway.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["Rises", "Turns to hallway"]
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 4",
+      "name": "SC 4 · INT. MANSION HALLWAYS · CONTINUOUS",
+      "summary": "Candle in hand, Vir follows the answering note up through the house.",
+      "order": 4,
+      "keyMomentTags": ["Follows the sound", "Pauses at door", "Climbs stairs", "Door ajar", "Climbs toward sound"],
+      "shots": [
+        {
+          "code": "S4-01",
+          "order": 1,
+          "action": "Vir steps into the corridor, candle in hand, following the sound.",
+          "note": "Mansion Hallway"
+        },
+        {
+          "code": "S4-02",
+          "order": 2,
+          "action": "He passes the locked, chained door again, pausing at it.",
+          "note": "Mansion Hallway",
+          "keyMoments": ["Pauses at door"]
+        },
+        {
+          "code": "S4-03",
+          "order": 3,
+          "action": "The note sounds again, further down the hall, and he moves on.",
+          "note": "Mansion Hallway"
+        },
+        {
+          "code": "S4-04",
+          "order": 4,
+          "action": "He climbs a narrow staircase, the candle flame guttering.",
+          "note": "Mansion Staircase"
+        },
+        {
+          "code": "S4-05",
+          "order": 5,
+          "action": "At the top he finds a second, smaller door left ajar.",
+          "note": "Mansion Upper Landing",
+          "keyMoments": ["Door ajar"]
+        },
+        {
+          "code": "S4-06",
+          "order": 6,
+          "action": "He pushes it open onto a narrow set of steps leading up into darkness.",
+          "note": "Mansion Upper Landing"
+        },
+        {
+          "code": "S4-07",
+          "order": 7,
+          "action": "Vir climbs, the sound growing clearer with every step.",
+          "note": "Attic Stairs",
+          "keyMoments": ["Climbs toward sound"]
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 5",
+      "name": "SC 5 · INT. ATTIC MUSIC ROOM · NIGHT",
+      "summary": "Vir finds a second piano and meets Mrs. Kapadia, who tells him about her daughter Leela.",
+      "order": 5,
+      "keyMomentTags": ["Second piano found", "Note matches", "Mrs. Kapadia appears", "Leela named", "Understanding lands", "Picks up fork"],
+      "shots": [
+        {
+          "code": "S5-01",
+          "order": 1,
+          "action": "Vir reaches the top and finds a small attic room, untouched by dust sheets.",
+          "note": "Attic Music Room"
+        },
+        {
+          "code": "S5-02",
+          "order": 2,
+          "action": "A second, smaller piano sits under a single skylight.",
+          "note": "Attic Music Room",
+          "keyMoments": ["Second piano found"]
+        },
+        {
+          "code": "S5-03",
+          "order": 3,
+          "action": "Sheet music sits open on the stand, mid-piece, as if someone just stepped away.",
+          "note": "Attic Music Room"
+        },
+        {
+          "code": "S5-04",
+          "order": 4,
+          "action": "He touches a key; it rings the exact note that has been calling him.",
+          "note": "Attic Music Room",
+          "keyMoments": ["Note matches"]
+        },
+        {
+          "code": "S5-05",
+          "order": 5,
+          "action": "Behind him, an unfamiliar voice: \"That was my daughter's room.\"",
+          "note": "Attic Music Room",
+          "dialogue": "That was my daughter's room."
+        },
+        {
+          "code": "S5-06",
+          "order": 6,
+          "action": "Vir turns to find an elderly woman, Mrs. Kapadia, standing in the doorway.",
+          "note": "Attic Music Room",
+          "keyMoments": ["Mrs. Kapadia appears"]
+        },
+        {
+          "code": "S5-07",
+          "order": 7,
+          "action": "She steps in, running a hand along the small piano's lid.",
+          "note": "Attic Music Room"
+        },
+        {
+          "code": "S5-08",
+          "order": 8,
+          "action": "She explains: her daughter played every night here, until the night she didn't.",
+          "note": "Attic Music Room"
+        },
+        {
+          "code": "S5-09",
+          "order": 9,
+          "action": "A photograph on the wall shows the young woman from downstairs, now named: Leela.",
+          "note": "Attic Music Room",
+          "keyMoments": ["Leela named"]
+        },
+        {
+          "code": "S5-10",
+          "order": 10,
+          "action": "Mrs. Kapadia admits she has kept every room in the house sealed for years, except this one.",
+          "note": "Attic Music Room"
+        },
+        {
+          "code": "S5-11",
+          "order": 11,
+          "action": "She asks Vir to finish what he came to do — tune the piano downstairs, properly this time.",
+          "note": "Attic Music Room"
+        },
+        {
+          "code": "S5-12",
+          "order": 12,
+          "action": "Vir looks between the two pianos, understanding passing over his face.",
+          "note": "Attic Music Room",
+          "keyMoments": ["Understanding lands"]
+        },
+        {
+          "code": "S5-13",
+          "order": 13,
+          "action": "He nods and picks up his tuning fork again.",
+          "note": "Attic Music Room",
+          "keyMoments": ["Picks up fork"]
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 6",
+      "name": "SC 6 · INT. MANSION MUSIC ROOM · NIGHT",
+      "summary": "Vir finishes tuning the grand piano properly while Mrs. Kapadia listens.",
+      "order": 6,
+      "keyMomentTags": ["She sits to listen", "Tightens last pin", "True chord rings", "Her smile", "Lid closes"],
+      "shots": [
+        {
+          "code": "S6-01",
+          "order": 1,
+          "action": "Back at the grand piano, Vir works with new care, unhurried.",
+          "note": "Mansion Music Room"
+        },
+        {
+          "code": "S6-02",
+          "order": 2,
+          "action": "Mrs. Kapadia sits nearby, listening, the sheet pulled off one chair.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["She sits to listen"]
+        },
+        {
+          "code": "S6-03",
+          "order": 3,
+          "action": "Vir tightens the last pin and strikes a full chord.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["Tightens last pin"]
+        },
+        {
+          "code": "S6-04",
+          "order": 4,
+          "action": "The chord rings true and clean through the whole house.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["True chord rings"]
+        },
+        {
+          "code": "S6-05",
+          "order": 5,
+          "action": "Mrs. Kapadia closes her eyes, a small smile breaking through.",
+          "note": "Mansion Music Room",
+          "keyMoments": ["Her smile"]
+        },
+        {
+          "code": "S6-06",
+          "order": 6,
+          "action": "Vir closes the piano lid gently, the work done.",
+          "note": "Mansion Music Room"
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 7",
+      "name": "SC 7 · INT. MANSION FOYER · NIGHT",
+      "summary": "Vir is paid, given the attic's sheet music, and shown out into the night.",
+      "order": 7,
+      "keyMomentTags": ["Packs tools", "Payment given", "Sheet music given", "Door held open"],
+      "shots": [
+        {
+          "code": "S7-01",
+          "order": 1,
+          "action": "Vir packs his tools back into the satchel by lamplight.",
+          "note": "Mansion Foyer",
+          "keyMoments": ["Packs tools"]
+        },
+        {
+          "code": "S7-02",
+          "order": 2,
+          "action": "Mrs. Kapadia presses an envelope of payment into his hands.",
+          "note": "Mansion Foyer",
+          "keyMoments": ["Payment given"]
+        },
+        {
+          "code": "S7-03",
+          "order": 3,
+          "action": "She adds a second item: the sheet music from the attic, folded.",
+          "note": "Mansion Foyer",
+          "keyMoments": ["Sheet music given"]
+        },
+        {
+          "code": "S7-04",
+          "order": 4,
+          "action": "Vir accepts it without a word, understanding what it means.",
+          "note": "Mansion Foyer"
+        },
+        {
+          "code": "S7-05",
+          "order": 5,
+          "action": "Nayan holds the front door open for him.",
+          "note": "Mansion Entrance",
+          "keyMoments": ["Door held open"]
+        },
+        {
+          "code": "S7-06",
+          "order": 6,
+          "action": "Vir steps out into air that feels lighter than when he arrived.",
+          "note": "Mansion Entrance"
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 8",
+      "name": "SC 8 · EXT. MANSION DRIVEWAY · NIGHT",
+      "summary": "Vir crosses the misted driveway as one last note hangs in the air behind him.",
+      "order": 8,
+      "keyMomentTags": ["Mist rolls in", "Note fades", "Walks on"],
+      "shots": [
+        {
+          "code": "S8-01",
+          "order": 1,
+          "action": "From Vir's point of view, mist rolls low across the driveway.",
+          "note": "Driveway / Mist"
+        },
+        {
+          "code": "S8-02",
+          "order": 2,
+          "action": "A single note seems to hang in the fog behind him, then fades.",
+          "note": "Driveway / Mist",
+          "keyMoments": ["Note fades"]
+        },
+        {
+          "code": "S8-03",
+          "order": 3,
+          "action": "He does not look back, walking on into the mist toward his scooter.",
+          "note": "Driveway / Mist",
+          "keyMoments": ["Walks on"]
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 9",
+      "name": "SC 9 · INT. TUNING WORKSHOP · SUNRISE",
+      "summary": "Vir wakes at his own workbench with the attic's sheet music still beside him.",
+      "order": 9,
+      "keyMomentTags": ["Wakes at bench", "Morning light", "Studies the music", "Sets sheet on stand"],
+      "shots": [
+        {
+          "code": "S9-01",
+          "order": 1,
+          "action": "Vir wakes at his workbench, the folded sheet music beside him.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Wakes at bench"]
+        },
+        {
+          "code": "S9-02",
+          "order": 2,
+          "action": "Morning light cuts through the workshop's dusty window.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Morning light"]
+        },
+        {
+          "code": "S9-03",
+          "order": 3,
+          "action": "He unfolds the sheet music and studies the handwritten notes on it.",
+          "note": "Tuning Workshop"
+        },
+        {
+          "code": "S9-04",
+          "order": 4,
+          "action": "He sets it upright on his own piano's stand.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Sets sheet on stand"]
+        },
+        {
+          "code": "S9-05",
+          "order": 5,
+          "action": "He rubs his eyes, unsure how much of the night was real.",
+          "note": "Tuning Workshop"
+        }
+      ]
+    },
+    {
+      "scriptRef": "SC 10",
+      "name": "SC 10 · INT./EXT. TUNING WORKSHOP / STREET · DAY",
+      "summary": "Vir plays Leela's piece by ear on his own piano as the film ends on credits.",
+      "order": 10,
+      "keyMomentTags": ["Opens shutters", "Sits to play", "Melody settles in", "Smile", "Title card"],
+      "shots": [
+        {
+          "code": "S10-01",
+          "order": 1,
+          "action": "Vir opens the workshop shutters to the morning street.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Opens shutters"]
+        },
+        {
+          "code": "S10-02",
+          "order": 2,
+          "action": "He sits at his own piano for the first time in years.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Sits to play"]
+        },
+        {
+          "code": "S10-03",
+          "order": 3,
+          "action": "He finds the opening notes of Leela's piece by ear.",
+          "note": "Tuning Workshop"
+        },
+        {
+          "code": "S10-04",
+          "order": 4,
+          "action": "His hands settle into the melody, unhurried.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Melody settles in"]
+        },
+        {
+          "code": "S10-05",
+          "order": 5,
+          "action": "Through the window, the street goes about its morning, unaware.",
+          "note": "Street"
+        },
+        {
+          "code": "S10-06",
+          "order": 6,
+          "action": "Vir plays on, the smallest smile on his face.",
+          "note": "Tuning Workshop",
+          "keyMoments": ["Smile"]
+        },
+        {
+          "code": "S10-07",
+          "order": 7,
+          "action": "Fade out to studio credit, title card and final credits.",
+          "note": "Graphics / Black",
+          "keyMoments": ["Fade out", "Title card"]
+        }
+      ]
+    }
+  ]
+}

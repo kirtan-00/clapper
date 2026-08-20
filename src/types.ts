@@ -95,10 +95,10 @@ export interface Project {
   camera?: string;         // camera preset id the clip format came from, e.g. "sony"
   /**
    * Where the footage actually LIVES on the edit machine, e.g.
-   * "/Volumes/My Book-02/crave stdio 2/HU kon Chu/day 1/M4ROOT/CLIP".
+   * "/Volumes/Backup Drive/Edit Projects/Short Film/day 1/M4ROOT/CLIP".
    *
    * The exporters write an ABSOLUTE path into <pathurl>. With no root set,
-   * "crav_0054.MP4" resolves to the root of the boot volume, where nothing
+   * "clip_0054.MP4" resolves to the root of the boot volume, where nothing
    * ever is — which is why a real 232-clip import landed every single clip
    * offline and had to be located by hand. Set this and the same export
    * imports fully online with no relinking at all.
