@@ -1559,14 +1559,13 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 }
 .ob-steps b { font-weight: 650; }
 
-/* THE FOOTER IS NOT 50/50 HERE. `.sheet__actions .btn { flex: 1 }` is declared
-   later in this file than `.sl-actions .btn--ghost`, so at equal specificity it
-   wins and every staged footer splits down the middle - which puts "Sign in
-   with Google" on two lines beside a two-word backout. One class deeper is
-   enough to settle it, and the shape it settles on is the one .sl-actions asked
-   for in the first place: the way out is a backout, the primary is the sequence
-   carrying on, and they are not peers. */
-.ob .sl-actions .btn--ghost { flex: 0 1 30%; }
+/* The footer weighting used to be patched HERE, for this flow only
+   (`.ob .sl-actions .btn--ghost { flex: 0 1 30% }`), because
+   `.sheet__actions .btn { flex: 1 }` beat the shared `.sl-actions` rule at
+   equal specificity and split every staged footer down the middle. That fixed
+   one of the three flows and left the other two 50/50 — so the fix now lives
+   on `.sl-actions` itself, one class deeper, and all three weight the same.
+   See the rule at the end of the staged-flow block below. */
 
 /* Links inside this flow. With no `a` rule anywhere in the app, the Terms and
    Privacy lines were rendering in user-agent BLUE - a colour that appears
@@ -1892,7 +1891,171 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   background: var(--surface);
   box-shadow: 0 -1px 0 var(--hairline-soft);
 }
-.sl-actions .btn--ghost { flex: 0 1 34%; }
+/* AND THE WEIGHTING HOLDS IN ALL THREE FLOWS. `.sheet__actions .btn { flex: 1 }`
+   is declared later in this file at the same specificity as a plain
+   `.sl-actions .btn--ghost`, so it used to win and split every staged footer
+   50/50 — which is how the shot-division flow ended up with an even Back /
+   Continue while first-open carried a private `.ob` patch to weight its own.
+   One class deeper settles it for everybody, and the private patch is gone. */
+.sheet__actions.sl-actions .btn--ghost { flex: 0 1 34%; }
+
+/* ---- new project: the rig ----------------------------------------------
+   src/ui/NewProjectSheet.tsx, stage three. Everything else on that flow is
+   the shared stage chrome and the .sl-* option cards above; THIS is the part
+   that is genuinely new, because no other flow has a list of things you can
+   add to and take away from before the record exists.
+
+   A unit card is the same quiet surface + hairline as an .sl-opt, with a LAMP
+   down its leading edge — flat, two pixels, brass as a LINE. Never a fill: a
+   solid brass fill in this app means a gold take and nothing else. The sound
+   card is the same card with the cool sound edge instead, so the recorder can
+   never be mistaken for a fifth camera. */
+.np-units {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.np-unit {
+  position: relative;
+  overflow: hidden;
+  padding: var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+/* The lamp. It burns at REST — a unit that is set up is not waiting to be
+   pressed — and it is the leading edge, so a column of them reads as a rack. */
+.np-unit::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--m-accent-deep);
+}
+[data-theme='night'] .np-unit::before { background: var(--m-accent); }
+.np-unit--sound { margin-top: var(--sp-4); }
+.np-unit--sound::before { background: var(--sound-edge); }
+
+.np-unit__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+/* A ring, not a fill — same reasoning as .dt-sheet's .camunit__badge. */
+.np-unit__letter {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--t-row);
+  color: var(--m-accent-text);
+  background: none;
+  border: 1px solid var(--m-accent-text);
+}
+.np-unit__eg {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Taking a camera back off. Quiet, because it is not the thing you came here
+   to do — but a real word rather than a glyph, because an × on a card that
+   also carries a text field is a guess. */
+.np-unit__drop {
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--text-dim);
+  font-size: var(--t-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+.np-unit__drop:active { background: var(--surface-sunk); color: var(--text); }
+
+/* The camera row. It opens a list of preset CARDS rather than being a select,
+   because the decision is made by recognising a filename, not a menu name. */
+.np-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--tap);
+  margin-top: var(--sp-4);
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out);
+}
+.np-pick:active { transform: scale(0.99); background: var(--surface-sunk); }
+.np-pick .label { flex: none; }
+.np-pick__val {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.np-pick__go {
+  flex: none;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--m-accent-text);
+}
+
+.np .np-unit__op { margin: var(--sp-4) 0 0; }
+
+/* ONE TAP, and it names the letter it is about to make. Dashed because it is
+   the outline of a card that does not exist yet. */
+.np-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 52px;
+  margin-top: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--line);
+  background: none;
+  color: var(--m-accent-text);
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out);
+}
+.np-add:active { transform: scale(0.99); background: var(--surface-raised); }
+.np-add__plus { font-size: var(--t-row); font-weight: 700; line-height: 1; }
+
+/* .camnote is declared further down this file and would otherwise win on equal
+   specificity and put its own top margin back — same reason .sl-lede is
+   scoped. */
+.np .np-full { margin: var(--sp-3) 0 0; }
+.np .np-approx { margin: var(--sp-4) 0 0; }
+.np-name { font-size: var(--t-row); }
+.np-receipt__who { color: var(--text-dim); text-transform: none; letter-spacing: 0; }
 
 /* ------------------------------------------------------------- guide ---
    The how-to takes the whole window, not a sheet: it is read standing up,
