@@ -6,9 +6,30 @@
 //
 // Best-effort throughout: any failure here degrades to "nudge doesn't show",
 // never to a broken app.
+//
+// ---------------------------------------------------------------------------
+// THE REPAINT (round 3, §03). "This phone only" is the one status in the app
+// that earns a card rather than a pill, and this is that card. Two things
+// changed and the TRIGGER LOGIC DID NOT — the same standalone check, the same
+// iOS-Safari detection, the same `beforeinstallprompt` gate, the same
+// once-ever dismissal:
+//
+//   THE NUMBER IS REAL. "41 takes live in this browser and nowhere else" is a
+//   sentence somebody acts on; "your data could be lost" is one they have read
+//   a hundred times and stopped seeing. The count is read once, only after the
+//   nudge has already decided it is showing, so nothing is spent on the far
+//   more common path where it never appears. If the read fails the card simply
+//   says it without a number rather than inventing one.
+//
+//   IT OFFERS BOTH DOORS. Installing exempts the origin from eviction; signing
+//   in backs the log up off the phone entirely. They fix the same problem at
+//   different depths, so a card about that problem shows both — and SIGN IN
+//   only while signed out, because to someone already signed in it is noise.
 
 import { useEffect, useState } from 'react';
 import { track } from '../net/analytics';
+import { store } from '../store';
+import { useSession, signInWithGoogle } from '../net/auth';
 import { CloseMark } from './marks';
 
 const DISMISS_KEY = 'clapper.installNudgeDismissed';
@@ -70,6 +91,28 @@ function markDismissed(): void {
   }
 }
 
+/**
+ * How many takes are on this phone. Walks projects -> scenes -> takes, which is
+ * the only path the store offers for a whole-device count, and does it exactly
+ * once per appearance of the card. Returns null rather than 0 on failure: zero
+ * is a claim, and "no number" is the truth when the read did not happen.
+ */
+async function countTakes(): Promise<number | null> {
+  try {
+    const projects = await store.listProjects();
+    const perProject = await Promise.all(
+      projects.map(async (p) => {
+        const slates = await store.listSlates(p.id);
+        const perSlate = await Promise.all(slates.map((sl) => store.listTakes(sl.id)));
+        return perSlate.reduce((n, list) => n + list.length, 0);
+      }),
+    );
+    return perProject.reduce((n, c) => n + c, 0);
+  } catch {
+    return null;
+  }
+}
+
 /** Tiny inline share-icon (box + up arrow) — avoids relying on a Unicode glyph. */
 function ShareGlyph() {
   return (
@@ -95,9 +138,20 @@ function ShareGlyph() {
 export default function InstallNudge() {
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+  const [takes, setTakes] = useState<number | null>(null);
+  const { session, loading } = useSession();
 
   useEffect(() => {
     try {
+      // A seam for screenshots. DEV ONLY — `import.meta.env.DEV` is a
+      // compile-time constant, so this block is dropped from the bundle, and
+      // the shipped card still appears only when the browser says it can be
+      // installed. Neither trigger fires in a headless run, and a state that
+      // is never looked at is a state nobody designed.
+      if (import.meta.env.DEV) {
+        (window as unknown as Record<string, unknown>).__clapperInstallNudge = (p: Platform | null) =>
+          setPlatform(p);
+      }
       if (isStandalone() || isDismissed()) return;
 
       if (isIosSafari()) {
@@ -126,6 +180,19 @@ export default function InstallNudge() {
       /* nudge is best-effort UI chrome; never block app boot */
     }
   }, []);
+
+  // Counted only once the card has decided it is appearing, so the common path
+  // (installed, or already dismissed) costs nothing at all.
+  useEffect(() => {
+    if (!platform) return;
+    let alive = true;
+    void countTakes().then((n) => {
+      if (alive) setTakes(n);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [platform]);
 
   function onDismiss() {
     try {
@@ -161,37 +228,60 @@ export default function InstallNudge() {
   if (!platform) return null;
 
   return (
-    <div className="installnudge" role="status">
-      <div className="installnudge__body">
-        <p className="installnudge__title">Keep your shot log safe</p>
-        {/* One line, and on iOS it is an instruction rather than an
-            explanation: the title above already says why. */}
-        {platform === 'ios' ? (
-          <p className="installnudge__msg">
-            Tap <ShareGlyph /> <b>Share</b>, then <b>Add to Home Screen</b>.
-          </p>
-        ) : (
-          <p className="installnudge__msg">Install it, and the browser cannot clear it.</p>
-        )}
-      </div>
-      <div className="installnudge__actions">
-        {platform === 'android' && (
-          <button
-            type="button"
-            className="btn btn--go installnudge__install"
-            onClick={() => void onInstallClick()}
-          >
-            Install
-          </button>
-        )}
+    <div className="mnudge" role="status">
+      <div className="mnudge__head">
+        <span className="mnudge__cap">This phone only</span>
         <button
           type="button"
-          className="installnudge__dismiss"
+          className="mnudge__dismiss"
           onClick={onDismiss}
           aria-label="Dismiss"
         >
           <CloseMark />
         </button>
+      </div>
+
+      {/* The headline is the FACT, with the real number in it. No number until
+          the count lands, and none at all if it failed - a card about not
+          losing your work is the last place to round something off. */}
+      <p className="mnudge__say">
+        {takes === null
+          ? 'Everything you have logged lives in this browser and nowhere else.'
+          : `${takes} ${takes === 1 ? 'take lives' : 'takes live'} in this browser and nowhere else.`}
+      </p>
+      <p className="mnudge__note">
+        A browser under storage pressure can clear a site's data after about a week unused.
+        Installing exempts Clapper. Signing in backs the log up.
+      </p>
+
+      <div className="mnudge__acts">
+        {platform === 'android' ? (
+          <button type="button" className="mnudge__act" onClick={() => void onInstallClick()}>
+            Install
+          </button>
+        ) : (
+          // iOS has no programmatic install, so the "button" is the
+          // instruction. Not a control - it is a static step, and dressing it
+          // as a button would be a button that does nothing when pressed.
+          <span className="mnudge__act mnudge__act--say">
+            <ShareGlyph /> Share, then Add to Home Screen
+          </span>
+        )}
+        {/* Only while signed out. To someone already signed in this is noise
+            about a thing they have already done. */}
+        {!loading && !session && (
+          <button
+            type="button"
+            className="mnudge__act"
+            onClick={() => {
+              void signInWithGoogle().catch(() => {
+                /* the redirect never started; the card stays as it was */
+              });
+            }}
+          >
+            Sign in
+          </button>
+        )}
       </div>
     </div>
   );

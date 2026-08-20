@@ -21,6 +21,7 @@ import { track } from '../net/analytics';
 import { startCheckout, type PlanKey } from '../net/pay';
 import { useSession } from '../net/auth';
 import { SignInSheet } from './SignInSheet';
+import { SparkMark } from './marks';
 import * as haptics from './haptics';
 
 // Where the tap came from. The first three are cap-hits; 'account' is the
@@ -98,7 +99,9 @@ export function ProCta(props: { gate: ProGate }) {
     <div className="procta">
       {phase.s === 'idle' ? (
         <button type="button" className="procta__btn" onClick={openPlans}>
-          <span className="procta__spark" aria-hidden="true">★</span>
+          <span className="procta__spark" aria-hidden="true">
+            <SparkMark />
+          </span>
           Wanna go Pro?
         </button>
       ) : (

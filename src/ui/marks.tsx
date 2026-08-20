@@ -181,6 +181,23 @@ export function AlertMark() {
 }
 
 /**
+ * The Pro spark. Replaces the literal U+2605 BLACK STAR the CTA was setting in
+ * live text, which arrives at a different size and weight in every font the
+ * app might fall back to and cannot be given a stroke.
+ *
+ * Four points, not five: a five-pointed star is a RATING, and nothing here is
+ * being rated. Four is the sparkle idiom - "there is more of this" - and it is
+ * drawn on the house grid so it sits in a row of other marks without shouting.
+ */
+export function SparkMark() {
+  return (
+    <svg {...SVG} className="mark mark--spark">
+      <path d="M12 3.5c0 4.7 3.8 8.5 8.5 8.5-4.7 0-8.5 3.8-8.5 8.5 0-4.7-3.8-8.5-8.5-8.5 4.7 0 8.5-3.8 8.5-8.5Z" {...STROKE} />
+    </svg>
+  );
+}
+
+/**
  * How many characters of previous-screen name fit beside a title before the
  * title starts losing words. Measured on an iPhone 14 viewport against the
  * longest real title in the app ("SC 1 · EXT. GIFT CITY — LATE NIGHT"): at 18

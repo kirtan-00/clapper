@@ -889,3 +889,118 @@ html[data-uiscale='fine'] textarea {
   justify-content: flex-end;
   margin-bottom: var(--sp-2);
 }
+
+/* The Pro spark, now a drawn mark rather than a U+2605 in live text. The rule
+   it replaces sized a GLYPH; this sizes a box. */
+.procta__spark {
+  display: inline-flex;
+  width: 17px;
+  height: 17px;
+}
+.procta__spark .mark {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===================================================== "this phone only" ===
+   The one status in the app that earns a CARD rather than a pill: it is the
+   only one with an action behind it, and the only one where doing nothing has
+   a cost. A block of mass set into the sheet, brass eyebrow, the real number
+   in the headline. */
+.mnudge {
+  margin: var(--sp-4) 0 var(--sp-6);
+  padding: var(--sp-5);
+  border-radius: var(--radius-lg);
+  background: var(--m-card);
+  color: var(--m-card-ink);
+  box-shadow: 0 10px 24px var(--m-cast);
+}
+.mnudge__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+/* Brass, because this is the one card that is about the work being at risk,
+   and brass is the app's "pay attention, calmly" register. Never rec-red. */
+.mnudge__cap {
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--brass);
+}
+.mnudge__dismiss {
+  flex: 0 0 auto;
+  /* Pulled out to the card's own padding so a 44px target does not push the
+     eyebrow off its baseline. */
+  margin: calc(var(--sp-3) * -1) calc(var(--sp-3) * -1) calc(var(--sp-3) * -1) 0;
+  width: var(--tap);
+  height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--m-card-dim);
+  border-radius: var(--radius-pill);
+}
+.mnudge__dismiss .mark {
+  width: 20px;
+  height: 20px;
+}
+.mnudge__dismiss:active {
+  background: color-mix(in srgb, var(--m-card-ink) 12%, transparent);
+}
+.mnudge__say {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--t-row);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.mnudge__note {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--t-secondary);
+  line-height: 1.45;
+  color: var(--m-card-dim);
+}
+.mnudge__acts {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.mnudge__act {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--tap);
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--m-card-line);
+  background: color-mix(in srgb, var(--m-card-ink) 7%, transparent);
+  color: var(--m-card-ink);
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  text-align: center;
+}
+.mnudge__act:active {
+  background: color-mix(in srgb, var(--m-card-ink) 15%, transparent);
+}
+/* On iOS the install "button" is an INSTRUCTION - there is no programmatic
+   install to fire - so it is not a button and does not pretend to be one. */
+.mnudge__act--say {
+  background: transparent;
+  border-style: dashed;
+  color: var(--m-card-dim);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: none;
+  font-size: var(--t-caption);
+}
+.mnudge__act:focus-visible {
+  outline: 2px solid var(--m-accent);
+  outline-offset: 2px;
+}
