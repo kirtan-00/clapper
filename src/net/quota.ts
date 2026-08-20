@@ -5,22 +5,44 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
-/** Free-tier limit per counter. The server re-derives this from `is_pro`; the
- *  client value is display-only and never sent to the edge. */
-export const FREE_LIMIT = 5;
+/**
+ * The free tier, per format. DISPLAY ONLY — the server derives its own copy and
+ * is the only thing that enforces anything.
+ *
+ * MUST match FREE_LIMITS in supabase/functions/export-gate/index.ts. This copy
+ * exists purely so the UI can count down truthfully; if the two ever drift the
+ * server wins, and the user was shown a number that lied to them.
+ *
+ *   script    1   it calls Groq, and it is what Pro is for
+ *   premiere  3   XML, POOLED across Premiere and Resolve — same handoff, same
+ *                 editor, one counter
+ *   pdf       5   gated as of 2026-08-20; it was free and uncounted before
+ *   csv       5
+ */
+export const FREE_LIMITS = {
+  script: 1,
+  premiere: 3,
+  pdf: 5,
+  csv: 5,
+} as const;
+
+export type GatedFormat = keyof typeof FREE_LIMITS;
+
+/** Kept as a name because call sites read `FREE_LIMIT` for the CSV/PDF case.
+ *  Prefer FREE_LIMITS[format]. */
+export const FREE_LIMIT = FREE_LIMITS.csv;
 
 /**
- * What someone with NO account gets of the XML editor handoff: 3 exports,
- * total, across Premiere AND Resolve together (they share one server counter).
- * Signed-in accounts are currently uncapped, so this number is only ever shown
- * to a signed-out user.
+ * @deprecated Was "what a SIGNED-OUT caller gets of the XML handoff". Nobody
+ * gets anything signed out any more — the app requires an account — so this now
+ * aliases the free-tier XML allowance, which happens to be the same number.
  *
- * MUST match ANON_LIMITS.premiere in supabase/functions/export-gate/index.ts,
- * which is the only thing that actually enforces it. This copy exists purely
- * so the UI counts down truthfully — if the two ever drift, the server wins
- * and the user was shown a number that lied to them.
+ * Two call sites in ProjectScreen.tsx still print copy around it that says "on
+ * this connection" and "sign in for unlimited". Both are unreachable now and
+ * both are wrong; they are left alone only because that file is being edited by
+ * another agent as this lands. Fix the copy, then delete this.
  */
-export const ANON_LIMIT_XML = 3;
+export const ANON_LIMIT_XML = FREE_LIMITS.premiere;
 
 export interface QuotaCounter {
   used: number;
@@ -30,12 +52,16 @@ export interface QuotaCounter {
 export interface Usage {
   script: QuotaCounter;
   premiere: QuotaCounter;
+  pdf: QuotaCounter;
   csv: QuotaCounter;
 }
 
 interface UsageRow {
   script_uses: number;
   premiere_uses: number;
+  /** Added 2026-08-20. Absent on rows written before the column existed, so it
+   *  is read defensively rather than assumed. */
+  pdf_uses: number | null;
   csv_uses: number;
 }
 
@@ -53,15 +79,16 @@ export async function getUsage(): Promise<Usage | null> {
 
   const { data, error } = await supabase
     .from('usage')
-    .select('script_uses, premiere_uses, csv_uses')
+    .select('script_uses, premiere_uses, pdf_uses, csv_uses')
     .maybeSingle<UsageRow>();
 
   if (error || !data) return null;
 
   return {
-    script: counter(data.script_uses),
-    premiere: counter(data.premiere_uses),
-    csv: counter(data.csv_uses),
+    script: counter(data.script_uses, FREE_LIMITS.script),
+    premiere: counter(data.premiere_uses, FREE_LIMITS.premiere),
+    pdf: counter(data.pdf_uses ?? 0, FREE_LIMITS.pdf),
+    csv: counter(data.csv_uses, FREE_LIMITS.csv),
   };
 }
 
@@ -72,11 +99,15 @@ export interface GateResult {
 }
 
 /**
- * Ask the `export-gate` edge function whether a Premiere/CSV export is allowed,
- * consuming one quota unit server-side on allow. The client must generate the
- * XML/CSV blob ONLY when `allow` is true. PDF export never calls this.
+ * Ask the `export-gate` edge function whether an export is allowed, consuming
+ * one quota unit server-side on allow. The client must generate the blob ONLY
+ * when `allow` is true.
+ *
+ * PDF is now in here too. It was the one export that never called this — which
+ * meant the file a producer actually prints and hands round a unit was the only
+ * one nobody paid for.
  */
-export async function gateExport(format: 'premiere' | 'csv'): Promise<GateResult> {
+export async function gateExport(format: GatedFormat): Promise<GateResult> {
   const { data, error } = await supabase.functions.invoke<GateResult>('export-gate', {
     body: { format },
   });

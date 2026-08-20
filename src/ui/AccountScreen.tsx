@@ -21,7 +21,7 @@ import { Section, Row, ReadRow, ScreenHeader } from './glist';
 import { ProCta } from './ProCta';
 import type { Nav } from './nav';
 import { useSession, signInWithGoogle, signOut } from '../net/auth';
-import { getUsage, FREE_LIMIT, ANON_LIMIT_XML, type Usage } from '../net/quota';
+import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
 import * as haptics from './haptics';
 
 /**
@@ -33,6 +33,7 @@ import * as haptics from './haptics';
 const COUNTERS: { key: keyof Usage; label: string }[] = [
   { key: 'script', label: 'Shotlist import' },
   { key: 'premiere', label: 'Premiere and Resolve XML' },
+  { key: 'pdf', label: 'PDF call sheet' },
   { key: 'csv', label: 'CSV export' },
 ];
 
@@ -92,7 +93,7 @@ export function AccountScreen(_props: { nav: Nav }) {
               <ReadRow
                 key={key}
                 label={label}
-                value={usage ? `${usage[key].left} of ${FREE_LIMIT}` : '—'}
+                value={usage ? `${usage[key].left} of ${FREE_LIMITS[key]}` : '—'}
               />
             ))}
           </Section>
@@ -152,7 +153,7 @@ export function AccountScreen(_props: { nav: Nav }) {
             <ReadRow label="Take logging" value="Free" />
             <ReadRow label="PDF shot log" value="Free" />
             <ReadRow label="Backup and restore" value="Free" />
-            <ReadRow label="Premiere and Resolve XML" value={`${ANON_LIMIT_XML} times`} />
+            <ReadRow label="Premiere and Resolve XML" value={`${FREE_LIMITS.premiere} times`} />
             <ReadRow label="Shotlist import" value="Sign in" />
             <ReadRow label="CSV export" value="Sign in" />
           </Section>

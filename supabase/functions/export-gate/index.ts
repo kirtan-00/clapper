@@ -8,32 +8,38 @@ import { cors } from "../_shared/cors.ts";
 // the blob only when allow=true. The service-role key is used only server-side
 // and never leaves this function.
 //
-// TWO IDENTITIES, two counters. A JWT means an account, counted in
-// public.usage and currently uncapped. NO JWT is no longer refused: the XML
-// handoff is offered signed-out, counted in public.anon_usage against the hash
-// of the caller's IP (see the 20260801 migration for what that key is and is
-// not worth). Every other format still needs an account.
+// ONE IDENTITY. A JWT means an account, counted per format in public.usage; no
+// JWT is refused. The signed-out XML handoff that used to live here is gone —
+// the app requires an account to do anything now, so there is nothing left for
+// an anonymous caller to be offered.
 
-// Effectively uncapped. Signed-in accounts currently get this for EVERY
-// format regardless of is_pro — a deliberate "for now", not a bug: the only
-// wall right now is the signed-out one below, and signing in is the thing it
-// is pushing people toward. Reintroducing a free-tier ceiling means giving
-// non-pro accounts their own limits map again, nothing more.
+// Effectively uncapped — what a valid Pro grant gets, on every format.
 const PRO_LIMIT = 1000000;
 
-// What a caller with NO account gets: 3 XML exports (Premiere FCP7 XML and
-// Resolve FCPXML share the "premiere" counter, so 3 across both, not 3 each),
-// counted against the hash of their IP.
+// The free tier, per format. This replaces the flat 5-across-the-board the
+// "for now" above was waiting on.
 //
-// An IP is not a person. A crew sharing one set wifi shares ONE allowance, and
-// the same phone on mobile data gets a fresh one. That is understood and
-// accepted — this is a nudge toward signing in, not an entitlement boundary.
-const ANON_LIMITS: Record<string, number> = { premiere: 3 };
+//   script    1   the expensive one — it calls Groq, and it is the feature Pro
+//                 exists to sell. One is enough to prove it works on your own
+//                 shot list, which is the only demo that convinces anybody.
+//   premiere  3   XML, POOLED across Premiere and DaVinci Resolve. They share
+//                 one counter deliberately: same handoff, same editor, and
+//                 charging twice for choosing a different NLE is arbitrary.
+//   pdf       5   NEW. PDF was ungated entirely — the one export a producer
+//                 actually prints and hands round a unit was the only one
+//                 nobody paid for.
+//   csv       5   unchanged.
+const FREE_LIMITS: Record<string, number> = {
+  script: 1,
+  premiere: 3,
+  pdf: 5,
+  csv: 5,
+};
 
-// Every format the gate knows. CSV is deliberately absent from ANON_LIMITS
-// above: it needs an account, and asking for it signed-out is refused rather
-// than counted.
-const VALID_FORMATS = new Set(["premiere", "csv"]);
+// Every format the gate knows. Kept as its own set rather than derived from
+// FREE_LIMITS.keys(): a format Pro can use but the free tier cannot would
+// otherwise be impossible to express.
+const VALID_FORMATS = new Set(["premiere", "csv", "pdf"]);
 
 async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -125,30 +131,51 @@ Deno.serve(async (req: Request) => {
   let newCount: number | null;
   let quotaErr: unknown;
 
-  if (userId) {
-    limit = PRO_LIMIT;
+  // Signed out is simply out. The anonymous XML handoff that used to live here
+  // is gone: the app now requires an account to do anything, so a signed-out
+  // caller is either a stale tab or somebody poking the endpoint directly.
+  //
+  // This also removes a live trap. The anon path called `consume_anon_quota`,
+  // and that function has never existed in production — the migration that
+  // creates it was never applied. Deploying the old code as it stood would have
+  // failed CLOSED on every signed-out export: HTTP 500, not a friendly wall.
+  if (!userId) {
+    return new Response(
+      JSON.stringify({ error: "Sign in required", code: "SIGNIN_REQUIRED" }),
+      { status: 401, headers },
+    );
+  }
+
+  // Pro is a grant with a clock. `is_pro` alone cannot express "paid, ran out in
+  // March", so an expired `pro_until` demotes to the free tier rather than
+  // leaving someone uncapped forever off one payment. A NULL `pro_until` on an
+  // is_pro account is treated as still valid — that is how the flag behaved
+  // before the column existed, and silently cutting off early accounts would be
+  // the worse failure.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_pro, pro_until")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const proLapsed = profile?.pro_until != null &&
+    new Date(profile.pro_until as string).getTime() <= Date.now();
+  const isPro = profile?.is_pro === true && !proLapsed;
+
+  limit = isPro ? PRO_LIMIT : (FREE_LIMITS[format] ?? 0);
+
+  // A format with no free allowance is refused outright rather than counted to
+  // zero, so the client can say "Pro only" instead of "you have used 0 of 0".
+  if (limit <= 0) {
+    return new Response(
+      JSON.stringify({ allow: false, reason: "pro_only" }),
+      { headers },
+    );
+  }
+
+  {
     const res = await admin.rpc("consume_quota", {
       p_user: userId,
-      p_kind: format,
-      p_limit: limit,
-    });
-    newCount = res.data;
-    quotaErr = res.error;
-  } else {
-    // Signed out. Only the XML handoff is on offer; anything else needs an
-    // account and is refused rather than counted.
-    if (!(format in ANON_LIMITS)) {
-      return new Response(JSON.stringify({ error: "Sign in required" }), { status: 401, headers });
-    }
-    // No usable IP means no key to count against, and a blank key would put
-    // every un-identifiable caller in one shared bucket. Fail CLOSED: refuse
-    // the export rather than hand out an uncounted one.
-    if (!ip) {
-      return new Response(JSON.stringify({ error: "Sign in required" }), { status: 401, headers });
-    }
-    limit = ANON_LIMITS[format];
-    const res = await admin.rpc("consume_anon_quota", {
-      p_ip_hash: ipHash,
       p_kind: format,
       p_limit: limit,
     });
@@ -175,9 +202,10 @@ Deno.serve(async (req: Request) => {
     await admin.from("events").insert({
       user_id: userId,
       name: "export",
-      // `anon` is the whole point of measuring this: it is the only way to see
-      // how many people hit the signed-out wall versus sail past it.
-      props: { format, anon: !userId },
+      // `tier` replaces the old `anon` flag, which is now always false and so
+      // measures nothing. What is worth knowing is which side of the paywall an
+      // export came from: free exports are the ones running out.
+      props: { format, tier: isPro ? "pro" : "free", left: limit - newCount },
       ip_hash: ipHash,
     });
   } catch (_) { /* analytics is non-fatal */ }

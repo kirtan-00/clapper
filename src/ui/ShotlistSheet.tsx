@@ -34,7 +34,7 @@ import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession, signInWithGoogle } from '../net/auth';
-import { getUsage, FREE_LIMIT, type Usage } from '../net/quota';
+import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
@@ -159,7 +159,7 @@ function ReadStep(props: { onClose: () => void; onPack: (pack: ScriptPack) => vo
           </label>
           {usage && (
             <p className="camnote" style={{ textAlign: 'center', marginBottom: 0 }}>
-              {usage.script.left} of {FREE_LIMIT} breakdowns left
+              {usage.script.left} of {FREE_LIMITS.script} breakdowns left
             </p>
           )}
         </>
