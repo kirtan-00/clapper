@@ -18,7 +18,7 @@ import { BackButton, ForwardMark, DownMark } from './marks';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
-import { gateExport, ANON_LIMIT_XML } from '../net/quota';
+import { gateExport, FREE_LIMITS, type GatedFormat } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 import { extractPdfText } from './pdftext';
@@ -1788,17 +1788,33 @@ function TcCalculator(props: { project: Project }) {
   );
 }
 
-// PDF and Backup are free, offline, and never gated. Premiere (FCP7 XML),
-// Resolve (FCPXML) and CSV are the editor handoff and go through `export-gate`,
-// which is the ONLY thing that enforces any limit - the client just builds the
-// blob after it says allow. Resolve shares Premiere's server-side counter (same
-// "editor timeline handoff" allowance, no separate counter to add); CSV has its
-// own. Signed IN is currently uncapped. Signed OUT still gets the XML handoff,
-// on a small allowance the server counts against the caller's IP - so a
-// signed-out tap must reach the gate rather than being short-circuited into the
-// sign-in sheet here. CSV alone still requires an account.
+// Only Backup is free, offline, and never gated. PDF, Premiere (FCP7 XML),
+// Resolve (FCPXML) and CSV are all editor/print handoffs now and all go
+// through `export-gate`, which is the ONLY thing that enforces any limit - the
+// client just builds the blob after it says allow. PDF joined the other three
+// on 2026-08-20: it used to skip the gate entirely, which meant the one export
+// a producer actually prints and hands round a unit was the only one nobody
+// paid for. Resolve shares Premiere's server-side counter (same "editor
+// timeline handoff" allowance, no separate counter to add); CSV and PDF each
+// have their own.
+//
+// The app requires an account for every one of these now — the anonymous XML
+// allowance that used to live server-side is gone (see net/quota.ts), so a
+// signed-out caller gets a flat 401 for any format. `exportGated` short-
+// circuits to the sign-in sheet locally rather than spend a round trip
+// discovering that.
 const EXPORT_OFFLINE_MSG =
-  "You're offline. Premiere, Resolve and CSV export need a connection. Logging takes, PDF and Backup work offline.";
+  "You're offline. PDF, Premiere, Resolve and CSV export need a connection. Logging takes and Backup work offline.";
+
+// Display name per gated format, for error/note copy. Keyed by GatedFormat so
+// a format added to net/quota.ts without a matching entry here is a compile
+// error, not a silent "undefined" in the UI.
+const FORMAT_LABEL: Record<GatedFormat, string> = {
+  script: 'Script Mode',
+  premiere: 'Premiere/Resolve',
+  pdf: 'PDF',
+  csv: 'CSV',
+};
 
 function ExportBar(props: { project: Project }) {
   const { session } = useSession();
@@ -1806,20 +1822,12 @@ function ExportBar(props: { project: Project }) {
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [showSignIn, setShowSignIn] = useState(false);
-  // Which export got refused for being out of free uses — drives the "go Pro" CTA.
-  const [capped, setCapped] = useState<'premiere' | 'csv' | null>(null);
-
-  async function exportPdf() {
-    setBusy('pdf');
-    try {
-      const bundle = await store.getBundle(props.project.id);
-      const base = slug(props.project.name);
-      const blob = await exporter.toPdf(bundle);
-      await shareBlob(blob, `${base}-log-${exportDateStamp(bundle.project)}.pdf`, 'application/pdf');
-    } finally {
-      setBusy(null);
-    }
-  }
+  // Which export got refused for being out of free uses — drives the "go Pro"
+  // CTA. Widened to include 'pdf' now that PDF is gated too; ProCta.tsx's
+  // `ProGate` union (outside this lane) doesn't have a 'pdf' case yet, so the
+  // render below maps it onto 'csv' — same upsell, an analytics label one
+  // bucket off until ProCta picks up 'pdf'.
+  const [capped, setCapped] = useState<GatedFormat | null>(null);
 
   // The one export that MUST work signed out, offline, free — never gateExport,
   // never getUsage, never Supabase. It is the whole point of this button: the
@@ -1840,40 +1848,31 @@ function ExportBar(props: { project: Project }) {
     }
   }
 
-  async function exportGated(kind: 'xml' | 'resolve' | 'csv') {
+  async function exportGated(kind: 'pdf' | 'xml' | 'resolve' | 'csv') {
     setError(null);
     setNote(null);
     setCapped(null);
     // Resolve rides the SAME gate call as Premiere ('premiere' format) — one
-    // shared "editor timeline" quota bucket, not a new rule. `label` is only
-    // for what we show/log, so a Resolve export doesn't get logged as one.
-    const format = kind === 'csv' ? 'csv' : 'premiere';
-    // Signed out, the XML handoff is offered anyway on a small allowance the
-    // server counts against the caller's IP — so DON'T shortcut to the sign-in
-    // sheet here; let the gate answer, exactly as it does for an account. CSV
-    // still needs one, and asking for it signed-out is refused server-side, so
-    // there is no reason to spend a round trip discovering that.
-    if (!session && format === 'csv') {
+    // shared "editor timeline" quota bucket, not a new rule. `format` is what
+    // is sent to the gate and used to look up limits; `kind` is only what we
+    // show/log, so a Resolve export doesn't get logged as a Premiere one.
+    const format: GatedFormat = kind === 'csv' ? 'csv' : kind === 'pdf' ? 'pdf' : 'premiere';
+    // Every gated format now requires an account server-side (see comment
+    // above EXPORT_OFFLINE_MSG) — there is no anonymous allowance left to let
+    // the gate answer for.
+    if (!session) {
       setShowSignIn(true);
       return;
     }
-    const label = kind === 'xml' ? 'premiere' : kind === 'resolve' ? 'resolve' : 'csv';
+    const label = kind === 'xml' ? 'premiere' : kind === 'resolve' ? 'resolve' : kind;
     setBusy(kind);
     try {
       const gate = await gateExport(format);
       if (!gate.allow) {
         if (gate.reason === 'quota_exceeded') {
-          track('cap_hit', { which: label, anon: !session });
-          if (!session) {
-            // The wall a signed-out user hits has a door in it, so say where it
-            // is. Offering the pro CTA here instead would be selling something
-            // to someone who has not yet done the free thing.
-            setError(`That's ${ANON_LIMIT_XML} XML exports on this connection. Sign in and they're unlimited.`);
-            setShowSignIn(true);
-          } else {
-            setError('Free limit reached. More coming soon.');
-            setCapped(format);
-          }
+          track('cap_hit', { which: label });
+          setError(`That's your ${FREE_LIMITS[format]} free ${FORMAT_LABEL[format]} exports for this plan.`);
+          setCapped(format);
         } else if (gate.reason === 'auth') {
           // Session missing/expired — same handling as signed-out.
           setShowSignIn(true);
@@ -1885,7 +1884,10 @@ function ExportBar(props: { project: Project }) {
       const bundle = await store.getBundle(props.project.id);
       const base = slug(props.project.name);
       const dateStamp = exportDateStamp(bundle.project);
-      if (kind === 'xml') {
+      if (kind === 'pdf') {
+        const blob = await exporter.toPdf(bundle);
+        await shareBlob(blob, `${base}-log-${dateStamp}.pdf`, 'application/pdf');
+      } else if (kind === 'xml') {
         const blob = exporter.toFcpXml(bundle);
         await shareBlob(blob, `${base}-log-${dateStamp}.xml`, 'text/xml');
       } else if (kind === 'resolve') {
@@ -1901,15 +1903,13 @@ function ExportBar(props: { project: Project }) {
         await shareBlob(blob, `${base}-log-${dateStamp}.csv`, 'text/csv');
       }
       track('export', { format: label });
-      // Only a signed-OUT caller has a ceiling to count down to; an account is
-      // uncapped, and telling it "999997 left" would be noise pretending to be
-      // information.
-      if (!session && typeof gate.remaining === 'number') {
-        // Premiere and Resolve share ONE counter with its own smaller allowance,
-        // so the ceiling shown has to follow the counter that was actually
-        // consumed, not a single global number - quoting "of 5" against a
-        // budget of 3 would count down to a wall the user was never shown.
-        setNote(`${gate.remaining} of ${ANON_LIMIT_XML} XML exports left. Sign in for unlimited.`);
+      // Every account is on SOME tier's counter now (free or Pro), but Pro's
+      // "limit" is 1,000,000 - telling it "999997 left" would be noise
+      // pretending to be information. Only show the countdown when the
+      // remaining count is within the free-tier ceiling for this format, which
+      // a Pro account's remaining value never is.
+      if (typeof gate.remaining === 'number' && gate.remaining <= FREE_LIMITS[format]) {
+        setNote(`${gate.remaining} of ${FREE_LIMITS[format]} ${FORMAT_LABEL[format]} exports left.`);
       }
     } catch {
       setError(EXPORT_OFFLINE_MSG);
@@ -1931,7 +1931,7 @@ function ExportBar(props: { project: Project }) {
           under your thumb). Two columns also buys every target real width,
           which is what this row wants on a set anyway. */}
       <div className="formgrid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportPdf()}>
+        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('pdf')}>
           {busy === 'pdf' ? '...' : 'PDF'}
         </button>
         <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('xml')}>
@@ -1958,7 +1958,11 @@ function ExportBar(props: { project: Project }) {
           {error}
         </span>
       )}
-      {capped && <ProCta gate={capped} />}
+      {/* ProCta's ProGate union has no 'pdf' case (ProCta.tsx is outside this
+          lane) — map it onto 'csv' so the upsell still renders. Only the
+          `pro_interest` analytics label is affected; the plans/checkout it
+          opens are format-agnostic. */}
+      {capped && <ProCta gate={capped === 'pdf' ? 'csv' : capped} />}
       {note && !error && (
         <span className="section__note" style={{ display: 'block', marginTop: 10 }}>
           {note}

@@ -37,7 +37,7 @@ import { PlusMark, ListMark } from './marks';
 import { ProCta } from './ProCta';
 import InstallNudge from './InstallNudge';
 import { useSession, signInWithGoogle } from '../net/auth';
-import { getUsage, FREE_LIMIT, type Usage } from '../net/quota';
+import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
 import { track } from '../net/analytics';
 import { TagEditor } from './TagEditor';
 import { getDefaultTags } from './tagdefaults';
@@ -1766,7 +1766,10 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
           </label>
           {usage && (
             <p className="camnote" style={{ textAlign: 'center', marginBottom: 0 }}>
-              {usage.script.left} of {FREE_LIMIT} breakdowns left
+              {/* Script Mode's free allowance is 1, not the CSV/PDF count — it calls
+                  Groq and is the thing Pro exists to sell. See FREE_LIMITS in
+                  net/quota.ts. */}
+              {usage.script.left} of {FREE_LIMITS.script} breakdowns left
             </p>
           )}
         </>
