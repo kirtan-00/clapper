@@ -603,11 +603,17 @@
   /* NEUTRAL, AND ABOVE TRUE BLACK. These were the last two hardcoded tints on
      the dark side - a blue-charcoal frosted bar, which on a green-black page
      used to read as a rendering fault and on a true-black one read as a bar
-     that had been left behind by the repaint. A dark iOS material sits
-     LIGHTER than its ground, which on #000 is the whole job. */
-  --material-bg: rgba(26, 26, 26, 0.80);
+     that had been left behind by the repaint.
+
+     That fix took the tint out but kept the LIFT: a dark iOS material sitting
+     lighter than its ground. On a ground that is actually #000000 the lift is
+     the remaining problem, not the solution - it draws a grey band across the
+     top of the phone that does not scroll with anything, so the page reads as
+     sliding under a separate panel. The band is black now and the blur carries
+     the material on its own. See the longer note in skin/shell.css. */
+  --material-bg: rgba(0, 0, 0, 0.80);
   --material-solid: var(--surface);
-  --material-cap-bg: rgba(26, 26, 26, 0.80);
+  --material-cap-bg: rgba(0, 0, 0, 0.80);
   --material-cap-solid: var(--surface);
   /* Half of light's saturation lift, and a hair of brightness rather than
      light's none. See the long note beside the light value; the short version
@@ -3407,10 +3413,24 @@ select.field {
    answers. NOT a fill: a solid brass face means the take was a keeper and
    nothing else in the app is allowed to say that.
 
+   AND THE LAMP IS BRASS, NOT --go. Lighting it at rest is what made the choice
+   matter: an unlit strip is nearly black in either theme and nobody had to
+   decide what colour it was, but a lamp that BURNS is a bar of colour sitting
+   on the primary control on every screen of the app, all the time. `--go` is
+   #38d178, and a permanent dark-green bar is the green identity that was built
+   once, rejected, and removed. The lock keeps `--go` alive as the semantic
+   rolling-ready state and this arguably qualifies — but "arguably" is not worth
+   a fourth palette reversal, and brass is the accent that carries every other
+   emphasis in the app. As a LINE, which is what a lamp strip is. A brass FILL
+   would mean the take was a keeper, and still means only that.
+
+   So the big buttons read: ROLL brass, CUT red. Two controls, two meanings, no
+   third hue. `--go` survives untouched in the rolling-ready STATES elsewhere.
+
    CUT keeps an unlit lamp deliberately. It only exists while something is
    rolling, `.roll--live` lights it red the whole time, and an idle CUT is not a
    thing you can press. */
-.bigbtn.hw--go { --lamp-on: var(--go); --lamp-off: var(--go-deep); }
+.bigbtn.hw--go { --lamp-on: var(--m-accent); --lamp-off: var(--m-accent-deep); }
 .bigbtn.hw--cut { --lamp-on: var(--m-rec); }
 .bigbtn.hw--done { --lamp-on: var(--m-accent); --lamp-off: var(--m-accent-deep); }
 

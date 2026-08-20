@@ -216,8 +216,22 @@ html[data-uiscale='fine'] textarea {
 
   /* The material chrome mixes from the ground it sits on, or the large-title
      bar arrives in the old blue-charcoal and the screen carries two night
-     ramps at once. */
-  --material-bg: rgba(28, 28, 28, 0.82);
+     ramps at once.
+
+     AND ON NIGHT THAT GROUND IS BLACK. This was rgba(28,28,28,.82), which over
+     a #000000 page composites to about #171717 — a grey band pinned across the
+     top of every screen. On a phone that band is the first thing under the
+     status bar and it does not scroll, so the page appears to slide underneath
+     a separate lighter panel: Kirtan's word for it was flimsy, and it is the
+     right word. A dark iOS material is normally LIGHTER than its ground, which
+     is the convention the old value came from, but that convention assumes a
+     ground with somewhere to go below it. True black has none.
+
+     So the band is black and the BLUR does the work instead. It is still a
+     material — content passing under it is still softened, the hairline still
+     marks the edge — it just stops being a different colour from the page it
+     sits on. Alpha stays under 1 so the blur has something to sample. */
+  --material-bg: rgba(0, 0, 0, 0.82);
   --material-solid: var(--paper);
   --material-hairline: var(--hairline);
 

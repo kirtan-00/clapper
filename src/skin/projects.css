@@ -894,9 +894,22 @@
 }
 [data-theme='night'] .pj .ltop,
 [data-theme='night'] .pj .topbar {
-  /* A dark iOS material sits LIGHTER than its ground, never darker — the same
-     note styles.css leaves beside --material-blur. */
-  background: color-mix(in srgb, var(--pj-mass) 82%, transparent);
+  /* MIXED FROM THE GROUND, not the mass. The rule used to read --pj-mass on the
+     convention that a dark iOS material sits LIGHTER than its ground — true on
+     iOS, where the ground is a dark grey with somewhere below it to go. This
+     ground is #000000 and has nowhere. Lifting off it draws a grey band pinned
+     across the top of the phone that does not scroll with the page, so the page
+     reads as sliding under a separate lighter panel. Flimsy was the word.
+
+     It also made the band hostage to a token that has nothing to do with it:
+     raising --pj-mass onto the locked ramp (#131313 -> #1c1c1c) to fix the
+     project card silently made this band BRIGHTER, which is the opposite of
+     what was wanted and is the argument for mixing chrome from the ground it
+     sits on rather than from an object that happens to be nearby.
+
+     Same recipe as the day rule one block up, same translucency, same blur.
+     Only the pigment moves, and it moves to the page's own. */
+  background: color-mix(in srgb, var(--pj-ground) 82%, transparent);
 }
 
 /* A SHEET IS ITS OWN GROUND. The notch paints `--pj-ground`, and inside a

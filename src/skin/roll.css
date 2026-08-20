@@ -1235,17 +1235,33 @@
 .shotdeck__card--now:active:not(:disabled) {
   background: var(--roll-mass-raised);
 }
-/* Every card that is not current: dimmed and fading toward the ground at its
+/* Every card that is not current: quieter, and fading toward the ground at its
    own bottom edge — "about to arrive" or "just left", not "equally
    important". A mask rather than a gradient overlay div, so it works over
-   any description length without a second element to keep in sync. */
+   any description length without a second element to keep in sync.
+
+   NOT `opacity`. This rule was `opacity: 0.5`, which composites the WHOLE card
+   toward whatever is behind it. Behind it on night is near-black, so the card
+   just got darker and the effect read correctly. Behind it on DAY is ivory, and
+   a near-black card at half strength lands on almost exactly mid-grey — the one
+   value on a light page that reads as "this element failed to load". The next
+   shot in the wheel, which is a thing you are meant to READ, came out as a slab
+   of mud.
+
+   So the card keeps its own material in both themes and recedes the way the
+   rest of the app recedes: the type steps down to the dim value, and a hairline
+   admits the card is behind. The mask still does the leaving. Nothing here
+   composites against the page, so neither theme can produce a colour that was
+   not chosen. */
 .shotdeck__card--off {
-  opacity: 0.5;
+  color: var(--roll-mass-dim);
+  box-shadow: inset 0 0 0 1px var(--roll-mass-rule);
   -webkit-mask-image: linear-gradient(#000 60%, transparent 96%);
   mask-image: linear-gradient(#000 60%, transparent 96%);
 }
 .shotdeck__card--off:active:not(:disabled) {
-  opacity: 0.66;
+  background: var(--roll-mass-raised);
+  color: var(--roll-mass-ink);
 }
 /* THE LIVE FORM: one card, two lines, no wheel. See LIVE_CARD_H in
    ShotDeck.tsx for the height and the argument. The card's own height has to
