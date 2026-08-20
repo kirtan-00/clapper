@@ -554,6 +554,18 @@ html[data-uiscale='fine'] textarea {
   color: var(--text-dim);
 }
 
+/* The pitch draws this switch's ON track in the one accent
+   (`.switch{ background:var(--lav); }`), not the iOS-stock green .tswitch
+   otherwise carries - a default-green switch is the loudest "nobody designed
+   this" signal on a screen this deliberate. --go-fill/--go-text stay exactly
+   what they are (rolling-ready, read elsewhere as a state); this overrides
+   what THESE THREE rows reference, scoped to `.mprow` so `.tswitch` itself,
+   and every other row still drawing it correctly as go/rolling-ready
+   elsewhere in the app, is untouched. */
+.mprow .tswitch--on {
+  background: var(--m-accent);
+}
+
 /* The Haptics segmented control. Same "chosen stop is the mass" idiom as
    `.msize__opt--on` - the machined layer's one way of drawing a selection -
    restated compact enough to sit as a row's trailing control instead of a
