@@ -1299,6 +1299,12 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   inset: 0 auto 0 0;
   width: var(--lamp-width);
   background: var(--lamp-off);
+  /* Follow the button's own left corners. overflow:hidden already clips the
+     lamp, but a square bar clipped by a curve leaves a wedge that reads as the
+     lamp sitting PROUD of the button rather than set into it. Curving it means
+     the strip is part of the key, not a sticker on the side of one. */
+  border-top-left-radius: inherit;
+  border-bottom-left-radius: inherit;
   pointer-events: none;
   transition:
     background var(--dur-press) linear,
@@ -1340,11 +1346,24 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    a filled lavender slab a thumb's width from ROLL was two objects claiming
    to be the primary action. Now the ONLY difference between them is which
    colour their lamp comes up, which is the difference that is actually true. */
-.btn--go { --lamp-on: var(--m-accent); }
+.btn--go {
+  --lamp-on: var(--m-accent);
+  /* AND IT BURNS AT REST. Lighting only under the thumb made a confirm and a
+     Back button identical until you were already touching one - which is the
+     one moment you no longer need telling apart. On a tally, ARMED is lit: the
+     lamp's job is to say "this is the one that does the thing" from across the
+     room, not to confirm a press your finger already knows about. Pressed, it
+     goes to the brighter face, so the press still answers. */
+  --lamp-off: var(--m-accent-deep);
+}
 /* Destructive keeps its red TYPE - the lamp says which button, the type says
    what it costs, and losing a take is worth saying twice. The red border is
    gone because the lamp is now the edge. */
-.btn--danger { --lamp-on: var(--m-rec); color: var(--rec-text); }
+.btn--danger {
+  --lamp-on: var(--m-rec);
+  --lamp-off: var(--rec-text);   /* armed at rest, same reasoning as --go */
+  color: var(--rec-text);
+}
 .btn--full { width: 100%; }
 .btn:disabled { opacity: 0.4; }
 
