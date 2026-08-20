@@ -72,6 +72,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Sheet, useSheetDismiss } from './common';
 import { StageRail, StagePanel, StageActions, type StageDir } from './stages';
+import { pickStages, type OnboardingStage } from './onboardingRules';
 import { useSession, signInWithGoogle } from '../net/auth';
 import { track } from '../net/analytics';
 import { store } from '../store';
@@ -88,7 +89,7 @@ import {
 /** Once-ever dismissal of the whole flow. Next to the other `clapper.*` keys. */
 export const ONBOARDING_KEY = 'clapper.onboardingDone';
 
-type Stage = 'signin' | 'install';
+type Stage = OnboardingStage;
 
 /** Why the sheet is closing. Only ever read for the analytics line. */
 type Reason = 'skip' | 'done' | 'dismiss';
@@ -227,16 +228,16 @@ export function Onboarding(props: { rolling: boolean }) {
     if (latched.current || loading) return;
     latched.current = true;
     try {
-      // Mid-shoot is not "later", it is never. A sheet over the rolling screen
-      // during a take is the one failure this app is not allowed to have.
-      if (rollingRef.current) return;
-      if (isDone()) return;
-
-      const list: Stage[] = [];
-      if (!session) list.push('signin');
-      // Already installed answers stage 2, and so does a previous no — the
-      // nudge's key predates this flow and still counts as an answer.
-      if (!isStandalone() && !isInstallDismissed()) list.push('install');
+      // Every rule is in ./onboardingRules.ts, which is pure and has tests
+      // against exactly the two promises that matter: never mid-shoot, and
+      // never a second time. All this does is read the world for it.
+      const list = pickStages({
+        signedIn: session !== null,
+        standalone: isStandalone(),
+        installDismissed: isInstallDismissed(),
+        done: isDone(),
+        rolling: rollingRef.current,
+      });
       if (list.length === 0) return;
       setStages(list);
     } catch {

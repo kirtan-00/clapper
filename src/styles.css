@@ -1558,6 +1558,27 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   color: var(--m-accent);
 }
 .ob-steps b { font-weight: 650; }
+
+/* THE FOOTER IS NOT 50/50 HERE. `.sheet__actions .btn { flex: 1 }` is declared
+   later in this file than `.sl-actions .btn--ghost`, so at equal specificity it
+   wins and every staged footer splits down the middle - which puts "Sign in
+   with Google" on two lines beside a two-word backout. One class deeper is
+   enough to settle it, and the shape it settles on is the one .sl-actions asked
+   for in the first place: the way out is a backout, the primary is the sequence
+   carrying on, and they are not peers. */
+.ob .sl-actions .btn--ghost { flex: 0 1 30%; }
+
+/* Links inside this flow. With no `a` rule anywhere in the app, the Terms and
+   Privacy lines were rendering in user-agent BLUE - a colour that appears
+   nowhere in this palette, on the one surface a new user sees first. Ink plus
+   a rule under it says "link" without inventing a fifth colour. */
+.ob a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--m-accent-text);
+}
+[data-theme='night'] .ob a { text-decoration-color: var(--m-accent); }
 /* Inherits the step's colour rather than carrying one, so it is never a green
    icon inside a brass ring. */
 .ob-glyph { display: inline-block; vertical-align: -2px; color: inherit; }
