@@ -70,7 +70,16 @@ export function SettingsScreen(props: { nav: Nav }) {
 
   return (
     <div className="app mscreen">
-      <ScreenHeader title="Settings" trailing={<SyncPill />} />
+      <ScreenHeader title="Settings" />
+
+      {/* The write's status, at hairline volume, on its own line. It is NOT
+          in the title bar: measured at 390px, "Offline · logging locally"
+          beside a 34px large title overflows the screen inset by 10px, and
+          at Glove (1.25x) it is not close. A status that has to be
+          abbreviated to fit is a status that stopped saying anything. */}
+      <div className="mstatusline">
+        <SyncPill />
+      </div>
 
       {/* First, above Help, on purpose: this is the one setting a crew member
           changes on the day, so it must not sit under documentation.

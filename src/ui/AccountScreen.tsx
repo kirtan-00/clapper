@@ -18,7 +18,6 @@
 
 import { useEffect, useState } from 'react';
 import { Section, Row, ReadRow, ScreenHeader } from './glist';
-import { SyncPill } from './common';
 import { ProCta } from './ProCta';
 import type { Nav } from './nav';
 import { useSession, signInWithGoogle, signOut } from '../net/auth';
@@ -69,7 +68,13 @@ export function AccountScreen(_props: { nav: Nav }) {
 
   return (
     <div className="app mscreen">
-      <ScreenHeader title="Account" trailing={<SyncPill />} />
+      {/* NO SYNC PILL ON THIS SCREEN, deliberately. The pill is a glance at
+          the write's state for screens that are about something else; this
+          screen IS that state, spelled out in full a row further down. Two
+          things saying "this phone only" within 200px of each other is one
+          too many, which is the same reasoning the theme row already uses for
+          not spelling out the switch it is showing. */}
+      <ScreenHeader title="Account" />
 
       {loading ? (
         <div className="empty">Checking your account</div>

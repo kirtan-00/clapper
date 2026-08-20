@@ -474,8 +474,8 @@ html[data-uiscale='fine'] textarea {
   align-items: center;
   gap: var(--sp-1);
   flex: 0 0 auto;
-  max-width: 46%;
-  padding: 4px var(--sp-2);
+  max-width: 100%;
+  padding: 4px var(--sp-3);
   border-radius: var(--radius-pill);
   border: 1px solid var(--hairline);
   background: transparent;
@@ -780,7 +780,11 @@ html[data-uiscale='fine'] textarea {
 }
 .mclip__clock {
   font-size: var(--t-caps);
-  color: var(--text-faint);
+  /* --text-dim, not --text-faint. styles.css reserves faint for chevrons,
+     placeholders and struck-through takes - things where the absence IS the
+     message. A wall clock is data somebody reads off a log sheet, and faint
+     measures 3.79:1 on paper. */
+  color: var(--text-dim);
 }
 .mclip__row[data-open] .mclip__clock {
   color: var(--m-card-dim);
@@ -860,30 +864,14 @@ html[data-uiscale='fine'] textarea {
   }
 }
 
-/* ------------------------------------------------- the status slot -------
-   The large-title bar's optional trailing slot (glist.tsx). Only ever laid
-   out when something is actually IN it, via :has(), so the three tab roots
-   that pass nothing render exactly the bar they always did - which matters
-   this round, because one of them belongs to another lane. */
-.ltop:has(.ltop__trail) {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-}
-.ltop:has(.ltop__trail) .ltitle {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.ltop__trail {
-  flex: 0 0 auto;
-  /* .ltop has no horizontal padding by contract - .ltitle carries --inset -
-     so the slot carries its own, or the pill sits on the screen edge. */
-  padding-right: var(--inset);
-}
-
-/* On a pushed screen the status gets its own line rather than the nav bar.
-   At 390 the bar is already carrying a back button, a title and a project
-   name; a fourth thing in it truncates the one you came to read. */
+/* ------------------------------------------------- the status line -------
+   THE PILL NEVER GOES IN A TITLE BAR, on any of the three screens, and that is
+   a measurement rather than a preference. In the pushed nav bar it competes
+   with a back button, a title and a project name for 390px and truncates the
+   project name. Hung off the large title on a tab root it overflows the screen
+   inset by 10px with "Offline - logging locally" beside a 34px title, and at
+   Glove (1.25x) it is not close. A status abbreviated to fit is a status that
+   has stopped saying anything, so it gets its own line and always fits. */
 .mstatusline {
   display: flex;
   justify-content: flex-end;
