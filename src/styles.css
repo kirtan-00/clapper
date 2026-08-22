@@ -2976,6 +2976,23 @@ select.field {
      sits. */
   padding-bottom: var(--key-drop);
 }
+/* THE ONE STATE WHERE THE FIXED CHROME ALONE DOES NOT FIT. Measured at
+   390x664 in Script Mode (a shot breakdown, two cameras, sound) WITH THE TAG
+   PAD REMOVED FROM THE CALCULATION ENTIRELY: camstack + the mark row + CUT +
+   the gaps between them still needed 322px in a 304px deck. That is not the
+   tag pad's floor showing up as a deficit - see .roll__pads in this file -
+   it is camstack, the mark row and this box's own rhythm asking for more
+   than a 664px phone has, full stop. 700px and up measured a clean 0px
+   deficit across every rig this app tests, so this is scoped tight rather
+   than tightening the rhythm everywhere a taller phone had room to spare.
+   Saves ~12px off this box's own gap and padding-top; the rest comes from
+   the mark row and the camera pills themselves - see roll.css. */
+@media (max-height: 700px) {
+  .roll__deck {
+    gap: var(--sp-2);
+    padding-top: var(--sp-2);
+  }
+}
 /* The ground behind the sticky footer. CUT is a rounded button sitting in a
    transparent band: the deck's gap above it, its own corner radius, and the
    strip its key shadow falls into. Chips scrolling underneath showed through
@@ -3102,33 +3119,38 @@ select.field {
   z-index: 2;
   margin-top: auto;
 }
-/* THE ONE THING ON THIS SCREEN THAT MAY SCROLL. Every other box is fixed;
-   a scene can carry more key moments than fit above CUT, and the tag list is
-   where that overflow belongs. It shrinks and scrolls; MARK IN, GOLD, the
-   unit pills and CUT are all `flex: 0 0 auto` around it and therefore cannot
-   be pushed anywhere by it. `overscroll-behavior: contain` stops a flick
-   that runs out of chips from chaining into anything else.
+.roll__pads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  /* THE ONE THING ON THIS SCREEN THAT MAY SCROLL. Every other box is fixed;
+     a scene can carry more key moments than fit above CUT, and the tag list is
+     where that overflow belongs. It shrinks and scrolls; MARK IN, GOLD, the
+     unit pills and CUT are all `flex: 0 0 auto` around it and therefore cannot
+     be pushed anywhere by it. `overscroll-behavior: contain` stops a flick
+     that runs out of chips from chaining into anything else.
 
-   THE FLOOR USED TO BE 52px ("one whole chip"), and that floor is exactly
-   what caused the bug Kirtan filmed. .roll__markrow and the CUT button are
-   `position: sticky` INSIDE `.roll__deck`, which stays a scroller of its own
-   as a dormant safety net (see .roll__deck above) for the one state (a short
-   phone, Script Mode, a camera+sound pill) where even a floored pad plus
-   camstack/markrow/CUT does not fit. A 52px floor meant the deck was STILL
-   short by the pad's own floor, so it had to fall back to that safety net -
-   and a sticky child pins itself to the bottom of the deck's SCROLLPORT
-   regardless of scroll position, while this box (never sticky, genuinely
-   scrolled) kept rendering at its own full, un-stuck flow position. Measured
-   at 390x664 in Script Mode: this box's box (471-523) and the sticky mark
-   row's stuck box (454-522) overlapped by 51px - two DIFFERENT boxes, both
-   real, sharing the same pixels, which is exactly how a tag key ended up
-   drawn UNDER "MARK IN" rather than beside it.
+     THE FLOOR USED TO BE 52px ("one whole chip"), and removing it is only
+     HALF the fix for the bug Kirtan filmed. .roll__markrow and CUT are
+     `position: sticky` INSIDE `.roll__deck`, which stays a scroller of its
+     own as a dormant safety net (see .roll__deck above) for short phones in
+     Script Mode with a camera+sound pill. A sticky child pins itself near
+     the bottom of the deck's SCROLLPORT regardless of scroll position, while
+     this box (never sticky, genuinely scrolled) renders at its own full,
+     un-stuck flow position - so whenever the deck's OTHER content
+     (camstack + the mark row + CUT + the gaps between them) alone exceeds
+     the deck's box, this box's static position starts UNDER the mark row's
+     stuck one no matter how short this box is shrunk, floor or no floor.
+     Measured at 390x664 in Script Mode WITH THIS BOX REMOVED ENTIRELY: the
+     other three still needed 322px in a 304px box - camstack's own bottom
+     (459) already past the mark row's stuck top (454). The floor was never
+     the whole deficit; see the compact-deck rule in roll.css for where the
+     other 18px actually comes from.
 
-   `min-height: 0` lets flex-shrink close that gap first, the way every other
-   zone on this screen already yields before anything overlaps. The floor's
-   own goal - never lose a whole scene's tags to a hairline sliver - moves to
-   the mask below: a masked, scrollable nothing is honest (there is more, one
-   flick away); an overlapping row is not. */
+     `min-height: 0` still matters on its own: it lets flex-shrink close
+     WHATEVER gap remains here first, the way every other zone on this
+     screen already yields before anything overlaps, instead of leaving a
+     52px floor's worth stranded as extra deck-level scroll. */
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -3142,14 +3164,6 @@ select.field {
      which is the same trade the shot deck already makes. */
   -webkit-mask-image: linear-gradient(#000 0%, #000 92%, transparent 100%);
   mask-image: linear-gradient(#000 0%, #000 92%, transparent 100%);
-  /* Room to scroll a tag fully clear of the sticky footer. --roll-footer-band
-     is "everything below MARK IN" (CUT plus the deck's gap plus its key
-     shadow strip); the mark row itself is not in that token, so its own
-     height is added back here - 52px matches .markbtn/.goldbtn's own
-     min-height, --sp-2 their internal row gap. Without this, the LAST tag a
-     scroll can reach still lands exactly where MARK IN sits, which trades
-     one overlap (idle) for another (mid-scroll). */
-  padding-bottom: calc(var(--roll-footer-band) + 52px + var(--sp-2));
 }
 .roll__deck > .camstack,
 .roll__deck > .roll__markrow,

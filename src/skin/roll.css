@@ -1000,18 +1000,82 @@
 }
 
 /* THE UNIT ROW STICKS TO THE TOP OF THE DECK, for the same reason CUT sticks
-   to its bottom. The deck is not a scroller in any state this app was measured
-   in but one - a 667px phone, Script Mode, a shot breakdown and a camera pill
-   - and in that one it is 51px short and scrolls. What was at the top of it,
-   and therefore first to go, is the clip number: the string an operator reads
-   aloud to the loader, and the thing that was missing from single-cam in the
-   first place. It is pinned instead. Painted on the ground, so chips scrolling
-   under it stay behind it rather than through it. */
+   to its bottom: the clip number is the string an operator reads aloud to the
+   loader, and it is pinned rather than left to scroll away. Painted on the
+   ground, so chips scrolling under it stay behind it rather than through it.
+
+   A STICKY CHILD PINS ITSELF TO A SCROLLPORT EDGE REGARDLESS OF SCROLL
+   POSITION, which is exactly why the deck itself must not be short of its
+   OWN fixed chrome (this pill, the mark row, CUT) - a sticky element pinned
+   near a scrollport's bottom edge does not wait for a scroll to get there,
+   so a deck genuinely too short for camstack + the mark row + CUT renders
+   them OVERLAPPING on the very first frame, no gesture required. That was
+   the bug Kirtan filmed: a tag key drawn under MARK IN. The fix is not on
+   this pill - it is making sure the deck is never that short in the first
+   place; see the compact-deck rule below and the one in styles.css. */
 .roll .roll__deck > .camstack {
   position: sticky;
   top: 0;
   z-index: 2;
   background: var(--roll-ground);
+}
+
+/* THE COMPACT DECK. Paired with the `@media (max-height: 700px)` rule on
+   `.roll__deck` in styles.css. Script Mode is the worst case measured at
+   390x664 - a shot breakdown, two cameras, sound, ten tags - and it needed
+   more than a gap trim to close:
+
+     IDLE:    reach row + camstack + ROLL alone needed 288px in a 246px deck
+              (camstack's own bottom landed 34px PAST ROLL's own top - a real
+              overlap between two ordinary boxes, nothing sticky about it).
+     ROLLING: camstack + the mark row + CUT + the tag pad needed 328px in a
+              304px deck.
+
+   THE CAMERA GRID IS WHERE THE REAL WEIGHT IS. Two columns is the deliberate
+   choice for 3-4 units on a tall phone (see .camstack's own comment in
+   styles.css) - two rows of a real, readable pill. On a phone this short
+   that second row is what does not fit. Three columns turns Script Mode's
+   own test rig (two cameras + sound, three units) into ONE row, which is
+   where most of the saving below comes from; a heavier 4-unit rig still
+   drops from 2 rows to 2 (ceil(4/3)), so this never makes a taller phone's
+   layout worse, only a short one's shorter.
+
+   Scoped to short phones only - 700px and up measured a clean 0px deficit on
+   every rig this app tests, so a taller phone keeps the roomier rhythm. */
+@media (max-height: 700px) {
+  .roll .roll__deck .camstack {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .roll .roll__deck .camstack .camslot {
+    padding: 4px 6px;
+  }
+  .roll .roll__deck .camstack .camslot__main {
+    min-height: 0;
+  }
+  /* The reach row's own --sp-3 bottom margin is the other place idle had
+     slack: it is spacing, not a tap target, so --tap (the row's own button
+     floor) is untouched. */
+  .roll__reach {
+    margin-bottom: var(--sp-2);
+  }
+  .roll--live .roll__markrow {
+    padding-bottom: 10px;
+  }
+  /* THE "ONE MASS" MARGIN HAS TO TRACK THE DECK'S OWN GAP. `.roll--live
+     .roll__pads`'s `margin-bottom: calc(var(--sp-3) * -1)` above exists to
+     cancel the deck's `gap` exactly, so the pads and the mark row read as one
+     slab with no ground-coloured seam. This block drops that gap to --sp-2;
+     without a matching drop here the -12px margin over-pulls an 8px gap by
+     4px, and the mark row's box lands 4px INSIDE the pads' box - measured at
+     390x664: pads to 468, the mark row's own flow position to 464. That is a
+     real, painted overlap between two ordinary flex siblings (sticky or not
+     - forcing the mark row static did not move it), and it is what widened
+     the tag/MARK-IN collision rather than closing it on the first pass at
+     this fix. */
+  .roll--live .roll__pads {
+    margin-bottom: 0;
+  }
 }
 
 /* SOUND IS A PILL AMONG THE PILLS. What tells it from a camera is the speaker
