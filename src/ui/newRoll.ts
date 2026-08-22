@@ -2,37 +2,32 @@
 //
 // The rule from the spec is "no project-setup ceremony": Home's hero has to
 // land on a slate, never on a form. Everything here exists to make that one
-// decision — WHICH project, WHICH scene, WHICH setup — without asking.
+// decision — WHICH scene, WHICH setup — without asking. WHICH PROJECT is not
+// a decision this file makes anymore: a tap on Home always opens a fresh one.
 //
 // Two modes fan out from the hero (see HomeScreen.tsx's picker sheet):
 //
 //   DIRECTOR MODE is entirely ShotlistSheet's job — it always reads a fresh
 //   PDF and always makes a NEW project. Nothing here is involved.
 //
-//   PODCAST MODE is this file's other job, `startPodcastRoll()`. It runs the
-//   exact same resume-or-create ladder `startNewRoll()` always has, scoped to
-//   projects already marked `mode: 'podcast'` (see types.ts) so it can never
-//   drop the operator mid-scene into whichever VIDEO shoot was touched most
-//   recently — the two modes' projects are resumed from separate pools.
+//   PODCAST MODE is this file's other job, `startPodcastRoll()`. It always
+//   scratches a fresh project marked `mode: 'podcast'` (see types.ts) and
+//   rolls on it. It used to resume the most recently touched podcast
+//   project instead of making a new one; on a real set that meant a second
+//   podcast tap on the same day dropped the operator into a PREVIOUS
+//   recording, logging today's takes into yesterday's project. Fixed: every
+//   tap here is a new project, full stop.
 //
 // The picking is pure and lives here (so it is testable without a store); the
-// async orchestration that creates what is missing is at the bottom.
+// async orchestration that creates the project and its one scene is at the
+// bottom.
 //
-// DEVIATION FROM THE SPEC, on purpose. The spec says "if there is an open shoot
-// day it resumes that; if there is not, it makes a scratch project". Taken
-// literally that scratches past a shotlist you imported ten seconds ago,
-// because `openShootDay` is only stamped by the FIRST CUT (see
-// store/util.ts::openShootDayIfNeeded) — a real project with real scenes and no
-// takes yet has none. So the ladder is:
-//
-//   1. a project (in the target pool) with an open shoot day -> resume it
-//      (the spec's case)
-//   2. otherwise the most recently touched project in the pool -> roll on it
-//   3. nothing in the pool -> scratch project, one scene, roll
-//
-// Only a genuinely empty pool ever makes a scratch project.
+// The one place a project is still resumed on purpose is Home's own "Where
+// you were" row (`readResume`, below) — a person tapping back into the shoot
+// they left, not a tap that means "start something". That stays unscoped
+// across both modes, exactly as it always has.
 
-import type { Project, ProjectBundle, Shot, Slate, Take } from '../types';
+import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
 import { getDefaultTags } from './tagdefaults';
 
@@ -55,15 +50,16 @@ export function lastActivity(p: Project): number {
 }
 
 /**
- * The project New roll should land in, or null when the pool is empty.
+ * The most recently touched project, or null when the pool is empty.
  * Projects carrying an open shoot day win outright — that is a shoot in
  * progress, and nothing else on the phone outranks it.
  *
- * `mode` scopes the pool: pass it to draw only from that mode's projects
- * (Podcast mode's own resume ladder). Omit it for the mode-agnostic "most
- * recently touched project, whatever it is" read Home's own resume row
- * uses — that row is a general "back to what you had open" affordance, not
- * part of either mode's ladder, so it stays unscoped on purpose.
+ * NOT used by New roll or the mode tiles anymore (see the header comment):
+ * those always scratch a fresh project. This is what Home's "Where you were"
+ * row reads (`readResume`, below), always unscoped — the one legitimate
+ * resume affordance on the app. `mode` still exists to scope the read (kept,
+ * still tested) in case a future screen needs "most recent project of this
+ * mode" without also needing to create one.
  */
 export function pickResumeProject(projects: readonly Project[], mode?: ProjectMode): Project | null {
   const pool = mode ? projects.filter((p) => modeOf(p) === mode) : projects;
@@ -163,40 +159,35 @@ export interface RollTarget {
   project: Project;
   slate: Slate;
   shot?: Shot;
-  /** True when this tap had to invent the project — Home says so afterwards. */
+  /** Always true now — every tap through this file invents a fresh project.
+   *  Home still reads the field rather than assuming it, in case that ever
+   *  stops being the only path here. */
   scratched: boolean;
 }
 
 /**
- * Resolve (and, where needed, create) a project+scene to roll on, scoped to
- * ONE mode's pool. One call creates at most one project and one scene, and
- * only when there is genuinely nothing to resume IN THAT POOL — so the common
- * double tap, on a phone that already has a project of that mode, writes
- * nothing at all. Two calls genuinely racing on a pool with nothing in it
- * would each see zero projects and each create one, which is what the
- * caller's busy guard is for; this function does not try to be a lock.
+ * Make a brand new project and its one starting scene, and roll on it.
+ * Never looks at what projects already exist: that lookup is exactly the bug
+ * this function used to have (see the header comment above) — a project of
+ * the right mode already on the phone is not a reason to hand its takes to
+ * whoever tapped New roll today. The caller's busy guard is what stops a
+ * double tap from writing two projects for one press, not a check in here.
  */
 async function resolveRoll(
-  mode: ProjectMode,
   make: () => Promise<Project>,
   slateName: string,
 ): Promise<RollTarget> {
-  const existing = pickResumeProject(await store.listProjects(), mode);
-  const scratched = !existing;
-  const project = existing ?? (await make());
-
-  const bundle: ProjectBundle = await store.getBundle(project.id);
-  const slate = pickSlate(bundle.slates, bundle.takes) ?? (await store.createSlate(project.id, slateName));
-  return { project: bundle.project, slate, shot: pickShot(slate, bundle.takes), scratched };
+  const project = await make();
+  const slate = await store.createSlate(project.id, slateName);
+  return { project, slate, shot: undefined, scratched: true };
 }
 
-/** Director mode's video ladder — resumes the most recently active VIDEO
- *  project, or scratches one. Director mode itself never calls this (it
- *  always reads a fresh PDF via ShotlistSheet); this exists for a plain
- *  "just start shooting" roll with no shot list at all. */
+/** Director mode's video maker — always scratches a fresh VIDEO project.
+ *  Director mode itself never calls this (it always reads a fresh PDF via
+ *  ShotlistSheet); this exists for a plain "just start shooting" roll with
+ *  no shot list at all. */
 export async function startNewRoll(): Promise<RollTarget> {
   return resolveRoll(
-    'video',
     () =>
       store.createProject({
         name: scratchName(),
@@ -214,16 +205,15 @@ export async function startNewRoll(): Promise<RollTarget> {
 }
 
 /**
- * Podcast mode's ladder — resumes the most recently active PODCAST project
- * (never a video/director one), or scratches one carrying `mode: 'podcast'`
- * and podcast-flavoured tags. The scratch project's one slate is named
- * "Recording" rather than "Scene 1": a podcast has no scenes, only sessions —
- * every recording is another TAKE on this one slate, numbered 1, 2, 3… same
- * as a scene's takes always have been, just never split across slates.
+ * Podcast mode's maker — always scratches a fresh project carrying
+ * `mode: 'podcast'` and podcast-flavoured tags, never reuses one already on
+ * the phone. Its one slate is named "Recording" rather than "Scene 1": a
+ * podcast has no scenes, only sessions — every recording is another TAKE on
+ * this one slate, numbered 1, 2, 3… same as a scene's takes always have
+ * been, just never split across slates.
  */
 export async function startPodcastRoll(): Promise<RollTarget> {
   return resolveRoll(
-    'podcast',
     () =>
       store.createProject({
         name: scratchName(Date.now(), 'Podcast'),
