@@ -127,7 +127,20 @@ export function pickShot(slate: Slate, takes: readonly Take[]): Shot | undefined
  *  filenames. */
 export function scratchName(now: number = Date.now(), label = 'Shoot'): string {
   const d = new Date(now);
-  return `${label} ${d.getDate()} ${d.toLocaleDateString('en-GB', { month: 'short' })}`;
+  const day = `${d.getDate()} ${d.toLocaleDateString('en-GB', { month: 'short' })}`;
+  // THE TIME IS NOT DECORATION. Without it every podcast started on one day is
+  // called "Podcast 22 Aug", and the owner reported that tapping Podcast mode
+  // "takes me to a recent podcast, not a new podcast shoot". It does not:
+  // resolveRoll below never looks at what already exists and always scratches
+  // a fresh project. What it handed back was a NEW project wearing the OLD
+  // one's exact name, which is indistinguishable from the bug he described,
+  // in the projects list and in the roll screen header alike.
+  //
+  // A dot, not a colon: the test below pins that a scratch name carries
+  // nothing a filename dislikes, and these names reach exported filenames.
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${label} ${day} ${hh}.${mm}`;
 }
 
 /** What Home shows on the resume strip. */

@@ -162,14 +162,24 @@ describe('pickShot', () => {
 });
 
 describe('scratchName', () => {
+  // Built from a LOCAL wall clock so the hour in the name is the hour the
+  // phone showed. Constructing these with Date.UTC and then asserting a fixed
+  // string would pass in one timezone and fail in the next.
+  const at = (h: number, m: number) => new Date(2026, 7, 14, h, m).getTime();
+
   it('names a scratch project for its day, with nothing a filename dislikes', () => {
-    const name = scratchName(Date.UTC(2026, 7, 14, 12));
-    expect(name).toBe('Shoot 14 Aug');
+    const name = scratchName(at(12, 5));
+    expect(name).toBe('Shoot 14 Aug 12.05');
     expect(name).not.toMatch(/[/\\:·]/);
   });
 
   it('takes a custom label for a podcast scratch project', () => {
-    const name = scratchName(Date.UTC(2026, 7, 14, 12), 'Podcast');
-    expect(name).toBe('Podcast 14 Aug');
+    expect(scratchName(at(12, 5), 'Podcast')).toBe('Podcast 14 Aug 12.05');
+  });
+
+  it('gives two sessions on ONE day two different names', () => {
+    // The whole point. Same date, same label, different name, so a second
+    // podcast is not mistaken for the first one reopening.
+    expect(scratchName(at(9, 30), 'Podcast')).not.toBe(scratchName(at(21, 14), 'Podcast'));
   });
 });
