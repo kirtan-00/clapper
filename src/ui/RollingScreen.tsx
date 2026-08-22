@@ -355,6 +355,26 @@ const LIST_ROW_H = 44; // var(--tap) - unchanged at every height
 const TAG_ROW_GAP = 8; // var(--sp-2)
 const TAG_GROUP_GAP = 12; // var(--sp-3) - gap between the two .keypad groups
 
+/**
+ * Would cutting `letter` right now leave nothing else rolling? Same question
+ * soloCut already asks itself to decide whether to close the take - lifted
+ * out so the rolling pill can ask it too, BEFORE the tap fires, instead of
+ * discovering the answer by closing the shot. Sound is a parallel roll that
+ * never lives in `camRolls` (see its own state comment above), so a camera
+ * rolling alongside sound is never "the last thing" even when it is the only
+ * key left in this object.
+ *
+ * Owner's own words on the bug this guards: "tapping this cuts the scene."
+ */
+export function isSoleRollingUnit(
+  letter: CameraUnitLetter,
+  camRolls: Partial<Record<CameraUnitLetter, number>>,
+  soundStartedAt: number | null,
+): boolean {
+  const rolling = Object.keys(camRolls);
+  return rolling.length === 1 && rolling[0] === letter && soundStartedAt === null;
+}
+
 export function RollingScreen(props: {
   project: Project;
   slate: Slate;
@@ -2099,18 +2119,40 @@ export function RollingScreen(props: {
               // file it already closed and reopened inside this same take.
               const live = liveUnit(u);
               if (camIsRolling) {
-                // This unit is rolling: tap it to cut just this camera. If it
-                // is the last one still rolling, the whole shot closes.
+                // This unit is rolling: tap it to cut just this camera.
+                // UNLESS it is the last thing still rolling - see
+                // isSoleRollingUnit above. Cutting it there would silently
+                // close the whole shot, and the owner's own report on this
+                // exact pill was "tapping this cuts the scene." A solo pill
+                // has no business ending a take: CUT is the one control this
+                // screen ever confirms past a wrap prompt, and it stays the
+                // only one, so a guarded tap does nothing destructive and
+                // says where to go instead, off-screen text and all -
+                // there is nowhere left ON this pill to put a second label
+                // without it competing with the clip number underneath it.
                 // State is never colour-only: the dot shape + "REC" text next
                 // to the running clock reads the same under red set-lighting
                 // or to a red/green colour-blind operator.
+                const guarded = isSoleRollingUnit(u.letter, camRolls, soundStartedAt);
                 return (
                   <button
                     key={u.letter}
                     type="button"
                     className="camslot camslot--rolling"
-                    aria-label={`Camera ${u.letter} rolling ${renderUnitClip(live)}, tap to cut it`}
-                    onClick={() => void soloCut(u.letter)}
+                    data-guarded={guarded ? '' : undefined}
+                    aria-label={
+                      guarded
+                        ? `Camera ${u.letter} rolling ${renderUnitClip(live)}, the only unit left - use CUT to end the take`
+                        : `Camera ${u.letter} rolling ${renderUnitClip(live)}, tap to cut it`
+                    }
+                    onClick={() => {
+                      if (guarded) {
+                        haptics.tap();
+                        setToast('Only unit left rolling - CUT ends the take');
+                        return;
+                      }
+                      void soloCut(u.letter);
+                    }}
                   >
                     <span className="camslot__top">
                       <span className="camslot__badge">{u.letter}</span>
@@ -2118,6 +2160,18 @@ export function RollingScreen(props: {
                       <span className="camslot__elapsed tnum">
                         <span className="recdot" aria-hidden="true" /> REC {tc.msToClock(elapsedForCam(u.letter))}
                       </span>
+                      {/* THE STOP AFFORDANCE. This pill used to be a badge, a
+                          clip name and a clock - the vocabulary of a readout,
+                          not a control, on top of this app's one destructive
+                          action. One small square earns its keep without
+                          turning the whole pill into a second CUT button: a
+                          stop-square is the one glyph a set already reads as
+                          "this ends something" off a hundred other decks.
+                          Hollow when guarded, matching the unlit "not joined"
+                          treatment above rather than the fully faded opacity
+                          this file already rejected once - the tap still
+                          lands, it just does not cut. */}
+                      <span className="camslot__stopicon" aria-hidden="true" />
                     </span>
                     <ClipNum parts={unitClipParts(live)} className="camslot__clip tnum" />
                   </button>

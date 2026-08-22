@@ -957,6 +957,27 @@
 .roll .camslot__elapsed {
   color: var(--m-rec);
 }
+/* THE STOP AFFORDANCE. A stop-square, not a second CUT-sized button - see the
+   comment on .camslot__stopicon's markup in RollingScreen.tsx for why one
+   small glyph is the whole fix. Solid on the ring's own red so it reads as
+   the same control as the edge around it, never a separate colour to learn. */
+.roll .camslot__stopicon {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 2px;
+  background: var(--m-rec);
+}
+/* Guarded: this is the only unit left rolling, so the tap no longer cuts it -
+   see isSoleRollingUnit. Same unlit treatment the "not joined" pill below
+   uses for its own off state: the fill moves to the metal, the edge stays
+   lit, rather than fading the glyph to a grey nobody can read under red set
+   lighting. The ring around the whole pill stays red either way - a camera
+   that is still rolling never stops looking like it is rolling. */
+.roll .camslot--rolling[data-guarded] .camslot__stopicon {
+  background: var(--roll-mass);
+  border: 1px solid var(--rec-edge);
+}
 /* Not joined yet: the same block of metal, unlit. The DIM MOVED OFF THE
    OBJECT AND ONTO ITS INK. `opacity: 0.62` faded the whole pill, and a dark
    pill faded over an ivory ground is not a dim object, it is a grey one - the
