@@ -92,6 +92,55 @@ export function SheetClose(props: {
 /** The toast's exit is 120ms, --dur-state on --ease-in. */
 const TOAST_EXIT_MS = 130;
 
+// ===========================================================================
+// BACKGROUND SCROLL LOCK - filmed on a real iPhone: with a sheet open over
+// Home, the "New roll" card and "Where you were" list behind it jumped up and
+// down between frames while nothing was touching the screen. The page itself
+// was still the document that scrolls, and iOS Safari's own chrome (the URL
+// bar) collapsing and expanding as it does resizes the layout viewport and
+// silently repositions that scroll - the sheet, pinned by `position: fixed`,
+// held still while everything drawn behind it slid.
+//
+// `overflow: hidden` on <body> does NOT stop this on iOS Safari - it is a
+// documented no-op there. The only technique that actually holds: pin body to
+// `position: fixed` at its current scroll offset for as long as a sheet is
+// mounted, then hand the offset back on the way out.
+//
+// A COUNTER, NOT A BOOLEAN. HomeScreen swaps the mode-pick sheet straight into
+// ShotlistSheet in one state update (see HomeScreen.tsx's pickDirector) - one
+// Sheet unmounts and another mounts in the same commit. If this were a
+// boolean, whichever effect runs last decides the lock, and an unlock
+// sandwiched between two locks would flash the body back into normal flow for
+// a frame. The counter only ever unlocks when the last sheet standing closes.
+let sheetLockCount = 0;
+let sheetLockScrollY = 0;
+
+function lockBackgroundScroll() {
+  if (sheetLockCount === 0) {
+    sheetLockScrollY = window.scrollY;
+    const s = document.body.style;
+    s.position = 'fixed';
+    s.top = `-${sheetLockScrollY}px`;
+    s.left = '0';
+    s.right = '0';
+  }
+  sheetLockCount++;
+}
+
+function unlockBackgroundScroll() {
+  sheetLockCount = Math.max(0, sheetLockCount - 1);
+  if (sheetLockCount === 0) {
+    const s = document.body.style;
+    s.position = '';
+    s.top = '';
+    s.left = '';
+    s.right = '';
+    // Restore AFTER the fixed positioning is gone, or the browser has nothing
+    // to scroll - it would land back at 0 instead of where the sheet found it.
+    window.scrollTo(0, sheetLockScrollY);
+  }
+}
+
 /**
  * Full-bleed bottom sheet on a scrim. Tapping the scrim dismisses.
  *
@@ -143,6 +192,17 @@ export function Sheet(props: {
   useEffect(() => {
     const id = requestAnimationFrame(() => setPhase((p) => (p === 'enter' ? 'open' : p)));
     return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Locked for the Sheet's whole mounted life, exit slide included - a sheet
+  // still sliding down is still a sheet on screen, and the background must
+  // not start moving again a frame before it's gone. useLayoutEffect, not
+  // useEffect: HomeScreen swaps one sheet directly into another in the same
+  // React commit, and running this before paint keeps the counter (above)
+  // from ever letting the browser paint an unlocked frame in between.
+  useLayoutEffect(() => {
+    lockBackgroundScroll();
+    return unlockBackgroundScroll;
   }, []);
 
   const exitRef = useRef<number | null>(null);
