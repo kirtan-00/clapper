@@ -3146,26 +3146,25 @@ select.field {
 /* THE LOG. It was the same dark-on-dark as its neighbours and disappeared into
    the ground, which is a problem specific to this one: Scenes and the clip
    chip say what they do in their own words, but "Log" is the door to every
-   take of the shoot and it was reading as a label rather than as a way in. It
-   gets the lamp bar the rest of the app uses for "this is a control", lit,
-   plus the brass label. It is a LINE, not a fill: no solid brass here. */
+   take of the shoot and it was reading as a label rather than as a way in.
+
+   IT USED TO EARN THAT WITH A LAMP BAR down its leading edge. The owner has
+   now rejected the leading-edge strip twice, first on every .btn and then
+   here, so the strip is gone and the emphasis is carried the way the rest of
+   the app carries it: SOLID. That is the treatment he picked out of four
+   flat 2D trials, it is what ROLL and Add scene already wear, and one filled
+   chip in a row of three outlined ones says "this is the way in" more
+   plainly than a 5px line ever did.
+
+   No border: a fill and a stroke of the same colour is two edges drawn for
+   one, and on night the acid fill against true black needs no help. */
 .reachbtn--log {
-  position: relative;
-  overflow: hidden;
-  padding-left: calc(var(--sp-3) + 7px);
-  color: var(--m-accent-text);
-  border-color: var(--brass-edge);
-}
-.reachbtn--log::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 5px;
   background: var(--m-accent);
-  border-top-left-radius: inherit;
-  border-bottom-left-radius: inherit;
+  border-color: var(--m-accent);
+  color: var(--m-accent-ink);
 }
-/* Voice, live. Same green the app already spends on "this is on". */
+/* Voice, live. Same signal the app already spends on "this is on". The
+   --brass-* names now resolve to the locked highlight, see the token block. */
 .reachbtn--on {
   color: var(--m-accent-text);
   border-color: var(--brass-edge);
