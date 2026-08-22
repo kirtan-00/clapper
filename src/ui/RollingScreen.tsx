@@ -269,6 +269,92 @@ function soundFileParts(s: SoundUnit): ClipParts {
 // cameras.ts (imported above) - shared with TakeEditSheet, which needs the
 // same badge styling for the sound row in its own sheet.
 
+/**
+ * THE TAG PAD, DETERMINISTICALLY FIT - NEVER SCROLLED.
+ *
+ * The owner measured it himself, twice: night theme, 2 cameras + sound + a
+ * 3-shot breakdown, 10 tags, while rolling. `.roll__pads` scrolled at every
+ * height from 844 down to 664, and at 620 (an iPhone SE in Safari with the
+ * toolbar showing - not hypothetical, the phone he named) `.roll__deck`
+ * itself scrolled too. His words, twice: "the rolling screen is divided into
+ * multiple scrollables."
+ *
+ * The fix is not a smaller scrollbar. `.roll__pads`'s own `clientHeight` is
+ * set by flexbox from its FIXED siblings (camstack, the mark row, CUT) and is
+ * independent of how much is rendered inside it - proved by clearing the box
+ * out entirely and re-measuring: same clientHeight, empty or full. So the
+ * budget can be read ONCE per layout (see the ResizeObserver below) and the
+ * content clamped to it, rather than rendered in full and left to overflow.
+ *
+ * Truncation is never silent. A tag key the operator cannot reach is worse
+ * than one behind an extra tap, so the row that would have overflowed
+ * becomes a "+N MORE" tile instead of simply vanishing, and tapping it PAGES
+ * - swaps which chunk of the same group is shown, in the SAME box, at the
+ * SAME height, wrapping back to the first page. Every tag stays reachable;
+ * none of them cost a scroll to get to.
+ */
+function rowsThatFit(budgetPx: number, rowH: number, gapPx: number): number {
+  if (budgetPx < rowH) return 0;
+  return 1 + Math.floor((budgetPx - rowH) / (rowH + gapPx));
+}
+
+/** One group's tag pad (the coverage grid, the key-moment list, or the flat
+ *  quick-tag grid): how many of `count` items fit in `budgetPx` at `rowH`
+ *  tall / `cols` wide, and how many rows that spends. When a row would spill,
+ *  the LAST cell of the last row is given back to a MORE tile - it costs one
+ *  real tag's worth of space to keep every hidden one reachable. */
+function fitTagGroup(
+  count: number,
+  budgetPx: number,
+  rowH: number,
+  cols: number,
+  gapPx: number,
+): { visible: number; moreCount: number; consumedPx: number } {
+  // ZERO ROWS FIT means nothing renders - NOT a MORE tile reporting the
+  // count. A MORE tile is a real row (rowH tall) like any other; returning a
+  // non-zero moreCount here while consumedPx stays 0 is exactly the bug this
+  // comment is now here to stop reintroducing: the caller renders the tile
+  // regardless (moreCount > 0 is its only gate), so the group's real height
+  // and the height this function told the budget math about would disagree -
+  // which is a scrollHeight > clientHeight deficit by another name. Measured
+  // live: 390x780, this rig's key-moment group had a 9px remainder after
+  // coverage, well under a 44px row, and reporting moreCount=6 there put a
+  // 44px tile in a box the budget thought cost nothing.
+  if (count <= 0 || budgetPx < rowH) return { visible: 0, moreCount: 0, consumedPx: 0 };
+  const naturalRows = Math.ceil(count / cols);
+  const rows = Math.min(naturalRows, rowsThatFit(budgetPx, rowH, gapPx));
+  let visible = rows * cols;
+  let moreCount = 0;
+  if (visible < count) {
+    moreCount = count - (visible - 1);
+    visible -= 1;
+  }
+  return { visible: Math.max(0, visible), moreCount, consumedPx: rows * rowH + (rows - 1) * gapPx };
+}
+
+/** The MORE tile's page: which slice of `items` to show right now, wrapping
+ *  at the end back to the start. `pageSize` is `visible` from fitTagGroup
+ *  above - the same box, every time, never a size that could overflow it. */
+function tagPageSlice<T>(items: T[], pageSize: number, page: number): T[] {
+  if (pageSize <= 0 || items.length === 0) return [];
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const p = ((page % totalPages) + totalPages) % totalPages;
+  return items.slice(p * pageSize, p * pageSize + pageSize);
+}
+
+// Fixed geometry the tiering math above measures against - kept in sync with
+// the CSS by hand (see .keypad .keycap / .keypad--list .keycap / .roll__pads
+// in styles.css). GRID_ROW_H_COMPACT is 44 (var(--tap)) rather than the
+// sheet's 52 because @media (max-height: 700px) drops `.keypad .keycap`'s
+// own min-height to match - see that rule for the measurement that motivated
+// it (664px could not fit even ONE row of the OWNER's own 3-coverage +
+// 6-keyMoment rig at 52px).
+const GRID_ROW_H = 52;
+const GRID_ROW_H_COMPACT = 44;
+const LIST_ROW_H = 44; // var(--tap) - unchanged at every height
+const TAG_ROW_GAP = 8; // var(--sp-2)
+const TAG_GROUP_GAP = 12; // var(--sp-3) - gap between the two .keypad groups
+
 export function RollingScreen(props: {
   project: Project;
   slate: Slate;
@@ -407,6 +493,49 @@ export function RollingScreen(props: {
   function takeCountFor(shotId: string): number {
     return allTakes.filter((t) => t.shotId === shotId && t.status !== 'discarded').length;
   }
+
+  /**
+   * THE TAG PAD'S OWN BUDGET, MEASURED, NOT GUESSED.
+   *
+   * `.roll__pads` is the only element left on this screen whose CSS still
+   * says `overflow-y: auto` for real (see the block comment above this
+   * component) - this ref and observer are what stop that from ever firing.
+   * `clientHeight` here already reflects everything ELSE in the deck
+   * (camstack's row count, the mark row, CUT, every gap and the compact
+   * media queries) because flexbox sized the box BEFORE looking at what's
+   * inside it - proved empirically: clearing the box's content and
+   * re-measuring gave the identical number. So one read, on resize, is
+   * enough; there is no feedback loop to guard against; the content this
+   * component renders next never changes the number this effect reads.
+   */
+  // The ResizeObserver that fills padsBudgetPx in from `rolling` lives further
+  // down, right after `rolling` itself is derived (useEngine ? anyRolling :
+  // timer.rolling) - a hook cannot read a const declared below it.
+  const padsRef = useRef<HTMLDivElement | null>(null);
+  const [padsBudgetPx, setPadsBudgetPx] = useState<number | null>(null);
+
+  // `.keypad .keycap`'s own min-height drops from 52 to 44 (var(--tap)) under
+  // the SAME `@media (max-height: 700px)` compact tier the camstack and reach
+  // row already use - reactive here (not a one-time read) because rotating a
+  // tablet or a Safari toolbar collapsing mid-take crosses the boundary
+  // without a remount.
+  const [compactRows, setCompactRows] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-height: 700px)').matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-height: 700px)');
+    const onChange = () => setCompactRows(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  // The MORE tile's page, per group. Reset at the top of every fresh take
+  // (see openMultiTake/doRoll) so a scene switch or a new take never opens on
+  // a stale page from the take before it.
+  const [coveragePage, setCoveragePage] = useState(0);
+  const [keyPage, setKeyPage] = useState(0);
+  const [flatPage, setFlatPage] = useState(0);
 
   const [buffered, setBuffered] = useState<Buffered[]>([]);
   const [markInMs, setMarkInMs] = useState<number | null>(null);
@@ -547,6 +676,9 @@ export function RollingScreen(props: {
     setFlashes({}); // per-chip tap counts are scoped to THIS take
     setMarkInMs(null);
     setRangeLabelTarget(null);
+    setCoveragePage(0); // the MORE tile opens on page 1 for every fresh take
+    setKeyPage(0);
+    setFlatPage(0);
     bumpClap();
   }
 
@@ -961,6 +1093,9 @@ export function RollingScreen(props: {
     setMarkInMs(null);
     setRangeLabelTarget(null);
     setResumeOffsetMs(0); // a fresh take's clock starts where the timer does
+    setCoveragePage(0); // the MORE tile opens on page 1 for every fresh take
+    setKeyPage(0);
+    setFlatPage(0);
     bumpClap();
     timer.start();
   }
@@ -1147,6 +1282,39 @@ export function RollingScreen(props: {
   // going, and the clock runs from whichever one started first to now, the
   // same number moments get timestamped against.
   const rolling = useEngine ? anyRolling : timer.rolling;
+
+  /**
+   * THE TAG PAD'S OWN BUDGET, MEASURED, NOT GUESSED.
+   *
+   * `.roll__pads` is the only element left on this screen whose CSS still
+   * says `overflow-y: auto` for real (see the block comment above this
+   * component) - this observer is what stops that from ever firing.
+   * `clientHeight` here already reflects everything ELSE in the deck
+   * (camstack's row count, the mark row, CUT, every gap and the compact
+   * media queries) because flexbox sized the box BEFORE looking at what's
+   * inside it - proved empirically: clearing the box's content and
+   * re-measuring gave the identical number. So one read, on resize, is
+   * enough; there is no feedback loop to guard against, because the content
+   * this component renders next never changes the number this effect reads.
+   */
+  useEffect(() => {
+    const el = padsRef.current;
+    if (!el) {
+      setPadsBudgetPx(null);
+      return;
+    }
+    function recompute() {
+      if (!el) return;
+      const cs = getComputedStyle(el);
+      const verticalPadding = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      setPadsBudgetPx(Math.max(0, el.clientHeight - verticalPadding));
+    }
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rolling]);
+
   const elapsedMs = useEngine
     ? takeStartedAt !== null
       ? Math.max(0, nowTick - takeStartedAt)
@@ -1280,6 +1448,88 @@ export function RollingScreen(props: {
     if (bigButtonCutMode) void (useEngine ? bigCutMulti() : doCut());
     else if (useEngine) bigRollMulti();
     else doRoll();
+  }
+
+  // THE TAG PAD'S TIER, computed from the measured budget (see padsBudgetPx
+  // above). Coverage keeps its 3-across grid (short, stable vocabulary -
+  // WIDE/CU/OTS - see .keypad--tags); key moments stay their own full-width
+  // list (long, scene-specific lines - "Rides into night" - which is why they
+  // were never in the 3-col grid to begin with, see .keypad--list). Flat
+  // quick-tags (no breakdown) reuse the grid's own math. `null` budget (the
+  // one frame before the ResizeObserver's first measurement lands, corrected
+  // in a useLayoutEffect-timed re-render before paint - see padsBudgetPx)
+  // renders everything; a real device never shows that frame.
+  const gridRowH = compactRows ? GRID_ROW_H_COMPACT : GRID_ROW_H;
+  const coverageFit =
+    padsBudgetPx === null
+      ? { visible: coverageChips.length, moreCount: 0, consumedPx: 0 }
+      : fitTagGroup(coverageChips.length, padsBudgetPx, gridRowH, 3, TAG_ROW_GAP);
+  const keyListBudget =
+    padsBudgetPx === null
+      ? null
+      : Math.max(
+          0,
+          padsBudgetPx -
+            coverageFit.consumedPx -
+            (coverageFit.consumedPx > 0 && keyChips.length > 0 ? TAG_GROUP_GAP : 0),
+        );
+  const keyFit =
+    keyListBudget === null
+      ? { visible: keyChips.length, moreCount: 0, consumedPx: 0 }
+      : fitTagGroup(keyChips.length, keyListBudget, LIST_ROW_H, 1, TAG_ROW_GAP);
+  const flatTags = project.tags.filter((tag) => tag !== 'GOLD');
+  const flatFit =
+    padsBudgetPx === null
+      ? { visible: flatTags.length, moreCount: 0, consumedPx: 0 }
+      : fitTagGroup(flatTags.length, padsBudgetPx, gridRowH, 3, TAG_ROW_GAP);
+
+  const coverageVisible = tagPageSlice(coverageChips, coverageFit.visible, coveragePage);
+  const keyVisible = tagPageSlice(keyChips, keyFit.visible, keyPage);
+  const flatVisible = tagPageSlice(flatTags, flatFit.visible, flatPage);
+
+  /** One tag key, shared by every tier above - a plain function rather than a
+   *  component so the long-press handlers below (already bound to `this`
+   *  render's closures) do not have to be threaded through props. */
+  function renderTagKey(tag: string) {
+    const n = flashes[tag] ?? 0;
+    return (
+      <button
+        key={`${tag}:${n}`}
+        type="button"
+        className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
+        onPointerDown={beginTagHold}
+        onPointerMove={moveTagHold}
+        onPointerUp={cancelTagHold}
+        onPointerCancel={cancelTagHold}
+        onClick={() => tagKeyClick(tag)}
+      >
+        <span className="keycap__label">{tag}</span>
+        {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
+      </button>
+    );
+  }
+
+  /** THE MORE TILE. Reserves the last visible cell of a truncated group and
+   *  PAGES on tap - the explicit, always-visible control the brief asks for
+   *  in place of a scroll. Never fires a tag itself, so it can never be
+   *  mistaken for tapping one: same keycap shape, a chevron instead of a
+   *  label, so it reads as "more of these" rather than as a tag with a
+   *  strange name. */
+  function renderMoreTile(hiddenCount: number, onTap: () => void, label: string) {
+    return (
+      <button
+        type="button"
+        className="chip keycap keycap--more"
+        aria-label={`${hiddenCount} more ${label} - tap to see the next`}
+        onClick={() => {
+          haptics.tap();
+          onTap();
+        }}
+      >
+        <span className="keycap__label">+{hiddenCount}</span>
+        <span className="keycap__more" aria-hidden="true">&rsaquo;</span>
+      </button>
+    );
   }
 
   /**
@@ -2001,16 +2251,24 @@ export function RollingScreen(props: {
 
         {rolling && (
           <>
-            {/* The pads are the ONLY part of the deck allowed to scroll. MARK IN
-                and the big CUT sit outside this box, so a scene with a tall
-                keypad can never push CUT off the bottom of a phone. */}
-            <div className="roll__pads">
+            {/* THE PADS DO NOT SCROLL. They used to be the one part of the
+                deck allowed to - the owner filmed it, twice, on a real
+                phone, and asked for it to stop both times. `padsBudgetPx`
+                (measured above) is the box's own real height; every group
+                below renders only as many rows as that number allows, and a
+                truncated group gets a MORE tile instead of an overflow - see
+                the block comment above the component for the mechanism and
+                the measurement that motivated it. */}
+            <div className="roll__pads" ref={padsRef}>
             {editingTags ? (
-              // Long-press landed. Same box, same scroll region, a different
-              // job: this project's live vocabulary instead of the keys that
-              // tap it. TagEditor owns add/remove/GOLD-lock; this screen only
-              // owns persistence ("saves as you go" - every change commits,
-              // DONE below only closes) and the heading the mockup asks for.
+              // Long-press landed. Same box, a different job: this project's
+              // live vocabulary instead of the keys that tap it. TagEditor
+              // owns add/remove/GOLD-lock; this screen only owns persistence
+              // ("saves as you go" - every change commits, DONE below only
+              // closes) and the heading the mockup asks for. Not put through
+              // the same MORE-tile clamp as the tiers below - see
+              // .rolltagsdeck's own compact rule in roll.css for what keeps
+              // MAX_TAGS=16 inside .roll__pads's measured budget instead.
               <div className="rolltagsdeck">
                 <div className="rolltagsdeck__head">
                   <span className="rolltagsdeck__title">Edit tags · this project</span>
@@ -2028,98 +2286,45 @@ export function RollingScreen(props: {
               </div>
             ) : scriptMode ? (
               <>
-                {/* Tier 1: sizes, THE THREE-ACROSS TAG GRID. It used to be a
-                    joined segmented strip, which meant this screen drew its
-                    tag keys one way in Script Mode and another way without a
-                    breakdown - one deck, two layouts, and a thumb that had to
-                    learn both. There is one tag grid now (.keypad--tags) and
-                    the quick-tag set below uses the same one. Fixed columns,
-                    never flex-wrap: that is what stops keys reflowing scene to
-                    scene, so the muscle memory a 2-3 week shoot builds up
-                    survives a script-mode label swap. Guarded on length, same
-                    as tier 2 below it: GOLD used to sit in this grid and kept
-                    it non-empty even when a scene carried no coverage tags of
-                    its own, so an empty grid never had to be a case. Now that
-                    GOLD lives by MARK IN, an ungated map() left a stray empty
-                    bar behind for exactly that scene. */}
+                {/* Tier 1: sizes, THE THREE-ACROSS TAG GRID - unchanged shape,
+                    now clamped to `coverageFit.visible` rows instead of every
+                    coverage tag the scene carries. Guarded on length, same as
+                    tier 2 below it: GOLD used to sit in this grid and kept it
+                    non-empty even when a scene carried no coverage tags of its
+                    own, so an empty grid never had to be a case. Now that GOLD
+                    lives by MARK IN, an ungated map() left a stray empty bar
+                    behind for exactly that scene. */}
                 {coverageChips.length > 0 && (
                   <div className="keypad keypad--tags" aria-label="Coverage">
-                    {coverageChips.map((tag) => {
-                      const n = flashes[tag] ?? 0;
-                      return (
-                        <button
-                          key={`${tag}:${n}`}
-                          type="button"
-                          className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
-                          onPointerDown={beginTagHold}
-                          onPointerMove={moveTagHold}
-                          onPointerUp={cancelTagHold}
-                          onPointerCancel={cancelTagHold}
-                          onClick={() => tagKeyClick(tag)}
-                        >
-                          <span className="keycap__label">{tag}</span>
-                          {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
-                        </button>
-                      );
-                    })}
+                    {coverageVisible.map(renderTagKey)}
+                    {coverageFit.moreCount > 0 &&
+                      renderMoreTile(coverageFit.moreCount, () => setCoveragePage((p) => p + 1), 'coverage tags')}
                   </div>
                 )}
                 {keyChips.length > 0 && (
-                  // Tier 2: moments, a scannable list. These are the actual
-                  // record of what happened in the take, so they keep the
-                  // keycap hardware-key travel; greyscale now, not brass -
-                  // brass is GOLD's alone (see .goldbtn by MARK IN below).
+                  // Tier 2: moments, a scannable list - full-width rows,
+                  // because a key moment is a scene-specific sentence
+                  // ("Rides into night"), not a keycap word, and a fixed grid
+                  // cell would either clamp it to two lines of nothing or (at
+                  // three columns) never fit it at all. Same clamp as tier 1:
+                  // rows past `keyFit.visible` become a MORE tile rather than
+                  // an overflow.
                   <div className="keypad keypad--list" aria-label="Key moments">
-                    {keyChips.map((tag) => {
-                      const n = flashes[tag] ?? 0;
-                      return (
-                        <button
-                          key={`${tag}:${n}`}
-                          type="button"
-                          className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
-                          onPointerDown={beginTagHold}
-                          onPointerMove={moveTagHold}
-                          onPointerUp={cancelTagHold}
-                          onPointerCancel={cancelTagHold}
-                          onClick={() => tagKeyClick(tag)}
-                        >
-                          <span className="keycap__label">{tag}</span>
-                          {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
-                        </button>
-                      );
-                    })}
+                    {keyVisible.map(renderTagKey)}
+                    {keyFit.moreCount > 0 &&
+                      renderMoreTile(keyFit.moreCount, () => setKeyPage((p) => p + 1), 'key moments')}
                   </div>
                 )}
               </>
             ) : (
               // No breakdown: the flat quick-tag set is THE SAME TAG GRID the
-              // coverage tier above uses. It was a full-width stacked list,
-              // which is how seven tags came to fill the whole deck and slid
-              // the last one under MARK IN. Three across is what a thumb wants
-              // and what the reference draws, and it is now the only tag
-              // layout on this screen - regardless of how many units are
-              // joined or whether the scene carries a breakdown. GOLD is
+              // coverage tier above uses, now under the same clamp. GOLD is
               // filtered out here too: it moved to its own grade action by
               // MARK IN, see goldAvailable below.
               <div className="keypad keypad--tags" aria-label="Quick tags">
-                {project.tags.filter((tag) => tag !== 'GOLD').map((tag) => {
-                  const n = flashes[tag] ?? 0;
-                  return (
-                    <button
-                      key={`${tag}:${n}`}
-                      type="button"
-                      className={`chip keycap${n > 0 ? ' chip--flash' : ''}`}
-                      onPointerDown={beginTagHold}
-                      onPointerMove={moveTagHold}
-                      onPointerUp={cancelTagHold}
-                      onPointerCancel={cancelTagHold}
-                      onClick={() => tagKeyClick(tag)}
-                    >
-                      <span className="keycap__label">{tag}</span>
-                      {n > 0 && <span className="keycap__count tnum">&times;{n}</span>}
-                    </button>
-                  );
-                })}
+                {flatVisible.map(renderTagKey)}
+                {flatFit.moreCount > 0 &&
+                  renderMoreTile(flatFit.moreCount, () => setFlatPage((p) => p + 1), 'tags')}
               </div>
             )}
             </div>

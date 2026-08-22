@@ -3018,6 +3018,28 @@ select.field {
     padding-top: var(--sp-2);
   }
 }
+/* THE SE FLOOR. 620px is not hypothetical - it is an iPhone SE in Safari with
+   the URL bar and toolbar showing, the phone the owner named directly. Even
+   with .roll__pads clamped to ZERO tag rows (see the tag-tiering block in
+   RollingScreen.tsx, which reads this box's own measured clientHeight and
+   renders only what fits), the "one mass" look .roll--live .roll__pads and
+   .roll--live .roll__markrow paint - 14px/12px of padding on the pads' own
+   slab, 16px on the mark row's - is PURE CHROME with nothing inside it, and
+   at 620px that chrome alone still asked for 26px more than camstack (three
+   units: two cameras + sound) + the mark row + CUT + this box's own gaps had
+   left. Measured directly: emptying .roll__pads's content via the DOM left
+   .roll__deck's own scrollHeight/clientHeight at 279/260, a 19px deficit that
+   existed with ZERO tags on screen - not a tag-count problem, a chrome-cost
+   problem. This tier is scoped to 640px (620 plus a few px of slack for
+   rounding) rather than folded into the 700px tier above, because 664px and
+   up measured a clean 0px deficit at the deck level once tag tiering landed -
+   only the shortest phone needed its own slab to shrink. */
+@media (max-height: 640px) {
+  .roll__deck {
+    gap: 6px;
+    padding-top: 6px;
+  }
+}
 /* The ground behind the sticky footer. CUT is a rounded button sitting in a
    transparent band: the deck's gap above it, its own corner radius, and the
    strip its key shadow falls into. Chips scrolling underneath showed through

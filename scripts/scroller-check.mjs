@@ -109,13 +109,20 @@ const SHOTS = [
   { id: 's3', code: 'S3-03', order: 2, size: 'OTS', move: 'HANDHELD', action: 'Door opens, lantern.' },
 ];
 const TAGS_10 = ['WIDE', 'MID', 'CU', 'OTS', 'INSERT', 'GOLD', 'PICKUP', 'NOISE', 'alarm stops', 'stretch / wake'];
+// The REAL shape, not a stand-in: WIDE/MID/CU is much easier to fit than
+// production data. src/ui/packs/no-mans-hero.json's own first scene -
+// exactly what the coordinator flagged after Kirtan's own phone recording
+// showed the same pattern ("alarm stops", "face in photo reflection").
 const SCRIPT_TAGS = [
   { id: 't1', label: 'WIDE', tier: 'coverage', order: 0 },
-  { id: 't2', label: 'CU', tier: 'coverage', order: 1 },
-  { id: 't3', label: 'OTS', tier: 'coverage', order: 2 },
-  { id: 't4', label: 'She turns to camera', tier: 'keyMoment', order: 0 },
-  { id: 't5', label: 'Door slams shut', tier: 'keyMoment', order: 1 },
-  { id: 't6', label: 'Big reveal', tier: 'keyMoment', order: 2 },
+  { id: 't2', label: 'MID', tier: 'coverage', order: 1 },
+  { id: 't3', label: 'CLOSEUP', tier: 'coverage', order: 2 },
+  { id: 't4', label: 'Phone rings', tier: 'keyMoment', order: 0 },
+  { id: 't5', label: 'Address given', tier: 'keyMoment', order: 1 },
+  { id: 't6', label: 'Packs kit', tier: 'keyMoment', order: 2 },
+  { id: 't7', label: 'Locks up', tier: 'keyMoment', order: 3 },
+  { id: 't8', label: 'Scooter starts', tier: 'keyMoment', order: 4 },
+  { id: 't9', label: 'Rides into night', tier: 'keyMoment', order: 5 },
 ];
 
 async function seed(cdp, cams) {

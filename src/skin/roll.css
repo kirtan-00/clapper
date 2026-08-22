@@ -22,25 +22,43 @@
    ========================================================================== */
 .roll {
   --roll-ground: var(--m-sheet);
-  --roll-mass: var(--m-mass);
-  --roll-mass-raised: var(--m-raised);   /* a key standing on the mass    */
-  --roll-mass-pressed: var(--m-pressed); /* that key, bottomed out        */
-  --roll-mass-ink: var(--m-mass-ink);
-  --roll-mass-dim: #8f8d87;
-  --roll-mass-faint: #5b5955;
-  --roll-mass-rule: #262626;
+  /* THE MASS ON DAY IS A LIGHT PANEL, NOT DARK METAL. It used to route
+     straight through --m-mass (#131313, "the same material in both themes"),
+     which is what put a near-black slab under NOTHING ROLLED YET and the
+     FRAME RATE / CAMERA / SOUND / FIRST CLIP stat block on the ivory theme -
+     Kirtan, looking at exactly that: "this black part looks bad". Night's own
+     block below is untouched and still fully self-contained (it never reads
+     these four lines); only day's object logic flips from "a block of dark
+     metal set into ivory" to "a panel one step below the page", using the
+     app's own paper ramp rather than a new colour - --paper-sunk is already
+     the value every other sunken surface on this app uses. */
+  --roll-mass: var(--paper-sunk);
+  --roll-mass-raised: var(--paper-raised); /* a key standing on the mass  */
+  --roll-mass-pressed: var(--paper-sunk-deep); /* that key, bottomed out  */
+  --roll-mass-ink: var(--text);
+  --roll-mass-dim: var(--text-dim);
+  --roll-mass-faint: var(--text-faint);
+  --roll-mass-rule: var(--rule);
   --roll-key-under: #000000;              /* nothing stands proud any more */
-  --roll-brass: var(--m-brass);
-  --roll-brass-edge: #4a3e14;
-  /* THE ACCENT AS IT APPEARS ON THE MASS. The deck is dark metal at 2pm and at
-     5am, so - exactly like --roll-mass-ink - the value that reads on it is the
-     BRIGHT one in both themes. --m-accent-text is the pair for accents that
-     sit on the SHEET (the head, the report), where ivory is the ground half
-     the time and #d8b23c measures 1.94:1 on it.
-
-     This is brass, and so is GOLD, so the whole screen leans on ONE rule to
-     keep them apart: GOLD is the only solid brass FILL in the app. Everything
-     else the accent touches here is an outline, a segment, an edge or type. */
+  /* Brass AS TEXT/AS A LINE now sits on a LIGHT panel on day, the same
+     surface the sheet's own GOLD chip already solves for: #d8b23c measures
+     1.94:1 on paper, which is why --brass-text (5.80:1) exists at all. Reused
+     here rather than re-deriving a third brass value. Fills (GOLD's own,
+     .goldbtn's background below) stay on --roll-accent unchanged - a FILL
+     supplies its own contrast against whatever ink sits on top of it, so it
+     never needed the swap. */
+  --roll-brass: var(--brass-text);
+  --roll-brass-edge: var(--brass-edge);
+  /* THE ACCENT AS A LINE OR AS TYPE on the mass - the armed MARK IN outline,
+     a tallied key's lit border, the JOIN label. Split from --roll-accent for
+     the same reason: those are text/line uses and the mass is no longer
+     guaranteed dark. Day resolves to the dim, sheet-safe brass; night's block
+     below points it straight back at --roll-accent, unchanged from before. */
+  --roll-accent-line: var(--m-accent-text);
+  /* THE ACCENT AS IT APPEARS ON A FILL - GOLD's own .goldbtn background, and
+     nothing else. A fill supplies its own contrast (--m-accent-ink sits on
+     top of it), so this stays the bright brass on both themes; only the
+     LINE/TEXT split above changed. */
   --roll-accent: var(--m-accent);
   /* The ring, at day value. Night drops it one stop below. */
   --roll-ring: var(--m-rec);
@@ -88,6 +106,11 @@
   --roll-brass: #c7a62f;
   --roll-brass-edge: #413611;
   --roll-accent: #c7a62f;
+  /* Unchanged from before the day/night split: night's mass was always dark,
+     so the line/text use and the fill use were always the same bright value.
+     Points at --roll-accent (set two lines up, in this same rule) rather than
+     repeating #c7a62f, so the two can never drift apart on this theme. */
+  --roll-accent-line: var(--roll-accent);
   --roll-ring: #c7332a;
   --roll-ring-glow: 0 0 26px rgba(199, 51, 42, 0.3), inset 0 0 18px rgba(199, 51, 42, 0.12);
 
@@ -522,13 +545,26 @@
 
 /* The horizontal form of the same cut: a slot biting in from the RIGHT at
    58%, used where the deck's mass ends and CUT begins. Same three rectangles,
-   turned ninety degrees. */
+   turned ninety degrees.
+
+   BOTTOM-RIGHT MATCHES THE MASS'S OWN CORNER (28px), not square. This bar
+   sits at the mass's own `right: 0; bottom: 0` - exactly where
+   `.roll--live .roll__markrow`'s `border-radius: 0 0 28px 28px` rounds its
+   corner - and `.roll__markrow` carries no `overflow: hidden` to clip it. A
+   square corner there painted a ground-coloured patch straight across the
+   mass's rounded curve instead of following it: two different radii meeting
+   at the one place the eye is least able to separate them, which is what the
+   owner - day theme, right above CUT - called "this curvy part shouldnt
+   come". Rounding this corner to the SAME 28px the mass itself uses means
+   the notch's edge and the mass's own silhouette are one continuous curve
+   again, the way `.notch--v` already keeps its two corners inside the shape
+   they are cut into. */
 .notch--h {
   left: 58%;
   right: 0;
   bottom: 0;
   height: 14px;
-  border-radius: 7px 0 0 7px;
+  border-radius: 7px 0 28px 7px;
 }
 .notch--h::before,
 .notch--h::after {
@@ -684,15 +720,29 @@
 .roll--live .roll__markrow {
   background: var(--roll-mass);
   border-radius: 0 0 28px 28px;
-  /* Room at the bottom for the notch to be cut into. */
   padding: 0 14px 16px;
   position: sticky;
+  /* Belt and braces for the notch removal below: this box's own silhouette
+     is the only shape anything inside it may draw past. */
+  overflow: hidden;
 }
+/* THE NOTCH IS GONE FROM THIS ONE SPOT. It used to bite a slot into the mass
+   at 58%, right above CUT - a horizontal cut with a curved flare at its
+   mouth, the same mechanism `.statpair`'s vertical notch still uses between
+   its two cells. On the day theme's new LIGHT mass (paper-sunk against a
+   near-identical paper-sunk-adjacent ground - see the day/night mass split
+   above) the two surfaces it cuts BETWEEN are too close in value for the cut
+   to read as a machined joint; it reads instead as a stray line with an
+   odd curl at one end, sitting right where the deck ends and CUT begins.
+   The owner, day theme, exactly that spot: "this curvy part shouldnt come".
+   A clean, uncut bottom edge (the mass's own 28px corner, unbroken) is the
+   plainer of the two fixes the brief offered and the one this box takes.
+   Scoped to THIS notch only - `.statpair`'s own vertical one (between the
+   two idle stat cells) draws the identical ground-vs-mass pairing and was
+   not reported; if it turns out to read the same way, it is the same fix,
+   applied there instead of guessed at here. */
 .roll--live .roll__markrow .notch--h {
-  /* Inset to the mass's own edges, so the slot ends where the metal does. */
-  left: 58%;
-  right: 0;
-  bottom: 0;
+  display: none;
 }
 
 /* FLAT KEYS. These stood 3px proud of the mass and travelled 2px into it, on
@@ -724,7 +774,7 @@
    value the tally ring and the armed MARK OUT already use, so everything on
    this deck that means "this take" is one colour. */
 .roll--live .keypad .keycap {
-  --lamp-on: var(--roll-accent);
+  --lamp-on: var(--roll-accent-line);
 }
 .roll--live .keypad .keycap::before {
   background: var(--roll-mass-rule);
@@ -743,8 +793,8 @@
      receipt is just as loud drawn as a ring - it is the only ring on the
      row - and it costs the app nothing to keep the fill meaning one thing. */
   background: none;
-  box-shadow: inset 0 0 0 1.5px var(--roll-accent);
-  color: var(--roll-accent);
+  box-shadow: inset 0 0 0 1.5px var(--roll-accent-line);
+  color: var(--roll-accent-line);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -765,7 +815,7 @@
    down its leading edge is still on too, which is the part that reads from
    across the room. */
 .roll--live .keypad .keycap:has(.keycap__count) {
-  border-color: var(--roll-accent);
+  border-color: var(--roll-accent-line);
 }
 
 /* MARK IN / MARK OUT: an outline pill on the mass. Not a slab — CUT below is
@@ -777,16 +827,16 @@
   background: transparent;
 }
 .roll--live .markbtn--armed {
-  border-color: var(--roll-accent);
-  color: var(--roll-accent);
+  border-color: var(--roll-accent-line);
+  color: var(--roll-accent-line);
 }
 .roll--live .markbtn__badge {
   /* A line, not a fill - see the goldbtn note. The armed range clock is the
      one thing on this row that has to be told apart from GOLD beside it, and
      ring-versus-fill is the distinction that survives a squint. */
   background: none;
-  box-shadow: inset 0 0 0 1.5px var(--roll-accent);
-  color: var(--roll-accent);
+  box-shadow: inset 0 0 0 1.5px var(--roll-accent-line);
+  color: var(--roll-accent-line);
   border-radius: var(--radius-pill);
   padding: 2px 8px;
   font-size: 10.5px;
@@ -927,7 +977,7 @@
   color: var(--roll-mass-ink);
 }
 .roll .camslot__join {
-  color: var(--roll-accent);
+  color: var(--roll-accent-line);
 }
 /* ------------------------------------------------------------- COMPACT ----
    PILLS, NOT ROWS. Every unit used to get a full-width bar of its own: one
@@ -1075,6 +1125,61 @@
      this fix. */
   .roll--live .roll__pads {
     margin-bottom: 0;
+  }
+  /* THE GRID KEY DROPS TO --tap (44px), matching the list tier's row height
+     it already sat 8px above. RollingScreen.tsx's tag-tiering math reads this
+     exact number back (GRID_ROW_H_COMPACT) via a matchMedia listener on this
+     same breakpoint, so the two stay in step by construction - if this
+     threshold ever moves, that constant has to move with it. Motivated by the
+     owner's own rig: 3 coverage + up to 6 key-moment tags (see
+     no-mans-hero.json) - the shorter tested heights could not spare 52px for
+     even one row of either tier at the taller size. */
+  .roll .keypad .keycap,
+  .roll .rolltags__grid .keycap {
+    min-height: var(--tap);
+  }
+}
+
+/* THE MORE TILE. Reserves the last cell a truncated group would have used and
+   pages the group on tap instead of scrolling to the rest - see the
+   RollingScreen.tsx block comment above the tiering functions for why. Same
+   keycap shape as every other key (so it does not read as a foreign control)
+   with the label swapped for a count and a chevron rather than a word, so it
+   is never mistaken for a tag with a strange name. No new colour: the chevron
+   takes the same dim ink every other secondary glyph on the mass takes. */
+.roll--live .keycap--more {
+  color: var(--roll-mass-dim);
+}
+.roll--live .keycap--more .keycap__label {
+  color: var(--roll-mass-ink);
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.roll--live .keycap--more .keycap__more {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* THE SE FLOOR, continued from styles.css's own @media (max-height: 640px)
+   block on .roll__deck - read that comment first for the measurement.
+   The "one mass" look costs real padding even with nothing inside it: 14px
+   top + 12px bottom on the pads slab, 10px bottom on the mark row (already
+   cut once, at the 700px tier above). At 620px, camstack (two cameras +
+   sound, three units) + the mark row + CUT + the deck's own gaps left 7px for
+   a slab whose OWN chrome floor was 26px - an empty-content deficit, not a
+   too-many-tags one. Trimming both slabs' padding here recovers 20px, which
+   is what actually closes it; the deck-level gap/padding-top trim in
+   styles.css recovers the other 8px of slack. Scoped to 640px rather than
+   folded into the 700px tier above because 664px and up measured a clean 0px
+   deck-level deficit once tag tiering landed - only the shortest phone's slab
+   needed to shrink further. */
+@media (max-height: 640px) {
+  .roll--live .roll__pads {
+    padding: 8px 10px 0;
+    padding-bottom: 6px;
+  }
+  .roll--live .roll__markrow {
+    padding-bottom: 6px;
   }
 }
 
