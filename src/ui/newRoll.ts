@@ -29,6 +29,19 @@
 // The picking is pure and lives here (so it is testable without a store); the
 // async orchestration below it is not currently on any live code path. See
 // the note above.
+//
+// ONE MORE PROMISE THIS FILE DOES NOT KEEP ON ITS OWN: NewProjectSheet.tsx's
+// header says podcast mode's skipped frame-rate stage is "inherited from the
+// most recent podcast project, 24 when there is none, still changeable
+// afterwards". That last clause was false until ProjectScreen.tsx's
+// FpsSection shipped (2026-08-23) - fps was written once at creation, in
+// this file and in NewProjectSheet.tsx/ShotlistSheet.tsx, and read-only
+// everywhere else. It is real now: the Setup sheet's Frame rate section
+// commits a change straight through before any take exists, and behind a
+// named Confirm once one does (see FpsSection's own header comment for what
+// a change does and does not touch). Noted here, not there, because that
+// file's promise and this file's inherited default are the same fact from
+// two sides and this is the side that stays editable.
 
 import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';

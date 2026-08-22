@@ -11,7 +11,12 @@
 // exercises only that module-eval path, not any of it.
 
 import { describe, expect, it } from 'vitest';
-import { exportBuildFailureMessage, exportFailureMessage } from './ProjectScreen';
+import {
+  exportBuildFailureMessage,
+  exportFailureMessage,
+  fpsChangeNeedsConfirm,
+  fpsChangeWarning,
+} from './ProjectScreen';
 
 describe('exportFailureMessage', () => {
   it('offline: navigator says no connection -> the offline sentence, regardless of reason', () => {
@@ -48,5 +53,54 @@ describe('exportBuildFailureMessage', () => {
     expect(exportBuildFailureMessage('xml')).toBe('Could not build the Premiere file.');
     expect(exportBuildFailureMessage('resolve')).toBe('Could not build the Resolve file.');
     expect(exportBuildFailureMessage('csv')).toBe('Could not build the CSV file.');
+  });
+});
+
+// Frame rate used to be write-once, at project creation, in NewProjectSheet.tsx
+// / ShotlistSheet.tsx - a gap that had teeth once PODCAST mode started
+// skipping the question and inheriting a guess (see newRoll.ts). FpsSection
+// (in ProjectScreen.tsx) makes it editable from Setup; these two pure
+// functions are the gate and the copy that change carries, pulled out so both
+// are pinned here rather than only visible by opening the sheet.
+describe('fpsChangeNeedsConfirm', () => {
+  it('no pick made yet (draft equals current): never needs a confirm, whatever the take count', () => {
+    expect(fpsChangeNeedsConfirm(24, 24, 0)).toBe(false);
+    expect(fpsChangeNeedsConfirm(24, 24, 40)).toBe(false);
+  });
+
+  it('a real pick, zero takes logged: commits straight off Set - nothing exists yet to reinterpret', () => {
+    expect(fpsChangeNeedsConfirm(24, 25, 0)).toBe(false);
+  });
+
+  it('a real pick, at least one take logged: needs the named Confirm', () => {
+    expect(fpsChangeNeedsConfirm(24, 25, 1)).toBe(true);
+    expect(fpsChangeNeedsConfirm(24, 25, 214)).toBe(true);
+  });
+});
+
+describe('fpsChangeWarning', () => {
+  it('names the real fact (durations are real time, not frames) and never says "are you sure"', () => {
+    const w = fpsChangeWarning(12, 24, 25);
+    expect(w.title).toBe('Change frame rate to 25 fps?');
+    expect(w.confirmLabel).toBe('Change to 25 fps');
+    expect(w.message).toContain('12 takes already logged');
+    // The claim this whole warning rests on: Take.durationMs (types.ts) is
+    // milliseconds, not a frame count, so no take is rewritten.
+    expect(w.message).toMatch(/won't touch any of them/i);
+    expect(w.message).toMatch(/real time, not frame counts/i);
+    // What DOES change - every export/*.ts module that reads project.fps -
+    // named, not summarised as a vague "everything".
+    expect(w.message).toContain('Premiere');
+    expect(w.message).toContain('Resolve');
+    expect(w.message).toContain('PDF');
+    expect(w.message).toContain('CSV');
+    // Old rate named too, and what already happened at it is unaffected.
+    expect(w.message).toContain('24 fps');
+    expect(w.message).not.toMatch(/are you sure/i);
+  });
+
+  it('singular take count reads "1 take", not "1 takes"', () => {
+    expect(fpsChangeWarning(1, 24, 25).message).toContain('1 take already logged');
+    expect(fpsChangeWarning(1, 24, 25).message).not.toContain('1 takes');
   });
 });

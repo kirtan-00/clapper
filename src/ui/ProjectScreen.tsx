@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
-import type { CameraUnit, Project, Slate } from '../types';
+import type { CameraUnit, Fps, Project, Slate } from '../types';
 import { isMultiCam } from '../types';
+import { FPS_OPTIONS, FPS_WARNING } from './fps';
 import { store } from '../store';
 import { formatClip, moveItem, sortForDisplay, undoWrapShootDay, wrapShootDay } from '../store/util';
 import { tc } from '../export/timecode';
@@ -353,6 +354,14 @@ export function ProjectScreen(props: {
     props.onProjectChanged(updated);
   }
 
+  // All-time take count across every scene, not the "today" count
+  // ShootDaySection tracks (dayTakeCount, above) - FpsSection needs to know
+  // whether ANY take exists anywhere in the project before it decides a rate
+  // change is free or needs a named confirm. `slates` already carries a
+  // per-scene takeCount from `refresh()`, so this is just the sum, not a
+  // second store query.
+  const totalTakeCount = slates?.reduce((sum, s) => sum + s.takeCount, 0) ?? 0;
+
   // The nav bar is sticky material; the hairline under it arrives only once
   // there is a list behind it to separate from.
   const scrolled = useScrolled();
@@ -644,12 +653,20 @@ export function ProjectScreen(props: {
           counters, production sound, quick tags, the footage folder link,
           today's call sheet and delete project are all still one tap away,
           behind the header's "..." Order matches the owner's spec exactly,
-          with one addition: the timecode calculator, which the spec did not
-          name but which still has to live SOMEWHERE (a re-layout moves every
-          existing control, it deletes none) - it keeps its old position
-          directly after the footage folder, ahead of the call sheet loader. */}
+          with two additions the spec did not name but that still have to
+          live SOMEWHERE (a re-layout moves every existing control, it
+          deletes none): the timecode calculator, which keeps its old
+          position directly after the footage folder, ahead of the call
+          sheet loader; and frame rate, new here, placed FIRST, ahead of the
+          clip counter it used to be locked inside at project creation. Every
+          camera in the project shares one rate and every timecode below
+          depends on it, so it reads as the project's clock before it reads
+          as a camera setting. See FpsSection for why changing it after
+          takes exist is safe, and why it still isn't a bare toggle. */}
       {setupOpen && (
         <Sheet title="Setup" onClose={() => setSetupOpen(false)}>
+          <FpsSection project={project} takeCount={totalTakeCount} onCommit={commitProject} />
+
           <ClipCounterSection project={project} onCommit={commitProject} />
 
           <SoundSection project={project} onCommit={commitProject} />
@@ -1027,6 +1044,148 @@ function ShootDaySection(props: {
           confirmLabel="Wrap day"
           onCancel={() => setConfirming(false)}
           onConfirm={() => void doWrap()}
+        />
+      )}
+    </section>
+  );
+}
+
+// Frame rate. Used to live nowhere but project creation - written once in
+// NewProjectSheet.tsx or ShotlistSheet.tsx and never again - which was fine
+// until PODCAST mode started skipping the question entirely and inheriting a
+// guess (see newRoll.ts). A guess that can't be corrected is a bug; this is
+// the correction.
+//
+// Reuses FPS_OPTIONS from fps.ts rather than a second list, and the same
+// "pick a chip, then tap Set" two-step ClipCounterSection already uses below:
+// selecting a rate touches nothing by itself, same as a clip prefix draft.
+//
+// What a change actually costs, checked directly against types.ts before any
+// of this copy was written: Take.durationMs is milliseconds - real elapsed
+// time off the clock, not a frame count - and Take.startedAt is an epoch
+// timestamp. NEITHER is stored in frames. So changing project.fps rewrites
+// no take: every take that already exists keeps the exact real-world
+// duration and start time it was logged with. What DOES change is every
+// place that turns that real time INTO frames from here on: the timecode
+// calculator below, and project.fps is read fresh at export time by
+// export/fcpxml.ts, export/resolve.ts, export/pdf.ts and export/csv.ts to
+// build the editor's frame-accurate timeline. A file already exported at the
+// old rate is unaffected (it is a finished blob, not a live query); only a
+// future export, or a live calculation, picks up the new rate.
+//
+// That is a real, if narrow, blast radius, so this is not "select and it's
+// done" once a take exists: past that point, `Set` opens a named Confirm
+// instead of committing. Before the first take, there is nothing for a
+// change to touch, so it commits straight off the Set tap - the third option
+// this was scoped against (free before the first take) rather than the
+// "always ask" or "always free" ends of it.
+//
+// Both decisions below are pulled out as plain functions - same convention
+// `exportFailureMessage` set for this file - so the gate and the exact wording
+// are each a unit test, not just prose a future edit could quietly drift out
+// of true.
+
+/** Whether picking a new rate and tapping Set should open a named Confirm
+ *  instead of committing straight away. `false` whenever the pick did not
+ *  actually change anything (Set is disabled then anyway) or the project has
+ *  no takes yet to reinterpret. */
+export function fpsChangeNeedsConfirm(currentFps: Fps, draftFps: Fps, takeCount: number): boolean {
+  return draftFps !== currentFps && takeCount > 0;
+}
+
+/** The named Confirm's copy once a change needs one. States exactly what
+ *  checking Take.durationMs and the four export/*.ts modules (above) found:
+ *  no take is rewritten, only future frame conversions of the same real
+ *  time are - never a bare "are you sure". */
+export function fpsChangeWarning(
+  takeCount: number,
+  fromFps: Fps,
+  toFps: Fps,
+): { title: string; message: string; confirmLabel: string } {
+  return {
+    title: `Change frame rate to ${toFps} fps?`,
+    message: `${takeCount} take${takeCount === 1 ? '' : 's'} already logged. This won't touch any of them: durations are stored as real time, not frame counts. But it changes how that time counts as frames from here on, in the calculator above and in every Premiere, Resolve, PDF and CSV export. Anything already exported at ${fromFps} fps stays exactly as it was; re-export it if you need it to match.`,
+    confirmLabel: `Change to ${toFps} fps`,
+  };
+}
+
+function FpsSection(props: {
+  project: Project;
+  /** All-time takes in the project, from ProjectScreen's `slates` sum - 0
+   *  means the rate can still commit straight off `Set`, no Confirm needed. */
+  takeCount: number;
+  onCommit: (patch: Partial<Project>) => Promise<void>;
+}) {
+  const { project } = props;
+  const [draft, setDraft] = useState<Fps>(project.fps);
+  const [confirming, setConfirming] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setDraft(project.fps);
+  }, [project.id, project.fps]);
+
+  async function commit(fps: Fps) {
+    await props.onCommit({ fps });
+    setConfirming(false);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1400);
+  }
+
+  function trySet() {
+    if (draft === project.fps) return;
+    if (fpsChangeNeedsConfirm(project.fps, draft, props.takeCount)) {
+      setConfirming(true);
+      return;
+    }
+    void commit(draft);
+  }
+
+  const changed = draft !== project.fps;
+
+  return (
+    <section className="section">
+      <div className="section__head">
+        <span className="label">Frame rate</span>
+        <span className="section__note">{project.fps} fps now</span>
+      </div>
+      <p className="camnote">{FPS_WARNING}</p>
+      <div className="sl-grid" role="group" aria-label="Frame rate" style={{ marginTop: 10 }}>
+        {FPS_OPTIONS.map(({ fps, note }) => (
+          <button
+            key={fps}
+            type="button"
+            className="sl-opt"
+            data-on={draft === fps ? '' : undefined}
+            aria-pressed={draft === fps}
+            onClick={() => {
+              haptics.tap();
+              setDraft(fps);
+            }}
+          >
+            <b className="tnum">{fps}</b>
+            <span>{note}</span>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="btn btn--full"
+        style={{ marginTop: 12 }}
+        disabled={!changed}
+        onClick={trySet}
+      >
+        {saved ? 'Saved' : changed ? `Set to ${draft} fps` : 'Frame rate set'}
+      </button>
+
+      {confirming && (
+        <Confirm
+          {...fpsChangeWarning(props.takeCount, project.fps, draft)}
+          onConfirm={() => void commit(draft)}
+          onCancel={() => {
+            setConfirming(false);
+            setDraft(project.fps);
+          }}
         />
       )}
     </section>
