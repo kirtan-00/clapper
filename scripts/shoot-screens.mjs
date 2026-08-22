@@ -275,7 +275,9 @@ async function main() {
     await cdp.waitForExpr(CLICK_BY_TEXT("No Mans Hero"), { desc: 'project row' });
     await cdp.waitForExpr(`document.body.textContent.includes('Scene 1')`, { desc: 'project screen' });
     await setTheme(cdp, theme);
-    if (await cdp.evaluate(CLICK_BY_TEXT('Every clip rolled'))) {
+    // Label changed from "Every clip rolled" to "All rolled" when the shoot
+    // day actions became a 2x2 icon tile grid (feat/app-shell 6321531).
+    if (await cdp.evaluate(CLICK_BY_TEXT('All rolled'))) {
       await cdp.waitForExpr(`!!document.querySelector('.mclip')`, { desc: 'clip log' });
       await sleep(700);
       await take('07-cliplog', theme);
