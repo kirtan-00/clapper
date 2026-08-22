@@ -483,14 +483,23 @@
                                  dark at 2pm and at 5am, so its ink is light at
                                  2pm and at 5am */
   --m-rec: #ff453a;           /* recording ONLY: the ring. Never a button fill */
-  --m-brass: #d8b23c;         /* GOLD and nothing else */
-  --m-brass-deep: #8a6d14;
+  /* GOLD and nothing else. BOTH OF THESE CURRENTLY HAVE ZERO CONSUMERS: the
+     GOLD chip is drawn from the --brass-* family in the signals block, not
+     from here. They are retargeted rather than deleted because the staged
+     new project branch is mid-merge and may bring a consumer with it; a
+     var() pointing at a token that no longer exists resolves to nothing and
+     paints an invisible control.
+     Left on the retired brass they made a grep for "#d8b23c is the gold
+     really gone" answer no when the answer was yes, which cost a deploy
+     verification round. A dead token that lies is worse than a dead token. */
+  --m-brass: #e6ff2b;
+  --m-brass-deep: #5a6600;
 
   /* The two wells. A well is RECESSED, so it is always darker than the
      surface it is cut from, with a lit lip along its bottom edge where the
      milling catches the light. Those two shadows are what the eye actually
      reads as "machined"; the fill alone reads as a second rectangle. */
-  --m-well-sheet: #eae7dc;
+  --m-well-sheet: #dceabb;   /* was #eae7dc, ivory. Also unconsumed; see --m-brass. */
   --m-well-sheet-shade: rgba(22, 24, 26, 0.20);
   --m-well-sheet-lip: rgba(255, 255, 255, 0.85);
   --m-well-mass: #030605;
