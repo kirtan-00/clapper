@@ -4,7 +4,7 @@
 // startPodcastRoll() ran a resume-or-create ladder scoped to podcast
 // projects, so a second tap on the same day quietly reopened whatever
 // podcast project was touched most recently instead of starting a fresh
-// recording — on a real set that means today's takes get logged into
+// recording. On a real set that means today's takes get logged into
 // yesterday's project.
 //
 //   node scripts/test-podcast-fresh.mjs
@@ -128,7 +128,7 @@ const CLICK_BY_TEXT = (text) => `
 `;
 
 /** Wipes the store and stands up ONE pre-existing podcast project with a take
- *  on it — the project a buggy resume ladder would adopt. Named and dated so
+ *  on it, the project a buggy resume ladder would adopt. Named and dated so
  *  a wrong adoption is unmistakable in the assertions below. */
 async function seed(cdp) {
   return await cdp.evaluate(`
@@ -165,7 +165,7 @@ async function podcastProjects(cdp) {
 }
 
 /** Taps Home's hero, then the Podcast mode tile, and waits for the rolling
- *  screen — the exact path a hand on a real set takes. Starts from a fresh
+ *  screen: the exact path a hand on a real set takes. Starts from a fresh
  *  navigation each time (not a SPA route change) so no leftover component
  *  state from the previous tap can influence this one. */
 async function startPodcastFromHome(cdp) {

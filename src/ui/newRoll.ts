@@ -2,7 +2,7 @@
 //
 // The rule from the spec is "no project-setup ceremony": Home's hero has to
 // land on a slate, never on a form. Everything here exists to make that one
-// decision — WHICH scene, WHICH setup — without asking. WHICH PROJECT is not
+// decision (WHICH scene, WHICH setup) without asking. WHICH PROJECT is not
 // a decision this file makes anymore: a tap on Home always opens a fresh one.
 //
 // Two modes fan out from the hero (see HomeScreen.tsx's picker sheet):
@@ -23,9 +23,9 @@
 // bottom.
 //
 // The one place a project is still resumed on purpose is Home's own "Where
-// you were" row (`readResume`, below) — a person tapping back into the shoot
-// they left, not a tap that means "start something". That stays unscoped
-// across both modes, exactly as it always has.
+// you were" row (`readResume`, below), which is a person tapping back into
+// the shoot they left, not a tap that means "start something". That stays
+// unscoped across both modes, exactly as it always has.
 
 import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
@@ -56,7 +56,7 @@ export function lastActivity(p: Project): number {
  *
  * NOT used by New roll or the mode tiles anymore (see the header comment):
  * those always scratch a fresh project. This is what Home's "Where you were"
- * row reads (`readResume`, below), always unscoped — the one legitimate
+ * row reads (`readResume`, below), always unscoped, the one legitimate
  * resume affordance on the app. `mode` still exists to scope the read (kept,
  * still tested) in case a future screen needs "most recent project of this
  * mode" without also needing to create one.
@@ -159,7 +159,7 @@ export interface RollTarget {
   project: Project;
   slate: Slate;
   shot?: Shot;
-  /** Always true now — every tap through this file invents a fresh project.
+  /** Always true now: every tap through this file invents a fresh project.
    *  Home still reads the field rather than assuming it, in case that ever
    *  stops being the only path here. */
   scratched: boolean;
@@ -168,7 +168,7 @@ export interface RollTarget {
 /**
  * Make a brand new project and its one starting scene, and roll on it.
  * Never looks at what projects already exist: that lookup is exactly the bug
- * this function used to have (see the header comment above) — a project of
+ * this function used to have (see the header comment above). A project of
  * the right mode already on the phone is not a reason to hand its takes to
  * whoever tapped New roll today. The caller's busy guard is what stops a
  * double tap from writing two projects for one press, not a check in here.
@@ -182,7 +182,7 @@ async function resolveRoll(
   return { project, slate, shot: undefined, scratched: true };
 }
 
-/** Director mode's video maker — always scratches a fresh VIDEO project.
+/** Director mode's video maker: always scratches a fresh VIDEO project.
  *  Director mode itself never calls this (it always reads a fresh PDF via
  *  ShotlistSheet); this exists for a plain "just start shooting" roll with
  *  no shot list at all. */
@@ -205,10 +205,10 @@ export async function startNewRoll(): Promise<RollTarget> {
 }
 
 /**
- * Podcast mode's maker — always scratches a fresh project carrying
+ * Podcast mode's maker: always scratches a fresh project carrying
  * `mode: 'podcast'` and podcast-flavoured tags, never reuses one already on
  * the phone. Its one slate is named "Recording" rather than "Scene 1": a
- * podcast has no scenes, only sessions — every recording is another TAKE on
+ * podcast has no scenes, only sessions: every recording is another TAKE on
  * this one slate, numbered 1, 2, 3… same as a scene's takes always have
  * been, just never split across slates.
  */
