@@ -126,7 +126,11 @@ class CDP {
    an element that is clipped, unreachable AND hard-edged. */
 const PROBE = `
 (() => {
-  const TOL = 1.5;
+  // 2.5px, not 1.5. At 1.5 this reported 360 "cuts", every one of them -2px on
+  // a tabular-numeral clip box - sub-pixel rounding on a font metric, not a cut
+  // anybody can see. They buried the 296 real control collisions underneath
+  // them. A cut worth reporting removes more than a rounding error.
+  const TOL = 2.5;
   const isClipper = (el) => {
     const cs = getComputedStyle(el);
     return /hidden|clip|auto|scroll/.test(cs.overflowY + ' ' + cs.overflowX)
@@ -177,12 +181,39 @@ const PROBE = `
     return cs.visibility !== 'hidden' && cs.display !== 'none' && parseFloat(cs.opacity) > 0
         && r.width > 4 && r.height > 4 && r.bottom > 0 && r.top < innerHeight;
   });
+  /* THE VISIBLE RECT, not the layout rect. A control inside a scroller has a
+     layout box that extends past the scrollport - that part of it is clipped
+     away and nobody can see or press it. Comparing raw boxes therefore reports
+     a "collision" between a tag key scrolled out of the pad and the sticky
+     MARK IN row painted over the pad's edge, which is not a collision at all:
+     it is a scroller doing its job. The slicer above already makes this
+     distinction (see isSoft); the overlap check did not, and it cost a full
+     agent cycle chasing 278 phantoms.
+
+     So each control's rect is intersected with every clipping ancestor first.
+     What is left is the part actually on the glass. Two of THOSE overlapping
+     means one control is genuinely sitting on top of another. */
+  const visibleRect = (el) => {
+    let r = el.getBoundingClientRect();
+    let x1 = r.left, y1 = r.top, x2 = r.right, y2 = r.bottom;
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      if (!isClipper(p)) continue;
+      const pr = p.getBoundingClientRect();
+      x1 = Math.max(x1, pr.left);  y1 = Math.max(y1, pr.top);
+      x2 = Math.min(x2, pr.right); y2 = Math.min(y2, pr.bottom);
+    }
+    // and by the viewport, which clips everything
+    x1 = Math.max(x1, 0); y1 = Math.max(y1, 0);
+    x2 = Math.min(x2, innerWidth); y2 = Math.min(y2, innerHeight);
+    return { left: x1, top: y1, right: x2, bottom: y2, w: x2 - x1, h: y2 - y1 };
+  };
   const overlaps = [];
   for (let i = 0; i < ctrls.length; i++) {
     for (let j = i + 1; j < ctrls.length; j++) {
       const a = ctrls[i], b = ctrls[j];
       if (a.contains(b) || b.contains(a)) continue;         // nesting is not collision
-      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const ra = visibleRect(a), rb = visibleRect(b);
+      if (ra.w <= 0 || ra.h <= 0 || rb.w <= 0 || rb.h <= 0) continue;  // clipped away entirely
       const ox = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
       const oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
       if (ox > 2 && oy > 2) {
