@@ -348,9 +348,32 @@ Deno.serve(async (req: Request) => {
   // check never touches a user's lifetime slot. Limit derived from is_pro.
   const { data: profile } = await admin
     .from("profiles")
-    .select("is_pro")
+    .select("is_pro, is_suspended")
     .eq("user_id", userId)
     .single();
+
+  // A booted account is refused before a slot is ever consumed and before this
+  // call ever reaches Groq. Script Mode is the expensive feature, and a
+  // suspended user gets none of it regardless of how many free uses are left.
+  // 423 (Locked) rather than 403: this function's breakdown.ts client already
+  // hardcodes a "Bot check failed" message for any 403 (that status is
+  // Turnstile's), so reusing it here would show the wrong reason for the
+  // right refusal. `code: "suspended"` (not `reason`) matches the existing
+  // `code: "SIGNIN_REQUIRED"` convention in this file's 401 responses, and
+  // `error` carries copy a user can actually read. breakdown.ts falls back to
+  // `reason || error` when it doesn't recognize the status, so leaving `error`
+  // as the human sentence is what surfaces today, before any src change wires
+  // `code` in explicitly.
+  if (profile?.is_suspended === true) {
+    return new Response(
+      JSON.stringify({
+        error: "This account has been suspended. If you think that's a mistake, email us.",
+        code: "suspended",
+      }),
+      { status: 423, headers },
+    );
+  }
+
   const limit = profile?.is_pro ? PRO_LIMIT : FREE_LIMIT;
   const { data: newCount, error: quotaErr } = await admin.rpc("consume_quota", {
     p_user: userId,
