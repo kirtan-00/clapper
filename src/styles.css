@@ -503,19 +503,44 @@
 
   /* The tally ring's corner. Follows the DEVICE, not the radius family above:
      it traces the phone's own corner, so it is geometry like the grabber pill
-     and the stripe rail, not a member of the 10/14/20 ramp. */
-  --m-ring-radius: 46px;
+     and the stripe rail, not a member of the 10/14/20 ramp.
+
+     SCALES WITH THE VIEWPORT, not a flat 46px. The owner, twice: "the red
+     rolling line is not changed phone to phone depending it's size" - a 46px
+     corner and a 7px line were the same constant on an SE giving the deck
+     620px and a Pro Max giving it 932px, so the ring ate visibly more of the
+     short phone's own frame. `5vh` reaches the 46px ceiling only once the
+     viewport is tall enough to spare it (932px measured: 5vh=46.6, clamps to
+     46 - the reference device is UNCHANGED); the floor (24px) is a corner an
+     SE can still show as a curve rather than a near-rectangle. Height, not
+     width or vmin: on this portrait screen height is the axis that actually
+     starves (620-932px measured across the fleet at a near-fixed ~390px
+     width), and it is also the axis Safari's own toolbar collapses, so the
+     ring keeps shrinking exactly where the deck keeps shrinking. */
+  --m-ring-radius: clamp(24px, 5vh, 46px);
   /* Thick, because the ring's job is to be read from across the set and out of
      the corner of an eye that is on the actors, not on the phone. A hairline
-     is a detail you have to look at; this is signage. */
-  --m-ring-weight: 7px;
+     is a detail you have to look at; this is signage. Scaled the same way as
+     the radius and for the same measured reason - 7px read as SIGNAGE on a
+     932px screen and as a wall on a 620px one, closing in on the clock, the
+     chips and CUT rather than merely framing them. 0.75vh tops out at 6.99px
+     on the 932px reference (effectively the old constant, unchanged) and
+     floors at 4px on a 620px SE - still heavier than every hairline on the
+     screen, never thin enough to read as a border. */
+  --m-ring-weight: clamp(4px, 0.75vh, 7px);
   /* How far the ring stands off the safe area. ZERO once the stroke got heavy:
      the ring has to live in the gutter BETWEEN the safe area and the content
      inset (--inset, 16px), and CUT's well already overhangs 6px into that
      gutter. 7px of stroke fills it, so the ring hugs the safe edge and keeps
      its clearance from the button rather than standing off and colliding.
      Kept as a knob because it is the one number that trades the two against
-     each other; measured, not assumed. */
+     each other; measured, not assumed.
+
+     STAYS AT ZERO even though the weight now scales down. The clearance this
+     token protects (inset 16px minus weight minus CUT's 6px overhang) can
+     only WIDEN as weight shrinks from its 7px ceiling - 16-7-6=3px at the
+     tallest phone, 16-4-6=6px at the shortest - so there is nothing standoff
+     needs to give back at any measured height. */
   --m-ring-standoff: 0px;
 
   --safe-top: env(safe-area-inset-top, 0px);
