@@ -659,7 +659,7 @@ export function ProjectScreen(props: {
               move under this menu — this is that move; nothing about the
               upload -> read -> match -> reorder path below changed. */}
           {slates && slates.length >= 2 && (
-            <div className="section" style={{ marginTop: 'var(--sp-7)' }}>
+            <div className="section">
               <label className={`btn btn--full sp-upload${csBusy ? ' btn--disabled' : ''}`}>
                 {csPhase === 'reading'
                   ? 'Reading call sheet…'
