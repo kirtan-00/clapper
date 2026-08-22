@@ -707,6 +707,84 @@ async function walkHomeDirector(cdp, theme, notes) {
 }
 
 /**
+ * THE UPLOAD HALF OF THE SHOT LIST STAGE. walkHomeDirector above only ever
+ * taps Skip, which proves nothing about the stage's actual headline job: a
+ * pack loaded through it has to reach importScriptPack carrying the SAME
+ * camera/fps overrides the earlier stages decided, not the pack's own
+ * defaults (sony, 24fps). Picks the RED preset and 30fps here specifically
+ * because they differ from importScriptPack's hardcoded fallbacks. If the
+ * override wiring in NewProjectSheet's create() silently dropped
+ * buildProjectConfig(draft) and called importScriptPack(pack) bare, this is
+ * the walk that would catch it and the one above would not.
+ */
+async function walkHomeDirectorWithPack(cdp, theme, notes) {
+  await fresh(cdp, theme);
+  await openHomePicker(cdp);
+  await cdp.waitForExpr(CLICK_IN('.modepick', 'Director mode'), { desc: 'Director mode row' });
+  await cdp.waitForExpr(`document.querySelector('.np')`, { desc: 'the staged sheet, director road' });
+
+  await cdp.evaluate(TYPE_INTO('#np-name', 'Keep The Take Shoot'));
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'name -> fps' });
+  await cdp.waitForExpr(`document.querySelector('.sl-grid')`, { desc: 'the frame rates' });
+  await cdp.waitForExpr(CLICK_IN('.sl-opt', '30'), { desc: '30 fps' });
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'fps -> cameras' });
+  await cdp.waitForExpr(`document.querySelector('.np-units')`, { desc: 'the camera stage' });
+  await cdp.evaluate(`document.querySelector('.np-pick').click(); true`);
+  await cdp.waitForExpr(`document.querySelector('.sl-cams')`, { desc: 'the preset picker' });
+  await cdp.waitForExpr(CLICK_IN('.sl-cam', 'A001_C001_*'), { desc: 'the RED card' });
+  await cdp.waitForExpr(`document.querySelector('.np-units')`, { desc: 'back on the rig' });
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'cameras -> sound' });
+  await cdp.waitForExpr(`document.body.innerText.includes('No sound')`, { desc: 'the sound stage' });
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'sound -> shot list' });
+
+  // THE UPLOAD ITSELF: an example pack, which needs no account and no
+  // network, same picker DocumentStage always offers.
+  await cdp.waitForExpr(`document.body.innerText.includes('Skip')`, { desc: 'the shot list stage' });
+  await cdp.waitForExpr(CLICK_IN('.sp-example', 'Keep'), { desc: 'the Keep The Take example', timeout: 20000 });
+
+  // onPack fires and the flow advances itself, straight to Ready. There is
+  // no separate "what we read" stage on this road (see the file header).
+  await cdp.waitForExpr(`document.querySelector('.sl-receipt')`, { desc: 'the receipt' });
+  await sleep(300);
+  await cdp.shot(join(OUT_DIR, `19-home-director-pack-ready.${theme}.png`));
+  const receiptText = await cdp.evaluate(`document.querySelector('.sl-receipt').textContent`);
+  notes.push(`19-home-director-pack-ready.${theme}  ${receiptText}`);
+  notes.push(
+    check(
+      `the receipt shows the pack's scene/shot counts, not Skipped (${theme})`,
+      receiptText.includes('5') && receiptText.includes('137') && !receiptText.includes('Skipped'),
+      receiptText,
+    ),
+  );
+
+  await cdp.waitForExpr(CLICK_ACTION('Create project'), { desc: 'the one confirm' });
+  await cdp.waitForExpr(`!document.querySelector('.np')`, { desc: 'the flow closing' });
+  await sleep(600);
+
+  const projects = await cdp.evaluate(READ_PROJECTS);
+  const p = projects.find((x) => x.name === 'Keep The Take Shoot');
+  notes.push(`OBJECT (${theme}, director road, pack uploaded): ${JSON.stringify(p)}`);
+  notes.push(check(`the pack import produced the named project (${theme})`, !!p, JSON.stringify(projects)));
+  notes.push(
+    check(
+      `the draft's camera/fps overrides survived importScriptPack, not the pack's own defaults (${theme})`,
+      p?.camera === 'red' && p?.fps === 30,
+      `camera=${p?.camera} fps=${p?.fps}`,
+    ),
+  );
+  if (p) {
+    const slates = await cdp.evaluate(`
+      (async () => {
+        const { store } = await import('/src/store/index.ts');
+        return await store.listSlates(${JSON.stringify(p.id)});
+      })()
+    `);
+    notes.push(`19-home-director-pack-slates.${theme}  count=${slates.length}`);
+    notes.push(check(`one slate per scene in the pack reached the store (${theme})`, slates.length === 5, `got ${slates.length}`));
+  }
+}
+
+/**
  * HOME'S PODCAST ROW, walked end to end, twice per theme: once cold (no
  * prior podcast project on the phone, fps must FALL BACK to 24) and once with
  * a podcast project seeded at 25fps (fps must be INHERITED, which is the only
@@ -860,6 +938,7 @@ async function main() {
       // THE WIRING CHANGE ITSELF: Home's two picker rows, each opening the
       // staged sheet on its own road.
       await walkHomeDirector(cdp, theme, notes);
+      await walkHomeDirectorWithPack(cdp, theme, notes);
       await walkHomePodcast(cdp, theme, notes, null); // cold phone: falls back to 24
       await walkHomePodcast(cdp, theme, notes, 25); // seeded: inherits 25
     }
