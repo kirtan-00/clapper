@@ -78,7 +78,7 @@ function markRollHintSeen(): void {
 }
 
 /** Opens the Setup sheet. Three dots, not a chevron: the header control does
- *  not go anywhere, it offers a menu — same idiom and same construction as
+ *  not go anywhere, it offers a menu. Same idiom and same construction as
  *  ProjectsScreen's own row-level MoreMark, restated locally rather than
  *  imported so this file's one export stays the screen itself. */
 function MoreMark() {
@@ -386,7 +386,7 @@ export function ProjectScreen(props: {
         {/* THE ONE DOOR TO SETUP. Cameras, sound, tags, the footage folder,
             the call sheet loader and delete project all lived on this screen
             at full weight, alternating with the things you touch every scene
-            or every day — which is why the owner read the whole page as one
+            or every day: that is why the owner read the whole page as one
             endless scroll with nothing to skim. None of that admin belongs at
             this altitude: it is set once, at the top of a shoot, then left
             alone. It moves in here, behind the same "..." iOS spells "more"
@@ -584,7 +584,13 @@ export function ProjectScreen(props: {
             a wide field, which reads as the field's accessory rather than as
             the control. Now the field is sized to what actually goes in it -
             "14A", never a sentence - and the button carries its own verb at
-            full weight beside it. */}
+            full weight beside it.
+
+            STILL THE ONE PRIMARY CONTROL now that Setup and Export have moved
+            off this screen: it is the only `.btn--go` fill anywhere on it.
+            Wrap day, Clip log, Export and Backup all stay the outlined
+            SECONDARY face - each is pressed once a day at most, none of them
+            is what gets a brand new project moving. */}
         <div className="addline addline--scene">
           <input
             className="field"
@@ -656,7 +662,7 @@ export function ProjectScreen(props: {
           {/* TODAY'S CALL SHEET, re-attached. onPickCallSheet and its cs* state
               were left in place when the button that reaches them was pulled
               off the scene section in 1b49a4d, with a note that they would
-              move under this menu — this is that move; nothing about the
+              move under this menu. This is that move: nothing about the
               upload -> read -> match -> reorder path below changed. */}
           {slates && slates.length >= 2 && (
             <div className="section">
@@ -907,7 +913,7 @@ function ShootDaySection(props: {
   onWrapped: () => void;
   onUndone: (openDay: Project['openShootDay']) => void;
   /** Clip log + Export/Backup, rendered under the same "Shoot day" head as
-   *  Wrap day — see the call site's comment for why they no longer get their
+   *  Wrap day. See the call site's comment for why they no longer get their
    *  own section heads. */
   children?: ReactNode;
 }) {
@@ -2072,7 +2078,7 @@ function ExportBar(props: { project: Project }) {
     <>
       {/* FOUR EQUAL BUTTONS COLLAPSE TO ONE. PDF, Premiere, Resolve and CSV
           used to stand at the same weight as Backup and Wrap day, on a screen
-          that already had twelve other things standing at that weight — a
+          that already had twelve other things standing at that weight: a
           format picked maybe once a week competing for eye space with the
           button pressed six times a day. One "Export" opens a sheet naming
           what each of the four is actually for, which the four-button grid
@@ -2090,7 +2096,7 @@ function ExportBar(props: { project: Project }) {
         Export <DownMark />
       </button>
       {/* BACKUP DOES NOT MOVE. It is the only one of the five that works
-          signed out, offline and with no limit — the escape hatch for a
+          signed out, offline and with no limit: the escape hatch for a
           shoot with no cloud copy at all (see the comment on backupProject
           above). Burying the one thing that always works behind the same
           sheet as the four things that need a connection and an account
@@ -2156,7 +2162,7 @@ function ExportBar(props: { project: Project }) {
             </span>
           )}
           {/* ProCta's ProGate union has no 'pdf' case (ProCta.tsx is outside this
-              lane) — map it onto 'csv' so the upsell still renders. Only the
+              lane), so map it onto 'csv' so the upsell still renders. Only the
               `pro_interest` analytics label is affected; the plans/checkout it
               opens are format-agnostic. */}
           {capped && <ProCta gate={capped === 'pdf' ? 'csv' : capped} />}
