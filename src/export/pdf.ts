@@ -27,19 +27,52 @@ const RIGHT = A4[0] - MARGIN;
 // every name kept its role so the whole file did not have to be re-read.
 //
 // Chalk is deliberately warm off-white, never pure #fff, exactly as on screen.
-const PAPER = rgb(0.047, 0.051, 0.063); // --ink-950, the page itself
-const INK = rgb(0.925, 0.914, 0.882); // --chalk, primary text
-const GRAY = rgb(0.604, 0.616, 0.655); // --chalk-dim, secondary text
-// --chalk-faint lifted: on a backlit phone #61646e reads fine as tertiary, but
-// printed as toner on a black field it sits at 3.2:1 and disappears. This is
-// the same role, pulled up to ~4.9:1.
-const LIGHT = rgb(0.49, 0.502, 0.545);
-const RULE = rgb(0.137, 0.149, 0.184); // --line-soft, hairlines inside tables
-const GOLD = rgb(0.89, 0.698, 0.29); // --brass, GOLD tags
-const BAND = rgb(0.122, 0.133, 0.169); // --ink-800, take header band
-const HEADBAND = rgb(0.094, 0.102, 0.129); // --ink-850, column header row
-const ALT = rgb(0.071, 0.075, 0.098); // --ink-900, alternating detail row
-const STICK_DARK = rgb(0.078, 0.082, 0.102); // the dark teeth of the clapper stick
+//
+// NIGHT RAMP, SECOND PASS (2026-08-22). The old blue-black family
+// (--ink-950/900/850/800) moved to a neutral true-black one
+// (--paper/--paper-raised/--paper-sunk/--paper-sunk-deep). styles.css keeps
+// the numbered names alive as a "Legacy tonal bridge" - a fixed alias table,
+// not a promise that the old brightness ORDER survives - so each constant
+// below is mapped through that table by name, not by eyeballing which hex
+// looks darker:
+//   PAPER    = --ink-950 = --bg            = --paper           = #000000
+//   ALT      = --ink-900 = --surface       = --paper-raised    = #161616
+//   HEADBAND = --ink-850 = --surface-raised= --paper-sunk      = #0e0e0e
+//   BAND     = --ink-800 = --surface-sunk  = --paper-sunk-deep = #1c1c1c
+//   RULE     = --line-soft                 = --rule-soft       = #1c1c1c
+// (HEADBAND landing darker than ALT, when it did not before, is the bridge
+// table doing exactly what its own comment warns about - the numbered names
+// no longer sort by brightness the way they used to. This is what is
+// actually in styles.css now, not assumed.)
+const PAPER = rgb(0, 0, 0); // --ink-950 / --paper, the page itself: true black
+const INK = rgb(0.925, 0.914, 0.882); // --chalk / --ink, primary text (unchanged by this pass)
+// --chalk-dim / --ink-dim: 7.20:1 on the new #000 ground (computed, matches
+// styles.css's own comment for this exact pair) - clear of 4.5:1, no lift needed.
+const GRAY = rgb(0.6, 0.592, 0.576);
+// --chalk-faint / --ink-faint lifted, same reason as before: on a backlit
+// phone it is fine as tertiary, but printed as toner on a black field it
+// disappears. Its own base value now measures 3.30:1 on true black (was
+// 3.29:1 on the old #0c0d10 ground - same failure, restated), so it still
+// needs lifting. Computed by mixing --ink-faint toward --ink-dim until the
+// ratio clears 4.5:1: the midpoint lands at 4.97:1, matching the ~4.9:1 this
+// constant has always targeted.
+const LIGHT = rgb(0.49, 0.482, 0.467);
+const RULE = rgb(0.11, 0.11, 0.11); // --line-soft / --rule-soft, hairlines inside tables
+// --brass, retargeted onto the locked highlight #E6FF2B in commit 8d68128 -
+// "the gold is gone, the brass tokens move onto the locked highlight." GOLD
+// IS THE ACID NOW, not the retired brass #e3b24a this constant used to hold.
+// On night --brass-text is just var(--brass): near-black needs no separate
+// deep/type variant, because acid measures 18.70:1 straight on the page - the
+// exact reasoning GO below already uses for the mark's dot. Same numbers as
+// GO, written out again because this constant has a different job (GOLD
+// tags and the summary heading, not the mark).
+const GOLD = rgb(0.902, 1.0, 0.169);
+const BAND = rgb(0.11, 0.11, 0.11); // --ink-800 / --paper-sunk-deep, take header band
+const HEADBAND = rgb(0.055, 0.055, 0.055); // --ink-850 / --paper-sunk, column header row
+const ALT = rgb(0.086, 0.086, 0.086); // --ink-900 / --paper-raised, alternating detail row
+const STICK_DARK = rgb(0.078, 0.082, 0.102); // the dark teeth of the clapper stick, #14151a - the
+// clapper stripe (--stripe in styles.css) is deliberately NOT themed, so this
+// does not move with the ramp above.
 // The mark's lens dot. Was --go #38d178 (rgb 0.22,0.82,0.47), a signal-state
 // green retired everywhere outside styles.css on 2026-08-22 - it no longer
 // exists anywhere else in the product, so a mark still wearing it read as a
@@ -52,6 +85,38 @@ const STICK_DARK = rgb(0.078, 0.082, 0.102); // the dark teeth of the clapper st
 // app is in" (make-icons.mjs). Acid is what actually reads there: teal on
 // near-black measures 2.12:1 (fails), acid measures 18.70:1.
 const GO = rgb(0.902, 1.0, 0.169); // #E6FF2B, matching public/favicon.svg
+
+// PAPER moved from near-black (#0c0d10) to TRUE black (#000000) in this same
+// pass. GO's 18.70:1 above was already measured against true black, so that
+// number does not move. Checked whether the mark still needs its own tile
+// constant instead of reusing PAPER, because public/favicon.svg does NOT
+// actually draw on --paper: its <rect> is a hardcoded #111214, a colour that
+// was never wired to the CSS ramp (same as --stripe above - a few of this
+// product's dark fills are frozen on purpose) and was last touched in commit
+// 720b5ae, AFTER the true-black repaint landed, which only patched its two
+// dot fills onto acid and left the tile and slate hex values alone. So
+// favicon.svg's tile was already a different near-black from this file's old
+// PAPER (#111214 vs #0c0d10) before any of this - not a new mismatch.
+// Kept PAPER: this mark is meant to track the APP's live palette across
+// repaints (that is the whole point of this file), and reusing the real
+// --paper token does that; copying favicon.svg's frozen hex would not. The
+// slate body (BAND) still reads clearly on it - BAND and PAPER now differ by
+// 0.33 of a channel value (0.11 vs 0), MORE separation than the 0.26 they had
+// against the old #0c0d10, so the mark reads at least as well as before.
+// No new constant added for the TILE: drawMark() below keeps filling it with
+// PAPER. The mark's RULED LINES are a different story, below.
+
+// The mark's three ruled lines DO need their own constant. RULE above is
+// --line-soft / --rule-soft (#1c1c1c), and on the new ramp that lands on the
+// exact same hex as BAND (#1c1c1c too - the bridge really does send both
+// there, see the ramp comment above). RULE-on-BAND is how the mark draws its
+// lines, so at that exact spot the fill and the stroke coincide and the
+// lines vanish - not subtle, gone. RULE-on-PAPER and RULE-on-ALT elsewhere in
+// this file do not collide, so only the mark needed a fix. Uses the plain
+// --line / --rule (#262626) instead of the soft one, one step lighter than
+// BAND - the same relationship the lines have to the slate in
+// public/favicon.svg (#2d3034 on #1b1d20 there).
+const MARK_RULE = rgb(0.149, 0.149, 0.149); // --line / --rule, mark-only
 
 type Color = ReturnType<typeof rgb>;
 type Align = 'left' | 'right';
@@ -243,7 +308,7 @@ function drawMark(page: PDFPage, x: number, y: number, size: number): void {
       start: { x: px(222), y: py(yv) },
       end: { x: px(x2), y: py(yv) },
       thickness: 18 * u,
-      color: RULE,
+      color: MARK_RULE,
     });
   }
   page.drawCircle({ x: px(792), y: py(748), size: 52 * u, color: GO });
