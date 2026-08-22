@@ -353,6 +353,31 @@ export interface ProjectBundle {
   moments: Moment[];
 }
 
+/**
+ * The Projects list's per-project read: shot/scene/take counts, WITHOUT that
+ * project's moments — which `getBundle` always reads and the Projects list
+ * never needs. See `summarizeProject` in store/util.ts for what each field
+ * counts and why, and `Store.getProjectSummary` below for the cheap path to
+ * it (two indexed reads per project, not a full bundle).
+ */
+export interface ProjectSummary {
+  takeCount: number;
+  sceneCount: number;
+  /** Total shots across every scene's breakdown. 0 = no shot list anywhere
+   *  on this project — the one condition that turns the Projects list's
+   *  progress bar off rather than have it measure nothing. */
+  shotTotal: number;
+  /** Shots carrying at least one KEPT (status 'good') take. A discarded take
+   *  never counts — see TakeStatus below. */
+  shotsInCan: number;
+  /** Scenes not yet fully covered: no breakdown yet, or a breakdown that
+   *  isn't complete. Only meaningful (and only shown) when `shotTotal` > 0. */
+  scenesLeft: number;
+  /** Every scene's name, for the Projects search box — free, since the read
+   *  that builds the counts above already has them in hand. */
+  sceneNames: string[];
+}
+
 // ---------------------------------------------------------------- store ---
 
 export interface Store {
@@ -449,6 +474,13 @@ export interface Store {
   deleteMoment(id: string): Promise<void>;
 
   getBundle(projectId: string): Promise<ProjectBundle>;
+  /**
+   * The Projects list's cheap read: one project's take/scene/shot counts,
+   * computed WITHOUT reading its moments (see `ProjectSummary` above). Safe
+   * to call once per project in a list of thirty — unlike `getBundle`, which
+   * would make the Projects tab the slowest screen in the app.
+   */
+  getProjectSummary(projectId: string): Promise<ProjectSummary>;
 }
 
 // --------------------------------------------------------------- engine ---

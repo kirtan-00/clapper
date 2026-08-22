@@ -11,6 +11,7 @@ import {
   reclaimClipNumbers,
   reorderSlateList,
   shotOrderIndex,
+  summarizeProject,
 } from './util';
 import type { RawStore, SyncTable } from './outbox';
 
@@ -318,6 +319,16 @@ export async function openIdbStore(): Promise<Store & RawStore> {
       const moments = momentsPerTake.flatMap((ms) => ms.sort((a, b) => a.atMs - b.atMs));
       const bundle: ProjectBundle = { project, slates, takes, moments };
       return bundle;
+    },
+
+    // Projects list's cheap read: two indexed getAll's (slates, takes), no
+    // per-take fan-out into moments — that N+1 (one query per take) is
+    // getBundle's real cost, and something the Projects list never reads.
+    // See summarizeProject in util.ts for the actual counting.
+    async getProjectSummary(projectId) {
+      const slates = await db.getAllFromIndex('slates', 'byProject', projectId);
+      const takes = await db.getAllFromIndex('takes', 'byProject', projectId);
+      return summarizeProject(slates, takes);
     },
 
     // ---------------------------------------------------------- sync raw ---

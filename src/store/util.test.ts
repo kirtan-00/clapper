@@ -14,11 +14,12 @@ import {
   reclaimClipNumbers,
   shootDayLabel,
   shouldPromptForgottenWrap,
+  summarizeProject,
   undoWrapShootDay,
   wrapShootDay,
 } from './util';
 import type { TakeInput } from './util';
-import type { CameraUnit, CameraUnitLetter, Project, Take, TakeClip } from '../types';
+import type { CameraUnit, CameraUnitLetter, Project, Shot, Slate, Take, TakeClip } from '../types';
 
 /** A logged take. `shotId` is only written when given, matching a real row. */
 function take(
@@ -688,5 +689,116 @@ describe('buildTakeClips — shoot day side effects', () => {
     expect(project.cameras).toBeUndefined();
     expect(t.shootDay).toBe(shootDayLabel(5000));
     expect(after.openShootDay?.index).toBe(1);
+  });
+});
+
+// ------------------------------------------------------ summarizeProject ---
+// The Projects list's shots-in-the-can rule, pinned here rather than trusted
+// to eye — see the field doc on ProjectSummary (types.ts) and the function
+// itself (util.ts) for what each number means.
+
+describe('summarizeProject', () => {
+  function shot(id: string, order: number): Shot {
+    return { id, code: id, order };
+  }
+
+  function slate(id: string, name: string, shots?: Shot[]): Slate {
+    return { id, projectId: 'p1', name, order: 0, shots, createdAt: 0, updatedAt: 0 };
+  }
+
+  function takeOn(
+    id: string,
+    slateId: string,
+    status: 'good' | 'discarded',
+    shotId?: string,
+  ): Take {
+    return {
+      id,
+      slateId,
+      ...(shotId !== undefined ? { shotId } : {}),
+      projectId: 'p1',
+      number: 1,
+      clipName: `C${id}`,
+      status,
+      startedAt: 0,
+      durationMs: 1000,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+  }
+
+  it('has no denominator on a project with no shot list anywhere — shotTotal 0', () => {
+    const slates = [slate('s1', 'INT. DINER'), slate('s2', 'EXT. ROOF')];
+    const takes = [takeOn('t1', 's1', 'good'), takeOn('t2', 's2', 'good')];
+    const s = summarizeProject(slates, takes);
+    expect(s.shotTotal).toBe(0);
+    expect(s.shotsInCan).toBe(0);
+    expect(s.sceneCount).toBe(2);
+    expect(s.takeCount).toBe(2);
+  });
+
+  it('counts a shot in the can on its first KEPT take, never before', () => {
+    const slates = [slate('s1', 'INT. DINER', [shot('sh1', 0), shot('sh2', 1)])];
+    // sh1 has no take yet; sh2 has one, but only a discarded one.
+    const takes = [takeOn('t1', 's1', 'discarded', 'sh2')];
+    const s = summarizeProject(slates, takes);
+    expect(s.shotTotal).toBe(2);
+    expect(s.shotsInCan).toBe(0);
+  });
+
+  it('a DISCARDED take never counts, even alongside a kept one on the same shot', () => {
+    const slates = [slate('s1', 'INT. DINER', [shot('sh1', 0)])];
+    const takes = [takeOn('t1', 's1', 'discarded', 'sh1'), takeOn('t2', 's1', 'good', 'sh1')];
+    const s = summarizeProject(slates, takes);
+    expect(s.shotsInCan).toBe(1); // the kept take is what puts it in the can
+  });
+
+  it('a kept take logged against the bare scene (no shotId) covers no shot', () => {
+    const slates = [slate('s1', 'INT. DINER', [shot('sh1', 0)])];
+    const takes = [takeOn('t1', 's1', 'good')]; // no shotId
+    const s = summarizeProject(slates, takes);
+    expect(s.shotsInCan).toBe(0);
+  });
+
+  it('scenesLeft counts a scene with no breakdown yet, and a scene with an incomplete one', () => {
+    const slates = [
+      slate('s1', 'INT. DINER', [shot('sh1', 0), shot('sh2', 1)]), // 1/2 kept
+      slate('s2', 'EXT. ROOF'), // no breakdown at all
+      slate('s3', 'INT. HALL', [shot('sh3', 0)]), // fully kept
+    ];
+    const takes = [
+      takeOn('t1', 's1', 'good', 'sh1'),
+      takeOn('t2', 's3', 'good', 'sh3'),
+    ];
+    const s = summarizeProject(slates, takes);
+    expect(s.shotTotal).toBe(3);
+    expect(s.shotsInCan).toBe(2);
+    expect(s.scenesLeft).toBe(2); // s1 (partial) + s2 (no breakdown)
+  });
+
+  it('every shot kept leaves nothing left', () => {
+    const slates = [slate('s1', 'INT. DINER', [shot('sh1', 0), shot('sh2', 1)])];
+    const takes = [takeOn('t1', 's1', 'good', 'sh1'), takeOn('t2', 's1', 'good', 'sh2')];
+    const s = summarizeProject(slates, takes);
+    expect(s.shotsInCan).toBe(2);
+    expect(s.scenesLeft).toBe(0);
+  });
+
+  it('carries scene names for the search box, in slate order', () => {
+    const slates = [slate('s1', 'INT. DINER'), slate('s2', 'EXT. ROOF')];
+    const s = summarizeProject(slates, []);
+    expect(s.sceneNames).toEqual(['INT. DINER', 'EXT. ROOF']);
+  });
+
+  it('an empty project summarizes to all zeros, not a throw', () => {
+    const s = summarizeProject([], []);
+    expect(s).toEqual({
+      takeCount: 0,
+      sceneCount: 0,
+      shotTotal: 0,
+      shotsInCan: 0,
+      scenesLeft: 0,
+      sceneNames: [],
+    });
   });
 });

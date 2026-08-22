@@ -10,6 +10,7 @@ import {
   reclaimClipNumbers,
   reorderSlateList,
   shotOrderIndex,
+  summarizeProject,
 } from './util';
 import type { RawStore, SyncTable } from './outbox';
 
@@ -311,6 +312,16 @@ export function createLocalStore(): Store & RawStore {
       );
       const bundle: ProjectBundle = { project, slates, takes, moments };
       return bundle;
+    },
+
+    // Projects list's cheap read. Everything already lives in memory here, so
+    // "cheap" mostly means "still skip moments" — kept as its own method
+    // (rather than the UI calling getBundle and ignoring `.moments`) so both
+    // backends agree on exactly the same contract.
+    async getProjectSummary(projectId) {
+      const slates = [...tables.slates.values()].filter((s) => s.projectId === projectId);
+      const takes = [...tables.takes.values()].filter((t) => t.projectId === projectId);
+      return summarizeProject(slates, takes);
     },
 
     // ---------------------------------------------------------- sync raw ---

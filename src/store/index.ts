@@ -267,6 +267,7 @@ export const store: Store = {
   },
 
   getBundle: async (projectId) => (await backend()).getBundle(projectId),
+  getProjectSummary: async (projectId) => (await backend()).getProjectSummary(projectId),
 };
 
 // ---------------------------------------------------------------------------
