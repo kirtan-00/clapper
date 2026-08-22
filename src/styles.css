@@ -75,8 +75,17 @@
   --go-text: #0e7a43;    /* 5.18:1 on paper */
   --rec: #ff3b30;        /* cut / rolling / destructive */
   --rec-text: #c0261d;   /* 5.69:1 */
-  --brass: #d8b23c;      /* GOLD tag, highlights */
-  --brass-text: #7a5f0e; /* 5.80:1 */
+  --brass: #e6ff2b;      /* GOLD tag, highlights. THE GOLD IS GONE (2026-08-22):
+                            the owner ditched brass with the chrome UI it came
+                            from, so this signal moves onto the locked
+                            highlight. The token keeps its name because forty
+                            call sites read it and renaming them is churn with
+                            no user visible in it. */
+  --brass-text: #5a6600; /* 5.27:1 on paper, 5.80:1 on a card. The deep form of
+                            the highlight, not of the accent: the accent is
+                            what a PRIMARY ACTION looks like, and a gold take
+                            is a mark on a take, not a thing to press. Keeping
+                            them different colours keeps that difference. */
   --sound: #4f9fd1;      /* production-sound accent, never a fifth camera */
   --sound-text: #1f6187; /* 6.45:1 */
 
@@ -625,7 +634,9 @@
   --rec-fill: var(--rec);
   --rec-fill-ink: #ffffff;
   --brass-fill: var(--brass);
-  --brass-fill-ink: #241a02;
+  --brass-fill-ink: #000000; /* was #241a02, a brown mixed FROM the old brass.
+                                On acid the house rule is already true black,
+                                see --m-accent-ink above; 16.6:1. */
 
   /* A soft edge reads on charcoal where it would vanish on ivory. */
   --go-edge: color-mix(in srgb, var(--go) 45%, transparent);
