@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, ReactNode } from 'react';
 import type { CameraUnit, Project, Slate } from '../types';
 import { isMultiCam } from '../types';
 import { store } from '../store';
@@ -77,6 +77,20 @@ function markRollHintSeen(): void {
   }
 }
 
+/** Opens the Setup sheet. Three dots, not a chevron: the header control does
+ *  not go anywhere, it offers a menu — same idiom and same construction as
+ *  ProjectsScreen's own row-level MoreMark, restated locally rather than
+ *  imported so this file's one export stays the screen itself. */
+function MoreMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <circle cx="5.5" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="18.5" cy="12" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function ProjectScreen(props: {
   project: Project;
   /** The name of the screen BACK lands on. The router knows it; this does not. */
@@ -98,6 +112,10 @@ export function ProjectScreen(props: {
   const [renaming, setRenaming] = useState<Slate | null>(null);
   const [deleting, setDeleting] = useState<Slate | null>(null);
   const [deletingProject, setDeletingProject] = useState(false);
+  // The "..." sheet: everything touched once at the start of a shoot, not
+  // every time you open the project. See the SETUP sheet render below for
+  // what actually lives in here and why, in order.
+  const [setupOpen, setSetupOpen] = useState(false);
   const [hintSeen, setHintSeen] = useState<boolean>(() => rollHintSeen());
   const [liveMsg, setLiveMsg] = useState('');
   // Takes logged against the currently OPEN shoot day — what the "DAY 3 · 31
@@ -365,6 +383,26 @@ export function ProjectScreen(props: {
             )}
           </div>
         </div>
+        {/* THE ONE DOOR TO SETUP. Cameras, sound, tags, the footage folder,
+            the call sheet loader and delete project all lived on this screen
+            at full weight, alternating with the things you touch every scene
+            or every day — which is why the owner read the whole page as one
+            endless scroll with nothing to skim. None of that admin belongs at
+            this altitude: it is set once, at the top of a shoot, then left
+            alone. It moves in here, behind the same "..." iOS spells "more"
+            with everywhere else in this app (see ProjectsScreen's own
+            MoreMark on the row-level filing menu). */}
+        <button
+          type="button"
+          className="iconbtn"
+          aria-label="Project setup"
+          onClick={() => {
+            haptics.tap();
+            setSetupOpen(true);
+          }}
+        >
+          <MoreMark />
+        </button>
       </div>
 
       <Rail thin />
@@ -566,62 +604,112 @@ export function ProjectScreen(props: {
 
       {csShowSignIn && <SignInSheet onClose={() => setCsShowSignIn(false)} />}
 
+      {/* WRAP DAY, then check the clips, then hand off: the three things you do
+          at the end of a shoot day, one below the other, under ONE head - not
+          three sections each restating "Shoot day" / "Clip log" / "Hand off
+          to editor" in its own label before you reach the button under it.
+          Clip log keeps its old place directly above the handoff, because
+          that is when it gets used: the last thing you do before sending the
+          day to the editor is check that every clip is filed under the setup
+          it was actually shot on. */}
       <ShootDaySection
         project={project}
         dayTakeCount={dayTakeCount}
         onCommit={commitProject}
         onWrapped={() => setDayTakeCount(0)}
         onUndone={(openDay) => void refreshDayCount(openDay)}
-      />
-
-      {/* WRAP DAY, then check the clips, then hand off: the three things you do
-          at the end of a shoot day now sit together, in that order, one short
-          scroll from the top. They used to be split by four setup sections
-          with the handoff dead last, which was survivable while it was the
-          bottom of the page and stopped being so once the tab tray moved in
-          permanently underneath it. Clip log keeps its old place directly
-          above the handoff, because that is when it gets used: the last thing
-          you do before sending the day to the editor is check that every clip
-          is filed under the setup it was actually shot on. */}
-      <section className="section">
-        <div className="section__head">
-          <span className="label">Clip log</span>
-        </div>
-        <button type="button" className="btn btn--full" onClick={props.onOpenClipLog}>
-          Every clip rolled
-        </button>
-      </section>
-
-      <ExportBar project={project} />
-
-      {/* Setup and correction below the fold: touched once at the top of the
-          day, or when a number goes wrong, not at wrap. */}
-      <ClipCounterSection project={project} onCommit={commitProject} />
-
-      <SoundSection project={project} onCommit={commitProject} />
-
-      <QuickTagsSection project={project} onCommit={commitProject} />
-
-      <FootageFolderSection project={project} onCommit={commitProject} />
-
-      <TcCalculator project={project} />
-
-      {/* DELETE THE PROJECT lives here, at the bottom of its own detail screen,
-          which is where iOS puts destroy (delete-contact, delete-album). It used
-          to render inside every row of the projects LIST, at rest, next to a
-          card you tap to open - the same hazard the scene cards had. */}
-      <section className="section">
+      >
         <button
           type="button"
-          className="btn btn--danger btn--full"
-          onClick={() => {
-            haptics.tap();
-            setDeletingProject(true);
-          }}
+          className="btn btn--full"
+          style={{ marginTop: 8 }}
+          onClick={props.onOpenClipLog}
         >
-          Delete project
+          Every clip rolled
         </button>
-      </section>
+        <ExportBar project={project} />
+      </ShootDaySection>
+
+      {/* THE SETUP SHEET. Everything below used to run down this screen at the
+          same weight as SCENES and SHOOT DAY - the two things actually touched
+          every scene or every day - which is the "endless scroll" the owner
+          flagged twice. None of it is gone or reduced: cameras and clip
+          counters, production sound, quick tags, the footage folder link,
+          today's call sheet and delete project are all still one tap away,
+          behind the header's "..." Order matches the owner's spec exactly,
+          with one addition: the timecode calculator, which the spec did not
+          name but which still has to live SOMEWHERE (a re-layout moves every
+          existing control, it deletes none) - it keeps its old position
+          directly after the footage folder, ahead of the call sheet loader. */}
+      {setupOpen && (
+        <Sheet title="Setup" onClose={() => setSetupOpen(false)}>
+          <ClipCounterSection project={project} onCommit={commitProject} />
+
+          <SoundSection project={project} onCommit={commitProject} />
+
+          <QuickTagsSection project={project} onCommit={commitProject} />
+
+          <FootageFolderSection project={project} onCommit={commitProject} />
+
+          <TcCalculator project={project} />
+
+          {/* TODAY'S CALL SHEET, re-attached. onPickCallSheet and its cs* state
+              were left in place when the button that reaches them was pulled
+              off the scene section in 1b49a4d, with a note that they would
+              move under this menu — this is that move; nothing about the
+              upload -> read -> match -> reorder path below changed. */}
+          {slates && slates.length >= 2 && (
+            <div className="section" style={{ marginTop: 'var(--sp-7)' }}>
+              <label className={`btn btn--full sp-upload${csBusy ? ' btn--disabled' : ''}`}>
+                {csPhase === 'reading'
+                  ? 'Reading call sheet…'
+                  : csPhase === 'thinking'
+                    ? 'Matching scenes…'
+                    : "Today's call sheet"}
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  hidden
+                  disabled={csBusy}
+                  onChange={onPickCallSheet}
+                />
+              </label>
+              {csError && (
+                <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 8 }}>
+                  {csError}
+                </span>
+              )}
+              {csNote && !csError && (
+                <span className="section__note" style={{ display: 'block', marginTop: 8 }}>
+                  {csNote}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* DELETE THE PROJECT stays the last item in the menu, which is where
+              iOS puts destroy inside a settings surface (delete-contact,
+              delete-album) - unchanged from where it sat at the bottom of the
+              page, only now the page it is the bottom of is this sheet. Its
+              confirmation is untouched: `deletingProject` still drives the
+              same Confirm rendered below, at the screen level, so a second
+              sheet stacks over this one exactly the way scene delete already
+              stacks a Confirm over the rename sheet. */}
+          <section className="section">
+            <button
+              type="button"
+              className="btn btn--danger btn--full"
+              onClick={() => {
+                haptics.tap();
+                setSetupOpen(false);
+                setDeletingProject(true);
+              }}
+            >
+              Delete project
+            </button>
+          </section>
+        </Sheet>
+      )}
 
       {renaming && (
         <RenameSheet
@@ -818,6 +906,10 @@ function ShootDaySection(props: {
   onCommit: (patch: Partial<Project>) => Promise<void>;
   onWrapped: () => void;
   onUndone: (openDay: Project['openShootDay']) => void;
+  /** Clip log + Export/Backup, rendered under the same "Shoot day" head as
+   *  Wrap day — see the call site's comment for why they no longer get their
+   *  own section heads. */
+  children?: ReactNode;
 }) {
   const { project } = props;
   const day = project.openShootDay;
@@ -897,6 +989,7 @@ function ShootDaySection(props: {
           {undoError}
         </span>
       )}
+      {props.children}
       {confirming && (
         <Confirm
           title={`Wrap ${dayLabel}?`}
@@ -1858,9 +1951,15 @@ export function exportBuildFailureMessage(kind: 'pdf' | 'xml' | 'resolve' | 'csv
 function ExportBar(props: { project: Project }) {
   const { session } = useSession();
   const [busy, setBusy] = useState<string | null>(null);
+  // PDF/Premiere/Resolve/CSV now live inside the Export sheet, so their error
+  // and note read there. Backup stays a visible button on the main screen (see
+  // the comment above its button below), so its own failure gets its own line
+  // next to its own button rather than one hidden behind a sheet it isn't in.
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
   const [showSignIn, setShowSignIn] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   // Which export got refused for being out of free uses — drives the "go Pro"
   // CTA. Widened to include 'pdf' now that PDF is gated too; ProCta.tsx's
   // `ProGate` union (outside this lane) doesn't have a 'pdf' case yet, so the
@@ -1873,15 +1972,14 @@ function ExportBar(props: { project: Project }) {
   // escape hatch for the shoot that has no cloud copy at all (see backup.ts).
   async function backupProject() {
     setBusy('backup');
-    setError(null);
-    setNote(null);
+    setBackupError(null);
     try {
       const bundle = await store.getBundle(props.project.id);
       const base = slug(props.project.name);
       const blob = buildBackupBlob(bundle);
       await shareBlob(blob, `${base}-backup-${exportDateStamp(bundle.project)}.json`, 'application/json');
     } catch {
-      setError('Could not build the backup file.');
+      setBackupError('Could not build the backup file.');
     } finally {
       setBusy(null);
     }
@@ -1971,57 +2069,106 @@ function ExportBar(props: { project: Project }) {
   }
 
   return (
-    <section className="section">
-      <div className="section__head">
-        <span className="label">Hand off to editor</span>
-      </div>
-      {/* TWO columns, and `minmax(0, 1fr)` not `1fr`. Four across overflowed the
-          phone: a bare `1fr` track floors at the button's MIN-CONTENT width, so
-          "Premiere" and "Resolve" refused to shrink and pushed CSV clean off the
-          right edge (measured: 396px of content in a 390px viewport, and the
-          whole page scrolled sideways to reach a button that should have been
-          under your thumb). Two columns also buys every target real width,
-          which is what this row wants on a set anyway. */}
-      <div className="formgrid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('pdf')}>
-          {busy === 'pdf' ? '...' : 'PDF'}
-        </button>
-        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('xml')}>
-          {busy === 'xml' ? '...' : 'Premiere'}
-        </button>
-        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('resolve')}>
-          {busy === 'resolve' ? '...' : 'Resolve'}
-        </button>
-        <button type="button" className="btn" disabled={busy !== null} onClick={() => void exportGated('csv')}>
-          {busy === 'csv' ? '...' : 'CSV'}
-        </button>
-      </div>
+    <>
+      {/* FOUR EQUAL BUTTONS COLLAPSE TO ONE. PDF, Premiere, Resolve and CSV
+          used to stand at the same weight as Backup and Wrap day, on a screen
+          that already had twelve other things standing at that weight — a
+          format picked maybe once a week competing for eye space with the
+          button pressed six times a day. One "Export" opens a sheet naming
+          what each of the four is actually for, which the four-button grid
+          never had room to say. */}
       <button
         type="button"
         className="btn btn--full"
-        style={{ marginTop: 10 }}
+        style={{ marginTop: 8 }}
+        disabled={busy !== null}
+        onClick={() => {
+          haptics.tap();
+          setExportOpen(true);
+        }}
+      >
+        Export <DownMark />
+      </button>
+      {/* BACKUP DOES NOT MOVE. It is the only one of the five that works
+          signed out, offline and with no limit — the escape hatch for a
+          shoot with no cloud copy at all (see the comment on backupProject
+          above). Burying the one thing that always works behind the same
+          sheet as the four things that need a connection and an account
+          would hide the escape hatch exactly when it's needed most. */}
+      <button
+        type="button"
+        className="btn btn--full"
+        style={{ marginTop: 8 }}
         disabled={busy !== null}
         onClick={() => void backupProject()}
       >
         {busy === 'backup' ? '...' : 'Backup'}
       </button>
-      {error && (
-        <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 10 }}>
-          {error}
+      {backupError && (
+        <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 8 }}>
+          {backupError}
         </span>
       )}
-      {/* ProCta's ProGate union has no 'pdf' case (ProCta.tsx is outside this
-          lane) — map it onto 'csv' so the upsell still renders. Only the
-          `pro_interest` analytics label is affected; the plans/checkout it
-          opens are format-agnostic. */}
-      {capped && <ProCta gate={capped === 'pdf' ? 'csv' : capped} />}
-      {note && !error && (
-        <span className="section__note" style={{ display: 'block', marginTop: 10 }}>
-          {note}
-        </span>
+
+      {exportOpen && (
+        <Sheet title="Export" onClose={() => setExportOpen(false)}>
+          <div className="stack">
+            <button
+              type="button"
+              className="btn sp-example btn--full"
+              disabled={busy !== null}
+              onClick={() => void exportGated('pdf')}
+            >
+              <b>{busy === 'pdf' ? '...' : 'PDF'}</b>
+              <span>Print and hand round on set.</span>
+            </button>
+            <button
+              type="button"
+              className="btn sp-example btn--full"
+              disabled={busy !== null}
+              onClick={() => void exportGated('xml')}
+            >
+              <b>{busy === 'xml' ? '...' : 'Premiere'}</b>
+              <span>Timeline, XML.</span>
+            </button>
+            <button
+              type="button"
+              className="btn sp-example btn--full"
+              disabled={busy !== null}
+              onClick={() => void exportGated('resolve')}
+            >
+              <b>{busy === 'resolve' ? '...' : 'Resolve'}</b>
+              <span>Timeline, FCPXML.</span>
+            </button>
+            <button
+              type="button"
+              className="btn sp-example btn--full"
+              disabled={busy !== null}
+              onClick={() => void exportGated('csv')}
+            >
+              <b>{busy === 'csv' ? '...' : 'CSV'}</b>
+              <span>Spreadsheet.</span>
+            </button>
+          </div>
+          {error && (
+            <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 12 }}>
+              {error}
+            </span>
+          )}
+          {/* ProCta's ProGate union has no 'pdf' case (ProCta.tsx is outside this
+              lane) — map it onto 'csv' so the upsell still renders. Only the
+              `pro_interest` analytics label is affected; the plans/checkout it
+              opens are format-agnostic. */}
+          {capped && <ProCta gate={capped === 'pdf' ? 'csv' : capped} />}
+          {note && !error && (
+            <span className="section__note" style={{ display: 'block', marginTop: 12 }}>
+              {note}
+            </span>
+          )}
+        </Sheet>
       )}
       {showSignIn && <SignInSheet onClose={() => setShowSignIn(false)} />}
-    </section>
+    </>
   );
 }
 
