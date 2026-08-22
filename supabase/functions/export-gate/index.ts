@@ -154,9 +154,26 @@ Deno.serve(async (req: Request) => {
   // the worse failure.
   const { data: profile } = await admin
     .from("profiles")
-    .select("is_pro, pro_until")
+    .select("is_pro, pro_until, is_suspended")
     .eq("user_id", userId)
     .maybeSingle();
+
+  // A booted account is refused before quota is even looked at. Pro or free,
+  // used or unused, none of it matters once is_suspended is true. `reason:
+  // "suspended"` is a new value distinct from "quota_exceeded" and "auth": the
+  // caller has a valid session and uses left, they are simply not allowed to
+  // spend them, and the app should say that plainly rather than invent an
+  // "offline" story for it. Sent at HTTP 200 like quota_exceeded/pro_only
+  // below, not as an error status. The client only reads the JSON body's
+  // `reason` field on a 2xx reply (see src/net/quota.ts), so a non-2xx here
+  // would collapse to a generic "unreachable"/"http_error" and hide the real
+  // answer from the person it happened to.
+  if (profile?.is_suspended === true) {
+    return new Response(
+      JSON.stringify({ allow: false, reason: "suspended" }),
+      { headers },
+    );
+  }
 
   const proLapsed = profile?.pro_until != null &&
     new Date(profile.pro_until as string).getTime() <= Date.now();
