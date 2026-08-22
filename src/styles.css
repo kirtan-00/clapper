@@ -1464,6 +1464,648 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 .sp-example b { font-size: var(--t-row); font-weight: 600; }
 .sp-example span { font-size: var(--t-secondary); color: var(--chalk-dim); }
 
+/* ================================================== SHOTLIST, IN STAGES ====
+   src/ui/ShotlistSheet.tsx. Five stages inside ONE sheet: the document, what
+   we read, frame rate, camera, name and go.
+
+   THE SELECTED STATE IS THE ACCENT, NOT GREEN. Every existing segmented
+   control in the app (.camcount__opt--on) marks its choice in --go-tint /
+   --go-text, and on this sheet that would be a lie: --go means rolling-ready,
+   and a highlighted frame rate is a preference, not a camera about to turn
+   over. Same correction .dt-sheet .chip--on and .cambadge already carry (see
+   skin/detail.css). The base rule holds the LIGHT pair — --m-accent-ink is
+   type-legible ink and the bright --m-accent is a fill behind it — and the
+   night block swaps to the bright value as type, which is the split every
+   signal token in this file makes. Neither colour is only ever defined inside
+   the [data-theme] block.
+
+   NO NEW BUTTON. Everything here is a card or a segment; .btn, .btn--go and
+   .btn--ghost are used exactly as shipped so they inherit whatever the button
+   system does next. */
+
+/* ---- where you are ------------------------------------------------------
+   Five bars and a count. Deliberately not five numbered circles: the stages
+   are not addressable, you cannot jump to stage four, and a control-looking
+   indicator that does not respond to a tap is worse than a bar that never
+   claimed to. */
+.sl-rail {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+.sl-rail__bars {
+  display: flex;
+  flex: 1;
+  gap: var(--sp-1);
+}
+.sl-rail__bar {
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunk);
+  transition: background var(--dur-state) var(--ease-out);
+}
+.sl-rail__bar[data-on] { background: var(--m-accent-deep); }
+/* The UNLIT segments have to be visible or the rail stops being a rail: on
+   night, --surface-raised is the sheet's own surface, so "2 of 5" rendered as
+   two lit bars floating in nothing and the flow looked like it had two stages.
+   --line is the quietest thing in the palette that still draws. */
+[data-theme='night'] .sl-rail__bar { background: var(--line); }
+[data-theme='night'] .sl-rail__bar[data-on] { background: var(--m-accent); }
+.sl-rail__step {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+}
+
+/* ---- the stage itself ---------------------------------------------------
+   Remounted per stage, so this replays. It travels 12px against the direction
+   of travel, which is what makes BACK read as back rather than as another
+   forward step. The global reduce-motion rules kill the animation outright;
+   nothing here is load-bearing. */
+.sl-panel { animation: sl-in var(--dur-move) var(--ease-out); }
+.sl-panel[data-dir='back'] { animation-name: sl-in-back; }
+@keyframes sl-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sl-in-back {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Scoped to .sl on purpose: .camnote is declared further down this file and
+   would otherwise win the cascade on equal specificity and put its own top
+   margin back. */
+.sl .sl-lede { margin: 0 0 var(--sp-4); }
+
+/* ---- first open ---------------------------------------------------------
+   src/ui/Onboarding.tsx. The rail, the panel and the sticky footer above are
+   the SHARED stage chrome and are not restated here; this is only what the two
+   stages add on top of it, and it is deliberately five rules.
+
+   NO NEW BUTTON. The footer is `.btn`, `.btn--go` and `.btn--ghost` exactly as
+   shipped, so the tally lamp arrives with them: the primary burns brass at
+   rest and brighter under a thumb, and the escape beside it does not. Which
+   means A SOLID BRASS FILL NEVER APPEARS ON THIS FLOW AT ALL - the accent is
+   only ever a line here (the lit rail segment, the ring around a step number,
+   the lamp down a leading edge), because a brass fill in this app means one
+   thing and it is a gold take. */
+.ob-say {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--t-title);
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
+  line-height: 1.25;
+  color: var(--text);
+}
+/* .camnote is declared further down this file and would otherwise win on equal
+   specificity and put its own top margin back - same reason .sl-lede is
+   scoped. */
+.ob .ob-note { margin: 0 0 var(--sp-3); font-size: var(--t-secondary); }
+.ob .ob-fine { margin: var(--sp-5) 0 0; font-size: 12px; }
+
+/* The instructions. NUMBERED, and numbered in the ring rather than with a bare
+   list marker, because these steps are carried out in another app - the Share
+   sheet, the browser menu - with the phone in one hand and this screen already
+   gone from it. "I was on two" has to survive the trip. */
+.ob-steps {
+  margin: var(--sp-4) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ob-step;
+  display: grid;
+  gap: var(--sp-3);
+}
+.ob-steps li {
+  counter-increment: ob-step;
+  position: relative;
+  padding-left: 36px;
+  min-height: 24px;
+  font-size: var(--t-secondary);
+  line-height: 1.45;
+  color: var(--text);
+}
+.ob-steps li::before {
+  content: counter(ob-step);
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  /* Brass as an EDGE and as TYPE. --m-accent-text is the deep value tuned for
+     ivory; the night block below swaps both to the bright one, which is the
+     split every accent in this file makes. */
+  box-shadow: inset 0 0 0 1px var(--m-accent-deep);
+  color: var(--m-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+}
+[data-theme='night'] .ob-steps li::before {
+  box-shadow: inset 0 0 0 1px var(--m-accent);
+  color: var(--m-accent);
+}
+.ob-steps b { font-weight: 650; }
+
+/* The footer weighting used to be patched HERE, for this flow only
+   (`.ob .sl-actions .btn--ghost { flex: 0 1 30% }`), because
+   `.sheet__actions .btn { flex: 1 }` beat the shared `.sl-actions` rule at
+   equal specificity and split every staged footer down the middle. That fixed
+   one of the three flows and left the other two 50/50 — so the fix now lives
+   on `.sl-actions` itself, one class deeper, and all three weight the same.
+   See the rule at the end of the staged-flow block below. */
+
+/* Links inside this flow. With no `a` rule anywhere in the app, the Terms and
+   Privacy lines were rendering in user-agent BLUE - a colour that appears
+   nowhere in this palette, on the one surface a new user sees first. Ink plus
+   a rule under it says "link" without inventing a fifth colour. */
+.ob a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--m-accent-text);
+}
+[data-theme='night'] .ob a { text-decoration-color: var(--m-accent); }
+/* Inherits the step's colour rather than carrying one, so it is never a green
+   icon inside a brass ring. */
+.ob-glyph { display: inline-block; vertical-align: -2px; color: inherit; }
+
+/* ---- stage one: the document -------------------------------------------
+   A target, not a button in a form. It is the only thing on the stage above
+   the divider, so it gets the height to say so. */
+.sl-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 108px;
+  padding: var(--sp-5);
+  border-radius: var(--radius);
+  border: 1px solid var(--m-accent-deep);
+  background: color-mix(in srgb, var(--m-accent) 16%, transparent);
+  color: var(--m-accent-ink);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur-state) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.sl-drop:active { transform: scale(0.99); }
+.sl-drop--over { background: color-mix(in srgb, var(--m-accent) 30%, transparent); }
+.sl-drop__title { font-size: var(--t-title); font-weight: 650; letter-spacing: var(--track-tight); }
+.sl-drop__sub { font-size: var(--t-secondary); line-height: 1.4; opacity: 0.82; }
+[data-theme='night'] .sl-drop {
+  border-color: var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 12%, transparent);
+  color: var(--m-accent);
+}
+[data-theme='night'] .sl-drop--over { background: color-mix(in srgb, var(--m-accent) 20%, transparent); }
+
+.sl .sl-quota { text-align: center; margin: var(--sp-3) 0 0; }
+.sl-signin { margin-top: var(--sp-2); }
+.sl-examples { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+
+/* ---- the wait, spent counting ------------------------------------------
+   Three rows that fill in. A row that has landed goes to full ink and its
+   number to the accent; a row still waiting keeps a dash and stays dim, so
+   the panel reads top to bottom as a thing in progress without a single
+   moving part. That is the point: there is no spinner here. */
+.sl-tally {
+  padding: var(--sp-5) 0 var(--sp-2);
+}
+.sl-tally__act {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--text);
+}
+.sl-tally__rows { margin: 0 0 var(--sp-4); }
+.sl-tally__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  color: var(--text-faint);
+  transition: color var(--dur-state) var(--ease-out);
+}
+.sl-tally__row:last-child { border-bottom: none; }
+.sl-tally__row dt { font-size: var(--t-secondary); }
+.sl-tally__row dd { margin: 0; font-size: var(--t-row); font-weight: 600; }
+.sl-tally__row[data-on] { color: var(--text-dim); }
+.sl-tally__row[data-on] dd { color: var(--m-accent-text); }
+[data-theme='night'] .sl-tally__row[data-on] dd { color: var(--m-accent); }
+
+/* ---- stage two: what we read -------------------------------------------- */
+.sl-count {
+  display: flex;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+.sl-count__cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+.sl-count__cell b {
+  font-family: var(--font-mono);
+  font-size: var(--t-display);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: var(--track-tighter);
+  color: var(--text);
+}
+
+.sl-scenes {
+  list-style: none;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+}
+.sl-scene {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.sl-scene:last-child { border-bottom: none; }
+.sl-scene__ref {
+  flex: none;
+  min-width: 42px;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.sl-scene__say {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sl-scene__say b {
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sl-scene__say span {
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The shot count is the column the eye runs down, so it is the one thing on
+   the row allowed to be a number and nothing else. */
+.sl-scene__n {
+  flex: none;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+/* The tail of a long list, said rather than scrolled. */
+.sl-scene--more {
+  justify-content: center;
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+  gap: var(--sp-1);
+}
+
+.sl-wrong {
+  width: 100%;
+  min-height: var(--tap);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+.sl-wrong:active { background: var(--surface-raised); color: var(--text); }
+
+/* ---- stage three: frame rate -------------------------------------------
+   Eight targets, two up. 66px is not decoration: this is tapped standing,
+   one-handed, in sun, and 23.976 next to 29.97 is the pair that punishes a
+   near-miss for the rest of the shoot. */
+.sl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+.sl-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 66px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--text-dim);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+.sl-opt:active { transform: scale(0.97); }
+.sl-opt b {
+  font-size: var(--t-row);
+  font-weight: 700;
+  color: var(--text);
+}
+.sl-opt span { font-size: var(--t-caption); }
+.sl-opt[data-on] {
+  border-color: var(--m-accent-deep);
+  background: color-mix(in srgb, var(--m-accent) 20%, transparent);
+  color: var(--m-accent-ink);
+}
+.sl-opt[data-on] b { color: var(--m-accent-ink); }
+[data-theme='night'] .sl-opt[data-on] {
+  border-color: var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 14%, transparent);
+  color: var(--m-accent);
+}
+[data-theme='night'] .sl-opt[data-on] b { color: var(--m-accent); }
+
+/* ---- stage four: camera -------------------------------------------------
+   A card per preset, and the card's second line is the FILENAME it produces.
+   That string is the whole decision: nobody knows which of two menu entries
+   their camera is, and everybody recognises A001_C001_* off a card. */
+.sl-cams {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.sl-cam {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+  width: 100%;
+  min-height: 62px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+.sl-cam:active { transform: scale(0.99); }
+.sl-cam__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.sl-cam__head b {
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text);
+}
+.sl-cam__eg {
+  font-size: var(--t-caption);
+  color: var(--text-dim);
+}
+.sl-cam[data-on] {
+  border-color: var(--m-accent-deep);
+  background: color-mix(in srgb, var(--m-accent) 20%, transparent);
+}
+.sl-cam[data-on] .sl-cam__head b { color: var(--m-accent-ink); }
+.sl-cam[data-on] .sl-cam__eg { color: var(--m-accent-ink); opacity: 0.8; }
+[data-theme='night'] .sl-cam[data-on] {
+  border-color: var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 14%, transparent);
+}
+[data-theme='night'] .sl-cam[data-on] .sl-cam__head b,
+[data-theme='night'] .sl-cam[data-on] .sl-cam__eg { color: var(--m-accent); }
+
+.sl .sl-camnote { margin: var(--sp-3) 0 0; }
+
+/* ---- stage five: name and go ------------------------------------------- */
+.sl-receipt {
+  margin: var(--sp-5) 0 0;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+.sl-receipt__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.sl-receipt__row:last-child { border-bottom: none; }
+.sl-receipt__row dt { font-size: var(--t-caption); color: var(--text-dim); }
+.sl-receipt__row dd {
+  margin: 0;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+/* THE ACTIONS STICK. The camera stage is twelve cards and the scenes list can
+   be six rows plus a tally; on a 390px phone that pushes the way forward off
+   the bottom, and a stage sequence whose Continue has to be hunted for is a
+   form again. Sticky against the sheet's own scroller, bled to the sheet's
+   edges and painted in the sheet's own surface so cards pass cleanly under it.
+   `bottom` is the negative of the body's bottom padding, so this bar OWNS that
+   padding rather than floating above it.
+
+   Back is a backout and Continue is the sequence carrying on, so they are not
+   the same size. Same move .sheet__actions--weighted already makes. */
+.sl-actions {
+  position: sticky;
+  bottom: calc(-1 * (var(--safe-bottom) + var(--sp-6)));
+  z-index: 1;
+  margin: var(--sp-5) calc(-1 * var(--sp-4)) 0;
+  padding: var(--sp-3) var(--sp-4) calc(var(--safe-bottom) + var(--sp-6));
+  background: var(--surface);
+  box-shadow: 0 -1px 0 var(--hairline-soft);
+}
+/* AND THE WEIGHTING HOLDS IN ALL THREE FLOWS. `.sheet__actions .btn { flex: 1 }`
+   is declared later in this file at the same specificity as a plain
+   `.sl-actions .btn--ghost`, so it used to win and split every staged footer
+   50/50 — which is how the shot-division flow ended up with an even Back /
+   Continue while first-open carried a private `.ob` patch to weight its own.
+   One class deeper settles it for everybody, and the private patch is gone. */
+.sheet__actions.sl-actions .btn--ghost { flex: 0 1 34%; }
+/* Unless it is the only thing down there. A stage whose footer is one backout
+   (the shotlist's first stage, the camera picker) has no primary to be a third
+   of — a lone third-width button with two thirds of nothing beside it is a
+   layout that lost an argument. */
+.sheet__actions.sl-actions .btn--ghost:only-child { flex: 1; }
+
+/* ---- new project: the rig ----------------------------------------------
+   src/ui/NewProjectSheet.tsx, stage three. Everything else on that flow is
+   the shared stage chrome and the .sl-* option cards above; THIS is the part
+   that is genuinely new, because no other flow has a list of things you can
+   add to and take away from before the record exists.
+
+   A unit card is the same quiet surface + hairline as an .sl-opt. No leading
+   edge on it, or on anything else in this app — the owner rejected that
+   treatment on buttons twice and it does not get reintroduced here on a
+   card. The letter badge already carries the ring-not-fill accent (see
+   .np-unit__letter below), and that is where the sound unit's distinction
+   from a camera lives too: SoundStage passes it the sound colour instead of
+   the accent, which is why a card never needs its own edge to say which kind
+   it is. */
+.np-units {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.np-unit {
+  padding: var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+.np-unit--sound { margin-top: var(--sp-4); }
+
+.np-unit__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+/* A ring, not a fill — same reasoning as .dt-sheet's .camunit__badge. */
+.np-unit__letter {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--t-row);
+  color: var(--m-accent-text);
+  background: none;
+  border: 1px solid var(--m-accent-text);
+}
+.np-unit__eg {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Taking a camera back off. Quiet, because it is not the thing you came here
+   to do — but a real word rather than a glyph, because an × on a card that
+   also carries a text field is a guess. */
+.np-unit__drop {
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--text-dim);
+  font-size: var(--t-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+.np-unit__drop:active { background: var(--surface-sunk); color: var(--text); }
+
+/* The camera row. It opens a list of preset CARDS rather than being a select,
+   because the decision is made by recognising a filename, not a menu name. */
+.np-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--tap);
+  margin-top: var(--sp-4);
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out);
+}
+.np-pick:active { transform: scale(0.99); background: var(--surface-sunk); }
+.np-pick .label { flex: none; }
+.np-pick__val {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.np-pick__go {
+  flex: none;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--m-accent-text);
+}
+
+.np .np-unit__op { margin: var(--sp-4) 0 0; }
+
+/* ONE TAP, and it names the letter it is about to make. Dashed because it is
+   the outline of a card that does not exist yet. */
+.np-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 52px;
+  margin-top: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--line);
+  background: none;
+  color: var(--m-accent-text);
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), background var(--dur-state) var(--ease-out);
+}
+.np-add:active { transform: scale(0.99); background: var(--surface-raised); }
+.np-add__plus { font-size: var(--t-row); font-weight: 700; line-height: 1; }
+
+/* .camnote is declared further down this file and would otherwise win on equal
+   specificity and put its own top margin back — same reason .sl-lede is
+   scoped. */
+.np .np-full { margin: var(--sp-3) 0 0; }
+.np .np-approx { margin: var(--sp-4) 0 0; }
+.np-name { font-size: var(--t-row); }
+.np-receipt__who { color: var(--text-dim); text-transform: none; letter-spacing: 0; }
+
 /* ------------------------------------------------------------- guide ---
    The how-to takes the whole window, not a sheet: it is read standing up,
    on a phone, one-handed. Sticky masthead + jump chips, one internal
@@ -4315,72 +4957,6 @@ select.field {
 .minitake__del:active { background: var(--ink-950); color: var(--rec-text); border-color: var(--rec-text); }
 
 /* ===================================================================
-   INSTALL NUDGE  (src/ui/InstallNudge.tsx)
-   Inline banner (not fixed-position) so it drops cleanly into normal
-   document flow wherever it's mounted, without fighting .toast/.sheet
-   for screen real estate. Scoped entirely to .installnudge*.
-   =================================================================== */
-.installnudge {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-3);
-  margin: 0 0 var(--sp-4);
-  padding: var(--sp-4);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--m-accent);
-  border-radius: var(--radius);
-  background: var(--ink-900);
-  animation: installnudge-in var(--dur-move) var(--ease-out);
-}
-@keyframes installnudge-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.installnudge__body { flex: 1; min-width: 0; }
-.installnudge__title {
-  margin: 0 0 var(--sp-1);
-  font-weight: 600;
-  font-size: var(--t-row);
-  color: var(--chalk);
-}
-.installnudge__msg {
-  margin: 0;
-  font-size: var(--t-secondary);
-  line-height: 1.4;
-  color: var(--chalk-dim);
-}
-.installnudge__msg b { color: var(--chalk); font-weight: 600; }
-.installnudge__glyph {
-  display: inline-block;
-  vertical-align: -2px;
-  color: var(--m-accent-text);
-}
-.installnudge__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--sp-2);
-  flex: none;
-}
-.installnudge__install {
-  min-height: 36px;
-  padding: 0 var(--sp-4);
-  font-size: var(--t-secondary);
-}
-.installnudge__dismiss {
-  width: var(--tap);
-  height: var(--tap);
-  margin: -10px -8px 0 0; /* enlarge the tap target without enlarging the visual footprint */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: var(--t-body);
-  line-height: 1;
-  border-radius: var(--radius-sm);
-}
-.installnudge__dismiss:active { background: var(--ink-850); color: var(--chalk); }
-
-/* ===================================================================
    ERROR BOUNDARY  (src/ui/ErrorBoundary.tsx)
    Full-screen recovery fallback, reusing .app for the same max-width /
    safe-area padding shell as every real screen so it doesn't look like
@@ -5234,7 +5810,6 @@ select.field {
   align-items: center;
 }
 .chip__x { font-size: 0; }
-.installnudge__dismiss { font-size: 0; }
 
 /* The destructive action inside the scene's edit sheet. Full width so it is
    findable, but below the field and above the Cancel/Save pair, so it never

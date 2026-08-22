@@ -154,6 +154,13 @@ const SHOTS = [
 async function seed(cdp) {
   return await cdp.evaluate(`
     (async () => {
+      // Merged in from feat/newproject-stages: AppShell now mounts a global,
+      // once-ever "first open" sheet (src/ui/Onboarding.tsx) that would
+      // otherwise sit on top of every screen this script shoots. Mark it (and
+      // the install nudge it folded in) already answered, the same way
+      // scripts/shoot-onboarding.mjs's own "home-after-skip" checkpoint does.
+      localStorage.setItem('clapper.onboardingDone', '1');
+      localStorage.setItem('clapper.installNudgeDismissed', '1');
       const { store } = await import('/src/store/index.ts');
       for (const p of await store.listProjects()) await store.deleteProject(p.id);
       const a = await store.createProject({
