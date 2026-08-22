@@ -196,6 +196,155 @@ async function seed(cdp) {
       await mk(s1.id, undefined, ['CU'], undefined, 29000);
       await store.createProject({ name: 'Okkai Hero Film', fps: 25, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU','GOLD'] });
       await store.createProject({ name: 'Palladium Spot', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
+
+      // ---------------------------------------------------------------------
+      // THE PROJECTS-SCREEN REBUILD'S OWN SEED. Twelve projects minimum, per
+      // the brief: a mix of with/without a shot list, several mid-shoot, one
+      // wrapped, varying day numbers — so the progress bar, the "no shot
+      // list" flag, the "Wrapped" flag and the day/recency lines all have
+      // something real to prove themselves against, not just the three
+      // projects above (all day-1-or-less, none with a completed shot list).
+      const { wrapShootDay } = await import('/src/store/util.ts');
+
+      /** Advance a project N wrap cycles with NO take logged in between, so
+       *  the project lands on a fresh, untouched day N+1 — exactly what
+       *  WRAP DAY does on a real set when nothing has rolled yet today. */
+      async function wrapForward(projectId, times) {
+        for (let i = 0; i < times; i++) {
+          const p = await store.getProject(projectId);
+          const { project: next } = wrapShootDay(p, Date.now());
+          await store.updateProject(projectId, next);
+        }
+      }
+
+      /** A scene with a shot breakdown: KEPT of shots.length shots get a
+       *  KEPT take, the rest get none — so shotsInCan / scenesLeft land
+       *  exactly where the caller wants them, not wherever random chance
+       *  puts them. */
+      async function shotScene(projectId, name, shots, kept) {
+        const slate = await store.createSlate(projectId, name);
+        const built = shots.map((code, i) => ({ id: slate.id + '-sh' + i, code, order: i }));
+        await store.updateSlate(slate.id, { shots: built });
+        for (let i = 0; i < built.length; i++) {
+          if (i < kept) {
+            await store.createTake({ projectId, slateId: slate.id, shotId: built[i].id, durationMs: 30000, startedAt: Date.now() });
+          }
+        }
+        return slate;
+      }
+
+      /** A bare scene (no breakdown): N takes logged straight against it. */
+      async function bareScene(projectId, name, n, discards = 0) {
+        const slate = await store.createSlate(projectId, name);
+        for (let i = 0; i < n; i++) {
+          const t = await store.createTake({ projectId, slateId: slate.id, durationMs: 20000, startedAt: Date.now() });
+          if (i < discards) await store.updateTake(t.id, { status: 'discarded' });
+        }
+        return slate;
+      }
+
+      // "The Last Monsoon" — mid-shoot, DAY 3, a real shot list at 14/22
+      // (the exact worked example from the brief): two scenes still short of
+      // a full breakdown so "2 scenes left" reads true, three already clean.
+      {
+        const p = await store.createProject({ name: 'The Last Monsoon', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU','GOLD'] });
+        await wrapForward(p.id, 2); // day 1 -> day 3, untouched
+        await shotScene(p.id, 'INT. HOUSE — MORNING', ['1.1','1.2','1.3','1.4'], 4);
+        await shotScene(p.id, 'EXT. FIELD — DAY', ['2.1','2.2','2.3','2.4','2.5'], 2);
+        await shotScene(p.id, 'INT. TEMPLE — DUSK', ['3.1','3.2','3.3','3.4','3.5','3.6'], 1);
+        await shotScene(p.id, 'EXT. RIVER — NIGHT', ['4.1','4.2','4.3','4.4'], 4);
+        await shotScene(p.id, 'INT. HOUSE — NIGHT', ['5.1','5.2','5.3'], 3);
+        // A handful of extra takes on shots already in the can — retakes and
+        // one discard — so the take COUNT is well past the shot count, the
+        // same way a real day's log always is.
+        const extra = await store.listSlates(p.id);
+        for (let i = 0; i < 6; i++) {
+          const t = await store.createTake({ projectId: p.id, slateId: extra[i % extra.length].id, durationMs: 25000, startedAt: Date.now() });
+          if (i === 0) await store.updateTake(t.id, { status: 'discarded' });
+        }
+      }
+
+      // "Bhoot Ki Kahani" — the brief's OTHER worked example, verbatim: no
+      // shot list anywhere, Day 1, 17 takes, 3 scenes.
+      {
+        const p = await store.createProject({ name: 'Bhoot Ki Kahani', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
+        await bareScene(p.id, 'Scene 1', 7, 1);
+        await bareScene(p.id, 'Scene 2', 6, 1);
+        await bareScene(p.id, 'Scene 3', 4, 0);
+      }
+
+      // "Coffee & Kismet" — WRAPPED with every scene covered: the bar reads
+      // full, the caption reads "every scene covered", and the Wrapped flag
+      // sits right next to the name. Proves the bar and the flag are
+      // independent facts that can both be true at once.
+      {
+        const p = await store.createProject({ name: 'Coffee & Kismet', fps: 25, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
+        await shotScene(p.id, 'INT. CAFE — DAY', ['1.1','1.2','1.3'], 3);
+        await shotScene(p.id, 'EXT. STREET — DAY', ['2.1','2.2','2.3'], 3);
+        await wrapForward(p.id, 1); // day 1 -> day 2, untouched: WRAPPED
+      }
+
+      // "Summer Break" — a shot list barely started: DAY 1, low completion,
+      // proves the bar reads correctly near-empty too, not just near-full.
+      {
+        const p = await store.createProject({ name: 'Summer Break', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
+        await shotScene(p.id, 'EXT. BEACH — DAY', ['1.1','1.2','1.3','1.4'], 1);
+        await shotScene(p.id, 'INT. VAN — DAY', ['2.1','2.2','2.3'], 0);
+        await shotScene(p.id, 'EXT. CAMPFIRE — NIGHT', ['3.1','3.2','3.3'], 0);
+      }
+
+      // "The Long Wait" — no shot list, WRAPPED, DAY 4: proves the Wrapped
+      // flag and the "no shot list" flag can both be true on the same row,
+      // and gives the list a second, higher day number.
+      {
+        const p = await store.createProject({ name: 'The Long Wait', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
+        await bareScene(p.id, 'Scene 1', 9, 2);
+        await wrapForward(p.id, 1);
+        await bareScene(p.id, 'Scene 2', 7, 0);
+        await wrapForward(p.id, 1);
+        await bareScene(p.id, 'Scene 3', 5, 1);
+        await wrapForward(p.id, 1); // day 4, untouched: WRAPPED
+      }
+
+      // "Ashes & Neon" — DAY 5, one scene short of a full shot list: proves
+      // the bar and "N scenes left" both still read right at the high end,
+      // not just at 14/22.
+      {
+        const p = await store.createProject({ name: 'Ashes & Neon', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU','GOLD'] });
+        await wrapForward(p.id, 4); // day 1 -> day 5, untouched
+        await shotScene(p.id, 'INT. CLUB — NIGHT', ['1.1','1.2','1.3'], 3);
+        await shotScene(p.id, 'EXT. ALLEY — NIGHT', ['2.1','2.2','2.3'], 3);
+        await shotScene(p.id, 'INT. GREEN ROOM — NIGHT', ['3.1','3.2','3.3','3.4'], 3);
+      }
+
+      // "Quiet Riot Ad" — a shot list attached, but NOTHING shot yet: proves
+      // the bar can sit at a real 0% (0/7 shots) rather than being hidden
+      // just because nothing has rolled.
+      {
+        const p = await store.createProject({ name: 'Quiet Riot Ad', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
+        await shotScene(p.id, 'INT. STUDIO — DAY', ['1.1','1.2','1.3'], 0);
+        await shotScene(p.id, 'INT. STUDIO — DAY (CU)', ['2.1','2.2','2.3','2.4'], 0);
+      }
+
+      // "Diwali Campaign" — no shot list AND nothing shot yet: the OTHER
+      // zero-take case, so the two never get confused for one another.
+      {
+        const p = await store.createProject({ name: 'Diwali Campaign', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
+        await store.createSlate(p.id, 'Scene 1');
+        await store.createSlate(p.id, 'Scene 2');
+      }
+
+      // "Rooftop Sessions" — no shot list, DAY 7: the widest day number on
+      // the list, proving the recency/day facts hold up on a long shoot.
+      {
+        const p = await store.createProject({ name: 'Rooftop Sessions', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
+        await wrapForward(p.id, 6); // day 1 -> day 7
+        await bareScene(p.id, 'Scene 1', 8, 1);
+        await bareScene(p.id, 'Scene 2', 6, 0);
+        await bareScene(p.id, 'Scene 3', 4, 1);
+        await bareScene(p.id, 'Scene 4', 3, 0);
+      }
+
       return true;
     })()
   `);
@@ -247,6 +396,34 @@ async function main() {
     await cdp.waitForExpr(`document.body.textContent.includes("No Mans Hero")`, { desc: 'projects list' });
     await sleep(400);
     await take('01b-projects', theme);
+
+    // PROJECTS SEARCH, ACTIVE — a query typed into `.pj-search`, set through
+    // React's own native-input setter (a plain `.value =` never fires
+    // React's onChange) so the screen re-renders exactly as it would for a
+    // real keystroke, not a scripted shortcut around one.
+    await cdp.evaluate(`
+      (() => {
+        const el = document.querySelector('.pj-search');
+        if (!el) return false;
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(el, 'monsoon');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      })()
+    `);
+    await sleep(300);
+    await take('01c-projects-search', theme);
+    await cdp.evaluate(`
+      (() => {
+        const el = document.querySelector('.pj-search');
+        if (!el) return false;
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(el, '');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      })()
+    `);
+    await sleep(200);
 
     // PROJECT
     await cdp.waitForExpr(CLICK_BY_TEXT("No Mans Hero"), { desc: 'project row' });

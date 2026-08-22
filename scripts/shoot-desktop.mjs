@@ -98,6 +98,10 @@ const SHOTS = [
 async function seed(cdp) {
   return await cdp.evaluate(`
     (async () => {
+      // Same first-open sheet shoot-screens.mjs already answers once, so it
+      // never sits on top of the screens this script shoots either.
+      localStorage.setItem('clapper.onboardingDone', '1');
+      localStorage.setItem('clapper.installNudgeDismissed', '1');
       const { store } = await import('/src/store/index.ts');
       for (const p of await store.listProjects()) await store.deleteProject(p.id);
       const a = await store.createProject({ name: 'No Mans Hero', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4,
@@ -139,6 +143,12 @@ async function main() {
     await cdp.evaluate(`document.documentElement.setAttribute('data-theme','day'); true`);
     await sleep(700);
     await cdp.waitForExpr(TAB('Projects'), { desc: 'projects tab' });
+    await sleep(400);
+    // The Projects LIST itself, at desktop width — the search field, the bar
+    // and the flag row are new here (see ProjectsScreen.tsx) and this app's
+    // only other desktop check (the rolling screen, below) never renders
+    // this screen at all.
+    const pList = join(OUT_DIR, `${size.name}.projects-list.png`); await cdp.shot(pList); written.push(pList);
     await cdp.waitForExpr(CLICK_BY_TEXT('No Mans Hero'), { desc: 'project row' });
     await cdp.waitForExpr(`document.body.textContent.includes('Scene 1')`, { desc: 'project' });
     await sleep(400);
