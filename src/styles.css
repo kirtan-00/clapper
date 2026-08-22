@@ -324,7 +324,7 @@
      CHROME that content scrolls underneath. It goes on nothing else - never on
      a card, which is content, and never on a descendant of a scroll container,
      which repaints the blur every frame on a phone that is already working. */
-  --material-bg: rgba(251, 250, 247, 0.86);
+  --material-bg: rgba(226, 240, 204, 0.86);
   --material-solid: var(--paper); /* the no-blur fallback, see @supports below */
   --material-hairline: var(--hairline);
 
@@ -368,12 +368,20 @@
 
   /* The same material mixed from --surface instead of --paper, for the one
      bar that sits on a CARD rather than on the page: the sheet's grabber cap.
-     Mixing that one from paper puts a warm band across the top of a white
+     Mixing that one from paper puts a darker band across the top of a paler
      sheet whenever the sheet is short enough not to scroll, which reads as a
      mistake rather than as depth. Night needs no second value - there the page
      and the sheet are near enough the same charcoal - but it carries one
-     anyway so the sheet cannot drift if the night ramp is ever retuned. */
-  --material-cap-bg: rgba(255, 255, 255, 0.86);
+     anyway so the sheet cannot drift if the night ramp is ever retuned.
+
+     BOTH LIGHT MATERIALS ARE HAND-MIXED FROM THE RAMP ABOVE and cannot use
+     color-mix, because the alpha is the point. --material-bg is --paper at
+     0.86; --material-cap-bg is --paper-raised at 0.86. Move the ramp and you
+     MUST move these two by hand. They were left on ivory through the green
+     repaint, which painted an off-white slab full-bleed behind every large
+     title on a green page - visible as a hard horizontal seam on Account at
+     rest, and as the header coming apart while a list scrolled under it. */
+  --material-cap-bg: rgba(242, 248, 230, 0.86);
   --material-cap-solid: var(--surface);
 
   /* The scrim under a sheet is part of the same material language, so it is
