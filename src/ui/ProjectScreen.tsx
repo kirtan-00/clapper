@@ -14,7 +14,7 @@ import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
 import { Sheet, SheetClose, Confirm, Rail } from './common';
 import { useScrolled } from './glist';
-import { BackButton, ForwardMark, DownMark } from './marks';
+import { BackButton, ForwardMark, DownMark, CheckMark, ExportMark, CloudMark, StopMark } from './marks';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
@@ -624,17 +624,18 @@ export function ProjectScreen(props: {
         onCommit={commitProject}
         onWrapped={() => setDayTakeCount(0)}
         onUndone={(openDay) => void refreshDayCount(openDay)}
-      >
-        <button
-          type="button"
-          className="btn btn--full"
-          style={{ marginTop: 8 }}
-          onClick={props.onOpenClipLog}
-        >
-          Every clip rolled
-        </button>
-        <ExportBar project={project} />
-      </ShootDaySection>
+        tiles={
+          <>
+            <button type="button" className="tile tile--rolled" onClick={props.onOpenClipLog}>
+              <span className="tile__icon" aria-hidden="true">
+                <CheckMark />
+              </span>
+              <span className="tile__label">All rolled</span>
+            </button>
+            <ExportBar project={project} />
+          </>
+        }
+      />
 
       {/* THE SETUP SHEET. Everything below used to run down this screen at the
           same weight as SCENES and SHOOT DAY - the two things actually touched
@@ -912,10 +913,12 @@ function ShootDaySection(props: {
   onCommit: (patch: Partial<Project>) => Promise<void>;
   onWrapped: () => void;
   onUndone: (openDay: Project['openShootDay']) => void;
-  /** Clip log + Export/Backup, rendered under the same "Shoot day" head as
-   *  Wrap day. See the call site's comment for why they no longer get their
-   *  own section heads. */
-  children?: ReactNode;
+  /** All rolled, Export and Backup, pre-built as three tile buttons in that
+   *  order. Rendered under the same "Shoot day" head as Wrap day — see the
+   *  call site's comment for why none of the four get their own section
+   *  head, and this component's own render for how Wrap day's tile joins
+   *  them into one 2x2 grid. */
+  tiles: ReactNode;
 }) {
   const { project } = props;
   const day = project.openShootDay;
@@ -977,25 +980,46 @@ function ShootDaySection(props: {
           {day ? `Day ${day.index}` : 'Day 1'} opens itself with your first take.
         </p>
       )}
-      <button type="button" className="btn btn--full" onClick={() => setConfirming(true)}>
-        {wrapped ? 'Wrapped' : 'Wrap day'}
-      </button>
-      {canUndo && (
+      {/* ICON TILES, TWO ACROSS. Four identical full-width bars (Wrap day,
+          Every clip rolled, Export, Backup) used to run one below the other -
+          same width, same height, same weight - which is the "endless" the
+          owner flagged twice. He was shown three shapes and picked this one:
+          a 2x2 grid, an icon over a short label, sized to use the room a
+          two-up grid actually has. See skin/detail.css `.shoottiles` for the
+          grid and `.tile` for the shared face - still the SAME secondary
+          material `.btn` draws everywhere else (unfilled, a hairline, full
+          ink), only the shape changed.
+
+          All rolled / Export / Backup arrive as `props.tiles`, already built
+          by their own owners (ProjectScreen and ExportBar). Wrap day's tile
+          is built here because its confirm/undo state lives in this
+          component. Grid position is pinned by CSS `order`, not by this DOM
+          position, so Export's and Backup's own error banners (DOM siblings
+          of their tiles) never knock Wrap day out of the bottom-right cell -
+          see the `.shoottiles__extra` comment in detail.css. */}
+      <div className="shoottiles">
+        {props.tiles}
         <button
           type="button"
-          className="btn btn--full btn--ghost"
-          style={{ marginTop: 8 }}
-          onClick={() => void doUndo()}
+          className="tile tile--wrap tile--rec"
+          onClick={() => setConfirming(true)}
         >
-          Undo wrap
+          <span className="tile__icon" aria-hidden="true">
+            <StopMark />
+          </span>
+          <span className="tile__label">{wrapped ? 'Wrapped' : 'Wrap day'}</span>
         </button>
-      )}
-      {undoError && (
-        <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 8 }}>
-          {undoError}
-        </span>
-      )}
-      {props.children}
+        {canUndo && (
+          <button
+            type="button"
+            className="shoottiles__extra btn btn--full btn--ghost"
+            onClick={() => void doUndo()}
+          >
+            Undo wrap
+          </button>
+        )}
+        {undoError && <span className="shoottiles__extra tnum tnum--bad">{undoError}</span>}
+      </div>
       {confirming && (
         <Confirm
           title={`Wrap ${dayLabel}?`}
@@ -2087,45 +2111,46 @@ function ExportBar(props: { project: Project }) {
 
   return (
     <>
-      {/* FOUR EQUAL BUTTONS COLLAPSE TO ONE. PDF, Premiere, Resolve and CSV
-          used to stand at the same weight as Backup and Wrap day, on a screen
-          that already had twelve other things standing at that weight: a
-          format picked maybe once a week competing for eye space with the
-          button pressed six times a day. One "Export" opens a sheet naming
-          what each of the four is actually for, which the four-button grid
-          never had room to say. */}
+      {/* FOUR EQUAL BUTTONS COLLAPSE TO ONE TILE. PDF, Premiere, Resolve and
+          CSV used to stand at the same weight as Backup and Wrap day, on a
+          screen that already had twelve other things standing at that
+          weight: a format picked maybe once a week competing for eye space
+          with the button pressed six times a day. One "Export" tile opens a
+          sheet naming what each of the four is actually for, which the
+          four-button grid never had room to say. */}
       <button
         type="button"
-        className="btn btn--full"
-        style={{ marginTop: 8 }}
+        className="tile tile--export"
         disabled={busy !== null}
         onClick={() => {
           haptics.tap();
           setExportOpen(true);
         }}
       >
-        Export <DownMark />
+        <span className="tile__icon" aria-hidden="true">
+          <ExportMark />
+        </span>
+        <span className="tile__label">Export</span>
       </button>
-      {/* BACKUP DOES NOT MOVE. It is the only one of the five that works
-          signed out, offline and with no limit: the escape hatch for a
-          shoot with no cloud copy at all (see the comment on backupProject
-          above). Burying the one thing that always works behind the same
-          sheet as the four things that need a connection and an account
-          would hide the escape hatch exactly when it's needed most. */}
+      {/* BACKUP DOES NOT MOVE OFF THE MAIN GRID. It is the only one of the
+          five that works signed out, offline and with no limit: the escape
+          hatch for a shoot with no cloud copy at all (see the comment on
+          backupProject above). Burying the one thing that always works
+          behind the same sheet as the four things that need a connection and
+          an account would hide the escape hatch exactly when it's needed
+          most. */}
       <button
         type="button"
-        className="btn btn--full"
-        style={{ marginTop: 8 }}
+        className="tile tile--backup"
         disabled={busy !== null}
         onClick={() => void backupProject()}
       >
-        {busy === 'backup' ? '...' : 'Backup'}
-      </button>
-      {backupError && (
-        <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 8 }}>
-          {backupError}
+        <span className="tile__icon" aria-hidden="true">
+          <CloudMark />
         </span>
-      )}
+        <span className="tile__label">{busy === 'backup' ? '...' : 'Backup'}</span>
+      </button>
+      {backupError && <span className="shoottiles__extra tnum tnum--bad">{backupError}</span>}
 
       {exportOpen && (
         <Sheet title="Export" onClose={() => setExportOpen(false)}>

@@ -375,6 +375,31 @@ export function isSoleRollingUnit(
   return rolling.length === 1 && rolling[0] === letter && soundStartedAt === null;
 }
 
+/**
+ * THE HEAD'S OWN STATE DECISION, pulled out pure so "the header still says
+ * REC after a cut" can be pinned in a test without mounting the screen.
+ *
+ * `rolling` is the only input that matters. A take that has been cut, kept
+ * and had its sheet dismissed is `rolling: false` by the time this runs -
+ * same as the screen before the very first take of the setup ever happened -
+ * so both moments have to answer with the SAME resting form, never the live
+ * one. This is what a bad merge of that condition (e.g. gating on `postCut`
+ * instead of `rolling`) would break.
+ *
+ * The resting form carries the slate's own name verbatim. That matters
+ * because podcast mode's quick-start slate is literally named "Recording"
+ * (see startPodcastRoll in newRoll.ts) - a screen showing "Recording / take
+ * 2" at rest is that slate's name and the next take number, not a stuck
+ * state word, and this function must not special-case that string away.
+ */
+export function rollHeadForm(
+  rolling: boolean,
+  slateName: string,
+  nextTakeNumber: number,
+): { kind: 'live' } | { kind: 'resting'; name: string; take: number } {
+  return rolling ? { kind: 'live' } : { kind: 'resting', name: slateName, take: nextTakeNumber };
+}
+
 export function RollingScreen(props: {
   project: Project;
   slate: Slate;
@@ -1572,6 +1597,11 @@ export function RollingScreen(props: {
    * always an EXTRA path to ROLL and CUT and never the only one, so none of
    * these states changes anything else on the screen.
    */
+  // See rollHeadForm's own comment: pulled out pure so the resting-state form
+  // (never the live pill, whatever the slate is named) is a decision that can
+  // be pinned in a test independent of this render.
+  const headForm = rollHeadForm(rolling, slate.name, nextTakeNumber);
+
   const voiceChip = listener.supported ? (
     <button
       type="button"
@@ -1611,7 +1641,7 @@ export function RollingScreen(props: {
           nothing you have to TAP is at the top any more; it is all in
           .roll__reach down by the thumb. What stays is what you READ. */}
       <div className="roll__head">
-        {rolling ? (
+        {headForm.kind === 'live' ? (
           // THE REC PILL. It replaces a full-bleed red band, and the reason is
           // a defect rather than a preference: the band was a solid red header
           // with square corners tucked inside a solid red RING, and at night
@@ -1627,10 +1657,10 @@ export function RollingScreen(props: {
           </span>
         ) : (
           <div className="roll__slate">
-            <div className="name">{slate.name}</div>
+            <div className="name">{headForm.name}</div>
             <div className="roll__nextline">
               <span>
-                take <span className="tnum">{nextTakeNumber}</span>
+                take <span className="tnum">{headForm.take}</span>
               </span>
             </div>
           </div>

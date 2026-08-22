@@ -99,6 +99,52 @@ export function DownMark() {
 }
 
 /**
+ * Export — a down arrow landing on a tray, distinct from DownMark's bare
+ * chevron (that one sits inline beside 15-17px text: a disclosure hint, not
+ * a standalone icon). This is the SHOOT DAY tile's icon, drawn at the house's
+ * default 22px `.mark` size rather than DownMark's smaller inline variant, so
+ * it reads at the same weight as CheckMark/CloudMark/StopMark beside it in a
+ * 2x2 grid of equals.
+ */
+export function ExportMark() {
+  return (
+    <svg {...SVG} className="mark mark--export">
+      <path d="M12 4v10.5M7.2 11 12 15.8 16.8 11" {...STROKE} />
+      <path d="M5 19.5h14" {...STROKE} />
+    </svg>
+  );
+}
+
+/**
+ * Backup — the cloud a shoot's local-only copy still has no version of. Drawn
+ * closed and stroked, same construction as every other mark in this file, so
+ * it never falls back to a platform glyph with its own baked-in colour.
+ */
+export function CloudMark() {
+  return (
+    <svg {...SVG} className="mark mark--cloud">
+      <path d="M17.5 19H8.2a4.7 4.7 0 0 1-.55-9.37A6 6 0 0 1 19 10.75v.09A4.3 4.3 0 0 1 17.5 19Z" {...STROKE} />
+    </svg>
+  );
+}
+
+/**
+ * Wrap day — a rounded stop square. The one control on the shoot day tiles
+ * that ends something already running, so it is the one tile whose icon and
+ * label carry --rec-text (see skin/detail.css `.tile--rec`) rather than a
+ * solid red fill: Wrap day is undoable until the first take lands on the new
+ * day, which is not what the app's solid-red DESTRUCTIVE face means anywhere
+ * else it appears (Delete scene, Delete project, Discard take).
+ */
+export function StopMark() {
+  return (
+    <svg {...SVG} className="mark mark--stop">
+      <rect x="6.5" y="6.5" width="11" height="11" rx="2.2" {...STROKE} />
+    </svg>
+  );
+}
+
+/**
  * Sound — the recorder's own driver-and-cone glyph, replacing the 🔊 emoji
  * that stood in for it. An emoji is the loudest "nobody designed this" tell
  * there is: it renders differently per platform and carries a fixed colour no
