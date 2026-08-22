@@ -1,7 +1,7 @@
   <script>
-    /* landing analytics beacon — cookie-free, fire-and-forget, never blocks or
+    /* landing analytics beacon - cookie-free, fire-and-forget, never blocks or
        throws. Inserts rows into the same Supabase `events` table the app uses.
-       This IS the landing page's `track()` — there's no JS bundle here to call
+       This IS the landing page's `track()` - there's no JS bundle here to call
        the app's real one, so a raw fetch in the same insert shape is the one
        mechanism this page has. Anon key is a public client key by design. */
     (function () {
@@ -37,11 +37,11 @@
         send('landing_view', { ref: ref, path: window.location.pathname });
 
         /* landing_view alone can't tell "nobody looks past the fold" apart from
-           "people look and don't click" — the page had zero signal on that until
+           "people look and don't click" - the page had zero signal on that until
            now. Delegated on document so it survives whatever markup the page
            grows; matches only the CTAs that actually cross into the app (the
            footer's template/legal links are not the funnel). No label beyond
-           where on the page it was — never the link text, which is copy that
+           where on the page it was - never the link text, which is copy that
            changes without warning this beacon. */
         document.addEventListener('click', function (e) {
           var a = e.target && e.target.closest ? e.target.closest('a[href^="https://clapboard.duckdns.org/app"]') : null;

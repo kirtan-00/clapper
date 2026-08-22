@@ -13,15 +13,15 @@
 //   node scripts/analytics-report.mjs --out <file>    # writes somewhere else
 //
 // Reads the `sbp_...` personal access token out of credentials.md (gitignored,
-// chmod 600) — never hardcode it, never pass it on the command line where a
+// chmod 600) - never hardcode it, never pass it on the command line where a
 // shell history or a process list would keep it.
 //
 // THE CONTAMINATION BOUNDARY. Before commit 92c31ac ("events fire from the
 // live site and nowhere else", merged 2026-08-20 23:22:29 +05:30 /
-// 2026-08-20T17:52:29Z UTC), `track()` fired from ANY host — a dev server, a
+// 2026-08-20T17:52:29Z UTC), `track()` fired from ANY host - a dev server, a
 // file:// preview, someone's laptop running the app in a loop. On 2026-08-20
 // alone, 954 `app_open` rows came from just 18 distinct visitors and one
-// visitor's ip_hash produced 128 `project_created` rows in a single day —
+// visitor's ip_hash produced 128 `project_created` rows in a single day -
 // nobody clicks New Project 128 times. That is automated traffic, not a
 // human being. GATE_TS below is that commit's timestamp, hardcoded rather
 // than inferred from the data, because inferring "where does it look clean"
@@ -34,18 +34,18 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PROJECT_REF = 'sqqdivfgdfaztfzrzkhu';
-const GATE_TS = new Date('2026-08-20T17:52:29Z'); // commit 92c31ac — see header
+const GATE_TS = new Date('2026-08-20T17:52:29Z'); // commit 92c31ac - see header
 const IST_OFFSET_MIN = 5.5 * 60; // Asia/Kolkata is a fixed +05:30, no DST
 
 // The exact funnel the owner asked for, in order. `keepwarm` (the 3-day GH
 // Actions heartbeat) is deliberately not in this list and is excluded from
-// every query below — it is a synthetic row with a real ip_hash (the GH
+// every query below - it is a synthetic row with a real ip_hash (the GH
 // runner's), so left in it counts as a fake "visitor" every few days.
 const FUNNEL = [
   { name: 'landing_view', label: 'Landing view' },
   { name: 'app_open', label: 'App open' },
   { name: 'project_created', label: 'Project created' },
-  { name: 'shotlist_uploaded', label: 'Shot list uploaded' },
+  { name: 'shotlist_uploaded', label: 'Shot list uploaded', pending: 'instrumented 2026-08-22, ships next deploy' },
   { name: 'roll', label: 'ROLL pressed' },
   { name: 'export', label: 'Export' },
 ];
@@ -58,7 +58,7 @@ function readToken() {
   try {
     text = readFileSync(path, 'utf8');
   } catch {
-    throw new Error(`Can't read ${path} — is credentials.md present and readable?`);
+    throw new Error(`Can't read ${path} - is credentials.md present and readable?`);
   }
   const m = text.match(/sbp_[A-Za-z0-9]+/);
   if (!m) {
@@ -81,7 +81,7 @@ async function runQuery(token, sql) {
 }
 
 // One raw pull, then all aggregation happens in JS below. 31 days of events
-// is ~10k rows as of this writing — small enough to fetch whole and cheaper
+// is ~10k rows as of this writing - small enough to fetch whole and cheaper
 // to reason about than three windows' worth of hand-tuned SQL that has to
 // agree with each other.
 async function fetchEvents(token) {
@@ -156,7 +156,7 @@ function perDayFor(rows) {
     });
 }
 
-// Per-visitor rollup, ordered by rolls desc per the spec — that ordering is
+// Per-visitor rollup, ordered by rolls desc per the spec - that ordering is
 // deliberate: it surfaces the heaviest single ip_hash first, which is exactly
 // how the 128-projects-in-a-day visitor gets noticed instead of averaged away.
 function perVisitorFor(rows) {
@@ -215,7 +215,7 @@ function renderHTML(data) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clapper — Analytics</title>
+<title>Clapper - Analytics</title>
 <style>
   :root {
     --bg: #000;
@@ -294,6 +294,7 @@ function renderHTML(data) {
   .step .n { font-family: var(--mono); font-size: 26px; font-weight: 600; color: var(--accent); }
   .step .v { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); margin-top: 4px; }
   .step .drop { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+  .step .pending { font-family: var(--sans); font-size: 10.5px; color: var(--accent); margin-top: 6px; line-height: 1.35; }
 
   .clean-funnel { margin-top: 14px; }
   .clean-funnel .funnel { border-color: var(--ink-faint); }
@@ -316,7 +317,7 @@ function renderHTML(data) {
 </head>
 <body>
 <div class="wrap">
-  <h1>Clapper — Analytics</h1>
+  <h1>Clapper - Analytics</h1>
   <p class="sub">Generated <b id="genAt"></b> · funnel: landing view → app open → project created → shot list uploaded → ROLL pressed → export</p>
 
   <div class="tabs" role="tablist">
@@ -328,10 +329,10 @@ function renderHTML(data) {
   <div class="warn" id="warn">
     <span class="tag">⚠ contaminated window</span>
     This window includes traffic from before the live-host gate shipped
-    (<b>2026-08-20 23:22 IST</b> — commit <code>92c31ac</code>). Before that,
+    (<b>2026-08-20 23:22 IST</b> - commit <code>92c31ac</code>). Before that,
     <code>track()</code> fired from dev servers and local previews, not just
     the real site. On 2026-08-20 alone, one visitor's <code>ip_hash</code>
-    produced <b>128 <code>project_created</code> rows in a single day</b> —
+    produced <b>128 <code>project_created</code> rows in a single day</b> -
     that is a script, not a person. The numbers below include that traffic.
     A second funnel further down, marked <b>clean since gate</b>, counts only
     events after the gate shipped.
@@ -339,12 +340,12 @@ function renderHTML(data) {
   </div>
 
   <section>
-    <h2>Funnel — this window</h2>
+    <h2>Funnel - this window</h2>
     <div class="funnel" id="funnel"></div>
   </section>
 
   <section id="cleanSection" style="display:none">
-    <h2>Funnel — clean since gate (post-2026-08-20 23:22 IST only)</h2>
+    <h2>Funnel - clean since gate (post-2026-08-20 23:22 IST only)</h2>
     <div class="clean-funnel"><div class="funnel" id="funnelClean"></div></div>
     <p class="note">Same window, but only events recorded after the live-host gate shipped. This is the honest read of real traffic in a contaminated window.</p>
   </section>
@@ -363,9 +364,9 @@ function renderHTML(data) {
       <table id="visitorTable"></table>
     </div>
     <p class="note">
-      <code>ip_hash</code> is a one-way SHA-256 of the visitor's IP, never the IP itself — this table can tell you it's the same
+      <code>ip_hash</code> is a one-way SHA-256 of the visitor's IP, never the IP itself - this table can tell you it's the same
       visitor across rows, never who they are. "First seen" tagged <code>dirty</code> means their earliest event in this window predates the gate.
-      <b>shot list uploaded</b> reads 0 everywhere until the next deploy — this event was added 2026-08-22 and has not shipped yet.
+      <b>shot list uploaded</b> reads 0 everywhere until the next deploy - this event was added 2026-08-22 and has not shipped yet.
     </p>
   </section>
 
@@ -388,7 +389,7 @@ function renderFunnel(el, steps) {
       <div class="lbl">\${s.label}</div>
       <div class="n">\${s.events.toLocaleString()}</div>
       <div class="v">\${s.visitors.toLocaleString()} visitors</div>
-      \${drop !== null ? \`<div class="drop">\${drop >= 0 ? '−' + drop : '+' + Math.abs(drop)}% vs prev step</div>\` : ''}
+      \${s.pending ? \`<div class="pending">\${s.pending}</div>\` : (drop !== null ? \`<div class="drop">\${drop >= 0 ? '-' + drop : '+' + Math.abs(drop)}% vs prev step</div>\` : '')}
     </div>\`;
   }).join('');
 }
