@@ -338,6 +338,27 @@ export function fitTagGroup(
   return { visible: Math.max(0, visible), moreCount, consumedPx: rows * rowH + (rows - 1) * gapPx };
 }
 
+/**
+ * The moments log's own "+N more" tile, in words - a pure decision same as
+ * `fitTagGroup` above it, so it is pinned by a unit test here rather than
+ * only proven by scripts/shoot-roll.mjs's live `bug6` check.
+ *
+ * `fit.visible === 0` is the case that shipped wrong: a real take at a short
+ * viewport logged moments, the box's whole one-row budget went to the tile
+ * itself (see the comment on `moreCopy` at its one call site), and the tile
+ * still read "+7 more" with no row above it to be more than. "+N more"
+ * promises a list it is the tail of; when there is no list, it is just
+ * wrong, not merely terse. Read as a fact instead ("7 moments"), which is
+ * true whether zero moments show above the tile or several thousand do.
+ */
+export function moreTileCopy(fit: { visible: number; moreCount: number }): { text: string; ariaLabel: string } {
+  const { visible, moreCount } = fit;
+  const s = moreCount === 1 ? '' : 's';
+  return visible === 0
+    ? { text: `${moreCount} moment${s}`, ariaLabel: `${moreCount} moment${s} logged this take, not shown here` }
+    : { text: `+${moreCount} more`, ariaLabel: `${moreCount} earlier moment${s} logged this take, not shown here` };
+}
+
 /** The MORE tile's page: which slice of `items` to show right now, wrapping
  *  at the end back to the start. `pageSize` is `visible` from fitTagGroup
  *  above - the same box, every time, never a size that could overflow it. */
@@ -1632,6 +1653,18 @@ export function RollingScreen(props: {
       ? { visible: 0, moreCount: 0, consumedPx: 0 }
       : fitTagGroup(buffered.length, momentlogBudgetPx, momentRowH, 1, TAG_ROW_GAP);
   const momentsVisible = [...buffered].reverse().slice(0, momentFit.visible);
+  // "+N MORE" ONLY MAKES SENSE ABOVE A LIST. `fitTagGroup` is a 1-col fit
+  // here, so a budget that fits exactly one row still hands that whole row
+  // to the MORE tile once the moment count exceeds 1 (rows=1, visible=1*1,
+  // which is < count, so the truncation branch takes the tile's own row
+  // back and `visible` lands on 0) - not a bug in the fit, `rowsThatFit` /
+  // `fitTagGroup` are still whole-rows-or-none, this box just asked for a
+  // count with nothing above it to be "more" than. `moreTileCopy` (below,
+  // exported so scripts/shoot-roll.mjs's live check and this file's own
+  // unit tests both pin the same decision) reads `visible === 0` as exactly
+  // that state and states the count as a fact instead - same box, same
+  // height, same gate (`moreCount > 0`), only the words change.
+  const moreCopy = momentFit.moreCount > 0 ? moreTileCopy(momentFit) : null;
 
   /** One tag key, shared by every tier above - a plain function rather than a
    *  component so the long-press handlers below (already bound to `this`
@@ -1931,12 +1964,9 @@ export function RollingScreen(props: {
                   {m.label && <span className="lbl">{m.label}</span>}
                 </div>
               ))}
-              {momentFit.moreCount > 0 && (
-                <div
-                  className="momentrow momentrow--more"
-                  aria-label={`${momentFit.moreCount} earlier moment${momentFit.moreCount === 1 ? '' : 's'} logged this take, not shown here`}
-                >
-                  <span>+{momentFit.moreCount} more</span>
+              {moreCopy && (
+                <div className="momentrow momentrow--more" aria-label={moreCopy.ariaLabel}>
+                  <span>{moreCopy.text}</span>
                 </div>
               )}
             </div>

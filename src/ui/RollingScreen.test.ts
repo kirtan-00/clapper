@@ -7,7 +7,7 @@
 // isSoleRollingUnit's own comment in RollingScreen.tsx).
 
 import { describe, expect, it } from 'vitest';
-import { fitTagGroup, isSoleRollingUnit, rollHeadForm } from './RollingScreen';
+import { fitTagGroup, isSoleRollingUnit, moreTileCopy, rollHeadForm } from './RollingScreen';
 import type { CameraUnitLetter } from '../types';
 
 describe('isSoleRollingUnit', () => {
@@ -143,5 +143,45 @@ describe('fitTagGroup (the moments log at cols: 1)', () => {
 
   it('exactly one row fits and there is exactly one moment: no MORE tile needed', () => {
     expect(fitTagGroup(1, ROW_H, ROW_H, 1, GAP)).toEqual({ visible: 1, moreCount: 0, consumedPx: ROW_H });
+  });
+});
+
+// A real take, at a short viewport, once read "+4 more" with nothing above
+// it: fitTagGroup's own "budget fits one row and a sliver more" case (above)
+// is correct geometry - visible: 0 IS the right row count when the box's one
+// row goes to the tile - but the render layer still worded that tile as
+// though a list sat above it. moreTileCopy is the pure decision that used to
+// be an inline ternary at the JSX call site; scripts/shoot-roll.mjs's live
+// `bug6` check proves the real DOM lands here, this pins the words.
+describe('moreTileCopy (the moments log MORE tile, in words)', () => {
+  it('zero visible rows: states the count as a fact, never "+N more"', () => {
+    // Same shape as fitTagGroup's "budget fits one row and a sliver more"
+    // case: nothing rendered above this tile, so there is nothing for
+    // "more" to mean.
+    expect(moreTileCopy({ visible: 0, moreCount: 4 })).toEqual({
+      text: '4 moments',
+      ariaLabel: '4 moments logged this take, not shown here',
+    });
+  });
+
+  it('zero visible rows, singular count: "1 moment", not "1 moments"', () => {
+    expect(moreTileCopy({ visible: 0, moreCount: 1 })).toEqual({
+      text: '1 moment',
+      ariaLabel: '1 moment logged this take, not shown here',
+    });
+  });
+
+  it('some rows visible: "+N more" is accurate here, so it stays', () => {
+    expect(moreTileCopy({ visible: 2, moreCount: 6 })).toEqual({
+      text: '+6 more',
+      ariaLabel: '6 earlier moments logged this take, not shown here',
+    });
+  });
+
+  it('some rows visible, singular remainder: "1 earlier moment"', () => {
+    expect(moreTileCopy({ visible: 2, moreCount: 1 })).toEqual({
+      text: '+1 more',
+      ariaLabel: '1 earlier moment logged this take, not shown here',
+    });
   });
 });

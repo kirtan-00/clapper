@@ -671,6 +671,37 @@ async function momentClipCheck(cdp, rows, fails) {
           ? measured.partial.map((it) => `"${it.text}" top=${Math.round(it.top)} bottom=${Math.round(it.bottom)} vs box ${Math.round(measured.container.top)}-${Math.round(measured.container.bottom)}`).join('; ')
           : measured.items.map((it) => `${it.more ? 'MORE' : 'row'}:"${it.text}"`).join(', ')),
     );
+
+    // BUG6: "+N MORE" WITH NOTHING ABOVE IT. `bug5`'s own rig (single-cam,
+    // no shot deck, 667 tall) already lands the moments box in the exact
+    // state that bit this: eight taps, one row's worth of budget, so
+    // `fitTagGroup`'s 1-col fit hands the tile its own row back and
+    // `visible` lands on 0 (see the comment on the momentlog's `+N more`
+    // render in RollingScreen.tsx for why that is the fit doing its job, not
+    // failing it). `measured` above already has everything needed to pin
+    // this exact state, so this reuses that one page load rather than
+    // driving a second - it just asks a question bug5 never did: given
+    // there are ZERO real `.momentrow`s on screen, does the one tile that IS
+    // showing still claim to be "more" than something visible? A real take
+    // ended up on screen reading "+7 more" with nothing above it, which is
+    // exactly the shape this pins against: not present (that would be a
+    // silent drop, a different bug) and not clipped (bug5's job) but
+    // WRONGLY WORDED for a list with nothing in it.
+    const realRows = measured.items.filter((it) => !it.more);
+    const moreTiles = measured.items.filter((it) => it.more);
+    const zeroVisible = realRows.length === 0 && moreTiles.length === 1;
+    note(
+      zeroVisible,
+      `bug6 ${theme}/667  zero-visible-rows state reached: ${realRows.length} real row(s), ${moreTiles.length} MORE tile(s)` +
+        (zeroVisible ? '' : ' (rig/height no longer produces it - widen the moment count or shrink the height and re-check)'),
+    );
+    if (zeroVisible) {
+      const tileText = moreTiles[0].text;
+      note(
+        /^\d+ moments?$/.test(tileText),
+        `bug6 ${theme}/667  zero-visible MORE tile reads "${tileText}" - must be a plain count ("N moments"), never "+N more" (nothing is above it to be more than)`,
+      );
+    }
   }
   await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
 }
