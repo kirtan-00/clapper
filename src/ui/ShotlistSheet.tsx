@@ -46,7 +46,7 @@
 // here first and now live in ui/stages.tsx, imported by all three staged flows
 // — this one, first-open and New project. The .sl-* classes keep their name.
 
-import { useEffect, useState, type ChangeEvent, type DragEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react';
 import type { Fps, Project } from '../types';
 import { Sheet, SheetClose } from './common';
 import { StageRail, StagePanel, StageActions } from './stages';
@@ -232,10 +232,26 @@ export function ShotlistSheet(props: { onClose: () => void; onImported: (project
 // ================================================================ one ======
 // THE DOCUMENT. The gate, the counter and the wait all live here.
 
-function DocumentStage(props: {
+/**
+ * Exported so NewProjectSheet.tsx's Shot list stage can mount this same
+ * picker rather than writing a second PDF reader. The whole read/parse/gate
+ * path (extractPdfText, parseShotlist, enrichShotMoments, the sign-in gate,
+ * the free-tier counter) stays owned here, in ONE place.
+ */
+export function DocumentStage(props: {
   onPack: (pack: ScriptPack) => void;
   onGated: () => void;
   onClose: () => void;
+  /**
+   * Swap the default "Close" footer for something else. NewProjectSheet's
+   * Shot list stage reads as one stage among six, not a sheet-ending action,
+   * so it trades Close for Back + Skip. Receives whether a parse is
+   * currently running, so the caller can disable its own buttons mid-parse
+   * the same way the default footer disables Close. Omitted by ShotlistSheet's
+   * own five-stage flow, whose stage one IS the sheet's entry and close point,
+   * so that default renders byte-identical to before.
+   */
+  footer?: (busy: boolean) => ReactNode;
 }) {
   const { session, loading } = useSession();
   const dev = useDevDoc();
@@ -429,11 +445,15 @@ function DocumentStage(props: {
         </>
       )}
 
-      <StageActions>
-        <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
-          Close
-        </SheetClose>
-      </StageActions>
+      {props.footer ? (
+        props.footer(busy)
+      ) : (
+        <StageActions>
+          <SheetClose className="btn btn--ghost" onClose={props.onClose} disabled={busy}>
+            Close
+          </SheetClose>
+        </StageActions>
+      )}
     </>
   );
 }
