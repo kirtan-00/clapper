@@ -420,8 +420,9 @@ export function HowToScreen(props: { onClose: () => void }) {
               in, the same work syncs on its own. The Account tab says which of the two you are on.
             </p>
             <p className="gnote">
-              PDF export works offline, no account needed. Premiere, Resolve and CSV need a quick,
-              free Google sign-in, same for uploading a shotlist.
+              PDF, Premiere, Resolve and CSV all need a quick, free Google sign-in and a
+              connection, same as uploading a shotlist, and each has a free-export allowance
+              before Pro. Backup is the one that stays free, offline, unlimited.
             </p>
           </section>
 

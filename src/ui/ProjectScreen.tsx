@@ -18,7 +18,7 @@ import { BackButton, ForwardMark, DownMark } from './marks';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
-import { gateExport, FREE_LIMITS, type GatedFormat } from '../net/quota';
+import { gateExport, FREE_LIMITS, type GatedFormat, type GateResult } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 import { extractPdfText } from './pdftext';
@@ -1811,6 +1811,50 @@ const FORMAT_LABEL: Record<GatedFormat, string> = {
   csv: 'CSV',
 };
 
+/**
+ * Copy for when `gateExport` says no for a reason other than quota or auth
+ * (those two get their own handling at the call site). The word "offline" is
+ * reserved for when the browser itself reports no connection - everything
+ * else is a real answer from somewhere in the path and deserves a sentence
+ * that says so.
+ *
+ * Takes `isOnline` as an argument instead of reading `navigator.onLine`
+ * itself, purely so this stays a plain function a test can call without a
+ * DOM.
+ */
+export function exportFailureMessage(gate: Pick<GateResult, 'reason' | 'status'>, isOnline: boolean): string {
+  if (!isOnline) return EXPORT_OFFLINE_MSG;
+  if (gate.reason === 'http_error') {
+    return gate.status
+      ? `The export server returned an error (${gate.status}). Try again in a moment.`
+      : 'The export server returned an error. Try again in a moment.';
+  }
+  // 'unreachable' (or anything unrecognized): the request never reached the
+  // function, and the browser says it has a connection, so name what
+  // actually blocks that combination.
+  return 'Could not reach the export server. A VPN, ad blocker or firewall can cause this. Turn it off and try again.';
+}
+
+// Display name per export kind, for the build-failure message below. A
+// separate map from FORMAT_LABEL because Premiere and Resolve share one
+// gated format ('premiere') but are two different files to build.
+const BUILD_LABEL: Record<'pdf' | 'xml' | 'resolve' | 'csv', string> = {
+  pdf: 'PDF',
+  xml: 'Premiere',
+  resolve: 'Resolve',
+  csv: 'CSV',
+};
+
+/**
+ * Copy for when the gate allowed the export but building or sharing the file
+ * itself threw - a bad IndexedDB read, an exporter bug, a share sheet that
+ * bailed. This is never a connection problem: the gate round trip already
+ * succeeded by the time this runs.
+ */
+export function exportBuildFailureMessage(kind: 'pdf' | 'xml' | 'resolve' | 'csv'): string {
+  return `Could not build the ${BUILD_LABEL[kind]} file.`;
+}
+
 function ExportBar(props: { project: Project }) {
   const { session } = useSession();
   const [busy, setBusy] = useState<string | null>(null);
@@ -1862,6 +1906,13 @@ function ExportBar(props: { project: Project }) {
     const label = kind === 'xml' ? 'premiere' : kind === 'resolve' ? 'resolve' : kind;
     setBusy(kind);
     try {
+      // gateExport never throws. @supabase/supabase-js's `invoke` resolves
+      // with an `error` field rather than rejecting, and gateExport turns
+      // every shape of that into a GateResult. So this is the only branch
+      // point for "the gate said no," and it is a real answer per reason:
+      // quota and auth are unchanged; everything else gets a sentence keyed
+      // to what actually happened, with "offline" reserved for when the
+      // browser itself says there's no connection.
       const gate = await gateExport(format);
       if (!gate.allow) {
         if (gate.reason === 'quota_exceeded') {
@@ -1869,45 +1920,51 @@ function ExportBar(props: { project: Project }) {
           setError(`That's your ${FREE_LIMITS[format]} free ${FORMAT_LABEL[format]} exports for this plan.`);
           setCapped(format);
         } else if (gate.reason === 'auth') {
-          // Session missing/expired — same handling as signed-out.
+          // Session missing/expired. Same handling as signed-out.
           setShowSignIn(true);
         } else {
-          setError(EXPORT_OFFLINE_MSG);
+          setError(exportFailureMessage(gate, navigator.onLine));
         }
         return;
       }
-      const bundle = await store.getBundle(props.project.id);
-      const base = slug(props.project.name);
-      const dateStamp = exportDateStamp(bundle.project);
-      if (kind === 'pdf') {
-        const blob = await exporter.toPdf(bundle);
-        await shareBlob(blob, `${base}-log-${dateStamp}.pdf`, 'application/pdf');
-      } else if (kind === 'xml') {
-        const blob = exporter.toFcpXml(bundle);
-        await shareBlob(blob, `${base}-log-${dateStamp}.xml`, 'text/xml');
-      } else if (kind === 'resolve') {
-        const blob = exporter.toResolveXml(bundle);
-        await shareBlob(blob, `${base}-log-${dateStamp}.fcpxml`, 'text/xml');
-      } else {
-        // The folder walk is device-local (see store/medialink.ts), so it is
-        // read here rather than carried on the bundle. Absent — nobody picked
-        // a folder on this device — and the CSV is exactly what it always was,
-        // with three empty trailing columns.
-        const mediaIndex = await loadMediaIndex(props.project.id);
-        const blob = exporter.toCsv(bundle, mediaIndex);
-        await shareBlob(blob, `${base}-log-${dateStamp}.csv`, 'text/csv');
+      // The gate said yes, so anything that throws from here on is not a
+      // connection problem. It's the build or the share sheet, and gets its
+      // own message rather than being folded back into "offline."
+      try {
+        const bundle = await store.getBundle(props.project.id);
+        const base = slug(props.project.name);
+        const dateStamp = exportDateStamp(bundle.project);
+        if (kind === 'pdf') {
+          const blob = await exporter.toPdf(bundle);
+          await shareBlob(blob, `${base}-log-${dateStamp}.pdf`, 'application/pdf');
+        } else if (kind === 'xml') {
+          const blob = exporter.toFcpXml(bundle);
+          await shareBlob(blob, `${base}-log-${dateStamp}.xml`, 'text/xml');
+        } else if (kind === 'resolve') {
+          const blob = exporter.toResolveXml(bundle);
+          await shareBlob(blob, `${base}-log-${dateStamp}.fcpxml`, 'text/xml');
+        } else {
+          // The folder walk is device-local (see store/medialink.ts), so it is
+          // read here rather than carried on the bundle. Absent — nobody picked
+          // a folder on this device — and the CSV is exactly what it always was,
+          // with three empty trailing columns.
+          const mediaIndex = await loadMediaIndex(props.project.id);
+          const blob = exporter.toCsv(bundle, mediaIndex);
+          await shareBlob(blob, `${base}-log-${dateStamp}.csv`, 'text/csv');
+        }
+        track('export', { format: label });
+        // Every account is on SOME tier's counter now (free or Pro), but Pro's
+        // "limit" is 1,000,000 - telling it "999997 left" would be noise
+        // pretending to be information. Only show the countdown when the
+        // remaining count is within the free-tier ceiling for this format, which
+        // a Pro account's remaining value never is.
+        if (typeof gate.remaining === 'number' && gate.remaining <= FREE_LIMITS[format]) {
+          setNote(`${gate.remaining} of ${FREE_LIMITS[format]} ${FORMAT_LABEL[format]} exports left.`);
+        }
+      } catch (err) {
+        console.error(`export (${kind}): gate allowed it but building/sharing the file failed`, err);
+        setError(exportBuildFailureMessage(kind));
       }
-      track('export', { format: label });
-      // Every account is on SOME tier's counter now (free or Pro), but Pro's
-      // "limit" is 1,000,000 - telling it "999997 left" would be noise
-      // pretending to be information. Only show the countdown when the
-      // remaining count is within the free-tier ceiling for this format, which
-      // a Pro account's remaining value never is.
-      if (typeof gate.remaining === 'number' && gate.remaining <= FREE_LIMITS[format]) {
-        setNote(`${gate.remaining} of ${FREE_LIMITS[format]} ${FORMAT_LABEL[format]} exports left.`);
-      }
-    } catch {
-      setError(EXPORT_OFFLINE_MSG);
     } finally {
       setBusy(null);
     }

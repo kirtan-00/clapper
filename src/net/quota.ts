@@ -2,7 +2,7 @@
 // `usage` row (RLS: select-own) to show "N of 5 left", but only edge functions
 // (service role) can mutate the counters. Enforcement always happens server-side.
 
-import { FunctionsHttpError } from '@supabase/supabase-js';
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
 /**
@@ -31,18 +31,6 @@ export type GatedFormat = keyof typeof FREE_LIMITS;
 /** Kept as a name because call sites read `FREE_LIMIT` for the CSV/PDF case.
  *  Prefer FREE_LIMITS[format]. */
 export const FREE_LIMIT = FREE_LIMITS.csv;
-
-/**
- * @deprecated Was "what a SIGNED-OUT caller gets of the XML handoff". Nobody
- * gets anything signed out any more — the app requires an account — so this now
- * aliases the free-tier XML allowance, which happens to be the same number.
- *
- * Two call sites in ProjectScreen.tsx still print copy around it that says "on
- * this connection" and "sign in for unlimited". Both are unreachable now and
- * both are wrong; they are left alone only because that file is being edited by
- * another agent as this lands. Fix the copy, then delete this.
- */
-export const ANON_LIMIT_XML = FREE_LIMITS.premiere;
 
 export interface QuotaCounter {
   used: number;
@@ -95,7 +83,15 @@ export async function getUsage(): Promise<Usage | null> {
 export interface GateResult {
   allow: boolean;
   remaining?: number;
+  /**
+   * On allow:false, one of: 'quota_exceeded' | 'auth' (from the server, or
+   * synthesized here from a 401) | 'unreachable' (the request never reached
+   * the function) | 'http_error' (the function answered, with an error
+   * status). The UI decides what to say for each; see ProjectScreen.tsx.
+   */
   reason?: string;
+  /** HTTP status the function responded with. Only set when reason is 'http_error'. */
+  status?: number;
 }
 
 /**
@@ -103,22 +99,42 @@ export interface GateResult {
  * one quota unit server-side on allow. The client must generate the blob ONLY
  * when `allow` is true.
  *
- * PDF is now in here too. It was the one export that never called this — which
+ * PDF is now in here too. It was the one export that never called this, which
  * meant the file a producer actually prints and hands round a unit was the only
  * one nobody paid for.
+ *
+ * Every failure used to collapse into `reason: 'network'`, which the UI then
+ * read as "offline" even when the function was up and answering with a 500.
+ * That's what this function exists to prevent now: a fetch that never reached
+ * the function ('unreachable', @supabase/functions-js's FunctionsFetchError or
+ * FunctionsRelayError) is not the same fact as the function answering with an
+ * error status ('http_error'), and neither is the same fact as the caller
+ * being offline. That call is the UI's to make, from `navigator.onLine`, not
+ * ours. Either way, the real error goes to the console so a report is
+ * diagnosable from the first round trip instead of a follow-up asking what
+ * the console said.
  */
 export async function gateExport(format: GatedFormat): Promise<GateResult> {
   const { data, error } = await supabase.functions.invoke<GateResult>('export-gate', {
     body: { format },
   });
   if (error || !data) {
-    // A 401 from the gateway/function means the session is missing or expired —
-    // surface it as an auth error so the UI can prompt sign-in, distinct from a
-    // transport failure.
-    if (error instanceof FunctionsHttpError && error.context?.status === 401) {
-      return { allow: false, reason: 'auth' };
+    if (error instanceof FunctionsHttpError) {
+      const status = error.context?.status as number | undefined;
+      // A 401 means the session is missing or expired. Surface it as an auth
+      // error so the UI can prompt sign-in, distinct from every other status.
+      if (status === 401) {
+        return { allow: false, reason: 'auth' };
+      }
+      console.error(`export-gate: function answered with status ${status}`, error);
+      return { allow: false, reason: 'http_error', status };
     }
-    return { allow: false, reason: 'network' };
+    if (error instanceof FunctionsFetchError || error instanceof FunctionsRelayError) {
+      console.error('export-gate: request never reached the function', error);
+      return { allow: false, reason: 'unreachable' };
+    }
+    console.error('export-gate: invoke failed with no data and an unrecognized error shape', error);
+    return { allow: false, reason: 'unreachable' };
   }
   return data;
 }
