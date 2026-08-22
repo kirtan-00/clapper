@@ -134,7 +134,7 @@ export async function startCheckout(plan: PlanKey, prefillEmail?: string): Promi
         name: 'Clapper',
         description: order.label,
         prefill: prefillEmail ? { email: prefillEmail } : undefined,
-        theme: { color: '#0e7a43' }, // --go-fill, the app's own green
+        theme: { color: '#0b4650' }, // --m-accent, the app's own day accent
         handler: (r: RazorpaySuccess) => settle(r),
         modal: { ondismiss: () => settle({ dismissed: true }) },
       });

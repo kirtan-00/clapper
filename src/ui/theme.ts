@@ -21,7 +21,7 @@ export const THEME_KEY = 'clapper.theme';
 
 /** Ground colour per theme: --paper in src/styles.css. Also in index.html. */
 const THEME_COLOR: Record<Theme, string> = {
-  light: '#fbfaf7',
+  light: '#e2f0cc',   // pale green, 2026-08-22; #fbfaf7 was the old ivory
   night: '#000000',   // night is TRUE black now; #0c0d10 was the old charcoal
 };
 

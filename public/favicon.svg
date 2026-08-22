@@ -12,10 +12,10 @@
     <line x1="222" y1="572" x2="802" y2="572" stroke="#2d3034" stroke-width="18" stroke-linecap="round"/>
     <line x1="222" y1="660" x2="690" y2="660" stroke="#2d3034" stroke-width="18" stroke-linecap="round"/>
     <line x1="222" y1="748" x2="600" y2="748" stroke="#2d3034" stroke-width="18" stroke-linecap="round"/>
-    <circle cx="792" cy="748" r="52" fill="#57C282"/>
+    <circle cx="792" cy="748" r="52" fill="#E6FF2B"/>
     <g transform="rotate(-16 214 432)">
       <rect x="150" y="330" width="772" height="176" rx="26" fill="url(#teeth)"/>
     </g>
-    <circle cx="214" cy="432" r="30" fill="#57C282"/>
+    <circle cx="214" cy="432" r="30" fill="#E6FF2B"/>
   </g>
 </svg>

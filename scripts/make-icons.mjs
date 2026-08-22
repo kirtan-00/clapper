@@ -21,8 +21,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const OUT_DIR = join(ROOT, 'public');
 
-const INK = '#0c0d10'; // --ink-950 background
-const GO = '#38d178'; // --go signal green (matched from src/styles.css)
+// The icon is always the NIGHT pairing, whatever theme the app is in: a home
+// screen is somebody else's wallpaper and the icon has to hold on any of them.
+// Acid on true black is 18.70:1, which is the highest-contrast pair the palette
+// has and the reason it survives being 48px on a busy background.
+const INK = '#000000'; // night ground
+const GO = '#e6ff2b'; // --m-accent on night (was --go #38d178, retired 2026-08-22)
 const CHALK = '#ece9e1'; // warm off-white, never pure #fff
 
 // ---- SVG (512 viewBox, scaled to the target size) -------------------------
