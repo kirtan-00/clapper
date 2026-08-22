@@ -38,3 +38,24 @@ describe('gateExport: suspended accounts', () => {
     expect(result.allow).toBe(false);
   });
 });
+
+// The copy itself, pinned here rather than in ProjectScreen's own suite for one
+// reason: this is the file that documents what 'suspended' means, so the string
+// and its contract stay in each other's sight. The assertion that matters is
+// NOT the wording, which will change; it is that a suspended account is never
+// told to check its connection. That was the exact failure this whole reason
+// family was introduced to stop, and it is the one a future edit is most likely
+// to reintroduce by adding the offline guard back above this branch.
+describe('suspended never reads as a connection problem', () => {
+  it('says suspended, and does not mention offline, VPN or firewall', async () => {
+    const { exportFailureMessage } = await import('../ui/ProjectScreen');
+    for (const online of [true, false]) {
+      const msg = exportFailureMessage({ reason: 'suspended' }, online);
+      expect(msg.toLowerCase()).toContain('suspended');
+      expect(msg.toLowerCase()).not.toContain('offline');
+      expect(msg.toLowerCase()).not.toContain('vpn');
+      expect(msg.toLowerCase()).not.toContain('firewall');
+      expect(msg.toLowerCase()).not.toContain('connection');
+    }
+  });
+});

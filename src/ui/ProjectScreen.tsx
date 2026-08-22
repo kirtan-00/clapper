@@ -1922,6 +1922,17 @@ const FORMAT_LABEL: Record<GatedFormat, string> = {
  * DOM.
  */
 export function exportFailureMessage(gate: Pick<GateResult, 'reason' | 'status'>, isOnline: boolean): string {
+  /* SUSPENDED IS CHECKED BEFORE THE OFFLINE GUARD, and it is the only reason
+     that jumps that queue. Everything below this line describes a request that
+     failed to get an answer, so "are you actually online" is the right first
+     question for all of them. `suspended` is the opposite: the server answered,
+     clearly, and told us the account is blocked. Telling somebody to check
+     their wifi when the truth is that their account is suspended sends them
+     round the houses and eventually to a support email about a bug that is not
+     one. That confusion is exactly what this whole function exists to stop. */
+  if (gate.reason === 'suspended') {
+    return "This account has been suspended, so exports are blocked. If you think that's a mistake, reply to any Clapper email and we'll take a look.";
+  }
   if (!isOnline) return EXPORT_OFFLINE_MSG;
   if (gate.reason === 'http_error') {
     return gate.status

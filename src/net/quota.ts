@@ -85,8 +85,10 @@ export interface GateResult {
   remaining?: number;
   /**
    * On allow:false, one of: 'quota_exceeded' | 'auth' (from the server, or
-   * synthesized here from a 401) | 'unreachable' (the request never reached
-   * the function) | 'http_error' (the function answered, with an error
+   * synthesized here from a 401) | 'suspended' (the account is blocked; the
+   * server says so at HTTP 200 precisely so this body is read at all, since
+   * gateExport only parses JSON on a 2xx) | 'unreachable' (the request never
+   * reached the function) | 'http_error' (the function answered, with an error
    * status). The UI decides what to say for each; see ProjectScreen.tsx.
    */
   reason?: string;
