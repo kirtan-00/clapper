@@ -405,3 +405,87 @@
   white-space: nowrap;
   font-weight: 600;
 }
+
+/* ============================================================ SHOOT DAY ====
+   ICON TILES, TWO ACROSS.
+
+   Wrap day, Every clip rolled (now "All rolled"), Export and Backup used to
+   stack as four identical full-width bars under the SHOOT DAY head - same
+   width, same height, same weight, one after another - which is the
+   "endless" scroll the owner flagged twice. He was shown three shapes for
+   this block and picked this one: a 2x2 grid, an icon standing over a short
+   label, sized to use the room a two-up grid actually has rather than
+   squeeze into the --tap floor. No leading-edge strip on any of them - that
+   treatment is retired everywhere in this app, not just here.
+
+   All four keep the SAME secondary face `.btn` already draws (unfilled, the
+   app's own surface, a hairline, full-strength ink) - only the shape moves,
+   from a wide bar to a square-ish key. None of the four outranks another;
+   `.addline__go` above is still the only `--go` fill on this screen.
+
+   The four tiles are built by three different owners (ProjectScreen builds
+   All rolled inline, ExportBar builds Export and Backup, ShootDaySection
+   builds Wrap day beside its own confirm/undo state), so their DOM order is
+   not guaranteed to be exactly the four of them back to back - Export's and
+   Backup's own error banners are DOM siblings of their tiles. `order` pins
+   each tile to its cell in the sketch regardless: `.shoottiles__extra`
+   (Undo wrap, and every error banner) always spans both columns and always
+   sorts after all four, so it can never bump Wrap day out of the
+   bottom-right cell it belongs in. */
+.pj .shoottiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.pj .tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-height: 92px;
+  padding: var(--sp-3) var(--sp-2);
+  border: 0;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  background: var(--surface);
+  color: var(--text);
+  transition: background var(--dur-state) var(--ease-out);
+}
+.pj .tile:active { background: var(--paper-sunk-deep); }
+.pj .tile:disabled { opacity: 0.4; }
+.pj .tile__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pj .tile__label {
+  font-size: var(--t-row);
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.pj .tile--rolled { order: 1; }
+.pj .tile--export { order: 2; }
+.pj .tile--backup { order: 3; }
+.pj .tile--wrap { order: 4; }
+
+/* WRAP DAY ENDS THE DAY but Undo wrap answers it until the first take lands
+   on the new one - it is destructive-ish, not the two truly irreversible
+   deletes this screen also carries (Delete scene, Delete project), so it
+   does not reach for DESTRUCTIVE's solid red fill the way those two do. It
+   gets the colour-only red treatment the app already uses elsewhere for
+   exactly this register - the discipline callout's label in the how-to guide
+   and the keep/kill split both tint TEXT alone on `--rec-text`, no fill - so
+   the icon and label carry the signal and the tile's face stays the same
+   material as its three neighbours. */
+.pj .tile--rec .tile__icon,
+.pj .tile--rec .tile__label {
+  color: var(--rec-text);
+}
+
+.pj .shoottiles__extra {
+  grid-column: 1 / -1;
+  order: 9;
+}
