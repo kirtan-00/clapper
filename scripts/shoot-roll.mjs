@@ -404,38 +404,42 @@ async function tryToScroll(cdp, h) {
 const sameBox = (a, b) => !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 const fmt = (b) => (b ? `x${b.x} y${b.y} ${b.w}x${b.h}` : 'none');
 
+/** Reports what is actually AT the centre it is about to press, not just
+ *  what it meant to press: a key half-scrolled under the sticky mark row
+ *  hands the tap to whatever is painted over it, and a harness that does
+ *  not check that blames the app for its own mis-aim. Module-scoped (not a
+ *  closure inside `behaviourChecks`) so `momentClipCheck` below can drive
+ *  the same real taps rather than a second, looser copy of this logic. */
+async function tapAt(cdp, sel, index, rows) {
+  const p = await cdp.evaluate(`
+    (() => {
+      const el = [...document.querySelectorAll(${JSON.stringify(sel)})][${index}];
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+      const hit = document.elementFromPoint(x, y);
+      return { x, y, want: (el.textContent || '').trim().slice(0, 18),
+               got: hit ? (hit.className + ' ' + (hit.textContent || '').trim().slice(0, 18)) : 'nothing',
+               ours: !!hit && (el === hit || el.contains(hit)) };
+    })()
+  `);
+  if (!p) return false;
+  if (!p.ours) {
+    rows.push(`note  tap on "${p.want}" at ${p.x},${p.y} would land on ${p.got} - skipped`);
+    return false;
+  }
+  await cdp.mouseDown(p.x, p.y);
+  await sleep(60);          // short: a 600ms hold opens the tag editor instead
+  await cdp.mouseUp(p.x, p.y);
+  await sleep(140);
+  return true;
+}
+
 /** The four the owner reported from the set, checked the same way as the
  *  geometry: by reading the DOM, not by looking at a picture and hoping.
  *  Run at 390x844 in both themes, and each one leaves a screenshot. */
 async function behaviourChecks(cdp, rows, fails) {
-  const tap = async (sel, index = 0) => {
-    // Reports what is actually AT the centre it is about to press, not just
-    // what it meant to press: a key half-scrolled under the sticky mark row
-    // hands the tap to whatever is painted over it, and a harness that does
-    // not check that blames the app for its own mis-aim.
-    const p = await cdp.evaluate(`
-      (() => {
-        const el = [...document.querySelectorAll(${JSON.stringify(sel)})][${index}];
-        if (!el) return null;
-        const r = el.getBoundingClientRect();
-        const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
-        const hit = document.elementFromPoint(x, y);
-        return { x, y, want: (el.textContent || '').trim().slice(0, 18),
-                 got: hit ? (hit.className + ' ' + (hit.textContent || '').trim().slice(0, 18)) : 'nothing',
-                 ours: !!hit && (el === hit || el.contains(hit)) };
-      })()
-    `);
-    if (!p) return false;
-    if (!p.ours) {
-      rows.push(`note  tap on "${p.want}" at ${p.x},${p.y} would land on ${p.got} - skipped`);
-      return false;
-    }
-    await cdp.mouseDown(p.x, p.y);
-    await sleep(60);          // short: a 600ms hold opens the tag editor instead
-    await cdp.mouseUp(p.x, p.y);
-    await sleep(140);
-    return true;
-  };
+  const tap = (sel, index = 0) => tapAt(cdp, sel, index, rows);
   const rollNow = async () => {
     const p = await cdp.centreOf('.bigbtn');
     await cdp.mouseDown(p.x, p.y);
@@ -495,7 +499,7 @@ async function behaviourChecks(cdp, rows, fails) {
         const box = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; };
         const h = (sel) => { const e = document.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().height) : null; };
         const st = document.querySelector('.roll__stage');
-        return { deck: box(d), cut: box(c), rows: document.querySelectorAll('.momentrow').length,
+        return { deck: box(d), cut: box(c), rows: document.querySelectorAll('.momentrow:not([aria-hidden="true"])').length,
                  body: h('.roll__body'), stage: h('.roll__stage'), log: h('.momentlog'), now: h('.stage__now'),
                  basis: st ? getComputedStyle(st).flexBasis + '/' + getComputedStyle(st).minHeight + '/' + getComputedStyle(st).display : '-' };
       })()
@@ -508,7 +512,7 @@ async function behaviourChecks(cdp, rows, fails) {
         const box = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; };
         const h = (sel) => { const e = document.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().height) : null; };
         const st = document.querySelector('.roll__stage');
-        return { deck: box(d), cut: box(c), rows: document.querySelectorAll('.momentrow').length,
+        return { deck: box(d), cut: box(c), rows: document.querySelectorAll('.momentrow:not([aria-hidden="true"])').length,
                  body: h('.roll__body'), stage: h('.roll__stage'), log: h('.momentlog'), now: h('.stage__now'),
                  basis: st ? getComputedStyle(st).flexBasis + '/' + getComputedStyle(st).minHeight + '/' + getComputedStyle(st).display : '-' };
       })()
@@ -565,6 +569,101 @@ async function behaviourChecks(cdp, rows, fails) {
     `landscape 900x500  doc ${land.docScroll}/${land.docClient}  roll ${land.rollScroll}/${land.rollClient}  ` +
       `cut ${fmt(land.cut)}  pill ${fmt(land.pill)} seen=${land.pillSeen}  takebar ${fmt(land.takebar)}`,
   );
+  await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
+}
+
+/** BUG5: THE MOMENTS LOG'S OWN ROW GUILLOTINE.
+ *
+ * This is the case that would have caught the mid-glyph slice bug3's own
+ * screenshot shipped with: bug3 only ever asserts that CUT and the deck's
+ * box stay put across four taps, never that every row INSIDE the moments
+ * log is drawn whole. At 390x844 with the owner's four-tag rig, the box
+ * happens to have room for a couple of rows, so a slice there is a visual
+ * defect a still frame could still miss if nobody looked closely - which is
+ * exactly what happened. This check instead:
+ *
+ *   1. runs at 667, the SHORTEST height this app claims to support, where
+ *      the moments box has the least room to work with;
+ *   2. logs eight distinct moments - more than any height in the sweep
+ *      could plausibly show in full - guaranteeing the box is over budget;
+ *   3. reads every `.momentrow`'s own bounding rect against `.momentlog`'s
+ *      and fails if any row starts inside the container and is cut by its
+ *      bottom (or top) edge, rather than merely checking the container
+ *      itself doesn't overflow its own ancestors (assertions 1-3 already do
+ *      that, and passed the whole time this bug shipped - the container was
+ *      never too tall, its LAST CHILD was too tall for what remained of it).
+ *
+ * A row that is not fully inside the box and is not simply absent (rendered
+ * with zero height, i.e. not rendered at all) is the guillotine. */
+async function momentClipCheck(cdp, rows, fails) {
+  const note = (ok, text) => {
+    rows.push(`${ok ? ' ok ' : 'FAIL'} ${text}`);
+    if (!ok) fails.push(text);
+  };
+
+  for (const theme of ['day', 'night']) {
+    await cdp.setViewport(VIEWPORT.width, 667);
+    // The plain single-cam rig, not the script breakdown: no shot deck below
+    // the stage means the moments box actually gets SOME of the little room
+    // 667px has to spend, which is the harder case to prove clean - a box
+    // squeezed to zero passes this check for free (nothing renders, nothing
+    // can be partial). The seven flat quick-tags (`WIDE`/`MID`/`CU`/... -
+    // see `seed()`) give eight taps something real to hit without needing a
+    // script breakdown.
+    await seed(cdp, { cameraCount: 1, soundOn: false, scriptMode: false, shots: false });
+    await openRoll(cdp, theme);
+    const p = await cdp.centreOf('.bigbtn');
+    await cdp.mouseDown(p.x, p.y);
+    await cdp.mouseUp(p.x, p.y);
+    await cdp.waitForExpr(`document.querySelector('.roll--live')`, { desc: `live for moment clip ${theme}` });
+    await sleep(400);
+
+    // Eight taps, cycling through whatever keys the rig offers (coverage +
+    // key-moment, same as bug3) - every tap is its own buffered moment (see
+    // `tapTag` in RollingScreen.tsx), so eight is comfortably more than a
+    // 667-tall phone can show as whole rows.
+    const keyCount = await cdp.evaluate(`document.querySelectorAll('.keypad .keycap').length`);
+    for (let i = 0; i < 8 && keyCount > 0; i++) {
+      await tapAt(cdp, '.keypad .keycap', i % keyCount, rows);
+    }
+
+    const measured = await cdp.evaluate(`
+      (() => {
+        const box = document.querySelector('.momentlog');
+        if (!box) return null;
+        const c = box.getBoundingClientRect();
+        const items = [...document.querySelectorAll('.momentrow:not([aria-hidden="true"])')].map((el) => {
+          const r = el.getBoundingClientRect();
+          return {
+            more: el.classList.contains('momentrow--more'),
+            text: (el.textContent || '').trim().slice(0, 24),
+            top: r.top, bottom: r.bottom, height: r.height,
+          };
+        });
+        // Fully inside (0.5px slack for sub-pixel rounding) or truly absent
+        // (zero rendered height - React simply didn't render it) both pass.
+        // Anything with real height that pokes past either edge is a slice.
+        const partial = items.filter(
+          (it) => it.height > 0.5 && (it.top < c.top - 0.5 || it.bottom > c.bottom + 0.5),
+        );
+        return { container: { top: c.top, bottom: c.bottom, height: c.height }, items, partial };
+      })()
+    `);
+    await cdp.shot(join(OUT_DIR, `bug5.momentlog-overflow.${theme}.667.png`));
+
+    if (!measured) {
+      note(false, `bug5 ${theme}/667  no .momentlog rendered after 8 taps - cannot check row clipping`);
+      continue;
+    }
+    note(
+      measured.partial.length === 0,
+      `bug5 ${theme}/667  ${measured.items.length} .momentrow(s) in a ${measured.container.height}px box, ` +
+        `${measured.partial.length} partially clipped: ` +
+        (measured.partial.length
+          ? measured.partial.map((it) => `"${it.text}" top=${Math.round(it.top)} bottom=${Math.round(it.bottom)} vs box ${Math.round(measured.container.top)}-${Math.round(measured.container.bottom)}`).join('; ')
+          : measured.items.map((it) => `${it.more ? 'MORE' : 'row'}:"${it.text}"`).join(', ')),
+    );
+  }
   await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
 }
 
@@ -664,6 +763,7 @@ async function assertMain(cdp) {
   }
 
   await behaviourChecks(cdp, rows, fails);
+  await momentClipCheck(cdp, rows, fails);
 
   console.log(rows.join('\n'));
   console.log('\n' + bar.join('\n'));

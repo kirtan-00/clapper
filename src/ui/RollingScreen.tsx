@@ -293,7 +293,13 @@ function soundFileParts(s: SoundUnit): ClipParts {
  * SAME height, wrapping back to the first page. Every tag stays reachable;
  * none of them cost a scroll to get to.
  */
-function rowsThatFit(budgetPx: number, rowH: number, gapPx: number): number {
+// Exported (not just module-scoped) because RollingScreen.test.ts now pins
+// this exact math for the moments log too (`cols: 1`, see `momentFit` below)
+// - the same reason `isSoleRollingUnit`/`rollHeadForm` are exported above:
+// the render is exercised by scripts/shoot-roll.mjs's live CDP drive, but the
+// DECISION of how many whole rows fit a budget is a pure function and belongs
+// pinned here, not only proven by a screenshot.
+export function rowsThatFit(budgetPx: number, rowH: number, gapPx: number): number {
   if (budgetPx < rowH) return 0;
   return 1 + Math.floor((budgetPx - rowH) / (rowH + gapPx));
 }
@@ -303,7 +309,7 @@ function rowsThatFit(budgetPx: number, rowH: number, gapPx: number): number {
  *  tall / `cols` wide, and how many rows that spends. When a row would spill,
  *  the LAST cell of the last row is given back to a MORE tile - it costs one
  *  real tag's worth of space to keep every hidden one reachable. */
-function fitTagGroup(
+export function fitTagGroup(
   count: number,
   budgetPx: number,
   rowH: number,
@@ -558,6 +564,27 @@ export function RollingScreen(props: {
   // timer.rolling) - a hook cannot read a const declared below it.
   const padsRef = useRef<HTMLDivElement | null>(null);
   const [padsBudgetPx, setPadsBudgetPx] = useState<number | null>(null);
+
+  /**
+   * THE MOMENTS LOG'S OWN BUDGET, MEASURED THE SAME WAY AS THE TAG PAD'S.
+   *
+   * `.roll--live .momentlog` sits in the middle grid's own row 3 with
+   * `contain: size` (see styles.css) - its clientHeight comes from the grid
+   * track, never from what is rendered inside it, same proof as `padsRef`
+   * above. Before this, the row rendered every buffered moment and let
+   * `overflow: hidden` crop whatever did not fit, which sliced the last row
+   * mid-glyph rather than dropping it whole - the third time this exact
+   * defect has shipped on this screen (see .roll__stage and .roll__pads'
+   * own comments for the first two). `momentlogRef` measures the box;
+   * `momentRowProbeRef` measures one real row (its height depends on
+   * `--t-secondary`, which the interface-size setting scales, so it cannot
+   * be a constant the way `--tap`-backed `LIST_ROW_H` is) via a row rendered
+   * off-glass on purpose - see the probe in the JSX below.
+   */
+  const momentlogRef = useRef<HTMLDivElement | null>(null);
+  const [momentlogBudgetPx, setMomentlogBudgetPx] = useState<number | null>(null);
+  const momentRowProbeRef = useRef<HTMLDivElement | null>(null);
+  const [momentRowH, setMomentRowH] = useState<number | null>(null);
 
   // `.keypad .keycap`'s own min-height drops from 52 to 44 (var(--tap)) under
   // the SAME `@media (max-height: 700px)` compact tier the camstack and reach
@@ -1360,6 +1387,52 @@ export function RollingScreen(props: {
     return () => ro.disconnect();
   }, [rolling]);
 
+  /** `momentlogBudgetPx`: the moments box's own clientHeight, read the exact
+   *  same way as `padsBudgetPx` above and for the same reason - the grid
+   *  track sizes it independent of what is rendered inside (see the
+   *  `.roll--live .momentlog` comment in styles.css for the `contain: size`
+   *  that makes this true). */
+  useEffect(() => {
+    const el = momentlogRef.current;
+    if (!el) {
+      setMomentlogBudgetPx(null);
+      return;
+    }
+    function recompute() {
+      if (!el) return;
+      const cs = getComputedStyle(el);
+      const verticalPadding = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      setMomentlogBudgetPx(Math.max(0, el.clientHeight - verticalPadding));
+    }
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rolling]);
+
+  /** `momentRowH`: one real `.momentrow`'s rendered height, read off a copy
+   *  that carries realistic content (a clock plus a tag) but is positioned
+   *  off-glass - `position: fixed` takes it out of every ancestor's layout,
+   *  so it costs the live screen nothing and cannot itself be the thing that
+   *  gets clipped. Observed continuously (not read once) because the row's
+   *  height depends on `--t-secondary`, which the interface-size setting
+   *  scales at any point, mid-take included. */
+  useEffect(() => {
+    const el = momentRowProbeRef.current;
+    if (!el) {
+      setMomentRowH(null);
+      return;
+    }
+    function recompute() {
+      if (!el) return;
+      setMomentRowH(el.getBoundingClientRect().height || null);
+    }
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rolling]);
+
   const elapsedMs = useEngine
     ? takeStartedAt !== null
       ? Math.max(0, nowTick - takeStartedAt)
@@ -1531,6 +1604,34 @@ export function RollingScreen(props: {
   const coverageVisible = tagPageSlice(coverageChips, coverageFit.visible, coveragePage);
   const keyVisible = tagPageSlice(keyChips, keyFit.visible, keyPage);
   const flatVisible = tagPageSlice(flatTags, flatFit.visible, flatPage);
+
+  /**
+   * THE MOMENTS LOG'S OWN TIER, same `fitTagGroup` math the tag pad uses
+   * above with `cols: 1` (one full-width row per moment, same shape as the
+   * key-moment list). `null` while either measurement has not landed yet
+   * renders NOTHING rather than everything: the tag pad can afford one frame
+   * of "show it all, correct before paint" because that frame is still a
+   * WHOLE row set (`overflow-y` was the thing scrolling it, not a clip). This
+   * box's failure mode is a mid-glyph slice, so the safer default on an
+   * unmeasured frame is the same one the stage itself uses when it cannot
+   * show a whole readout (see `@container stage` in styles.css): blank,
+   * never partial.
+   *
+   * Newest first, oldest dropped: `buffered` already renders reversed (most
+   * recent moment on top), and that ordering is deliberate upstream of this
+   * fix too, not just kept by accident. The take's own full list is always
+   * on the take card after CUT; what this box is FOR, mid-take, is "what did
+   * I just log" - the operator confirming the tap that just fired, not
+   * auditing the whole take. That is what stays on screen when it cannot
+   * hold everything, with a `+N more` row (itself one more real row, same
+   * height, same budget) standing in for the older marks that do not fit -
+   * so "there is more" is always stated, never silently dropped.
+   */
+  const momentFit =
+    momentlogBudgetPx === null || momentRowH === null
+      ? { visible: 0, moreCount: 0, consumedPx: 0 }
+      : fitTagGroup(buffered.length, momentlogBudgetPx, momentRowH, 1, TAG_ROW_GAP);
+  const momentsVisible = [...buffered].reverse().slice(0, momentFit.visible);
 
   /** One tag key, shared by every tier above - a plain function rather than a
    *  component so the long-press handlers below (already bound to `this`
@@ -1786,9 +1887,35 @@ export function RollingScreen(props: {
         )}
 
         {rolling ? (
-          buffered.length > 0 && (
-            <div className="momentlog" aria-label="Moments this take">
-              {[...buffered].reverse().map((m, i) => (
+          <>
+            {/* THE ROW PROBE. One real `.momentrow`, positioned off every
+                ancestor's layout so it costs the live screen nothing and can
+                never itself be the thing that gets clipped - see
+                `momentRowH` above for why this has to be measured live
+                rather than assumed. Rendered whenever `rolling` is, not only
+                once a moment exists, so the very first tap already has a
+                real number to fit against. */}
+            <div
+              ref={momentRowProbeRef}
+              className="momentrow"
+              aria-hidden="true"
+              style={{ position: 'fixed', top: -9999, left: -9999, visibility: 'hidden', pointerEvents: 'none' }}
+            >
+              <span className="at">0:00</span>
+              <span className="tag">TAG</span>
+            </div>
+            {/* THE BOX ITSELF, always mounted while rolling - never gated on
+                `buffered.length`. `momentlogRef` has to point at a stable
+                node for `momentlogBudgetPx`'s effect (keyed on `rolling`,
+                same as `padsBudgetPx`'s) to find on the frame it runs: a box
+                that only appears once the first moment lands would still be
+                unmounted the one time that effect fires, and the budget
+                would stay `null` - which reads as "nothing ever fits" -
+                forever, not just for a frame. Empty, it renders nothing
+                (no padding, no children, `contain: size` in the live grid),
+                so this costs the idle-of-moments case no pixels. */}
+            <div className="momentlog" aria-label="Moments this take" ref={momentlogRef}>
+              {momentsVisible.map((m, i) => (
                 <div
                   key={buffered.length - 1 - i}
                   className={`momentrow${m.kind === 'range' ? ' momentrow--range' : ''}${
@@ -1804,8 +1931,16 @@ export function RollingScreen(props: {
                   {m.label && <span className="lbl">{m.label}</span>}
                 </div>
               ))}
+              {momentFit.moreCount > 0 && (
+                <div
+                  className="momentrow momentrow--more"
+                  aria-label={`${momentFit.moreCount} earlier moment${momentFit.moreCount === 1 ? '' : 's'} logged this take, not shown here`}
+                >
+                  <span>+{momentFit.moreCount} more</span>
+                </div>
+              )}
             </div>
-          )
+          </>
         ) : (
           <>
           {/* THE IDLE REPORT — what a camera assistant writes down, in the

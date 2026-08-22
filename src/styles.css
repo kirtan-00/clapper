@@ -2663,9 +2663,16 @@ select.field {
    `justify-content: safe center` column, so every tag tapped during a take
    added a row, re-centred the group, and shifted the clock and the take bar
    mid-take - which is why his five screenshots, seconds apart in ONE take,
-   have the take bar at a different height in each. Now it is a clipped box
-   with a fixed share: the rows are rendered newest-first, so what falls off
-   the bottom is the OLDEST mark, and nothing above it ever moves.
+   have the take bar at a different height in each. Now it is a box with a
+   fixed share, and the rows render newest-first so what a short box has no
+   room for is the OLDEST mark, and nothing above it ever moves. This grid
+   only fixes WHICH rows compete for the space and how much space there is
+   to compete for - it says nothing about whether a row that doesn't fully
+   fit gets drawn anyway and sliced. That half is `momentlogBudgetPx` +
+   `momentRowH` in RollingScreen.tsx: they measure this row's own height
+   against the space this rule gives it and clamp to whole rows before
+   render, so what "falls off the bottom" is a whole row short of a "+N
+   more" line, never a mid-glyph crop of a partial one.
 
    `container-type: normal` deliberately turns size containment OFF here. The
    contained form gives the box a zero intrinsic height, which is what let the
@@ -2714,8 +2721,13 @@ select.field {
      though the row is `minmax(0, 1fr)`: measured, four tags tapped grew the
      band 87px and shrank the deck by the same 87, which is the exact defect
      the containment was meant to stop ("the tapped tags are stacking too much
-     space"). Contained, the box's height is the row's and never its rows':
-     marks fill the space that exists and are clipped when it runs out. */
+     space"). Contained, the box's height is the row's and never its rows'.
+     `overflow: hidden` (inherited from `.momentlog` above) is the net under
+     that, not the plan: RollingScreen.tsx measures this exact clientHeight
+     via `momentlogBudgetPx` and only ever renders as many whole `.momentrow`s
+     as fit it, so this rule should never actually be asked to crop a real
+     row - the two are meant to agree, and if they ever don't, THAT is the
+     bug, not this line. */
   contain: size;
 }
 /* THE CLOCK IS THIN, and that is the whole difference between a number and a
@@ -2975,9 +2987,17 @@ select.field {
 /* The marks tapped during the running take. It WAS a fourth scrollport on this
    screen (`max-height: 26vh; overflow-y: auto`) and it was the one that grew:
    four tags tapped, four full-width rows, the group re-centred and the clock
-   and take bar moved. It is a clipped box now, bounded by the middle zone's
-   bottom grid row - the rows render newest-first, so what leaves is the oldest
-   mark, and the take's whole list is on the take card after CUT anyway. */
+   and take bar moved. Moving it into the middle grid's own bottom row (see
+   `.roll--live .momentlog`) fixed THAT - the box stopped growing the layout
+   around it - but this rule's `overflow: hidden` was still doing the actual
+   cropping, and a box with no row budget crops mid-row: read back "0:01 She
+   turns to camera" with the bottom half of every glyph gone, sliced by
+   whatever sat directly under it. Same defect the tag pad had already been
+   fixed for once (see `padsBudgetPx`/`rowsThatFit`/`fitTagGroup` in
+   RollingScreen.tsx) and this box was never brought in line with it.
+   `momentlogBudgetPx` + `momentRowH` now measure the real box and the real
+   row and clamp to whole rows before this ever renders - `overflow: hidden`
+   stays only as the net under that math, not as the mechanism. */
 .momentlog {
   width: 100%;
   max-width: 460px;
@@ -3002,6 +3022,20 @@ select.field {
 .momentrow .at { font-family: var(--font-mono); color: var(--chalk); font-weight: 600; }
 .momentrow .tag { font-weight: 600; letter-spacing: var(--track-caps); font-size: var(--t-caps); color: var(--chalk-dim); }
 .momentrow .lbl { color: var(--chalk-dim); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* THE "+N MORE" ROW. Same box as every other `.momentrow` (same padding,
+   same font-size, same height) on purpose - it has to cost the row budget
+   exactly one row, or the math above that reserved a row for it would be
+   measuring against a lie. Dimmer and centred rather than styled like a
+   real mark, so it reads as a note about the list rather than a moment that
+   happened. */
+.momentrow--more {
+  justify-content: center;
+  color: var(--chalk-dim);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  font-size: var(--t-caps);
+  border-left-color: transparent;
+}
 
 /* bottom control zone - one thumb.
 
