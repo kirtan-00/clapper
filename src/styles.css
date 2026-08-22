@@ -392,11 +392,22 @@
      tests plus the whole night ramp have to survive every intermediate state.
 
      The palette is the approved one. The distinction that matters is SHEET vs
-     MASS: the app's ground is milled ivory, and a control is either a well
-     cut INTO that ivory (ROLL) or a block of dark metal set into it (CUT).
+     MASS: the app's ground is a milled sheet, and a control is either a well
+     cut INTO that sheet (ROLL) or a block of dark metal set into it (CUT).
      Those are different materials, so they get different wells and different
-     travel, not one button with two fills. */
-  --m-sheet: #f7f6f2;         /* the ivory a well is milled into */
+     travel, not one button with two fills.
+
+     THE SHEET IS GREEN NOW, NOT IVORY, and this token is the one that makes it
+     so on the redesigned screens. --paper moved to #e2f0cc with the rest of
+     the palette and this did not, which left the app inside out for one
+     commit: an ivory page carrying pale green cards, the exact reverse of the
+     approved reference. Three lanes read this token as their ground
+     (--pj-ground in skin/projects.css, --roll-ground in skin/roll.css, the
+     focus outline in skin/shell.css), so it has to hold the same value --paper
+     does or the two halves of the app disagree about what colour the floor is.
+     Kept as its own token rather than aliased to --paper because night still
+     wants them apart. */
+  --m-sheet: #e2f0cc;         /* the sheet a well is milled into */
   /* THE MASS IS NEUTRAL, AND IT IS THE SAME MATERIAL IN BOTH THEMES. It was a
      green-black (#101714 / #1C2420 / #242D28) and the green went with every
      other hue on the dark side - a tinted black is the tint you notice first,
