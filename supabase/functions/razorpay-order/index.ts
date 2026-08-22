@@ -97,6 +97,27 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // 3b. A suspended account cannot start a new purchase. This is deliberately
+  // checked here and not in razorpay-verify: refusing at ORDER time means a
+  // suspended user never gets as far as Razorpay's checkout modal, so there is
+  // no HMAC-verified payment sitting in `payments` for a booted account that
+  // razorpay-verify would then have to decide whether to grant against. Money
+  // that was never taken never needs reconciling.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_suspended")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profile?.is_suspended === true) {
+    return new Response(
+      JSON.stringify({
+        error: "This account has been suspended. If you think that's a mistake, email us.",
+        code: "suspended",
+      }),
+      { status: 403, headers },
+    );
+  }
+
   // 4. Create the order at Razorpay.
   //
   // `receipt` is our own reference, max 40 chars, and it is what makes a

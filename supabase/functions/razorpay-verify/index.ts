@@ -73,6 +73,19 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // NOT checking is_suspended here, on purpose. razorpay-order already refuses
+  // to create an order for a suspended account, so a real payment reaching
+  // this function from a suspended caller should be near-impossible in normal
+  // use. If one arrives anyway, this function's whole reason to exist is that
+  // real money may have already moved at Razorpay's end, and refusing the
+  // grant here would recreate the exact "money taken, nothing given" failure
+  // this file's own comments call the one that costs a real person real money
+  // (see the `paid_grant_failed` status below). is_pro means nothing to a
+  // suspended account anyway: export-gate and breakdown both check
+  // is_suspended before is_pro, so granting Pro here does not hand back any
+  // access while suspended. It just sits there, correctly, until an admin
+  // unsuspends them.
+
   // 2. All three fields, or nothing.
   let payload: {
     razorpay_order_id?: unknown;
