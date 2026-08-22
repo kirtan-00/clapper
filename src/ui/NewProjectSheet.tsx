@@ -724,9 +724,13 @@ function ShotListStage(props: {
 }) {
   return (
     <>
+      {/* DocumentStage explains the PDF read itself, in whichever state it is
+          currently showing (signed out, the dropzone, the busy tally). This
+          line adds only what is unique to landing here as a stage rather than
+          a gate: skipping is a real, fully-supported answer. */}
       <p className="camnote sl-lede">
-        Every scene and numbered shot, read off the PDF. Skip it and the project opens
-        with none. Scenes can still be added by hand once it does.
+        Skip it and the project opens with none. Scenes can still be added by hand
+        once it does.
       </p>
       <DocumentStage
         onPack={props.onPack}

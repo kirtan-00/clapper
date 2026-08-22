@@ -289,6 +289,10 @@ function eq(name, actual, expected) {
 // ------------------------------------------------------------------ walks ---
 
 const CREW = ['Rohan', 'Meera', 'Ali', 'Sam'];
+// Deliberately not "1, 1, 1, 1": the starting clip number is a per-unit
+// field now (the point of this change), so four distinct numbers are what
+// proves each unit's own value reached the object, not a shared default.
+const START_NUMS = ['101', '1', '44', '7'];
 
 /** Four cameras, a recorder, and a unit taken back off along the way. */
 async function walkFourPlusSound(cdp, theme, notes) {
@@ -335,10 +339,20 @@ async function walkFourPlusSound(cdp, theme, notes) {
   }
   for (let i = 0; i < 4; i++) {
     await cdp.evaluate(TYPE_INTO(`#np-op-${'ABCD'[i]}`, CREW[i]));
+    await cdp.evaluate(TYPE_INTO(`#np-start-${'ABCD'[i]}`, START_NUMS[i]));
   }
   await sleep(250);
   await cdp.shot(join(OUT_DIR, `3-cameras-four.${theme}.png`));
   const four = await cdp.evaluate(`document.querySelectorAll('.np-unit').length`);
+  const previewA = await cdp.evaluate(`document.querySelector('.np-unit__eg')?.textContent || ''`);
+  notes.push(`3-cameras-four.${theme}  previewA=${previewA}`);
+  notes.push(
+    check(
+      `the starting clip number feeds the filename preview live (${theme})`,
+      previewA.includes('C101'),
+      previewA,
+    ),
+  );
   notes.push(`3-cameras-four.${theme}  units=${four}  addShown=${await cdp.evaluate(`!!document.querySelector('.np-add')`)}`);
   notes.push(check(`cap holds at four (${theme})`, four === 4, `units=${four}`));
   notes.push(
@@ -372,6 +386,7 @@ async function walkFourPlusSound(cdp, theme, notes) {
   await sleep(150);
   for (let i = 0; i < 4; i++) {
     await cdp.evaluate(TYPE_INTO(`#np-op-${'ABCD'[i]}`, CREW[i]));
+    await cdp.evaluate(TYPE_INTO(`#np-start-${'ABCD'[i]}`, START_NUMS[i]));
   }
   await sleep(200);
   await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'cameras -> sound' });
@@ -396,13 +411,29 @@ async function walkFourPlusSound(cdp, theme, notes) {
   await sleep(250);
   await cdp.shot(join(OUT_DIR, `4-sound-on.${theme}.png`));
   notes.push(`4-sound-on.${theme}  ${JSON.stringify(await cdp.evaluate(STAGE_NOTE))}`);
-  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'sound -> ready' });
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'sound -> shot list' });
+
+  // ---- 4a SHOT LIST ---------------------------------------------------
+  // The stage the shot-division diagram calls out: a fifth stage now, not a
+  // gate. Skipped here; shotlistFooters below (and the Home-driven walks)
+  // cover the upload half through the same DocumentStage this stage mounts.
+  await cdp.waitForExpr(`document.body.innerText.includes('Skip')`, { desc: 'the shot list stage' });
+  await sleep(250);
+  await cdp.shot(join(OUT_DIR, `4a-shotlist.${theme}.png`));
+  notes.push(`4a-shotlist.${theme}  ${JSON.stringify(await cdp.evaluate(STAGE_NOTE))}`);
+  await cdp.waitForExpr(CLICK_ACTION('Skip'), { desc: 'shot list -> ready' });
 
   // ---- 5 READY -------------------------------------------------------
   await cdp.waitForExpr(`document.querySelector('.sl-receipt')`, { desc: 'the receipt' });
   await sleep(300);
   await cdp.shot(join(OUT_DIR, `5-ready.${theme}.png`));
   notes.push(`5-ready.${theme}  ${JSON.stringify(await cdp.evaluate(STAGE_NOTE))}`);
+  notes.push(
+    check(
+      `the receipt says the shot list was skipped (${theme})`,
+      (await cdp.evaluate(`document.querySelector('.sl-receipt').textContent`)).includes('Skipped'),
+    ),
+  );
 
   await cdp.waitForExpr(CLICK_ACTION('Create project'), { desc: 'the one confirm' });
   await cdp.waitForExpr(`!document.querySelector('.np')`, { desc: 'the flow closing' });
@@ -423,6 +454,13 @@ async function walkFourPlusSound(cdp, theme, notes) {
     check(`every letter is distinct (${theme})`, new Set(letters).size === letters.length, JSON.stringify(letters)),
   );
   notes.push(eq(`operators persisted (${theme})`, (p.cameras ?? []).map((c) => c.operator), CREW));
+  notes.push(
+    eq(
+      `each unit's own typed starting clip number persisted (${theme})`,
+      (p.cameras ?? []).map((c) => c.nextClipNumber),
+      START_NUMS.map(Number),
+    ),
+  );
   notes.push(
     check(
       `unit A carries the RED pattern it was given (${theme})`,
@@ -468,7 +506,11 @@ async function walkOneNoSound(cdp, theme, notes) {
   await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'cameras -> sound' });
   await cdp.waitForExpr(`document.body.innerText.includes('No sound')`, { desc: 'the sound stage' });
   // OFF IS ALREADY THE ANSWER. Nothing is tapped here on purpose.
-  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'sound -> ready' });
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'sound -> shot list' });
+  await cdp.waitForExpr(`document.body.innerText.includes('Skip')`, { desc: 'the shot list stage' });
+  // SKIP IS ALSO ALREADY THE ANSWER. The stage that used to be the whole gate
+  // is one tap of "nothing happened" now.
+  await cdp.waitForExpr(CLICK_ACTION('Skip'), { desc: 'shot list -> ready' });
   await cdp.waitForExpr(`document.querySelector('.sl-receipt')`, { desc: 'the receipt' });
   await sleep(300);
   await cdp.shot(join(OUT_DIR, `7-ready-single.${theme}.png`));
@@ -485,6 +527,7 @@ async function walkOneNoSound(cdp, theme, notes) {
   notes.push(check(`sound is ABSENT when it was never turned on (${theme})`, p.sound === undefined, JSON.stringify(p.sound)));
   notes.push(eq(`the default preset landed on the top level (${theme})`, p.clipPrefix, 'C'));
   notes.push(eq(`fps defaulted to 24 (${theme})`, p.fps, 24));
+  notes.push(eq(`an untouched starting clip number still defaults to 1 (${theme})`, p.nextClipNumber, 1));
 }
 
 /**
@@ -604,6 +647,180 @@ async function shotlistFooters(cdp, theme, notes) {
   );
 }
 
+/** Home tab, hero tapped, the New roll picker sheet up. */
+async function openHomePicker(cdp) {
+  await cdp.waitForExpr(CLICK_IN('.mnav__tab', 'Home'), { desc: 'the Home tab' });
+  await cdp.waitForExpr(`document.querySelector('.home-hero')`, { desc: 'the New roll hero' });
+  await cdp.evaluate(`document.querySelector('.home-hero').click(); true`);
+  await cdp.waitForExpr(`document.querySelector('.modepick')`, { desc: 'the mode picker' });
+  await sleep(200);
+}
+
+/**
+ * HOME'S DIRECTOR ROW, walked end to end. This is the wiring change itself:
+ * Home's Director row now opens NewProjectSheet on its six-stage road
+ * (flow="director"), not ShotlistSheet directly. Stage mechanics (four
+ * cameras, sound, the starting clip number) are already proven by
+ * walkFourPlusSound above (which walks the SAME six-stage road, entered from
+ * the Projects tab instead), so this walk is deliberately thin: one camera,
+ * no sound, shot list skipped. What it checks is what only THIS wiring can
+ * get wrong: the rail says 6 stages, and completion lands where
+ * ShotlistSheet's own onImported always has: the Projects tab, project open.
+ */
+async function walkHomeDirector(cdp, theme, notes) {
+  await fresh(cdp, theme);
+  await openHomePicker(cdp);
+  await cdp.waitForExpr(CLICK_IN('.modepick', 'Director mode'), { desc: 'Director mode row' });
+  await cdp.waitForExpr(`document.querySelector('.np')`, { desc: 'the staged sheet, director road' });
+  await sleep(300);
+  const rail = await cdp.evaluate(`document.querySelector('.sl-rail__step')?.textContent.trim()`);
+  notes.push(`13-home-director.${theme}  rail=${rail}`);
+  notes.push(check(`Home's Director row opens the six-stage road (${theme})`, rail === '1 of 6', rail));
+  await cdp.shot(join(OUT_DIR, `13-home-director.${theme}.png`));
+
+  await cdp.evaluate(TYPE_INTO('#np-name', 'Field Report'));
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'name -> fps' });
+  await cdp.waitForExpr(`document.querySelector('.sl-grid')`, { desc: 'the frame rates' });
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'fps -> cameras' });
+  await cdp.waitForExpr(`document.querySelector('.np-units')`, { desc: 'the camera stage' });
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'cameras -> sound' });
+  await cdp.waitForExpr(`document.body.innerText.includes('No sound')`, { desc: 'the sound stage' });
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'sound -> shot list' });
+  await cdp.waitForExpr(`document.body.innerText.includes('Skip')`, { desc: 'the shot list stage' });
+  await cdp.waitForExpr(CLICK_ACTION('Skip'), { desc: 'shot list -> ready' });
+  await cdp.waitForExpr(`document.querySelector('.sl-receipt')`, { desc: 'the receipt' });
+  await cdp.waitForExpr(CLICK_ACTION('Create project'), { desc: 'the one confirm' });
+  await cdp.waitForExpr(`!document.querySelector('.np')`, { desc: 'the flow closing' });
+  await sleep(500);
+  await cdp.shot(join(OUT_DIR, `14-home-director-landed.${theme}.png`));
+
+  const onProjectScreen = await cdp.evaluate(`document.body.textContent.includes('Field Report')`);
+  notes.push(`14-home-director-landed.${theme}  showsProject=${onProjectScreen}`);
+  notes.push(check(`completing Director mode from Home lands on the project (${theme})`, onProjectScreen === true));
+
+  const projects = await cdp.evaluate(READ_PROJECTS);
+  const p = projects.find((x) => x.name === 'Field Report');
+  notes.push(
+    check(`Home's Director road created exactly the project it walked (${theme})`, !!p, JSON.stringify(projects)),
+  );
+  notes.push(check(`it carries no podcast mode marker (${theme})`, p?.mode === undefined, JSON.stringify(p?.mode)));
+}
+
+/**
+ * HOME'S PODCAST ROW, walked end to end, twice per theme: once cold (no
+ * prior podcast project on the phone, fps must FALL BACK to 24) and once with
+ * a podcast project seeded at 25fps (fps must be INHERITED, which is the only
+ * way to prove the lookup actually reads the phone rather than always landing
+ * on the fallback and looking "correct" by coincidence). Also checks what is
+ * unique to this road: no frame rate stage, no shot list stage, the starting
+ * clip number field present on Cameras same as Director's, sound defaulting
+ * ON, the name prefilled with a scratch name, and completion landing straight
+ * on the rolling screen with mode: 'podcast' and a slate literally named
+ * "Recording", no Projects tab detour.
+ */
+async function walkHomePodcast(cdp, theme, notes, seedFps) {
+  await fresh(cdp, theme);
+  if (seedFps) {
+    await cdp.evaluate(`
+      (async () => {
+        const { store } = await import('/src/store/index.ts');
+        await store.createProject({
+          name: 'Old Session', fps: ${seedFps}, camera: 'custom', clipPrefix: 'C',
+          clipSuffix: '', clipExt: '.MP4', nextClipNumber: 1, clipPadding: 4,
+          tags: [], mode: 'podcast',
+        });
+        return true;
+      })()
+    `);
+  }
+  const tag = seedFps ? 'inherited' : 'fallback';
+
+  await openHomePicker(cdp);
+  await cdp.waitForExpr(CLICK_IN('.modepick', 'Podcast mode'), { desc: 'Podcast mode row' });
+  await cdp.waitForExpr(`document.querySelector('.np')`, { desc: 'the staged sheet, podcast road' });
+  await sleep(400); // the fps-inheritance effect's own store round trip
+
+  const rail = await cdp.evaluate(`document.querySelector('.sl-rail__step')?.textContent.trim()`);
+  const nameVal = await cdp.evaluate(`document.querySelector('#np-name')?.value`);
+  notes.push(`15-home-podcast-name.${theme}.${tag}  rail=${rail}  name=${JSON.stringify(nameVal)}`);
+  notes.push(check(`Home's Podcast row opens the four-stage road (${theme}, ${tag})`, rail === '1 of 4', rail));
+  notes.push(
+    check(`the name is prefilled with a scratch name (${theme}, ${tag})`, /^Podcast /.test(nameVal || ''), nameVal),
+  );
+  await cdp.shot(join(OUT_DIR, `15-home-podcast-name.${theme}.${tag}.png`));
+
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'name -> cameras (fps skipped)' });
+  await cdp.waitForExpr(`document.querySelector('.np-units')`, { desc: 'the camera stage' });
+  const hasStartField = await cdp.evaluate(`!!document.querySelector('#np-start-A')`);
+  notes.push(check(`the starting clip number field is on the podcast road too (${theme}, ${tag})`, hasStartField));
+  await cdp.evaluate(TYPE_INTO('#np-start-A', '5'));
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'cameras -> sound' });
+
+  await cdp.waitForExpr(`document.body.innerText.includes('No sound')`, { desc: 'the sound stage' });
+  const soundOnByDefault = await cdp.evaluate(`!!document.querySelector('.np-unit--sound')`);
+  notes.push(check(`sound defaults ON for a podcast (${theme}, ${tag})`, soundOnByDefault));
+  await cdp.shot(join(OUT_DIR, `16-home-podcast-sound.${theme}.${tag}.png`));
+  await cdp.waitForExpr(CLICK_ACTION('Continue'), { desc: 'sound -> ready (shot list skipped)' });
+
+  await cdp.waitForExpr(`document.querySelector('.sl-receipt')`, { desc: 'the receipt' });
+  const receiptText = await cdp.evaluate(`document.querySelector('.sl-receipt').textContent`);
+  notes.push(`17-home-podcast-ready.${theme}.${tag}  ${receiptText}`);
+  notes.push(
+    check(
+      `the podcast receipt carries no Shot list row (${theme}, ${tag})`,
+      !receiptText.includes('Shot list'),
+      receiptText,
+    ),
+  );
+  await cdp.shot(join(OUT_DIR, `17-home-podcast-ready.${theme}.${tag}.png`));
+
+  await cdp.waitForExpr(CLICK_ACTION('Create project'), { desc: 'the one confirm' });
+  await cdp.waitForExpr(`!document.querySelector('.np')`, { desc: 'the flow closing' });
+  await sleep(700);
+  await cdp.waitForExpr(`document.querySelector('.roll')`, { desc: 'landing straight on the rolling screen' });
+  await cdp.shot(join(OUT_DIR, `18-home-podcast-rolling.${theme}.${tag}.png`));
+
+  const projects = await cdp.evaluate(READ_PROJECTS);
+  const podcastProjects = projects.filter((p) => p.mode === 'podcast' && p.name !== 'Old Session');
+  notes.push(`OBJECT (${theme}, podcast, ${tag}): ${JSON.stringify(podcastProjects)}`);
+  notes.push(
+    check(
+      `exactly one new podcast project was created (${theme}, ${tag})`,
+      podcastProjects.length === 1,
+      `got ${podcastProjects.length}`,
+    ),
+  );
+  const p = podcastProjects[0];
+  if (p) {
+    notes.push(eq(`mode is podcast (${theme}, ${tag})`, p.mode, 'podcast'));
+    notes.push(
+      eq(
+        `fps ${tag === 'inherited' ? 'inherited from the seeded project' : 'fell back to 24'} (${theme}, ${tag})`,
+        p.fps,
+        seedFps ?? 24,
+      ),
+    );
+    notes.push(eq(`the starting clip number reached the object (${theme}, ${tag})`, p.nextClipNumber, 5));
+
+    const slates = await cdp.evaluate(`
+      (async () => {
+        const { store } = await import('/src/store/index.ts');
+        return await store.listSlates(${JSON.stringify(p.id)});
+      })()
+    `);
+    notes.push(`home-podcast-slates.${theme}.${tag}  ${JSON.stringify(slates)}`);
+    notes.push(
+      check(
+        `exactly one slate, named Recording (${theme}, ${tag})`,
+        slates.length === 1 && slates[0].name === 'Recording',
+        JSON.stringify(slates),
+      ),
+    );
+  } else {
+    notes.push(check(`slate check skipped: no podcast project came back (${theme}, ${tag})`, false));
+  }
+}
+
 // ------------------------------------------------------------------- main ---
 
 async function main() {
@@ -640,6 +857,11 @@ async function main() {
       else notes.push(check(`something to roll (${theme})`, false, 'no project came back'));
       await walkOneNoSound(cdp, theme, notes);
       await shotlistFooters(cdp, theme, notes);
+      // THE WIRING CHANGE ITSELF: Home's two picker rows, each opening the
+      // staged sheet on its own road.
+      await walkHomeDirector(cdp, theme, notes);
+      await walkHomePodcast(cdp, theme, notes, null); // cold phone: falls back to 24
+      await walkHomePodcast(cdp, theme, notes, 25); // seeded: inherits 25
     }
   } finally {
     chrome?.kill();
