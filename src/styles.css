@@ -26,17 +26,24 @@
      charcoal slate and the "ink" is chalk. Only this block and the signal
      aliases below are redefined by [data-theme="night"]; everything downstream
      of them follows for free. */
-  --paper: #fbfaf7;        /* page ground. Warm ivory, not #fff: ties to the
-                              landing page and stops the screen reading clinical */
-  --paper-raised: #ffffff; /* cards, grouped inset rows */
-  --paper-sunk: #f2f0ea;   /* wells, inputs, the scrubbed track */
-  --paper-sunk-deep: #edeae2; /* 4th step: chips, keycaps, badges. Held this
-                              light on purpose - every signal *-text token
-                              measures exactly >=4.50:1 on it, and one step
-                              darker drops --go-text to 4.33 */
-  --ink: #14151a;          /* primary type        17.47:1 on paper */
-  --ink-dim: #5a5e68;      /* secondary            6.22:1 */
-  --ink-faint: #7c808a;    /* non-essential ONLY   3.79:1 - never for a number,
+  /* PALETTE, SECOND PASS. Ivory and brass are gone from day: the owner ran
+     four flat 2D button trials against a green ground and picked one, so day
+     moves onto it wholesale rather than sitting mismatched under the new
+     buttons. Night was already sitting on almost exactly this ramp - true
+     black, #161616, #262626, warm chalk - so night barely moves at all; see
+     the [data-theme="night"] block below, which is now closer to a
+     confirmation than a repaint. */
+  --paper: #e2f0cc;        /* page ground. Pale green, measured: day ink
+                              reads 15.5:1 on it and the day accent 8.8:1,
+                              both comfortably clear of ivory's own numbers */
+  --paper-raised: #f2f8e6; /* cards, grouped inset rows - a paler step off
+                              the ground, same relationship ivory had to white */
+  --paper-sunk: color-mix(in srgb, var(--paper) 70%, var(--rule) 30%);
+  --paper-sunk-deep: color-mix(in srgb, var(--paper) 42%, var(--rule) 58%);
+  --ink: #08160c;          /* primary type        15.5:1 on paper */
+  --ink-dim: #4a5b45;      /* secondary            6.1:1 */
+  --ink-faint: color-mix(in srgb, var(--ink-dim) 60%, var(--paper) 40%);
+                            /* non-essential ONLY - never for a number,
                               never for a label that carries meaning.
                               Auditing the rendered app against this rule moved
                               19 rules off it and onto --text-dim: warning copy,
@@ -47,8 +54,8 @@
                               legitimately stays faint: chevrons, placeholders,
                               the un-shot dot, and takes already struck through
                               as discarded, where the strike is the message. */
-  --rule: #ddd9d0;
-  --rule-soft: #ebe8e1;
+  --rule: #c6d8ac;
+  --rule-soft: color-mix(in srgb, var(--rule) 45%, var(--paper) 55%);
 
   /* ---- Signals -----------------------------------------------------------
      Every signal splits in two, because NONE of the bright values survives as
@@ -399,34 +406,50 @@
   --m-mass: #131313;          /* the dark block CUT is cut from */
   --m-raised: #1e1e1e;        /* a key standing on the mass */
   --m-pressed: #272727;       /* that key, bottomed out */
-  /* THE ACCENT IS BRASS. It was lavender, and green before that, and both
-     were rejected as an identity rather than as a shade - so this is the last
-     hue this app introduces, because it is not a new one. #d8b23c is already
-     in the palette: it is --brass, the colour GOLD has always been written
-     in, and the reason it survives where two invented accents did not is that
-     it is the colour of the hardware this app sits next to.
+  /* THE ACCENT WAS BRASS. It is teal now on day and acid on night - the
+     owner's call after four flat 2D button trials, and the swap is FORCED
+     rather than a style pick: measured, acid (#e6ff2b) on the new green day
+     ground is 1.06:1 (invisible) and teal (#0b4650) on night's true black is
+     2.01:1 (unreadable), while the other pairing clears both at once - 8.8:1
+     for teal on day, 18.7:1 for acid on night. So day takes teal and night
+     takes acid, structurally: anything that reads --m-accent has to expect
+     the hue itself to change with the theme, which nothing downstream of it
+     needed to before.
 
-     WHICH MEANS ONE RULE HAS TO HOLD, EVERYWHERE, OR "GOLD" STOPS MEANING
-     ANYTHING:
+     THE ACCENT NOW CARRIES A SOLID FILL, on purpose, and that is new - brass
+     never did except as GOLD. The button system that replaced the lamp strip
+     (".btn" and ".bigbtn.hw" further down) puts rank on the FILL: the one
+     PRIMARY control on a screen is a solid slab of this colour and every
+     other control stays an outline.
 
-         A SOLID BRASS FILL IS GOLD. Nothing else in the app gets one.
-         Brass as a LAMP STRIP, an OUTLINE, a SEGMENT or TYPE is emphasis.
-
-     Fill means gold, line means emphasis. A tag badge that used to be a
-     filled lavender pill is an outlined brass one now, not a filled brass
-     one, and that is why.
+     --brass AND GOLD ARE UNTOUCHED AND NOW UNRELATED TO THIS TOKEN. They
+     shared a hex by coincidence before, not by rule, and this repaint is
+     where that coincidence ends - a GOLD take is still brass, on both
+     themes, exactly as it was.
 
      RED IS NOT THE ACCENT and does not move into any of this. It means
      rolling, cut and destructive, and it means only that. */
-  --m-accent: #d8b23c;        /* the ONE accent. NEVER a full fill except GOLD */
-  --m-accent-press: #bf9a2c;
-  --m-accent-ink: #241a02;    /* type on a brass fill, 8.46:1 */
-  --m-accent-deep: #7a5f0e;   /* the deep end: an edge, or type on ivory */
-  --m-accent-text: #7a5f0e;   /* the accent AS TYPE, 5.80:1 on paper. Same
-                                 split --go-text makes: #d8b23c is a fill, and
-                                 as type on ivory it measures 1.94:1. Night
-                                 collapses it back to --m-accent the way
-                                 --go-text does. */
+  --m-accent: #0b4650;
+  /* PRESS: the fill steps ONE SHADE, same rule the button system uses
+     everywhere now - never a shadow, never a move. Day steps LIGHTER (teal
+     has headroom above it); night steps DARKER (acid has headroom below it,
+     see the night block). */
+  --m-accent-press: #0f5c69;
+  --m-accent-ink: var(--paper); /* type ON the fill: pale on teal, the same
+                                 pale as the ground itself, 8.8:1 - a primary
+                                 button reads as a cut-out of the page rather
+                                 than a third colour */
+  /* Kept equal to --m-accent rather than a separate darker value: brass
+     needed a deep end because its fill (1.94:1 on ivory) could not also
+     serve as TYPE, but teal already clears type duty on its own ground at
+     the same 8.8:1 its fill does, so a second value would have nothing left
+     to do. */
+  --m-accent-deep: var(--m-accent);
+  --m-accent-text: var(--m-accent); /* the accent AS TYPE, 8.8:1 on paper -
+                                 the --go-text-style split brass needed does
+                                 not apply here for the same reason -deep
+                                 does not. Night collapses it back to
+                                 --m-accent as before. */
   --m-mass-ink: #f1f0ea;      /* type on the mass. NOT themed, for the same
                                  reason the clapper stripe is not: the mass is
                                  dark at 2pm and at 5am, so its ink is light at
@@ -451,55 +474,27 @@
   --m-cast-mass: rgba(0, 0, 0, 0.50);
 
   /* ---- The tally lamp ----------------------------------------------------
-     The strip that runs down a button's leading edge. See "THE TALLY LAMP"
-     lower in this file for what it is and why.
+     Down to ONE consumer now: the tag keys on the rolling deck (see
+     ".keypad .keycap" further down), where a lit strip means "this tag is on
+     this take" - a state that outlives the press, not a rank. Every BUTTON in
+     the app carried one too, until the owner flagged it in five screenshots
+     running and said to lose it; see ".btn" and ".bigbtn.hw" further down for
+     what replaced it there - rank by FILL, not by a strip. --lamp-accent and
+     its two aliases went with the button lamp: they had no consumer left
+     once it did, so they are gone rather than kept dark.
 
      UNLIT IS A COLOUR IN ITS OWN RIGHT, and it is not the hairline. An unlit
-     bulb is a dark object you can SEE - that is the whole reason the button
-     reads as something waiting to light rather than a plain slab. On ivory
-     that means near-black; on the night ground the same near-black would
-     vanish into the button and leave nothing there to ignite, so it lifts. A
-     pair, stated in both themes, defined in neither alone - same rule as
-     --go/--go-text. */
-  /* ---- THE ONE DECORATIVE ACCENT, ROUTED THROUGH ONE NAME ---------------
-     Lavender is out. Green was out before it. Rather than pick a third colour
-     and be told the same thing again, every decorative accent on the screens
-     this lane owns now reads ONE token trio, and the trio currently points at
-     the app's own ink. So the accent is a NEUTRAL until the replacement hue
-     is decided, and deciding it is re-pointing three declarations here rather
-     than hunting a hue through four stylesheets.
-
-     Three names, not one, because a bright value cannot be type and a deep
-     value cannot be a fill - the same split --go/--go-text/--go-fill-ink
-     already makes and for the same measured reason:
-
-       --lamp-accent       The bright value. A lit lamp strip, a segment, a
-                           pip, and GOLD's own fill - which is the only full
-                           fill it is ever allowed to be.
-       --lamp-accent-ink   The type that sits ON that one fill.
-       --lamp-accent-text  The accent AS TYPE, AN ICON OR AN EDGE.
-
-     SEMANTIC COLOUR IS NOT AN ACCENT AND IS NOT IN HERE. Red still means
-     rolling, cut and destructive; brass still means GOLD. Those carry meaning
-     rather than identity and nothing about them moves. */
-  --lamp-accent: var(--m-accent);
-  --lamp-accent-ink: var(--m-accent-ink);
-  --lamp-accent-text: var(--m-accent-text);
-
-  /* THE UNLIT LAMP. Dark on ivory and dark on black - an unlit bulb is a dark
-     object you can SEE, which is what makes the button read as something
-     waiting to light rather than a plain slab. Each lit state clears it by a
-     wide margin: brass 6.1:1 against this value, the record red 3.9:1, the
-     rolling green 6.5:1. */
+     bulb is a dark object you can SEE - that is the whole reason a tag key
+     reads as something waiting to light rather than a plain slab. On the day
+     ground that means near-black; on the night ground the same near-black
+     would vanish into the key and leave nothing there to ignite, so it
+     lifts. A pair, stated in both themes, defined in neither alone - same
+     rule as --go/--go-text. */
   --lamp-off: #23262c;
   /* 7px. Wide enough to be a LAMP read across a room rather than a border
      detail read at arm's length; the reference the user picked measured it at
      exactly this, against a 74px button, and it scales by staying put. */
   --lamp-width: 7px;
-  /* How far ignition throws. Clipped by the button's own overflow, so it
-     spills INWARD across the face instead of out onto the ground: the lamp
-     lighting the object it is mounted on, which is what a tally does. */
-  --lamp-glow: 0 0 22px 3px;
 
   /* The tally ring's corner. Follows the DEVICE, not the radius family above:
      it traces the phone's own corner, so it is geometry like the grabber pill
@@ -586,6 +581,19 @@
   --rule: #262626;
   --rule-soft: #1c1c1c;
 
+  /* THE ACCENT ON NIGHT: acid, not teal. Teal measures 2.01:1 on this
+     true-black ground - the unreadable pairing the day/night swap exists to
+     avoid, see the :root note - and acid is the one that survives here, at
+     18.7:1. */
+  --m-accent: #e6ff2b;
+  --m-accent-press: #c9e024; /* darker on night, unlike day's lighter step -
+                                 acid has headroom below it, not above */
+  --m-accent-ink: #000000;   /* black label on the acid fill: the night ink
+                                 is too warm and too light to sit on acid, so
+                                 this is the one place true black is TYPE
+                                 rather than a ground */
+  --m-accent-deep: var(--m-accent);
+
   /* The split collapses: bright IS the type colour here. */
   --m-accent-text: var(--m-accent);
   --go-text: var(--go);
@@ -663,9 +671,6 @@
   --m-well-sheet-lip: rgba(236, 233, 225, 0.10);
   --m-cast: rgba(0, 0, 0, 0.45);
 
-  /* The unlit lamp lifts off the ground rather than sinking into it. Near-
-     black on near-black is not a dark object, it is a hole, and a hole cannot
-     light up. */
   /* The unlit lamp lifts off the ground rather than sinking into it. On true
      black a near-black strip is not a dark object, it is a hole, and a hole
      cannot light up. Warm, like everything else here.
@@ -673,13 +678,12 @@
      IT MEASURES 1.66:1 AGAINST THE NIGHT FACE AND THAT IS THE CHOSEN TRADE,
      stated rather than missed. A value that cleared the 3:1 non-text bar at
      rest was tried (#676561, 3.19:1) and it breaks the thing the lamp is for:
-     from there, ignition to the record red measures 1.71:1 and to brass
-     2.87:1 - the lamp comes on and almost nothing happens. THE INFORMATION IS
-     THE LIT STATE, and against the face that state measures 9.16:1 for brass,
-     5.1:1 for red and 10.4:1 for the rolling green, plus a glow across the
-     whole button. A lamp bright enough to pass at rest cannot then read as
-     having been switched on. Day has no such trade and takes the strong
-     value: 15.2:1 at rest on the ivory face. */
+     the lamp came on and almost nothing happened. THE INFORMATION IS THE LIT
+     STATE: this key's one lit colour is the accent, and ignition to it now
+     measures about 10:1 (acid is the night accent - see the --m-accent note
+     in :root), plus a glow across the whole key. A lamp bright enough to
+     pass at rest cannot then read as having been switched on. Day has no
+     such trade and takes the strong value: 12.7:1 at rest on the day face. */
   --lamp-off: #3d3b37;
 }
 
@@ -979,7 +983,12 @@ input, select, textarea {
   height: 27px;
   border-radius: 50%;
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  /* The drop shadow used to be the only edge a white knob needed against a
+     brass track (6.1:1). Night's ON track is acid now, and white on acid
+     measures 1.12:1 - the knob would all but vanish into its own track with
+     nothing but that soft shadow to separate them. The added ring is a fixed
+     dark edge that does not care how bright the track under it gets. */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.16);
   transition: transform var(--dur-move) var(--ease-out);
 }
 .tswitch--on {
@@ -1295,12 +1304,28 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
 
 /* --------------------------------------------------------------- buttons - */
 
-/* EVERY BUTTON IN THE APP IS A TALLY LAMP. The mechanism is documented once,
-   beside `.bigbtn.hw` further down: quiet surface, 1.5px inset hairline, a 7px
-   strip down the leading edge that is dark at rest and ignites on press.
-   Nothing moves. This is the general-purpose button; `.bigbtn.hw` is ROLL and
-   CUT. Same idiom, two sizes, one system - the point is that a crew member
-   learns it once. */
+/* RANK IS CARRIED BY FILL, NOT BY A STRIP. Every button in the app used to
+   draw a 7px lamp down its leading edge; the owner flagged it in five
+   screenshots running, pointed at a flat white ROLL button, and said to lose
+   it. Four flat 2D replacements went in front of him and this is the one he
+   picked - "Solid" - because it is the only one where the button you
+   actually press reads as a different OBJECT from the ones you scroll past,
+   not just a differently-inked copy of the same rectangle:
+
+     PRIMARY      a solid slab in the one accent colour (teal on day, acid on
+                  night - see the --m-accent note in :root). Label reads
+                  against the fill.
+     SECONDARY    this rule, unfilled: the app's own surface, a hairline, and
+                  full-strength ink - not dimmed, because rank no longer needs
+                  ink to carry it.
+     DESTRUCTIVE  a solid red slab, white label, both themes.
+     DISABLED     the same face, opacity down.
+
+   FLAT. No 3D, no bevel, no gradient, no lift - the four trials that carried
+   any of those lost. PRESS steps the fill one shade, nothing moves; see each
+   variant below for its own step, they are not the same direction on the two
+   themes. `.bigbtn.hw` further down is ROLL, CUT and DONE, sized up but
+   built on the exact same three rules. */
 .btn {
   position: relative;
   overflow: hidden;
@@ -1321,79 +1346,45 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   color: var(--text);
   transition: background var(--dur-state) var(--ease-out);
 }
-/* The lamp. A pseudo-element here rather than a span, because these 60-odd
-   buttons are plain <button>s all over the app and none of them is going to
-   grow a child for this. */
-.btn::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: var(--lamp-width);
-  background: var(--lamp-off);
-  /* Follow the button's own left corners. overflow:hidden already clips the
-     lamp, but a square bar clipped by a curve leaves a wedge that reads as the
-     lamp sitting PROUD of the button rather than set into it. Curving it means
-     the strip is part of the key, not a sticker on the side of one. */
-  border-top-left-radius: inherit;
-  border-bottom-left-radius: inherit;
-  pointer-events: none;
-  transition:
-    background var(--dur-press) linear,
-    box-shadow var(--dur-press) linear;
-}
-.btn:active::before,
-.btn.is-pressed::before {
-  background: var(--lamp-on, var(--lamp-off));
-  box-shadow: var(--lamp-glow) var(--lamp-on, transparent);
-}
-/* NOTHING MOVES - the 0.97 squish is gone with the rest of the travel. The
-   surface sinks one step instead, which is a colour change and not a motion.
-   It applies to every button rather than only the unlamped ones, and that is
-   deliberate: a neutral button has nothing else to answer a press with, and on
-   a lamped one the sink and the ignition are the same gesture read at two
-   distances - the lamp from across the room, the sunk face under the thumb. */
+/* NOTHING MOVES - the 0.97 squish is gone with the rest of the travel, and so
+   is the lamp that used to ignite here. The surface sinks one step instead,
+   which is a colour change and not a motion: this is the SECONDARY press.
+   PRIMARY and DESTRUCTIVE override it below with their own one-shade step,
+   because a solid fill steps to a different shade than an unfilled face
+   sinks to. */
 .btn:active {
   transform: none;
   background: var(--paper-sunk-deep);
 }
 .btn--ghost { background: transparent; }
-/* THE PRIMARY BUTTON IS THE ONE ACCENT, NOT GREEN.
+/* THE PRIMARY BUTTON IS THE ONE ACCENT.
    This class is named --go but it has never been the go control: the thing
    that rolls a camera is `.bigbtn.hw--go`, and all 25 mounts of this one are
    confirms - Start shoot, Create project, Sign in, Back to settings, Discard
-   take. It was drawing --go-fill, which on paper is #0e7a43.
-   The approved pitch has no saturated green anywhere in it. Its greens are all
-   desaturated sage used as NEUTRALS (#96A099 and its family); the one accent
-   is brass, and it is what ROLL and DONE are already lamped in. So a filled
-   green confirm sitting a thumb's width from a lavender ROLL was two accents
-   arguing about which one the eye should obey.
-   --go, --go-text and --go-fill are untouched and still mean rolling-ready
-   wherever a control genuinely says so. What changed is what the CONFIRM
-   button references, which was never that.
-
-   AND NOW IT REFERENCES IT AS A LAMP. The accent stopped being the fill and
-   became the strip: a confirm is quiet until a thumb is on it, and then it
-   lights lavender. That also settles an argument this rule had with itself -
-   a filled lavender slab a thumb's width from ROLL was two objects claiming
-   to be the primary action. Now the ONLY difference between them is which
-   colour their lamp comes up, which is the difference that is actually true. */
+   take. --go, --go-text and --go-fill are untouched and still mean
+   rolling-ready wherever a control genuinely says so; this was never that,
+   and does not reach for green. */
 .btn--go {
-  --lamp-on: var(--m-accent);
-  /* AND IT BURNS AT REST. Lighting only under the thumb made a confirm and a
-     Back button identical until you were already touching one - which is the
-     one moment you no longer need telling apart. On a tally, ARMED is lit: the
-     lamp's job is to say "this is the one that does the thing" from across the
-     room, not to confirm a press your finger already knows about. Pressed, it
-     goes to the brighter face, so the press still answers. */
-  --lamp-off: var(--m-accent-deep);
+  background: var(--m-accent);
+  color: var(--m-accent-ink);
+  box-shadow: none; /* the fill IS the rank signal; a hairline under it reads
+                        as a border fighting its own slab */
 }
-/* Destructive keeps its red TYPE - the lamp says which button, the type says
-   what it costs, and losing a take is worth saying twice. The red border is
-   gone because the lamp is now the edge. */
+.btn--go:active {
+  background: var(--m-accent-press);
+}
+/* Destructive keeps its red FILL now instead of its red type - the lamp used
+   to say which button and the type said what it costs; the fill now says
+   both, the same way PRIMARY's does. --rec-fill/--rec-fill-ink are the
+   existing "a filled red control and the ink that sits on it" pair, built for
+   exactly this and unused by anything else. */
 .btn--danger {
-  --lamp-on: var(--m-rec);
-  --lamp-off: var(--rec-text);   /* armed at rest, same reasoning as --go */
-  color: var(--rec-text);
+  background: var(--rec-fill);
+  color: var(--rec-fill-ink);
+  box-shadow: none;
+}
+.btn--danger:active {
+  background: var(--rec-deep);
 }
 .btn--full { width: 100%; }
 .btn:disabled { opacity: 0.4; }
@@ -2131,18 +2122,20 @@ select.field {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* EVERY TAG KEY IS A TALLY LAMP, the same mechanism as `.btn` and
-   `.bigbtn.hw` - quiet surface, hairline, and a strip down the leading edge
-   that is dark until the thing it reports is true. On a tag key "true" is not
-   a press that lasts 90ms; it is THIS TAG IS ON THIS TAKE. So the lamp lights
-   under the thumb AND stays lit for as long as the tag carries a count, which
-   is what a tally lamp does on a camera and is the one piece of state an
-   operator needs back from a tag they tapped without looking.
+/* THE LAST TALLY LAMP IN THE APP. Every button gave its strip up for a solid
+   fill (see ".btn" above); this key keeps its line, and deliberately does not
+   follow them, because it is not carrying rank - it is carrying THIS TAG IS
+   ON THIS TAKE, a state that outlives the 90ms press a button answers with.
+   Turning the whole cell over to a fill would read as a CONFIRM the operator
+   never pressed; a line stays emphasis, the same distinction the app has
+   always drawn between a fill and an edge. So the lamp lights under the
+   thumb AND stays lit for as long as the tag carries a count, which is what a
+   tally lamp does on a camera and is the one piece of state an operator needs
+   back from a tag they tapped without looking.
 
-   NO GLOW. `--lamp-glow` is a spread shadow and a key clips its own overflow,
-   so the spread bleeds INWARD across the face and reads as a bevel - exactly
-   the raised-key look this screen is not allowed to have. The strip is a flat
-   line of brass. A FILL would mean GOLD; this is a LINE, which is emphasis.
+   NO GLOW - a key clips its own overflow, so a spread shadow bleeds INWARD
+   across the face and reads as a bevel, exactly the raised-key look this
+   screen is not allowed to have. The strip is a flat line of the accent.
 
    7px of lamp sits inside 12px of padding, so the label never touches it and
    the type stays centred in the cell rather than nudged off-axis. */
@@ -2162,7 +2155,18 @@ select.field {
 .keypad .keycap:active::before,
 .keypad .keycap.is-pressed::before,
 .keypad .keycap:has(.keycap__count)::before {
-  background: var(--lamp-on, var(--m-accent));
+  background: var(--m-accent);
+}
+/* Ignition is already instant - 80ms is the press, not an animation - but
+   reduced motion asks for a colour change with no transition at all, so the
+   lamp arrives lit with nothing crossfading. The global reduce block further
+   down forces `transition-property: opacity`, which already makes a
+   background swap land instantly; this states that still form explicitly
+   rather than leaning on it, the same as the drum in skin/roll.css. */
+@media (prefers-reduced-motion: reduce) {
+  .keypad .keycap::before {
+    transition: none;
+  }
 }
 
 /* ---- tier 2: moments, as a scannable list --------------------------------
@@ -3358,55 +3362,44 @@ select.field {
 }
 .bigbtn--cut:active { box-shadow: 0 6px 0 0 var(--rec-deep); }
 
-/* ==================================================== THE TALLY LAMP ======
-   A camera does not announce that it is recording by changing colour. It
-   lights a tally lamp, and every crew on earth already reads that one gesture
-   from the far side of a room without ever being taught it. So the button
-   borrows it, and stops inventing.
+/* ================================================== ROLL, CUT, DONE =======
+   The lamp is gone from here too - same five screenshots, same verbatim
+   note, and it applied "with more force, not less" (this essay's own old
+   words) to the control the whole app exists to put under a thumb. What
+   replaced it is exactly the Solid system `.btn` uses above, sized up:
 
-   AT REST the button is quiet: the surface the rest of the screen is made of,
-   a 1.5px inset hairline, its own type. It is not shouting before it has
-   anything to say. Down its LEADING EDGE runs a 7px strip, dark - an unlit
-   bulb. An object visibly waiting, which is a different thing from a flat
-   rectangle.
+     ROLL/DONE  PRIMARY. A solid slab in the one accent colour, the exact
+                fill `.btn--go` now carries. NOT --go: a permanent green bar
+                on the primary control on every screen is the green identity
+                that was rejected once already, and the accent is what
+                carries every other emphasis in the app. `--go` survives
+                untouched in the rolling-ready STATES elsewhere.
+     CUT        DESTRUCTIVE. A solid red slab - `.btn--danger`'s fill, not
+                `--m-rec` (the ring's colour, never a button fill - see its
+                own note in :root). CUT only ever renders while something is
+                rolling (RollingScreen swaps the class in), so a solid red
+                face for the whole time it exists reads AS the tally: stronger
+                than a strip ever was, because the whole control says it
+                instead of a 7px edge of it.
 
-   ON PRESS the strip IGNITES and throws its glow inward across the face.
-   NOTHING MOVES. No lift, no scale, no 3D, no travel, no squish. That is the
-   whole point rather than a simplification of it: the confirmation is LIGHT,
-   not geometry, and light is what survives a gloved thumb at 3am belonging to
-   someone whose eyes are on the actors and not on the phone. A press you have
-   to look at to feel is not a confirmation.
-
-   THE LAMP COLOUR IS SEMANTIC, and it is the only colour on the button:
-
-     ROLL     --go        rolling-ready
-     CUT      --m-rec     the record red, the same red as the tally ring
-     DONE     --m-accent  the one accent, where a confirm lands
-     neutral  stays dark, and never ignites at all
-
-   Nothing else differs between the three - same surface, same hairline, same
-   type. The lamp IS the difference, which is exactly what makes it legible at
-   a glance instead of something you have to read.
-
-   CUT CARRIES ITS LAMP LIT FOR THE WHOLE TAKE, not only under the thumb. A
-   tally is on while the camera runs; that is what the object means, and a
-   button labelled CUT sitting dark while three cameras roll would be the one
-   place this metaphor lied. Press then adds the glow on top.
+   AT REST the button is otherwise quiet: no lift, no scale, no 3D, no travel,
+   no squish. PRESS steps the fill one shade - the same step `.btn--go` and
+   `.btn--danger` use, because this is their geometry scaled up, not a
+   different system next to theirs.
 
    WHY THIS LAYERS ONTO `.bigbtn` RATHER THAN REPLACING IT - unchanged from
-   the machined press this supersedes, and still the load-bearing part.
-   `.bigbtn` is not a look, it is a contract: --cut-scale sizes it,
-   --tray-lift lifts the toast off it, --roll-footer-band reserves its band,
-   and `position: sticky` keeps it on screen when the deck scrolls. All four
-   measure the OUTER box, and that box is thumb-calibrated at x16 y714
-   358x104 on a 390x844 phone. So the outer box stays exactly what it was and
-   the lamp is built inside it. The two children it already had are reused
-   rather than restructured - `.hw__well` is now the lamp, `.hw__face` is the
-   quiet surface - so not a line of JSX moved and the pointer-down gate that
-   keeps CUT unreachable during a tag edit is untouched.
-
-   Fires on POINTER-DOWN (see RollingScreen). Ignition trails the action and
-   never gates it.
+   the machined press the lamp itself once superseded, and still the
+   load-bearing part. `.bigbtn` is not a look, it is a contract: --cut-scale
+   sizes it, --tray-lift lifts the toast off it, --roll-footer-band reserves
+   its band, and `position: sticky` keeps it on screen when the deck scrolls.
+   All four measure the OUTER box, and that box is thumb-calibrated at x16
+   y714 358x104 on a 390x844 phone. So the outer box stays exactly what it
+   was and the fill is painted onto `.hw__face`, the same child that has
+   always been the quiet surface - not a line of JSX moved and the
+   pointer-down gate that keeps CUT unreachable during a tag edit is
+   untouched. `.hw__well` is still in the DOM (RollingScreen renders it) but
+   is display:none below: hiding it in CSS rather than pulling the span keeps
+   this a one-file change.
    ========================================================================= */
 .bigbtn.hw {
   position: relative;
@@ -3442,24 +3435,16 @@ select.field {
   box-shadow: 0 0 0 var(--sp-4) var(--ink-950);
 }
 
-/* THE LAMP. Was the well; the DOM is the same span. */
+/* THE WELL IS HIDDEN, NOT REMOVED. RollingScreen still renders the span; this
+   is the one-file way to retire it without a JSX change. */
 .hw__well {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: var(--lamp-width);
-  border-radius: 0;
-  background: var(--lamp-off);
-  /* Above the face, so the glow washes over it rather than under it. */
-  z-index: 1;
-  pointer-events: none;
-  transition:
-    background var(--dur-press) linear,
-    box-shadow var(--dur-press) linear;
+  display: none;
 }
 
-/* THE FACE. Quiet: the app's own surface, its own ink, a 1.5px inset
-   hairline. Inset rather than a border because a border would eat into the
-   content box, and this box is measured. */
+/* THE FACE. Quiet by default: the app's own surface, its own ink, a 1.5px
+   inset hairline - the SECONDARY look, same rule `.btn` uses. The three
+   modifiers below override background/colour/box-shadow the way `.btn--go`
+   and `.btn--danger` do; nothing else about the face differs between them. */
 .hw__face {
   position: relative;
   flex: 1 1 auto;
@@ -3476,79 +3461,52 @@ select.field {
      weight are inherited so --cut-scale keeps governing the whole object. */
   letter-spacing: 0.28em;
   text-indent: 0.28em; /* centres against the trailing letter-space */
-  /* Centre the label in the LIT ROOM, not under the lamp. */
-  padding-inline-start: var(--lamp-width);
   transform: none;
   transition: background var(--dur-state) linear;
 }
 
-/* What each button's lamp is FOR. One declaration each, and it is the entire
-   difference between them.
-
-   ROLL ALSO BURNS AT REST, and this is the fix `.btn--go` already got and this
-   rule never did. The argument is written out at `.btn--go` and applies here
-   with more force, not less: a lamp that only lights under the thumb tells you
-   which button you are touching at the one moment you no longer need telling.
-   Left unlit, ROLL — the control this entire app exists to put under a thumb —
-   was a grey slab with a grey strip, quieter at rest than the `Log` button
-   sitting above it. Deep at rest, bright under the thumb, so the press still
-   answers. NOT a fill: a solid brass face means the take was a keeper and
-   nothing else in the app is allowed to say that.
-
-   AND THE LAMP IS BRASS, NOT --go. Lighting it at rest is what made the choice
-   matter: an unlit strip is nearly black in either theme and nobody had to
-   decide what colour it was, but a lamp that BURNS is a bar of colour sitting
-   on the primary control on every screen of the app, all the time. `--go` is
-   #38d178, and a permanent dark-green bar is the green identity that was built
-   once, rejected, and removed. The lock keeps `--go` alive as the semantic
-   rolling-ready state and this arguably qualifies — but "arguably" is not worth
-   a fourth palette reversal, and brass is the accent that carries every other
-   emphasis in the app. As a LINE, which is what a lamp strip is. A brass FILL
-   would mean the take was a keeper, and still means only that.
-
-   So the big buttons read: ROLL brass, CUT red. Two controls, two meanings, no
-   third hue. `--go` survives untouched in the rolling-ready STATES elsewhere.
-
-   CUT keeps an unlit lamp deliberately. It only exists while something is
-   rolling, `.roll--live` lights it red the whole time, and an idle CUT is not a
-   thing you can press. */
-.bigbtn.hw--go { --lamp-on: var(--m-accent); --lamp-off: var(--m-accent-deep); }
-.bigbtn.hw--cut { --lamp-on: var(--m-rec); }
-.bigbtn.hw--done { --lamp-on: var(--m-accent); --lamp-off: var(--m-accent-deep); }
-
-/* Rolling: the tally is ON, thumb or no thumb. No glow - a glow is the press,
-   and a button that glowed for four minutes would stop meaning anything. */
-.roll--live .bigbtn.hw--cut .hw__well {
-  background: var(--m-rec);
+/* ROLL and DONE are PRIMARY: the same solid accent fill and pale-on-fill ink
+   as `.btn--go`, just on this button's own face element. ROLL ALSO BURNS AT
+   REST for the reason `.btn--go` does - the control this whole app exists to
+   put under a thumb cannot be the one place a confirm looks unconfirmed until
+   you are already touching it. */
+.bigbtn.hw--go .hw__face,
+.bigbtn.hw--done .hw__face {
+  background: var(--m-accent);
+  color: var(--m-accent-ink);
+  box-shadow: none;
+}
+.bigbtn.hw--go:active .hw__face,
+.bigbtn.hw--go.is-pressed .hw__face,
+.bigbtn.hw--done:active .hw__face,
+.bigbtn.hw--done.is-pressed .hw__face {
+  background: var(--m-accent-press);
 }
 
-/* Ignition. */
-.bigbtn.hw:active .hw__well,
-.bigbtn.hw.is-pressed .hw__well {
-  background: var(--lamp-on, var(--lamp-off));
-  box-shadow: var(--lamp-glow) var(--lamp-on, transparent);
+/* CUT is DESTRUCTIVE: `.btn--danger`'s fill, not `--m-rec` (the ring's own
+   colour, never a button fill - its own note in :root still holds). CUT only
+   ever renders while something is rolling, so painting the whole face red for
+   as long as it exists carries the tally further than a strip ever did - the
+   ENTIRE control reads "recording", not a 7px edge of it. */
+.bigbtn.hw--cut .hw__face {
+  background: var(--rec-fill);
+  color: var(--rec-fill-ink);
+  box-shadow: none;
+}
+.bigbtn.hw--cut:active .hw__face,
+.bigbtn.hw--cut.is-pressed .hw__face {
+  background: var(--rec-deep);
 }
 
-/* Red is recording, never an action. CUT names the state it is about to end,
-   so the dot rides the label rather than filling the button. */
+/* The dot rides CUT's own ink rather than a hardcoded red, because CUT's
+   face already IS red now - a red dot on a red face would vanish. currentColor
+   keeps it visible (and correct) if this ever sits on a face that is not red. */
 .hw__dot {
   width: 0.28em;
   height: 0.28em;
   border-radius: 50%;
-  background: var(--m-rec);
+  background: currentColor;
   flex: 0 0 auto;
-}
-
-/* Ignition is already instant - 80ms is the press, not an animation - but
-   reduced motion asks for a colour change with no transition at all, so the
-   lamp arrives lit and the glow arrives with it. The global reduce block
-   above forces `transition-property: opacity`; this states the still form
-   rather than inheriting it, same as the drum in skin/roll.css. */
-@media (prefers-reduced-motion: reduce) {
-  .hw__well,
-  .btn::before {
-    transition: none;
-  }
 }
 
 .microw {
@@ -4443,8 +4401,17 @@ select.field {
    height would crush the single column, so the clock + takes go LEFT and the
    action deck (keypad + MARK + CUT) sits BESIDE them on the right, vertically
    centered and always thumb-reachable. The full-width REC tally stays pinned
-   across the top of both. */
-@media (min-width: 780px) and (orientation: landscape) {
+   across the top of both.
+
+   `pointer: coarse` IS LOAD-BEARING. Every desktop browser window is ALSO
+   landscape and wider than 780px, so without it this fired on laptops too -
+   where the two-pane split assumes a SHORT iPad's proportions, not a tall
+   laptop window, and the result was a cramped left column beside a mostly
+   empty right pane with ROLL stranded at the bottom of it. A laptop has a
+   fine pointer; a tablet held in landscape does not. That is the actual
+   distinction this rule is for, so it is the one it now tests. Desktop falls
+   through to the centered single column in the 700px block above instead. */
+@media (min-width: 780px) and (orientation: landscape) and (pointer: coarse) {
   .roll,
   .app--rolling { max-width: 1100px; }
   .roll__panes {
