@@ -103,13 +103,19 @@
   --roll-mass-faint: #5b5955;
   --roll-mass-rule: #2b2b2b;
   --roll-key-under: #000000;
-  --roll-brass: #c7a62f;
-  --roll-brass-edge: #413611;
-  --roll-accent: #c7a62f;
+  /* THESE WERE HARDCODED HEX (#c7a62f / #413611), a second, un-migrated brass
+     that the "gold is gone" repaint (styles.css) never reached because it is
+     not styles.css - it retargeted --brass and --brass-text and had no way to
+     know this file had its own copy. Consuming the same tokens day already
+     does (line 50-51 above) is the fix: one brass, read from one place, so a
+     future repaint only ever has to change styles.css again. */
+  --roll-brass: var(--brass-text);
+  --roll-brass-edge: var(--brass-edge);
+  --roll-accent: var(--brass);
   /* Unchanged from before the day/night split: night's mass was always dark,
      so the line/text use and the fill use were always the same bright value.
      Points at --roll-accent (set two lines up, in this same rule) rather than
-     repeating #c7a62f, so the two can never drift apart on this theme. */
+     repeating var(--brass), so the two can never drift apart on this theme. */
   --roll-accent-line: var(--roll-accent);
   --roll-ring: #c7332a;
   --roll-ring-glow: 0 0 26px rgba(199, 51, 42, 0.3), inset 0 0 18px rgba(199, 51, 42, 0.12);
@@ -766,18 +772,37 @@
   background: var(--roll-mass-pressed);
   box-shadow: none;
 }
-/* THE LAMP ON THE MASS. The mechanism and the no-glow rule are stated once in
-   styles.css beside `.keypad .keycap::before`; this is only what the two
-   colours are when the key is sitting on dark metal instead of on the sheet.
-   Unlit is the mass's own hairline, so an unlit lamp reads as part of the key
-   rather than as a dark smear on it; lit is the mass-borne brass, the same
-   value the tally ring and the armed MARK OUT already use, so everything on
-   this deck that means "this take" is one colour. */
-.roll--live .keypad .keycap {
-  --lamp-on: var(--roll-accent-line);
-}
+/* THE LAMP RETIRES. A left-edge strip was the last control on this screen
+   still answering "did I tap that" with a LINE instead of a FILL, and the
+   owner named it directly: "ditch it and the left strip button design is bad
+   we've talked about it." Every other control here settled that argument the
+   other way already (CUT, ROLL, ".btn" in styles.css - "the press is a
+   colour now"), so the key falls in line rather than staying the exception.
+   The rule this un-lights (::before, --lamp-width, --lamp-off) lives in
+   styles.css and is left alone; this only turns the strip off for the
+   rolling screen and gives the cap its own fill below instead. */
 .roll--live .keypad .keycap::before {
-  background: var(--roll-mass-rule);
+  display: none;
+}
+/* A TALLIED CAP IS A SOLID BLOCK, not a lit edge on a dark one - the same
+   :has(.keycap__count) condition the strip answered to, just answered with a
+   fill now. --m-accent, not brass: this key was TAPPED, not judged GOLD, and
+   the app keeps those two colours apart on purpose (see the --brass note in
+   styles.css) even on night, where the locked highlight happens to give both
+   the same hex. */
+.roll--live .keypad .keycap:has(.keycap__count) {
+  background: var(--m-accent);
+  border-color: var(--m-accent);
+  color: var(--m-accent-ink);
+}
+/* PRESS steps one shade, same rule the button system uses everywhere now
+   (see --m-accent-press in styles.css) - placed after the tallied rule above
+   so a re-press of an already-tallied key still shows the step. */
+.roll--live .keypad .keycap:active,
+.roll--live .keypad .keycap.is-pressed {
+  background: var(--m-accent-press);
+  border-color: var(--m-accent-press);
+  color: var(--m-accent-ink);
 }
 
 /* The tally badge, and it POPS: a tag tapped without looking needs a receipt
@@ -788,13 +813,12 @@
 .roll--live .keypad .keycap__count {
   padding: 2px 7px;
   border-radius: var(--radius-pill);
-  /* AN OUTLINE, NOT A FILL. It was a filled accent pill, and a filled accent
-     pill is now a filled BRASS pill, which is GOLD's one reserved shape. The
-     receipt is just as loud drawn as a ring - it is the only ring on the
-     row - and it costs the app nothing to keep the fill meaning one thing. */
+  /* AN OUTLINE, IN INK. The cap it sits on is a solid fill now, so the badge
+     answers in the cap's own ink colour rather than in the accent again -
+     an accent ring on an accent fill would vanish into it. */
   background: none;
-  box-shadow: inset 0 0 0 1.5px var(--roll-accent-line);
-  color: var(--roll-accent-line);
+  box-shadow: inset 0 0 0 1.5px var(--m-accent-ink);
+  color: var(--m-accent-ink);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -807,15 +831,9 @@
   100% { transform: scale(1); }
 }
 .roll--live .keycap.chip--flash {
-  /* The old green flash fought the badge for the same instant. The lamp and
+  /* The old green flash fought the badge for the same instant. The fill and
      the pop are the receipt now. */
   animation: none;
-}
-/* A tallied cap keeps a lit edge after the pop has gone - and now the lamp
-   down its leading edge is still on too, which is the part that reads from
-   across the room. */
-.roll--live .keypad .keycap:has(.keycap__count) {
-  border-color: var(--roll-accent-line);
 }
 
 /* MARK IN / MARK OUT: an outline pill on the mass. Not a slab — CUT below is
