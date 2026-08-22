@@ -1,31 +1,34 @@
-// NEW ROLL — the one-tap path from a cold app to a rolling screen.
+// NEW ROLL. Resume logic for Home, plus the picking Home's rolling target uses.
 //
-// The rule from the spec is "no project-setup ceremony": Home's hero has to
-// land on a slate, never on a form. Everything here exists to make that one
-// decision (WHICH scene, WHICH setup) without asking. WHICH PROJECT is not
-// a decision this file makes anymore: a tap on Home always opens a fresh one.
+// STALE AS OF THE STAGED PODCAST FLOW: this file's header used to say Director
+// mode was "entirely ShotlistSheet's job" and Podcast mode was "this file's
+// other job, startPodcastRoll()". Neither is true anymore. Both of Home's
+// picker rows now open NewProjectSheet (see HomeScreen.tsx's pickDirector and
+// pickPodcast). Director walks its six-stage road with the shot list folded
+// in as a skippable stage; Podcast walks its own four-stage road and hands
+// HomeScreen back a project AND a "Recording" slate to roll straight onto.
+// `startPodcastRoll` and `startNewRoll` below are UNWIRED as of that change,
+// kept because they are still correct, still tested indirectly through the
+// pure functions they call, and are the shape a future no-ceremony "just
+// start rolling" entry point would want back. Nothing currently calls them.
 //
-// Two modes fan out from the hero (see HomeScreen.tsx's picker sheet):
+// What is still this file's live job:
 //
-//   DIRECTOR MODE is entirely ShotlistSheet's job — it always reads a fresh
-//   PDF and always makes a NEW project. Nothing here is involved.
+//   RESUME PICKING (`pickResumeProject`, `pickSlate`, `pickShot`) is pure, and
+//   the only place a project is still resumed on purpose is Home's own
+//   "Where you were" row (`readResume`, below): a person tapping back into
+//   the shoot they left, not a tap that means "start something".
 //
-//   PODCAST MODE is this file's other job, `startPodcastRoll()`. It always
-//   scratches a fresh project marked `mode: 'podcast'` (see types.ts) and
-//   rolls on it. It used to resume the most recently touched podcast
-//   project instead of making a new one; on a real set that meant a second
-//   podcast tap on the same day dropped the operator into a PREVIOUS
-//   recording, logging today's takes into yesterday's project. Fixed: every
-//   tap here is a new project, full stop.
+//   `scratchName` is the wall-clock project name a scratch project gets,
+//   still used by the podcast flow's Name stage to prefill (not force) a name.
+//
+//   `PODCAST_SLATE_NAME` is the one constant "Recording" lives at, so
+//   NewProjectSheet's podcast road and this file's own (unwired)
+//   startPodcastRoll agree on it rather than each carrying their own literal.
 //
 // The picking is pure and lives here (so it is testable without a store); the
-// async orchestration that creates the project and its one scene is at the
-// bottom.
-//
-// The one place a project is still resumed on purpose is Home's own "Where
-// you were" row (`readResume`, below), which is a person tapping back into
-// the shoot they left, not a tap that means "start something". That stays
-// unscoped across both modes, exactly as it always has.
+// async orchestration below it is not currently on any live code path. See
+// the note above.
 
 import type { Project, Shot, Slate, Take } from '../types';
 import { store } from '../store';
@@ -218,12 +221,21 @@ export async function startNewRoll(): Promise<RollTarget> {
 }
 
 /**
+ * The one slate name every podcast project gets, whichever code path made it:
+ * this file's own (unwired) startPodcastRoll below, or NewProjectSheet's
+ * podcast road (see NewProjectSheet.tsx's create()). A podcast has no scenes,
+ * only sessions: every recording is another TAKE on this one slate, numbered
+ * 1, 2, 3… same as a scene's takes always have been, just never split across
+ * slates.
+ */
+export const PODCAST_SLATE_NAME = 'Recording';
+
+/**
  * Podcast mode's maker: always scratches a fresh project carrying
  * `mode: 'podcast'` and podcast-flavoured tags, never reuses one already on
- * the phone. Its one slate is named "Recording" rather than "Scene 1": a
- * podcast has no scenes, only sessions: every recording is another TAKE on
- * this one slate, numbered 1, 2, 3… same as a scene's takes always have
- * been, just never split across slates.
+ * the phone. UNWIRED as of the staged podcast flow (see the file header),
+ * kept for the pure functions it still exercises and as the shape a future
+ * no-ceremony podcast entry point would want back.
  */
 export async function startPodcastRoll(): Promise<RollTarget> {
   return resolveRoll(
@@ -240,6 +252,6 @@ export async function startPodcastRoll(): Promise<RollTarget> {
         tags: getDefaultTags('podcast'),
         mode: 'podcast',
       }),
-    'Recording',
+    PODCAST_SLATE_NAME,
   );
 }

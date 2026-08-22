@@ -1,44 +1,63 @@
-// NEW PROJECT — five stages, one decision each, and the rig set up inside it.
+// NEW PROJECT. One draft, two roads, built from the same six stage bodies.
 //
-//   1 NAME      what the shoot is called. One field, big, and nothing else on
-//               the screen to look at.
-//   2 FRAME RATE eight big targets. Said once, quietly, that this lands in
-//               every exported timecode and is the one value that hurts later.
-//   3 CAMERAS   a card per unit. A is the shoot and cannot leave; B, C and D
-//               are added one tap at a time, up to four, and can be taken back
-//               off while the project is still an idea. Each card carries its
-//               LETTER, the FILENAME its camera writes, and its OPERATOR.
-//   4 SOUND     off or on, off being one tap and a legitimate answer. On asks
-//               for the mixer, the recorder and the file prefix.
-//   5 READY     a receipt of every decision, then one confirm.
+// TWO FLOWS SHARE THIS SHEET NOW, chosen by the `flow` prop:
 //
-// WHAT THIS REPLACES. `CreateProjectSheet` — fourteen fields in one sheet,
-// with the multi-cam rig folded in behind a 1/2/3/4 segmented control and the
-// recorder behind an On/Off one. Everything it could set is still settable;
-// four of its questions moved to where they are cheap.
+//   DIRECTOR (the default: every call site that does not pass `flow` gets
+//   this, which is both the Projects tab's plain "New project" button and
+//   Home's Director mode) walks SIX stages:
+//     1 NAME       what the shoot is called. One field, big, nothing else.
+//     2 FRAME RATE eight big targets. Said once, quietly, that this lands in
+//                  every exported timecode and is painful to correct later.
+//     3 CAMERAS    a card per unit, LETTER + camera + STARTING CLIP NUMBER +
+//                  OPERATOR (see the reversal note below).
+//     4 SOUND      off or on; on asks for the mixer, the recorder, the prefix.
+//     5 SHOT LIST  upload a PDF or skip it. Not a gate: the project this
+//                  closes on exists either way.
+//     6 READY      a receipt of every decision, then one confirm.
 //
-// WHAT IS DELIBERATELY NOT ASKED HERE. Clip prefix, padding, suffix, file
-// extension, starting clip number, the sound counter's padding and extension,
-// and the quick-tag list. Every one of them is on the project screen the
-// second this closes (ProjectScreen.tsx: the per-unit counter rows, the sound
-// rows and the Quick tags editor), and every one of them has a right answer
-// derived from the camera preset the operator just picked. Asking for four
-// cameras' worth of padding on a phone, standing up, is the fourteen-field
-// form again wearing a progress rail. Same rule ShotlistSheet's header sets:
-// ask for what is painful to correct later.
+//   PODCAST (Home's Podcast mode only) walks FOUR stages: no frame rate
+//   (inherited from the most recent podcast project, 24 when there is none,
+//   still changeable afterwards) and no shot list (a podcast has no scenes):
+//     1 NAME, 2 CAMERAS, 3 SOUND, 4 READY.
+//   It still stands up exactly what `startPodcastRoll` used to build wholesale
+//   (see newRoll.ts): `mode: 'podcast'`, podcast-flavoured default tags, and
+//   one slate named "Recording", now assembled from whatever the Cameras and
+//   Sound stages actually decided, instead of hardcoded defaults.
+//
+// THE REVERSAL. This file used to say the starting clip number belonged on
+// the project screen, not here: a preset can only guess it. The owner
+// overruled that: the number typed on set is the one the camera body ALREADY
+// SHOWS, which a preset genuinely cannot know, so it is asked on the Cameras
+// stage now (see ./projectdraft's UnitDraft.startNumber). Everything else the
+// original note listed (clip prefix, padding, suffix, file extension, the
+// sound counter's padding and extension, and the quick-tag list) is still
+// deliberately not asked here, for the reason the note always gave: every one
+// of them is on the project screen the second this closes (ProjectScreen.tsx:
+// the per-unit counter rows, the sound rows and the Quick tags editor), and
+// every one of them has a right answer derived from the camera preset the
+// operator just picked. Asking for four cameras' worth of padding on a phone,
+// standing up, is the fourteen-field form again wearing a progress rail.
+//
+// THE SHOT LIST STAGE IS NOT A SECOND PDF READER. It mounts ShotlistSheet's
+// own `DocumentStage` (exported from ShotlistSheet.tsx for exactly this),
+// footer swapped for Back + Skip. See ShotListStage below. The read, the
+// parse, the sign-in gate and the free-tier counter all stay owned there, in
+// one place.
 //
 // THE CHROME IS NOT WRITTEN HERE. StageRail, StagePanel and StageActions come
 // from ./stages, and the .sl-* classes they and the option cards use are the
-// shotlist flow's — that is the point of extracting them. The only new CSS is
-// what is genuinely new: a camera unit card that can be added and removed.
+// shotlist flow's: that is the point of extracting them. Because the two
+// flows carry different stage counts, StageRail's `total` is read off
+// whichever STAGES array `flow` picked, never a literal number. That is what
+// keeps "3 of 5" honest on a "3 of 4" run.
 //
 // THE OBJECT THIS BUILDS IS NOT WRITTEN HERE EITHER. ./projectdraft owns the
 // draft and the turn into `store.createProject`'s argument, under test, because
 // a fourth camera that never reached the object looks identical on screen to
 // one that did.
 
-import { useState } from 'react';
-import type { Fps, Project } from '../types';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { Fps, Project, Slate } from '../types';
 import { store } from '../store';
 import { Sheet, SheetClose } from './common';
 import { StageRail, StagePanel, StageActions, type StageDir } from './stages';
@@ -47,8 +66,13 @@ import { FPS_OPTIONS, FPS_WARNING } from './fps';
 import { getDefaultTags } from './tagdefaults';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
+import { DocumentStage } from './ShotlistSheet';
+import { SignInSheet } from './SignInSheet';
+import { importScriptPack, type ScriptPack } from './scriptpack';
+import { PODCAST_SLATE_NAME, pickResumeProject, scratchName } from './newRoll';
 import {
   addUnit,
+  buildPodcastProjectConfig,
   buildProjectConfig,
   canAddUnit,
   emptyDraft,
@@ -63,15 +87,24 @@ import {
   type SoundDraft,
 } from './projectdraft';
 
-type Stage = 'name' | 'fps' | 'cameras' | 'sound' | 'ready';
+/** Which road the sheet walks. Absent (every call site that does not pass
+ *  it) is DIRECTOR: the Projects tab's plain "New project" button and Home's
+ *  Director mode both get the six-stage flow with the skippable shot list. */
+export type NewProjectFlow = 'director' | 'podcast';
 
-const STAGES: readonly Stage[] = ['name', 'fps', 'cameras', 'sound', 'ready'];
+type Stage = 'name' | 'fps' | 'cameras' | 'sound' | 'shotlist' | 'ready';
+
+const DIRECTOR_STAGES: readonly Stage[] = ['name', 'fps', 'cameras', 'sound', 'shotlist', 'ready'];
+// No frame rate (inherited, see below) and no shot list (a podcast has no
+// scenes to break down).
+const PODCAST_STAGES: readonly Stage[] = ['name', 'cameras', 'sound', 'ready'];
 
 const STAGE_TITLE: Record<Stage, string> = {
   name: 'New project',
   fps: 'Frame rate',
   cameras: 'Cameras',
   sound: 'Sound',
+  shotlist: 'Shot list',
   ready: 'Ready',
 };
 
@@ -82,8 +115,33 @@ function presetName(label: string): string {
   return label.replace(/\s*\([^()]*\)\s*$/, '');
 }
 
-export function NewProjectSheet(props: { onClose: () => void; onCreated: (project: Project) => void }) {
-  const [draft, setDraft] = useState<ProjectDraft>(() => emptyDraft(getDefaultTags('video')));
+export function NewProjectSheet(props: {
+  flow?: NewProjectFlow;
+  onClose: () => void;
+  /** `slate` is only ever populated for the Podcast road: its "Recording"
+   *  slate, made the moment the project is (see `create` below). The
+   *  Director road hands back `undefined`; every existing caller that only
+   *  reads `project` keeps working unchanged. */
+  onCreated: (project: Project, slate?: Slate) => void;
+}) {
+  const flow = props.flow ?? 'director';
+  const STAGES = flow === 'podcast' ? PODCAST_STAGES : DIRECTOR_STAGES;
+
+  const [draft, setDraft] = useState<ProjectDraft>(() => {
+    const base = emptyDraft(getDefaultTags(flow === 'podcast' ? 'podcast' : 'video'));
+    if (flow !== 'podcast') return base;
+    return {
+      ...base,
+      // A real name typed here always wins; this is only a starting point so
+      // tapping straight through still lands on a name that tells two
+      // same-day sessions apart (see scratchName's own header note).
+      name: scratchName(Date.now(), 'Podcast'),
+      // Sound is the product on a podcast: the owner's own framing for why
+      // frame rate gets skipped here. On by default; "No sound" is still one
+      // tap away on the Sound stage for the shoot that genuinely has none.
+      sound: newSoundDraft(),
+    };
+  });
   const [stage, setStage] = useState<Stage>('name');
   const [dir, setDir] = useState<StageDir>('fwd');
   const [busy, setBusy] = useState(false);
@@ -91,6 +149,34 @@ export function NewProjectSheet(props: { onClose: () => void; onCreated: (projec
   // stage rather than a stage of its own: the rail must not claim the flow got
   // longer because somebody tapped a camera row.
   const [picking, setPicking] = useState<number | null>(null);
+  // The Shot list stage's own decision, director road only: a parsed pack, or
+  // null once "Skip" (or nothing yet) has been chosen. Ready and create()
+  // both read this rather than a second source of truth.
+  const [shotlistPack, setShotlistPack] = useState<ScriptPack | null>(null);
+  // A 401 anywhere in the Shot list stage swaps the whole sheet for sign-in,
+  // same contract ShotlistSheet's own stage one keeps.
+  const [showSignIn, setShowSignIn] = useState(false);
+
+  // PODCAST'S FRAME RATE, INHERITED. No stage ever asks for it: it starts at
+  // 24 (emptyDraft's default) and, the moment the most recently touched
+  // podcast project on this phone is known, quietly becomes that project's
+  // fps instead. Reuses newRoll's own "most recent project of this mode"
+  // read rather than inventing a second lookup. This is NOT resolveRoll,
+  // which deliberately never looks at existing projects; that rule is about
+  // the one-tap roll target, not this draft's starting value.
+  useEffect(() => {
+    if (flow !== 'podcast') return;
+    let active = true;
+    void store.listProjects().then((projects) => {
+      if (!active) return;
+      const recent = pickResumeProject(projects, 'podcast');
+      if (recent) setDraft((d) => ({ ...d, fps: recent.fps }));
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow]);
 
   const index = STAGES.indexOf(stage);
 
@@ -105,24 +191,39 @@ export function NewProjectSheet(props: { onClose: () => void; onCreated: (projec
     if (busy || !isReady(draft)) return;
     setBusy(true);
     try {
-      const project = await store.createProject(buildProjectConfig(draft));
+      let project: Project;
+      let slate: Slate | undefined;
+      if (flow === 'podcast') {
+        project = await store.createProject(buildPodcastProjectConfig(draft));
+        slate = await store.createSlate(project.id, PODCAST_SLATE_NAME);
+      } else if (shotlistPack) {
+        // The stage-1-typed name is the ground truth, not the PDF's own
+        // title. buildProjectConfig already carries it, so overriding with
+        // the draft's build hands importScriptPack exactly what every other
+        // decision on this sheet agreed to.
+        project = await importScriptPack(shotlistPack, buildProjectConfig(draft));
+      } else {
+        project = await store.createProject(buildProjectConfig(draft));
+      }
       track('project_created', {
-        mode: 'normal',
+        mode: flow === 'podcast' ? 'podcast' : shotlistPack ? 'script' : 'normal',
         cameras: draft.units.length,
         sound: draft.sound !== null,
       });
       haptics.tap();
-      props.onCreated(project);
+      props.onCreated(project, slate);
     } catch {
       setBusy(false);
     }
   }
 
+  if (showSignIn) return <SignInSheet onClose={props.onClose} />;
+
   return (
     <Sheet title={STAGE_TITLE[stage]} onClose={busy ? undefined : props.onClose}>
       {/* `.dt-sheet` re-materials the shared badges inside a sheet; `.sl` is the
           staged flow's own scope (see styles.css), and `.np` is only what these
-          five stages add. */}
+          stages add. */}
       <div className="dt-sheet sl np">
         <StageRail index={index} total={STAGES.length} title={STAGE_TITLE[stage]} />
 
@@ -135,7 +236,7 @@ export function NewProjectSheet(props: { onClose: () => void; onCreated: (projec
               name={draft.name}
               onName={(name) => setDraft((d) => ({ ...d, name }))}
               onClose={props.onClose}
-              onNext={() => go('fps')}
+              onNext={() => go(flow === 'podcast' ? 'cameras' : 'fps')}
             />
           )}
 
@@ -161,12 +262,13 @@ export function NewProjectSheet(props: { onClose: () => void; onCreated: (projec
                   setDraft((d) => removeUnit(d, i));
                 }}
                 onOperator={(i, operator) => setDraft((d) => setUnit(d, i, { operator }))}
+                onStartNumber={(i, startNumber) => setDraft((d) => setUnit(d, i, { startNumber }))}
                 onPick={(i) => {
                   haptics.tap();
                   setDir('fwd');
                   setPicking(i);
                 }}
-                onBack={() => go('fps')}
+                onBack={() => go(flow === 'podcast' ? 'name' : 'fps')}
                 onNext={() => go('sound')}
               />
             ) : (
@@ -202,15 +304,34 @@ export function NewProjectSheet(props: { onClose: () => void; onCreated: (projec
                 setDraft((d) => (d.sound ? { ...d, sound: { ...d.sound, ...patch } } : d))
               }
               onBack={() => go('cameras')}
-              onNext={() => go('ready')}
+              onNext={() => go(flow === 'director' ? 'shotlist' : 'ready')}
+            />
+          )}
+
+          {stage === 'shotlist' && (
+            <ShotListStage
+              onPack={(pack) => {
+                setShotlistPack(pack);
+                go('ready');
+              }}
+              onGated={() => setShowSignIn(true)}
+              onSkip={() => {
+                haptics.tap();
+                setShotlistPack(null);
+                go('ready');
+              }}
+              onBack={() => go('sound')}
+              onClose={props.onClose}
             />
           )}
 
           {stage === 'ready' && (
             <ReadyStage
+              flow={flow}
               draft={draft}
+              shotlistPack={shotlistPack}
               busy={busy}
-              onBack={() => go('sound')}
+              onBack={() => go(flow === 'director' ? 'shotlist' : 'sound')}
               onGo={() => void create()}
             />
           )}
@@ -313,6 +434,7 @@ function CamerasStage(props: {
   onAdd: () => void;
   onRemove: (i: number) => void;
   onOperator: (i: number, operator: string) => void;
+  onStartNumber: (i: number, startNumber: string) => void;
   onPick: (i: number) => void;
   onBack: () => void;
   onNext: () => void;
@@ -361,6 +483,26 @@ function CamerasStage(props: {
                   Change
                 </span>
               </button>
+
+              {/* The number this unit's next clip will carry: what the camera
+                  BODY already shows, which is exactly why a preset cannot
+                  supply it. Same field shape and the same clamp as
+                  ProjectScreen's own clip counter (clampClipNumber, cameras.ts),
+                  so the two never disagree about what "1" means. Feeds the
+                  filename preview above live. */}
+              <div className="formrow np-unit__op">
+                <label className="label" htmlFor={`np-start-${letter}`}>
+                  Starting clip number
+                </label>
+                <input
+                  id={`np-start-${letter}`}
+                  className="field field--mono"
+                  inputMode="numeric"
+                  placeholder="1"
+                  value={u.startNumber}
+                  onChange={(e) => props.onStartNumber(i, e.target.value.replace(/[^0-9]/g, ''))}
+                />
+              </div>
 
               <div className="formrow np-unit__op">
                 <label className="label" htmlFor={`np-op-${letter}`}>
@@ -569,14 +711,59 @@ function SoundStage(props: {
 }
 
 // =============================================================== five ======
+// SHOT LIST. Director road only. Upload a PDF or skip it. Mounts
+// ShotlistSheet's own DocumentStage rather than a second reader; see the file
+// header and DocumentStage's `footer` prop in ShotlistSheet.tsx.
+
+function ShotListStage(props: {
+  onPack: (pack: ScriptPack) => void;
+  onGated: () => void;
+  onSkip: () => void;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <p className="camnote sl-lede">
+        Every scene and numbered shot, read off the PDF. Skip it and the project opens
+        with none. Scenes can still be added by hand once it does.
+      </p>
+      <DocumentStage
+        onPack={props.onPack}
+        onGated={props.onGated}
+        onClose={props.onClose}
+        footer={(busy) => (
+          <StageActions>
+            <button type="button" className="btn btn--ghost" onClick={props.onBack} disabled={busy}>
+              Back
+            </button>
+            <button type="button" className="btn btn--go" onClick={props.onSkip} disabled={busy}>
+              Skip
+            </button>
+          </StageActions>
+        )}
+      />
+    </>
+  );
+}
+
+// =============================================================== six ======
 // READY. Every decision, once, before the one action that spends them.
 
-function ReadyStage(props: { draft: ProjectDraft; busy: boolean; onBack: () => void; onGo: () => void }) {
+function ReadyStage(props: {
+  flow: NewProjectFlow;
+  draft: ProjectDraft;
+  shotlistPack: ScriptPack | null;
+  busy: boolean;
+  onBack: () => void;
+  onGo: () => void;
+}) {
   const { draft } = props;
   const approx = draft.units.some((u) => {
     const p = findPreset(u.camera);
     return p ? !p.exact : false;
   });
+  const shots = props.shotlistPack?.scenes.reduce((n, s) => n + (s.shots?.length ?? 0), 0) ?? 0;
 
   return (
     <>
@@ -594,6 +781,21 @@ function ReadyStage(props: { draft: ProjectDraft; busy: boolean; onBack: () => v
           <dt>Frame rate</dt>
           <dd className="tnum">{draft.fps} fps</dd>
         </div>
+        {props.flow === 'director' && (
+          <div className="sl-receipt__row">
+            <dt>Shot list</dt>
+            <dd>
+              {props.shotlistPack ? (
+                <>
+                  <span className="tnum">{props.shotlistPack.scenes.length}</span> scenes{' '}
+                  <span aria-hidden="true">&middot;</span> <span className="tnum">{shots}</span> shots
+                </>
+              ) : (
+                'Skipped'
+              )}
+            </dd>
+          </div>
+        )}
         {draft.units.map((u, i) => (
           <div className="sl-receipt__row" key={letterAt(i)}>
             <dt>
