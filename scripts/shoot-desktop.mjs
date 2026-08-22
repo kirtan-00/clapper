@@ -144,7 +144,7 @@ async function main() {
     await sleep(700);
     await cdp.waitForExpr(TAB('Projects'), { desc: 'projects tab' });
     await sleep(400);
-    // The Projects LIST itself, at desktop width — the search field, the bar
+    // The Projects LIST itself, at desktop width - the search field, the bar
     // and the flag row are new here (see ProjectsScreen.tsx) and this app's
     // only other desktop check (the rolling screen, below) never renders
     // this screen at all.

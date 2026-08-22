@@ -694,7 +694,7 @@ describe('buildTakeClips — shoot day side effects', () => {
 
 // ------------------------------------------------------ summarizeProject ---
 // The Projects list's shots-in-the-can rule, pinned here rather than trusted
-// to eye — see the field doc on ProjectSummary (types.ts) and the function
+// to eye - see the field doc on ProjectSummary (types.ts) and the function
 // itself (util.ts) for what each number means.
 
 describe('summarizeProject', () => {
@@ -727,7 +727,7 @@ describe('summarizeProject', () => {
     };
   }
 
-  it('has no denominator on a project with no shot list anywhere — shotTotal 0', () => {
+  it('has no denominator on a project with no shot list anywhere - shotTotal 0', () => {
     const slates = [slate('s1', 'INT. DINER'), slate('s2', 'EXT. ROOF')];
     const takes = [takeOn('t1', 's1', 'good'), takeOn('t2', 's2', 'good')];
     const s = summarizeProject(slates, takes);

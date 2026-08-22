@@ -322,7 +322,7 @@ export async function openIdbStore(): Promise<Store & RawStore> {
     },
 
     // Projects list's cheap read: two indexed getAll's (slates, takes), no
-    // per-take fan-out into moments — that N+1 (one query per take) is
+    // per-take fan-out into moments - that N+1 (one query per take) is
     // getBundle's real cost, and something the Projects list never reads.
     // See summarizeProject in util.ts for the actual counting.
     async getProjectSummary(projectId) {

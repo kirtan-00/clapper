@@ -315,7 +315,7 @@ export function createLocalStore(): Store & RawStore {
     },
 
     // Projects list's cheap read. Everything already lives in memory here, so
-    // "cheap" mostly means "still skip moments" — kept as its own method
+    // "cheap" mostly means "still skip moments" - kept as its own method
     // (rather than the UI calling getBundle and ignoring `.moments`) so both
     // backends agree on exactly the same contract.
     async getProjectSummary(projectId) {

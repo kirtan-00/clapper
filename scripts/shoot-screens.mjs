@@ -200,14 +200,14 @@ async function seed(cdp) {
       // ---------------------------------------------------------------------
       // THE PROJECTS-SCREEN REBUILD'S OWN SEED. Twelve projects minimum, per
       // the brief: a mix of with/without a shot list, several mid-shoot, one
-      // wrapped, varying day numbers — so the progress bar, the "no shot
+      // wrapped, varying day numbers - so the progress bar, the "no shot
       // list" flag, the "Wrapped" flag and the day/recency lines all have
       // something real to prove themselves against, not just the three
       // projects above (all day-1-or-less, none with a completed shot list).
       const { wrapShootDay } = await import('/src/store/util.ts');
 
       /** Advance a project N wrap cycles with NO take logged in between, so
-       *  the project lands on a fresh, untouched day N+1 — exactly what
+       *  the project lands on a fresh, untouched day N+1 - exactly what
        *  WRAP DAY does on a real set when nothing has rolled yet today. */
       async function wrapForward(projectId, times) {
         for (let i = 0; i < times; i++) {
@@ -218,7 +218,7 @@ async function seed(cdp) {
       }
 
       /** A scene with a shot breakdown: KEPT of shots.length shots get a
-       *  KEPT take, the rest get none — so shotsInCan / scenesLeft land
+       *  KEPT take, the rest get none - so shotsInCan / scenesLeft land
        *  exactly where the caller wants them, not wherever random chance
        *  puts them. */
       async function shotScene(projectId, name, shots, kept) {
@@ -243,19 +243,19 @@ async function seed(cdp) {
         return slate;
       }
 
-      // "The Last Monsoon" — mid-shoot, DAY 3, a real shot list at 14/22
+      // "The Last Monsoon" - mid-shoot, DAY 3, a real shot list at 14/22
       // (the exact worked example from the brief): two scenes still short of
       // a full breakdown so "2 scenes left" reads true, three already clean.
       {
         const p = await store.createProject({ name: 'The Last Monsoon', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU','GOLD'] });
         await wrapForward(p.id, 2); // day 1 -> day 3, untouched
-        await shotScene(p.id, 'INT. HOUSE — MORNING', ['1.1','1.2','1.3','1.4'], 4);
-        await shotScene(p.id, 'EXT. FIELD — DAY', ['2.1','2.2','2.3','2.4','2.5'], 2);
-        await shotScene(p.id, 'INT. TEMPLE — DUSK', ['3.1','3.2','3.3','3.4','3.5','3.6'], 1);
-        await shotScene(p.id, 'EXT. RIVER — NIGHT', ['4.1','4.2','4.3','4.4'], 4);
-        await shotScene(p.id, 'INT. HOUSE — NIGHT', ['5.1','5.2','5.3'], 3);
-        // A handful of extra takes on shots already in the can — retakes and
-        // one discard — so the take COUNT is well past the shot count, the
+        await shotScene(p.id, 'INT. HOUSE - MORNING', ['1.1','1.2','1.3','1.4'], 4);
+        await shotScene(p.id, 'EXT. FIELD - DAY', ['2.1','2.2','2.3','2.4','2.5'], 2);
+        await shotScene(p.id, 'INT. TEMPLE - DUSK', ['3.1','3.2','3.3','3.4','3.5','3.6'], 1);
+        await shotScene(p.id, 'EXT. RIVER - NIGHT', ['4.1','4.2','4.3','4.4'], 4);
+        await shotScene(p.id, 'INT. HOUSE - NIGHT', ['5.1','5.2','5.3'], 3);
+        // A handful of extra takes on shots already in the can - retakes and
+        // one discard - so the take COUNT is well past the shot count, the
         // same way a real day's log always is.
         const extra = await store.listSlates(p.id);
         for (let i = 0; i < 6; i++) {
@@ -264,7 +264,7 @@ async function seed(cdp) {
         }
       }
 
-      // "Bhoot Ki Kahani" — the brief's OTHER worked example, verbatim: no
+      // "Bhoot Ki Kahani" - the brief's OTHER worked example, verbatim: no
       // shot list anywhere, Day 1, 17 takes, 3 scenes.
       {
         const p = await store.createProject({ name: 'Bhoot Ki Kahani', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
@@ -273,27 +273,39 @@ async function seed(cdp) {
         await bareScene(p.id, 'Scene 3', 4, 0);
       }
 
-      // "Coffee & Kismet" — WRAPPED with every scene covered: the bar reads
-      // full, the caption reads "every scene covered", and the Wrapped flag
-      // sits right next to the name. Proves the bar and the flag are
-      // independent facts that can both be true at once.
+      // "Coffee & Kismet" - WRAPPED with every scene covered: the bar reads
+      // full and the meta line leads with "Wrapped". Proves the bar and the
+      // flag are independent facts that can both be true on one row. Also
+      // filed into a folder below, so the KEY (filed) render path - a
+      // different material to the plain ground rows - gets a real screenshot
+      // too, not just the two untested classes sitting in the CSS.
+      let coffeeId = null;
       {
         const p = await store.createProject({ name: 'Coffee & Kismet', fps: 25, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
-        await shotScene(p.id, 'INT. CAFE — DAY', ['1.1','1.2','1.3'], 3);
-        await shotScene(p.id, 'EXT. STREET — DAY', ['2.1','2.2','2.3'], 3);
+        coffeeId = p.id;
+        await shotScene(p.id, 'INT. CAFE - DAY', ['1.1','1.2','1.3'], 3);
+        await shotScene(p.id, 'EXT. STREET - DAY', ['2.1','2.2','2.3'], 3);
         await wrapForward(p.id, 1); // day 1 -> day 2, untouched: WRAPPED
       }
 
-      // "Summer Break" — a shot list barely started: DAY 1, low completion,
+      // File it under a folder, the same client-work grouping a real
+      // director would make - and OPEN it, so the folder renders as the mass
+      // it becomes once it holds something, not the quiet closed row.
+      localStorage.setItem('clapper.folders.v1', JSON.stringify({
+        folders: [{ id: 'f-client', name: 'Client Work', order: 0 }],
+        filed: { [coffeeId]: 'f-client' },
+      }));
+
+      // "Summer Break" - a shot list barely started: DAY 1, low completion,
       // proves the bar reads correctly near-empty too, not just near-full.
       {
         const p = await store.createProject({ name: 'Summer Break', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
-        await shotScene(p.id, 'EXT. BEACH — DAY', ['1.1','1.2','1.3','1.4'], 1);
-        await shotScene(p.id, 'INT. VAN — DAY', ['2.1','2.2','2.3'], 0);
-        await shotScene(p.id, 'EXT. CAMPFIRE — NIGHT', ['3.1','3.2','3.3'], 0);
+        await shotScene(p.id, 'EXT. BEACH - DAY', ['1.1','1.2','1.3','1.4'], 1);
+        await shotScene(p.id, 'INT. VAN - DAY', ['2.1','2.2','2.3'], 0);
+        await shotScene(p.id, 'EXT. CAMPFIRE - NIGHT', ['3.1','3.2','3.3'], 0);
       }
 
-      // "The Long Wait" — no shot list, WRAPPED, DAY 4: proves the Wrapped
+      // "The Long Wait" - no shot list, WRAPPED, DAY 4: proves the Wrapped
       // flag and the "no shot list" flag can both be true on the same row,
       // and gives the list a second, higher day number.
       {
@@ -306,27 +318,27 @@ async function seed(cdp) {
         await wrapForward(p.id, 1); // day 4, untouched: WRAPPED
       }
 
-      // "Ashes & Neon" — DAY 5, one scene short of a full shot list: proves
+      // "Ashes & Neon" - DAY 5, one scene short of a full shot list: proves
       // the bar and "N scenes left" both still read right at the high end,
       // not just at 14/22.
       {
         const p = await store.createProject({ name: 'Ashes & Neon', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU','GOLD'] });
         await wrapForward(p.id, 4); // day 1 -> day 5, untouched
-        await shotScene(p.id, 'INT. CLUB — NIGHT', ['1.1','1.2','1.3'], 3);
-        await shotScene(p.id, 'EXT. ALLEY — NIGHT', ['2.1','2.2','2.3'], 3);
-        await shotScene(p.id, 'INT. GREEN ROOM — NIGHT', ['3.1','3.2','3.3','3.4'], 3);
+        await shotScene(p.id, 'INT. CLUB - NIGHT', ['1.1','1.2','1.3'], 3);
+        await shotScene(p.id, 'EXT. ALLEY - NIGHT', ['2.1','2.2','2.3'], 3);
+        await shotScene(p.id, 'INT. GREEN ROOM - NIGHT', ['3.1','3.2','3.3','3.4'], 3);
       }
 
-      // "Quiet Riot Ad" — a shot list attached, but NOTHING shot yet: proves
+      // "Quiet Riot Ad" - a shot list attached, but NOTHING shot yet: proves
       // the bar can sit at a real 0% (0/7 shots) rather than being hidden
       // just because nothing has rolled.
       {
         const p = await store.createProject({ name: 'Quiet Riot Ad', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
-        await shotScene(p.id, 'INT. STUDIO — DAY', ['1.1','1.2','1.3'], 0);
-        await shotScene(p.id, 'INT. STUDIO — DAY (CU)', ['2.1','2.2','2.3','2.4'], 0);
+        await shotScene(p.id, 'INT. STUDIO - DAY', ['1.1','1.2','1.3'], 0);
+        await shotScene(p.id, 'INT. STUDIO - DAY (CU)', ['2.1','2.2','2.3','2.4'], 0);
       }
 
-      // "Diwali Campaign" — no shot list AND nothing shot yet: the OTHER
+      // "Diwali Campaign" - no shot list AND nothing shot yet: the OTHER
       // zero-take case, so the two never get confused for one another.
       {
         const p = await store.createProject({ name: 'Diwali Campaign', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
@@ -334,7 +346,7 @@ async function seed(cdp) {
         await store.createSlate(p.id, 'Scene 2');
       }
 
-      // "Rooftop Sessions" — no shot list, DAY 7: the widest day number on
+      // "Rooftop Sessions" - no shot list, DAY 7: the widest day number on
       // the list, proving the recency/day facts hold up on a long shoot.
       {
         const p = await store.createProject({ name: 'Rooftop Sessions', fps: 24, clipPrefix: 'C', nextClipNumber: 1, clipPadding: 4, tags: ['WIDE','CU'] });
@@ -397,7 +409,7 @@ async function main() {
     await sleep(400);
     await take('01b-projects', theme);
 
-    // PROJECTS SEARCH, ACTIVE — a query typed into `.pj-search`, set through
+    // PROJECTS SEARCH, ACTIVE - a query typed into `.pj-search`, set through
     // React's own native-input setter (a plain `.value =` never fires
     // React's onChange) so the screen re-renders exactly as it would for a
     // real keystroke, not a scripted shortcut around one.
@@ -406,7 +418,7 @@ async function main() {
         const el = document.querySelector('.pj-search');
         if (!el) return false;
         const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        setter.call(el, 'monsoon');
+        setter.call(el, 'long wait');
         el.dispatchEvent(new Event('input', { bubbles: true }));
         return true;
       })()
@@ -424,6 +436,16 @@ async function main() {
       })()
     `);
     await sleep(200);
+
+    // PROJECTS, A FOLDER OPEN - the KEY render path (`.pj-key`, `.pj-key__toprow`,
+    // the bar on mass) never draws unless a folder is actually open, and
+    // nothing else in this script opens one. "Client Work" is seeded closed
+    // (see seed(), above); open it here so that path gets a real screenshot
+    // rather than shipping CSS nobody has looked at.
+    await cdp.waitForExpr(CLICK_BY_TEXT('Client Work'), { desc: 'folder head' });
+    await cdp.waitForExpr(`document.body.textContent.includes('Coffee & Kismet')`, { desc: 'folder open' });
+    await sleep(400);
+    await take('01d-projects-folder', theme);
 
     // PROJECT
     await cdp.waitForExpr(CLICK_BY_TEXT("No Mans Hero"), { desc: 'project row' });

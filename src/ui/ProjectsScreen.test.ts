@@ -1,7 +1,7 @@
 // The Projects list's row-formatting and search-match rules, pinned here
-// rather than trusted to eye. Both are pure — they take a Project and a Row
+// rather than trusted to eye. Both are pure - they take a Project and a Row
 // (the already-fetched summary) and return words or a boolean, no store, no
-// DOM — which is what lets them live in a plain vitest file next to the
+// DOM - which is what lets them live in a plain vitest file next to the
 // screen they belong to.
 
 import { describe, expect, it } from 'vitest';
@@ -37,7 +37,7 @@ function row(patch: Partial<Row> = {}): Row {
 }
 
 describe('rowMeta', () => {
-  it('draws no bar and reports the day/takes/scenes line — the "no shot list" example', () => {
+  it('draws no bar and reports the day/takes/scenes line - the "no shot list" example', () => {
     const p = project({ name: 'Bhoot Ki Kahani', openShootDay: { index: 1, date: '2026-08-20' } });
     const r = row({ project: p, takeCount: 17, sceneCount: 3, shotTotal: 0 });
     const m = rowMeta(p, r);
@@ -46,7 +46,7 @@ describe('rowMeta', () => {
     expect(m.metaLine).toBe('Day 1 · 17 takes · 3 scenes');
   });
 
-  it('draws a bar and reports shots + scenes left — the owner\'s worked example', () => {
+  it('draws a bar and reports shots + scenes left - the owner\'s worked example', () => {
     const p = project({ name: 'The Last Monsoon', openShootDay: { index: 3, date: '2026-08-20' } });
     const r = row({ project: p, takeCount: 61, sceneCount: 8, shotTotal: 22, shotsInCan: 14, scenesLeft: 2 });
     const m = rowMeta(p, r);
@@ -65,7 +65,7 @@ describe('rowMeta', () => {
   });
 
   it('a project with zero takes reads "No takes yet", never "Day 0"', () => {
-    const p = project(); // no openShootDay — nothing has rolled
+    const p = project(); // no openShootDay - nothing has rolled
     const r = row({ project: p, takeCount: 0, sceneCount: 3, shotTotal: 0 });
     const m = rowMeta(p, r);
     expect(m.day).toBe(0);
@@ -80,7 +80,7 @@ describe('rowMeta', () => {
 
   it('is wrapped once WRAP DAY has fired and the new day has taken nothing yet', () => {
     // wrapShootDay (store/util.ts) advances `openShootDay` to the NEXT,
-    // unwrapped day the instant it wraps — `wrappedAt` never survives onto a
+    // unwrapped day the instant it wraps - `wrappedAt` never survives onto a
     // project's live state, only into `pendingWrapUndo.previousDay`. So
     // "wrapped, nothing since" is `pendingWrapUndo` present + the new day's
     // `firstTakeAt` still unset, the same test ProjectScreen's own "undo
@@ -90,6 +90,21 @@ describe('rowMeta', () => {
       pendingWrapUndo: { previousDay: { index: 2, date: '2026-08-19', wrappedAt: 999 } },
     });
     expect(rowMeta(justWrapped, row({ project: justWrapped, takeCount: 40 })).wrapped).toBe(true);
+  });
+
+  it('"Wrapped" leads the meta line rather than living beside the name', () => {
+    // Two flex:none flags next to a flex:1 name crushed an ordinary name
+    // ("The Long Wait") down to "The…" in the seeded screenshot, and the name
+    // is the one thing a scan can't lose, so Wrapped moved into the line
+    // that already truncates most-load-bearing-first instead of competing
+    // with the name for width. "No shot list" is the only flag still beside
+    // the name (see the render site in ProjectsScreen.tsx).
+    const justWrapped = project({
+      openShootDay: { index: 4, date: '2026-08-20' },
+      pendingWrapUndo: { previousDay: { index: 3, date: '2026-08-19', wrappedAt: 999 } },
+    });
+    const m = rowMeta(justWrapped, row({ project: justWrapped, takeCount: 21, sceneCount: 3 }));
+    expect(m.metaLine).toBe('Wrapped · Day 4 · 21 takes · 3 scenes');
   });
 
   it('stops reading as wrapped the moment a take lands on the new day', () => {
@@ -123,7 +138,7 @@ describe('matchesQuery', () => {
   });
 
   it('matches on a scene name the project name does not contain', () => {
-    const r = row({ project: p, sceneNames: ['INT. DINER — NIGHT', 'EXT. ROOFTOP'] });
+    const r = row({ project: p, sceneNames: ['INT. DINER - NIGHT', 'EXT. ROOFTOP'] });
     expect(matchesQuery('diner', p, r)).toBe(true);
     expect(matchesQuery('rooftop', p, r)).toBe(true);
     expect(matchesQuery('hallway', p, r)).toBe(false);

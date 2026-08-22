@@ -44,14 +44,14 @@ export interface Row {
   takeCount: number;
   sceneCount: number;
   /** Total shots across every scene's breakdown. 0 = no shot list anywhere
-   *  on this project — the one condition that turns the progress bar off
+   *  on this project - the one condition that turns the progress bar off
    *  rather than have it measure a denominator that isn't there. */
   shotTotal: number;
   /** Shots carrying at least one KEPT (status 'good') take. See
    *  `summarizeProject` in store/util.ts for the exact rule. */
   shotsInCan: number;
-  /** Scenes not yet fully covered by the shot list above. Only meaningful —
-   *  and only shown — once `shotTotal` says there is a bar to go with it. */
+  /** Scenes not yet fully covered by the shot list above. Only meaningful -
+   *  and only shown - once `shotTotal` says there is a bar to go with it. */
   scenesLeft: number;
   /** Every scene's name, for the search box below. Free: the read that
    *  builds the counts above already has them. */
@@ -110,7 +110,7 @@ function bucketFor(now: number, p: Project): Bucket {
 }
 
 /** How much of a shoot a row is, in one line: 24 fps · 2 cams + sound · 8 scenes.
- *  HERO ONLY, now — the row it is the only project on screen, so the rig it
+ *  HERO ONLY, now - the row it is the only project on screen, so the rig it
  *  is shot on earns the line. Everywhere else this screen is asking "which
  *  one, and how far along", not "on what", so plain rows carry `rowMeta`'s
  *  line instead (see below). */
@@ -126,25 +126,25 @@ function shapeOf(row: Row): string {
 }
 
 // ========================================================== THE BAR & THE
-// ROW FACTS. THE OWNER'S OWN METRIC: shots in the can — a shot with a first
-// KEPT (status 'good') take — out of the shot breakdown total. Scanning
+// ROW FACTS. THE OWNER'S OWN METRIC: shots in the can - a shot with a first
+// KEPT (status 'good') take - out of the shot breakdown total. Scanning
 // thirty projects for "the shoot I was on last Tuesday" wants three things
 // most: recency (the band headers and `fmtWhen` already carry that), the day
 // number, and whether it's finished. This is where those two plus the bar's
-// numbers turn into the words a row actually prints — pure, so the format is
+// numbers turn into the words a row actually prints - pure, so the format is
 // pinned by ProjectsScreen.test.ts rather than by eye.
 
 export interface RowMeta {
   day: number;
-  /** WRAP DAY was just pressed and nothing has rolled on the new day since —
+  /** WRAP DAY was just pressed and nothing has rolled on the new day since -
    *  the same test ProjectScreen's own "undo wrap" button already runs (see
    *  `canUndo` there). NOT `openShootDay.wrappedAt`: `wrapShootDay` (see
    *  store/util.ts) advances `openShootDay` to the NEXT, unwrapped day the
    *  instant it wraps the one before it, so that field is never true on a
-   *  project's live, persisted state — the wrapped day's own `wrappedAt`
+   *  project's live, persisted state - the wrapped day's own `wrappedAt`
    *  survives only inside `pendingWrapUndo.previousDay`, a snapshot for the
    *  undo button, not a status flag. `pendingWrapUndo` present AND the new
-   *  day still untouched IS "wrapped, nothing since" — it reverts to false
+   *  day still untouched IS "wrapped, nothing since" - it reverts to false
    *  the instant a take lands, same as the undo button does.
    *
    *  Never coloured with the accent when shown: that word is spent once
@@ -155,11 +155,11 @@ export interface RowMeta {
    *  no real denominator is worse than none. */
   hasBar: boolean;
   pct: number;
-  /** "14/22 shots" — empty when `hasBar` is false. */
+  /** "14/22 shots" - empty when `hasBar` is false. */
   fractionLabel: string;
-  /** "2 scenes left" / "every scene covered" — empty when `hasBar` is false. */
+  /** "2 scenes left" / "every scene covered" - empty when `hasBar` is false. */
   scenesLeftLabel: string;
-  /** Scenes exist, but none of them has a breakdown — the fact that explains
+  /** Scenes exist, but none of them has a breakdown - the fact that explains
    *  why there is no bar, said once next to the name rather than left for
    *  the reader to infer from an absence. */
   noShotList: boolean;
@@ -182,17 +182,27 @@ export function rowMeta(project: Project, row: Row): RowMeta {
   const takeWord = row.takeCount === 1 ? 'take' : 'takes';
   const sceneWord = row.sceneCount === 1 ? 'scene' : 'scenes';
 
-  let metaLine: string;
+  // "Wrapped" LEADS the line rather than sitting beside the name. Next to
+  // the name it was a flex:none sibling squeezing a flex:1 one - on a name
+  // as ordinary as "The Long Wait" it crushed the name down to "The…", the
+  // one thing a scan actually needs. Leading the meta line instead costs it
+  // nothing: this line already truncates most-load-bearing-first (see
+  // fmtWhen's own note above), so on a narrow phone it is "Wrapped…" that
+  // gives, never the name.
+  const parts: string[] = [];
+  if (wrapped) parts.push('Wrapped');
   if (row.takeCount === 0) {
-    // The day has not opened yet (see the fallback above) — "Day 0" is
+    // The day has not opened yet (see the fallback above) - "Day 0" is
     // arithmetic about nothing, so this line drops the day and the take
     // count both, the same call HeroMass's cold state already makes.
-    metaLine = row.sceneCount === 0 ? 'No takes yet' : `No takes yet · ${row.sceneCount} ${sceneWord}`;
+    parts.push('No takes yet');
+    if (row.sceneCount > 0) parts.push(`${row.sceneCount} ${sceneWord}`);
   } else if (hasBar) {
-    metaLine = `Day ${day} · ${row.takeCount} ${takeWord} · ${scenesLeftLabel}`;
+    parts.push(`Day ${day}`, `${row.takeCount} ${takeWord}`, scenesLeftLabel);
   } else {
-    metaLine = `Day ${day} · ${row.takeCount} ${takeWord} · ${row.sceneCount} ${sceneWord}`;
+    parts.push(`Day ${day}`, `${row.takeCount} ${takeWord}`, `${row.sceneCount} ${sceneWord}`);
   }
+  const metaLine = parts.join(' · ');
 
   return { day, wrapped, hasBar, pct, fractionLabel, scenesLeftLabel, noShotList, metaLine };
 }
@@ -201,12 +211,12 @@ export function rowMeta(project: Project, row: Row): RowMeta {
  * The Projects search box's match rule: project names always, and scene
  * names too. CHOICE, and why: a director hunting for "the diner scene" is
  * hunting ACROSS projects, not inside the one they're already in (that
- * search already exists, scoped, on the Clip log) — and the scene names cost
+ * search already exists, scoped, on the Clip log) - and the scene names cost
  * nothing extra to check, since `summarizeProject` reads them off the same
  * slates it counts shots from (see `sceneNames` on Row).
  *
  * Shot CODES are deliberately left OUT. "5.31" only means something inside
- * the one project that printed it — cross-project it collides constantly
+ * the one project that printed it - cross-project it collides constantly
  * (every shoot has a shot "1.1") and adds noise a name or scene match never
  * would. Matching them would also cost real work for no real recall: it is
  * not data this screen already has in hand the way scene names are.
@@ -438,7 +448,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   const [filingRow, setFilingRow] = useState<Row | null>(null);
   const [liveMsg, setLiveMsg] = useState('');
   // The search box's own text. NOT auto-focused and never revealed behind a
-  // tap — see the field's own comment at the render site for why: this
+  // tap - see the field's own comment at the render site for why: this
   // screen opens on set, one-handed, and a keyboard nobody asked for is a
   // worse first frame than a screen with no search box at all.
   const [query, setQuery] = useState('');
@@ -455,8 +465,8 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
     projects.sort(
       (a, b) => lastActivity(b) - lastActivity(a) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
     );
-    // ONE cheap read per project — two indexed table scans, no moments, no
-    // per-take fan-out — never `getBundle`, which would pull every take's
+    // ONE cheap read per project - two indexed table scans, no moments, no
+    // per-take fan-out - never `getBundle`, which would pull every take's
     // full moment log for a list that only ever reads counts. See
     // Store.getProjectSummary and summarizeProject in store/util.ts.
     const withCounts = await Promise.all(
@@ -700,7 +710,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   // were" all exist to make browsing thirty projects bearable, and none of
   // them are the question a search is asking. `null` (no query) leaves
   // `shape` above as the thing that renders; a query, even an empty-results
-  // one, always renders this instead — never both at once, so there is one
+  // one, always renders this instead - never both at once, so there is one
   // reading of what's on screen, not a search overlaying a browse.
   const matches = useMemo(() => {
     if (!rows) return null;
@@ -732,7 +742,21 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   function renderLine(row: Row, tone: 'key' | 'row') {
     const { project } = row;
     const lifted = drag?.projectId === project.id;
-    const live = !!project.openShootDay && !project.openShootDay.wrappedAt;
+    // Same rule everywhere below the hero, filed or not: the owner's own
+    // metric (shots in the can), and the two facts scanning thirty projects
+    // actually wants - day number, whether it's finished. See rowMeta above.
+    const rm = rowMeta(project, row);
+    // NOT `!project.openShootDay.wrappedAt` (what this read before rowMeta
+    // existed): `wrapShootDay` always advances `openShootDay` to the NEXT,
+    // unwrapped day the moment it wraps the one before it (see rowMeta's own
+    // `wrapped` doc), so that check was true - and this badge showed - on
+    // EVERY project with any shoot day at all, wrapped or not. It only ever
+    // read right because nothing on screen said "Wrapped" to contradict it.
+    // The instant that flag existed, a filed project could show LIVE and
+    // Wrapped on the same row, which is exactly the seeded screenshot below
+    // caught. `rm.wrapped` is the one correct signal for "finished, for
+    // now" - LIVE is just its negation.
+    const live = !!project.openShootDay && !rm.wrapped;
     // The tilt goes through a CUSTOM PROPERTY so the reduce block in
     // skin/projects.css can zero it. The translate cannot be zeroed and must
     // not be: a card that follows the finger 1:1 is direct manipulation, which
@@ -741,10 +765,6 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
     const style: CSSProperties | undefined = lifted
       ? { transform: `translate(${drag!.dx}px, ${drag!.dy}px) rotate(var(--pj-tilt, 1.6deg))` }
       : undefined;
-    // Same rule everywhere below the hero, filed or not: the owner's own
-    // metric (shots in the can), and the two facts scanning thirty projects
-    // actually wants — day number, whether it's finished. See rowMeta above.
-    const rm = rowMeta(project, row);
 
     // TWO BOXES WHILE LIFTED, ONE AT REST. The outer keeps the card's place in
     // the list and draws the dashed hole it came out of; the inner is what the
@@ -783,10 +803,15 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           <span className={tone === 'key' ? 'pj-key__text' : 'pj-row__text'}>
             <span className={tone === 'key' ? 'pj-key__toprow' : 'pj-row__toprow'}>
               <span className={tone === 'key' ? 'pj-key__name' : 'pj-row__name'}>{project.name}</span>
+              {/* NOT "Wrapped" here too - see the comment on rowMeta's
+                  `parts` above. Two flex:none flags next to a flex:1 name
+                  crushed an ordinary name ("The Long Wait") down to "The…",
+                  which is worse than the fact either flag is there to give.
+                  "Wrapped" leads the meta line below instead; this is the
+                  one flag the name has to make room for. */}
               {rm.noShotList && <span className="pj-flag">No shot list</span>}
-              {rm.wrapped && <span className="pj-flag">Wrapped</span>}
             </span>
-            {/* The bar only exists when there's a real denominator — see
+            {/* The bar only exists when there's a real denominator - see
                 `hasBar` on RowMeta. A project with no shot list gets the flag
                 above instead of a bar measuring nothing. */}
             {rm.hasBar && (
@@ -843,13 +868,13 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
       {/* ALWAYS ON, NEVER FOCUSED. Two decisions, and both matter on a phone
           held one-handed on set:
 
-          VISIBLE, not behind a tap — the same call the Clip log's own finder
+          VISIBLE, not behind a tap - the same call the Clip log's own finder
           already made (see ClipLogScreen.tsx's `.mclip__find`). A search a
           director has to go looking for before they can use it has already
           lost the "just tell me where" moment it exists for.
 
           NEVER `autoFocus`. A field that raises the keyboard the instant this
-          screen mounts covers the very list it's meant to search — the exact
+          screen mounts covers the very list it's meant to search - the exact
           failure the brief calls out. It waits for a deliberate tap, same as
           every other field in the app. */}
       {rows !== null && rows.length > 0 && (
@@ -875,7 +900,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
           <span>Start one for your shoot day. Day 1 opens itself with your first take.</span>
         </div>
       ) : matches ? (
-        /* A QUERY FLATTENS THE SCREEN. See the comment on `matches` above —
+        /* A QUERY FLATTENS THE SCREEN. See the comment on `matches` above -
            folders, the archive and the hero all exist to make BROWSING
            bearable, and none of them are what a search is asking. Sorted the
            same way the base list already is (most recently touched first),
@@ -1119,7 +1144,6 @@ function HeroMass(props: { row: Row; folderName?: string; onOpen: () => void }) 
     >
       <span className="pj-hero__top">
         <span className="pj-hero__name">{project.name}</span>
-        {rm.wrapped && <span className="pj-flag">Wrapped</span>}
         <span className="pj-hero__chev"><ChevronMark /></span>
       </span>
       {/* Where it is filed, when it is filed. It is an EYEBROW rather than a
@@ -1129,16 +1153,21 @@ function HeroMass(props: { row: Row; folderName?: string; onOpen: () => void }) 
           exists at all because this shoot is ALSO drawn inside that folder's
           count further down, and the two have to be visibly the same thing. */}
       {props.folderName && <span className="pj-hero__filed">{props.folderName}</span>}
-      <span className="pj-hero__meta">{shapeOf(row)}</span>
+      {/* "Wrapped" leads this line rather than sitting beside the name above,
+          the same call the plain rows make (see rowMeta's `parts`), for the
+          same reason: a flex:none flag next to a flex:1 name is the name
+          losing, and the name is the one thing a "Where you were" card
+          cannot afford to lose. */}
+      <span className="pj-hero__meta">{rm.wrapped ? `Wrapped · ${shapeOf(row)}` : shapeOf(row)}</span>
 
       {/* THE OWNER'S METRIC: shots in the can, out of the shot breakdown
-          total — never scenes. A scene with an eight-shot breakdown and one
+          total - never scenes. A scene with an eight-shot breakdown and one
           shot done is one eighth done, not "started", and this is where that
           shows. No shot list anywhere on the project is the one case that
           gets no bar (see `hasBar` on RowMeta) rather than one measuring a
           denominator that was never there. */}
       {row.sceneCount === 0 ? (
-        <span className="pj-hero__cold">No scenes yet — add the first setup</span>
+        <span className="pj-hero__cold">No scenes yet - add the first setup</span>
       ) : rm.hasBar ? (
         <>
           <span className="pj-bar-row pj-bar-row--mass">
@@ -1151,7 +1180,7 @@ function HeroMass(props: { row: Row; folderName?: string; onOpen: () => void }) 
         </>
       ) : (
         <span className="pj-hero__cold">
-          No shot list yet — {row.sceneCount} scene{row.sceneCount === 1 ? '' : 's'} logged
+          No shot list yet - {row.sceneCount} scene{row.sceneCount === 1 ? '' : 's'} logged
         </span>
       )}
 

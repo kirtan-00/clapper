@@ -910,18 +910,18 @@ export function undoWrapShootDay(project: Project, now: number): WrapUndoResult 
 
 // -------------------------------------------------------- project summary --
 // The Projects list's per-project counts (see ProjectSummary in types.ts).
-// Pure, and given exactly the two tables it needs — never a full bundle — so
+// Pure, and given exactly the two tables it needs - never a full bundle - so
 // both store backends compute the same numbers off the same rule and neither
 // has to touch moments to do it. See idb.ts / local.ts's getProjectSummary
 // for the (cheap, indexed) reads that feed this.
 
 /**
- * "In the can": a shot with at least one KEPT take against it — status
+ * "In the can": a shot with at least one KEPT take against it - status
  * 'good', never 'discarded' (see TakeStatus). Matches the word the rest of
  * the app already uses for a take that survived to the edit; a discarded
  * take is not almost a keeper, it counts for nothing here either.
  *
- * The denominator is SHOTS, not scenes — a scene with an eight-shot
+ * The denominator is SHOTS, not scenes - a scene with an eight-shot
  * breakdown and one shot in the can is one eighth done, not "started". A
  * project that has never had a shot list attached to any scene has no
  * denominator at all (`shotTotal` 0), which the Projects list reads as "draw
@@ -930,7 +930,7 @@ export function undoWrapShootDay(project: Project, now: number): WrapUndoResult 
  * `scenesLeft` is scene-granular on top of that: a scene counts as "left"
  * if it has no breakdown yet, OR it has one and it isn't fully shot. A
  * project with no shot list anywhere is therefore not a useful case for this
- * field — every scene reads as "left" because none has a breakdown — and the
+ * field - every scene reads as "left" because none has a breakdown - and the
  * UI only shows it once `shotTotal` says there is a real bar to go with it.
  */
 export function summarizeProject(slates: Slate[], takes: Take[]): ProjectSummary {
@@ -938,7 +938,7 @@ export function summarizeProject(slates: Slate[], takes: Take[]): ProjectSummary
   for (const s of slates) shotTotal += s.shots?.length ?? 0;
 
   // Shot ids with a kept take against them. Keyed on `shotId`, never
-  // `slateId` — a take logged straight against a bare scene (no `shotId`)
+  // `slateId` - a take logged straight against a bare scene (no `shotId`)
   // does not accidentally cover a shot it was never rolled for.
   const keptShotIds = new Set<string>();
   for (const t of takes) {
