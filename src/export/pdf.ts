@@ -40,7 +40,18 @@ const BAND = rgb(0.122, 0.133, 0.169); // --ink-800, take header band
 const HEADBAND = rgb(0.094, 0.102, 0.129); // --ink-850, column header row
 const ALT = rgb(0.071, 0.075, 0.098); // --ink-900, alternating detail row
 const STICK_DARK = rgb(0.078, 0.082, 0.102); // the dark teeth of the clapper stick
-const GO = rgb(0.22, 0.82, 0.47); // --go, the mark's lens dot
+// The mark's lens dot. Was --go #38d178 (rgb 0.22,0.82,0.47), a signal-state
+// green retired everywhere outside styles.css on 2026-08-22 - it no longer
+// exists anywhere else in the product, so a mark still wearing it read as a
+// different app from the one that logged the shots. public/favicon.svg is
+// the mark this file already copies its geometry from, and its dot moved to
+// #E6FF2B (--m-accent, the NIGHT pairing: acid) in that same repaint, not to
+// the day pairing's teal #0b4650 - because this mark draws its own dark tile
+// (PAPER, near-black) as its background regardless of what the rest of the
+// page does, the same way the app icon commits to night "whatever theme the
+// app is in" (make-icons.mjs). Acid is what actually reads there: teal on
+// near-black measures 2.12:1 (fails), acid measures 18.70:1.
+const GO = rgb(0.902, 1.0, 0.169); // #E6FF2B, matching public/favicon.svg
 
 type Color = ReturnType<typeof rgb>;
 type Align = 'left' | 'right';
@@ -485,7 +496,16 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
     const bottom = y - h;
     page.drawRectangle({ x: MARGIN, y: bottom, width: CONTENT_WIDTH, height: h, color: HEADBAND });
     const base = baselineOf(bottom, h, 7.5);
-    for (const c of cols) cell(c, c.header, base, { font: bold, size: 7.5, color: INK, trunc: true });
+    // Header labels always sit at their column's LEFT edge, whatever the data
+    // below aligns to. A right-aligned data column reads fine once it holds a
+    // real value (a short one just leaves blank space on its own left), but
+    // the HEADER WORD in a narrow right-aligned column ("DATE", "TIME") sits
+    // flush against that column's right edge and runs straight into the next
+    // header with nothing between them - rendered, "DATE" then "WALL CLOCK"
+    // reads as one word, and so does "TIME" then "LABEL" in the GOLD table.
+    // Left-anchoring the label gives every column the same even gutter the
+    // already-left-aligned ones (TAKE, CLIP, MOMENT) had from the start.
+    for (const c of cols) cell({ ...c, align: 'left' }, c.header, base, { font: bold, size: 7.5, color: INK, trunc: true });
     page.drawLine({ start: { x: MARGIN, y: bottom }, end: { x: RIGHT, y: bottom }, thickness: 0.6, color: GRAY });
     y -= h;
   };
