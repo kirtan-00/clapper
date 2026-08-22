@@ -1692,6 +1692,11 @@ function ScriptPackSheet(props: { onClose: () => void; onPack: (pack: ScriptPack
     const file = e.target.files?.[0];
     e.target.value = ''; // let the same file be picked again after an error
     if (!file) return;
+    // Fired the moment a file is picked, before we know if it's readable —
+    // distinct from `shotlist_parsed` below on purpose. Without this the
+    // funnel can't tell "nobody tries to upload a shot list" apart from
+    // "people try and the parser rejects them"; those are different bugs.
+    track('shotlist_uploaded', { surface: 'projects' });
     setError(null);
     setCapped(false);
     try {
