@@ -117,6 +117,16 @@ export function findPreset(id: string | undefined): CameraPreset | undefined {
   return CAMERA_PRESETS.find((p) => p.id === id);
 }
 
+/** Validate a typed clip-counter number field: a stray non-digit or an empty
+ *  string reads as 0, and the counter is never negative. This is the exact
+ *  rule ProjectScreen's clip counter has always used (there, as a local
+ *  `clampNum`); it lives here so the New project flow's starting-clip-number
+ *  field validates identically instead of inventing a second rule for the
+ *  same shape of input. */
+export function clampClipNumber(s: string): number {
+  return Math.max(0, parseInt(s, 10) || 0);
+}
+
 /** prefix + zero-padded number + suffix, e.g. renderClip("A001_C", 1, 3, "_*") -> "A001_C001_*". */
 export function renderClip(prefix: string, n: number, digits: number, suffix: string): string {
   const pad = Math.min(8, Math.max(1, digits || 1));

@@ -10,7 +10,7 @@ import type { MediaIndex } from '../export';
 import { clearMediaIndex, loadMediaIndex, saveMediaIndex } from '../store/medialink';
 import { pickerKind, pickFolderViaHandle, pickedFromFiles, type PickedFolder } from './folderpick';
 import { exportDateStamp, shortDateLabel } from '../export/order';
-import { findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
+import { clampClipNumber, findPreset, renderUnitClip, UNIT_LETTERS } from './cameras';
 import { slug } from './share';
 import { Sheet, SheetClose, Confirm, Rail } from './common';
 import { useScrolled } from './glist';
@@ -1033,7 +1033,10 @@ function ShootDaySection(props: {
   );
 }
 
-const clampNum = (s: string) => Math.max(0, parseInt(s, 10) || 0);
+// Shared with the New project flow's starting-clip-number field. See
+// clampClipNumber in cameras.ts: a "1" typed there and a "1" typed here
+// validate identically rather than carrying two rules for the same shape.
+const clampNum = clampClipNumber;
 const clampPad = (s: string) => Math.min(8, Math.max(1, parseInt(s, 10) || 1));
 
 // Camera clip counter. Single-cam keeps the original one-counter widget; a

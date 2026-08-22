@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isMultiCam, hasSound, MAX_CAMERAS } from '../types';
 import {
   addUnit,
+  buildPodcastProjectConfig,
   buildProjectConfig,
   canAddUnit,
   emptyDraft,
@@ -20,12 +21,13 @@ function draft(over: Partial<ProjectDraft> = {}): ProjectDraft {
   return { ...emptyDraft(TAGS), name: 'The Last Monsoon', ...over };
 }
 
-/** A named rig of `n` cameras, each a different body, each with an operator. */
+/** A named rig of `n` cameras, each a different body, each with an operator,
+ *  each starting its counter at 1 unless a test overrides it. */
 function rig(n: number): ProjectDraft {
   const bodies = ['sony', 'canonCine', 'red', 'gopro'];
   const crew = ['Rohan', 'Meera', 'Ali', 'Sam'];
   return draft({
-    units: Array.from({ length: n }, (_, i) => ({ camera: bodies[i], operator: crew[i] })),
+    units: Array.from({ length: n }, (_, i) => ({ camera: bodies[i], operator: crew[i], startNumber: '1' })),
   });
 }
 
@@ -74,9 +76,26 @@ describe('the draft itself', () => {
   });
 
   it('shows each unit the filename its camera writes, not a dropdown label', () => {
-    expect(unitExample({ camera: 'sony', operator: '' })).toBe('C0001.MP4');
-    expect(unitExample({ camera: 'red', operator: '' })).toBe('A001_C001_*.R3D');
+    expect(unitExample({ camera: 'sony', operator: '', startNumber: '1' })).toBe('C0001.MP4');
+    expect(unitExample({ camera: 'red', operator: '', startNumber: '1' })).toBe('A001_C001_*.R3D');
     expect(soundExample(newSoundDraft())).toBe('SND_0001.WAV');
+  });
+
+  // The reversal the owner asked for: the starting clip number is typed per
+  // unit, not fixed at 1, because that is the number the camera body already
+  // shows and a preset can only guess it.
+  it('previews the STARTING clip number that was actually typed, not a fixed 1', () => {
+    expect(unitExample({ camera: 'sony', operator: '', startNumber: '42' })).toBe('C0042.MP4');
+    expect(unitExample({ camera: 'red', operator: '', startNumber: '318' })).toBe('A001_C318_*.R3D');
+  });
+
+  it('clamps a typed start number the same way ProjectScreen clamps its own clip counter', () => {
+    // Empty and non-numeric both read as 0, never as NaN.
+    expect(unitExample({ camera: 'sony', operator: '', startNumber: '' })).toBe('C0000.MP4');
+    expect(unitExample({ camera: 'sony', operator: '', startNumber: 'abc' })).toBe('C0000.MP4');
+    // Never negative. The UI strips a leading "-" before it ever reaches the
+    // draft, but the clamp itself does not trust that and floors at 0 anyway.
+    expect(unitExample({ camera: 'sony', operator: '', startNumber: '-5' })).toBe('C0000.MP4');
   });
 });
 
@@ -150,7 +169,7 @@ describe('buildProjectConfig — four cameras', () => {
   });
 
   it('never writes a fifth unit even if the draft somehow holds one', () => {
-    const over = { ...rig(4), units: [...rig(4).units, { camera: 'sony', operator: 'Fifth' }] };
+    const over = { ...rig(4), units: [...rig(4).units, { camera: 'sony', operator: 'Fifth', startNumber: '1' }] };
     expect(buildProjectConfig(over).cameras).toHaveLength(MAX_CAMERAS);
   });
 });
@@ -191,5 +210,43 @@ describe('buildProjectConfig — sound', () => {
   it('falls back to SND_ when the prefix was cleared', () => {
     const config = buildProjectConfig({ ...rig(1), sound: { ...newSoundDraft(), filePrefix: '  ' } });
     expect(config.sound!.filePrefix).toBe('SND_');
+  });
+});
+
+describe('buildProjectConfig — starting clip number', () => {
+  it('carries each unit its own typed starting number, independent of the others', () => {
+    const d = rig(3);
+    d.units[0].startNumber = '1';
+    d.units[1].startNumber = '214';
+    d.units[2].startNumber = '9';
+    const config = buildProjectConfig(d);
+    expect(config.cameras!.map((c) => c.nextClipNumber)).toEqual([1, 214, 9]);
+  });
+
+  it('mirrors unit A\'s typed start number to the top level, single-cam included', () => {
+    const d = setUnit(rig(1), 0, { startNumber: '55' });
+    expect(buildProjectConfig(d).nextClipNumber).toBe(55);
+  });
+
+  it('clamps a blank field to 0 rather than crashing on NaN', () => {
+    const d = setUnit(rig(1), 0, { startNumber: '' });
+    expect(buildProjectConfig(d).nextClipNumber).toBe(0);
+  });
+});
+
+describe('buildPodcastProjectConfig', () => {
+  it('is buildProjectConfig plus mode: podcast, nothing else different', () => {
+    const d = rig(1);
+    const normal = buildProjectConfig(d);
+    const podcast = buildPodcastProjectConfig(d);
+    expect(podcast).toEqual({ ...normal, mode: 'podcast' });
+  });
+
+  it('carries podcast mode through a multi-cam rig with sound too', () => {
+    const d = { ...rig(2), sound: newSoundDraft() };
+    const config = buildPodcastProjectConfig(d);
+    expect(config.mode).toBe('podcast');
+    expect(config.cameras).toHaveLength(2);
+    expect(config.sound).toBeDefined();
   });
 });

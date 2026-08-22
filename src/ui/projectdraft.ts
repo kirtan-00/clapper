@@ -26,7 +26,7 @@
 
 import type { Fps, Project } from '../types';
 import { MAX_CAMERAS } from '../types';
-import { findPreset, makeCameraUnit, renderClip, UNIT_LETTERS } from './cameras';
+import { clampClipNumber, findPreset, makeCameraUnit, renderClip, UNIT_LETTERS } from './cameras';
 
 /** One camera the operator has set up, before it knows which letter it is. */
 export interface UnitDraft {
@@ -34,6 +34,14 @@ export interface UnitDraft {
   camera: string;
   /** Free text; empty means nobody was named, which is allowed. */
   operator: string;
+  /**
+   * The number this unit's next clip will carry, as TYPED. A string so the
+   * field can sit empty mid-edit, exactly the shape ProjectScreen's own clip
+   * counter uses. Validated with clampClipNumber (cameras.ts) at every read,
+   * never at every keystroke, so a stray character does not fight the person
+   * typing it.
+   */
+  startNumber: string;
 }
 
 /** The recorder, when the shoot has one. Null on the project means no sound. */
@@ -54,6 +62,7 @@ export interface ProjectDraft {
 }
 
 export const DEFAULT_UNIT_CAMERA = 'sony';
+export const DEFAULT_START_NUMBER = '1';
 export const DEFAULT_SOUND_PREFIX = 'SND_';
 export const DEFAULT_SOUND_EXT = '.WAV';
 export const DEFAULT_SOUND_PADDING = 4;
@@ -63,7 +72,7 @@ export function emptyDraft(tags: string[]): ProjectDraft {
   return {
     name: '',
     fps: 24,
-    units: [{ camera: DEFAULT_UNIT_CAMERA, operator: '' }],
+    units: [{ camera: DEFAULT_UNIT_CAMERA, operator: '', startNumber: DEFAULT_START_NUMBER }],
     sound: null,
     tags,
   };
@@ -85,7 +94,10 @@ export function canAddUnit(draft: ProjectDraft): boolean {
 /** A new unit on the end, copying nothing from the one before it. Capped. */
 export function addUnit(draft: ProjectDraft): ProjectDraft {
   if (!canAddUnit(draft)) return draft;
-  return { ...draft, units: [...draft.units, { camera: DEFAULT_UNIT_CAMERA, operator: '' }] };
+  return {
+    ...draft,
+    units: [...draft.units, { camera: DEFAULT_UNIT_CAMERA, operator: '', startNumber: DEFAULT_START_NUMBER }],
+  };
 }
 
 /** Drop one unit. A (index 0) is the shoot itself and cannot go. */
@@ -98,11 +110,13 @@ export function setUnit(draft: ProjectDraft, index: number, patch: Partial<UnitD
   return { ...draft, units: draft.units.map((u, i) => (i === index ? { ...u, ...patch } : u)) };
 }
 
-/** The clip name a unit's camera writes on its first take, extension included. */
+/** The clip name a unit's camera writes on its NEXT take, extension included.
+ *  Driven by the starting clip number actually typed for this unit, not a
+ *  fixed 1, so the preview is what the camera body will really write. */
 export function unitExample(unit: UnitDraft): string {
   const p = findPreset(unit.camera);
   if (!p) return '';
-  return renderClip(p.prefix, 1, p.digits, p.suffix) + p.ext;
+  return renderClip(p.prefix, clampClipNumber(unit.startNumber), p.digits, p.suffix) + p.ext;
 }
 
 /** The recorder's first file name, extension included. */
@@ -119,18 +133,23 @@ export function isReady(draft: ProjectDraft): boolean {
 /**
  * The draft as the argument `store.createProject` takes.
  *
- * Counters all start at 1 and the numbering details (padding, suffix,
- * extension, start number) come from the camera preset. The flow does not ask
- * for them: they are editable on the project screen a second after this
- * closes, and asking for four cameras' worth of padding on a phone is the
- * fourteen-field form again wearing a rail.
+ * The numbering details (padding, suffix, extension) come from the camera
+ * preset and are not asked for here: they are editable on the project screen
+ * a second after this closes, and asking for four cameras' worth of padding
+ * on a phone is the fourteen-field form again wearing a rail. The START
+ * NUMBER is the one exception: it is what the operator actually typed per
+ * unit (clamped, never a bare preset guess), because that number is the one
+ * thing a preset genuinely cannot know: it is whatever the camera body
+ * already shows.
  */
 export function buildProjectConfig(draft: ProjectDraft): Omit<Project, 'id' | 'createdAt' | 'updatedAt'> {
   const units = draft.units.slice(0, MAX_CAMERAS);
   // Built for every unit including A, because A's numbers are what the
   // top-level fields mirror — deriving them twice from the same preset is how
   // the two copies drift.
-  const built = units.map((u, i) => makeCameraUnit(letterAt(i), u.camera, 1, u.operator));
+  const built = units.map((u, i) =>
+    makeCameraUnit(letterAt(i), u.camera, clampClipNumber(u.startNumber), u.operator),
+  );
   const a = built[0];
   const sound = draft.sound;
   const soundPrefix = sound ? sound.filePrefix.trim() || DEFAULT_SOUND_PREFIX : '';
@@ -160,4 +179,15 @@ export function buildProjectConfig(draft: ProjectDraft): Omit<Project, 'id' | 'c
       : {}),
     tags: draft.tags,
   };
+}
+
+/**
+ * The same build, plus the one thing a Podcast-flow draft needs that
+ * `buildProjectConfig` cannot know on its own: the `mode: 'podcast'` marker.
+ * Kept as a thin wrapper rather than a flag on `buildProjectConfig` so a
+ * caller building a normal project can never forget to pass "no": there is
+ * no argument to forget.
+ */
+export function buildPodcastProjectConfig(draft: ProjectDraft): Omit<Project, 'id' | 'createdAt' | 'updatedAt'> {
+  return { ...buildProjectConfig(draft), mode: 'podcast' };
 }
