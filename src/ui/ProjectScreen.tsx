@@ -532,47 +532,34 @@ export function ProjectScreen(props: {
           </>
         )}
 
-        {slates && slates.length >= 2 && (
-          <div style={{ marginTop: 12 }}>
-            <label className={`btn btn--full sp-upload${csBusy ? ' btn--disabled' : ''}`}>
-              {csPhase === 'reading'
-                ? 'Reading call sheet…'
-                : csPhase === 'thinking'
-                  ? 'Matching scenes…'
-                  : "Today's call sheet"}
-              <input
-                type="file"
-                accept="application/pdf,.pdf"
-                hidden
-                disabled={csBusy}
-                onChange={onPickCallSheet}
-              />
-            </label>
-            {csError && (
-              <span className="tnum tnum--bad" style={{ display: 'block', marginTop: 8 }}>
-                {csError}
-              </span>
-            )}
-            {csNote && !csError && (
-              <span className="section__note" style={{ display: 'block', marginTop: 8 }}>
-                {csNote}
-              </span>
-            )}
-          </div>
-        )}
+        {/* THE CALL SHEET LOADER USED TO SIT HERE and does not any more. It was
+            a full-width button between the scene list and the one control that
+            actually adds a scene, so the thing you do on every project was
+            pushed below the thing you do on maybe one shoot in five, and both
+            wore the same pill. It is not deleted: onPickCallSheet and its
+            cs* state below are intact and move under the project's ⋯ menu with
+            the rest of the once-a-shoot admin. */}
 
-        <div className="addline">
+        {/* ADD SCENE IS THE PRIMARY ACTION OF THIS SCREEN. A project with no
+            scenes cannot roll, and the first thing anyone does on a new project
+            is type scene numbers in. It was a 60px `Add` hanging off the end of
+            a wide field, which reads as the field's accessory rather than as
+            the control. Now the field is sized to what actually goes in it -
+            "14A", never a sentence - and the button carries its own verb at
+            full weight beside it. */}
+        <div className="addline addline--scene">
           <input
             className="field"
             value={addName}
             placeholder="New scene e.g. 14A"
+            aria-label="New scene name"
             onChange={(e) => setAddName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') void addSlate();
             }}
           />
-          <button type="button" className="btn btn--go" onClick={() => void addSlate()}>
-            Add
+          <button type="button" className="btn btn--go addline__go" onClick={() => void addSlate()}>
+            Add scene
           </button>
         </div>
       </section>
@@ -1113,18 +1100,16 @@ function ClipCounterSection(props: {
         </div>
       ) : (
         <>
-          {/* Two cameras on a shoot are not two settings, they are one rig:
-              they share the frame rate and roll on the same CUT. So they are
-              one mass with a slot milled between them — the same joint the
-              projects list cuts between TAKES and SHOOT DAY, not a divider. */}
+          {/* Two cameras used to be drawn as ONE dark mass with a slot milled
+              between them, on the reasoning that a rig shares a frame rate and
+              rolls on the same CUT. True, and it still cost more than it paid:
+              it made the clip counter a different material at 2 cameras than
+              at 1, and the slot rendered as a black tab protruding from under
+              camera A. Cards with a gap, same surface as the single-cam card.
+              See skin/projects.css `.pj-units`. */}
           <div className="pj-units">
             {units.slice(0, camCount).map((u, i) => (
               <Fragment key={UNIT_LETTERS[i]}>
-                {i > 0 && (
-                  <div className="pj-joint">
-                    <span className="pj-notch pj-notch--h" aria-hidden="true" />
-                  </div>
-                )}
                 <div className="camunit">
                   <div className="camunit__head">
                     <span className="camunit__badge">{UNIT_LETTERS[i]}</span>
@@ -1684,7 +1669,7 @@ function FootageFolderSection(props: {
             disabled={scanning}
             onClick={() => void pick()}
           >
-            {scanning ? 'Reading...' : walk ? 'Pick a different folder' : 'Find the footage'}
+            {scanning ? 'Reading...' : walk ? 'Pick a different folder' : 'Link data from file browser'}
           </button>
 
           {walk && (

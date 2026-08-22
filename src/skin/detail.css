@@ -359,3 +359,49 @@
 [data-theme='night'] .gsay dd {
   border-left-color: var(--m-accent);
 }
+
+/* ============================================ add a scene ================
+   THE PRIMARY ACTION OF THE PROJECT SCREEN, finally sized like one.
+
+   A project with no scenes cannot roll, and typing scene numbers in is the
+   first thing anyone does on a new project. It shipped as a 60px `Add`
+   hanging off the end of a field that stretched the full width, which reads
+   as the field's accessory - the kind of button you get for free from a
+   flex row - rather than as the control the screen is for.
+
+   Two changes, both about weight rather than colour, because a solid brass
+   fill is GOLD's and nothing else's:
+
+     1. THE FIELD STOPS HOGGING THE ROW. `.addline .field { flex: 1 }` gave a
+        three-character input ("14A", "7", never a sentence) 250 of a phone's
+        330 usable pixels. It now shrinks to a sane share and hands the rest
+        to the verb.
+     2. THE BUTTON CARRIES A VERB AND A TAP TARGET. "Add scene" over "Add",
+        at the full 44px floor, at the width the words need. --lamp-on is
+        already lit at rest on .btn--go, so it reads as the armed control in
+        the group without a second accent.
+
+   Scoped to `.pj .addline--scene`, not to `.addline`, because the tag editor
+   and the shotlist importer use the base class too and neither of them is
+   the reason someone opened the screen. */
+.pj .addline--scene {
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+  align-items: stretch;
+}
+
+.pj .addline--scene .field {
+  /* grow, but yield to the button rather than pinning it to its text width */
+  flex: 1 1 55%;
+  min-width: 0;
+}
+
+.pj .addline--scene .addline__go {
+  flex: 0 1 auto;
+  min-height: var(--tap);
+  padding-inline: var(--sp-5);
+  /* "Add scene" must never become "Add sce…" on a 320px screen: this row is
+     two children and the field above is the one that gives. */
+  white-space: nowrap;
+  font-weight: 600;
+}
