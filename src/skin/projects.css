@@ -48,6 +48,30 @@
      carry dark type; at 1.5px on a light ground it disappears, so the focus
      ring and the lifted card's edge get the deep value instead. */
   --pj-accent-edge: var(--m-accent-deep);
+
+  /* THE PROGRESS BAR — two pairs, GROUND and MASS, because a row sits on one
+     material or the other and never both. Every pair is CHECKED at 3:1 fill
+     vs track, not eyeballed (see the ratios below); nothing here is themed a
+     second time under [data-theme='night'] unless the ratio actually needs
+     it (see that block for which ones do and why).
+
+     GROUND (plain rows, on --pj-ground): fill is the theme accent — day's
+     dark teal reads 8.8:1 on ivory on its own, so the track only needs to
+     stay clearly BELOW that, which a darkened-ivory tint does at 6.6:1
+     fill-vs-track. */
+  --pj-bar-fill: var(--pj-accent);
+  --pj-bar-track: rgba(22, 24, 26, 0.14);
+
+  /* MASS (the hero, and a shoot filed inside an open folder): both surfaces
+     are near-black in EITHER theme, so unlike the pair above this one does
+     not split per theme — same fill, same track, day and night. The day
+     accent teal very nearly matches near-black (its own contrast against
+     --pj-mass measures under 2:1 — the coverage tiles this bar replaces had
+     exactly that problem), so the fill here is the mass's own ink colour
+     instead, at a translucent tint for the track: 9.4:1 on day's mass,
+     7.9:1 on night's. */
+  --pj-bar-mass-fill: var(--pj-mass-ink);
+  --pj-bar-mass-track: rgba(236, 233, 225, 0.20);
 }
 
 /* TRUE BLACK, NEUTRAL - same move as the shell and the roll deck.
@@ -85,6 +109,13 @@
   --pj-tile: #1E1E1E;
   /* On near-black the fill value IS the legible edge; the deep one vanishes. */
   --pj-accent-edge: var(--m-accent);
+
+  /* GROUND is #000000 at night — the day track (a DARKENED ivory) would
+     render as another near-black and vanish into it. Night wants a LIGHTENED
+     tint instead: --pj-accent already resolves to the lime fill on this
+     theme (see --pj-accent above; it inherits, no override needed), so this
+     is checked against lime specifically — 14.8:1. */
+  --pj-bar-track: rgba(214, 212, 200, 0.14);
 }
 
 /* The ground, painted across the whole viewport rather than onto `.app`.
@@ -263,27 +294,53 @@
   white-space: nowrap;
 }
 
-/* Coverage, as the strip of scenes it is: one tile per scene, lit once the
-   scene has a keeper. A percentage would be a smaller thing to read and a
-   worse one — an AD counts scenes, and eight tiles can be counted at a glance
-   without reading anything at all. */
-.pj-cov {
+/* ============================================================ THE BAR ======
+   Shots in the can, out of the shot breakdown total — the owner's own
+   metric, replacing what used to be a strip of one-tile-per-SCENE coverage
+   segments. Retired along with the segments: that strip filled with
+   `--pj-accent` directly on the mass, which on DAY is a dark teal on a
+   near-black card — under 2:1, the exact failure this rebuild was told to
+   compute rather than eyeball. A flat two-part bar (track + fill) sidesteps
+   it because the fill's own colour is picked to work ON ITS TRACK, not on
+   whatever material sits under both — see the --pj-bar-* tokens above.
+
+   No leading edge, no gradient, no glow at the fill's tip — flat solid
+   colour, full stop, same as every button on this screen. */
+.pj-bar-row {
   display: flex;
-  gap: 5px;
-  margin-top: var(--sp-4);
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
 }
-.pj-cov__seg {
+.pj-bar-row--mass { margin-top: var(--sp-4); }
+.pj-bar {
   flex: 1;
-  height: 22px;
-  border-radius: 5px;
-  background: rgba(241, 240, 234, 0.07);
+  height: 6px;
+  border-radius: 3px;
+  background: var(--pj-bar-track);
+  overflow: hidden;
 }
-.pj-cov__seg--on { background: var(--pj-accent); }
-[data-theme='night'] .pj-cov__seg { background: #1C1C1C; }
-/* The coverage segment was a hardcoded LAVENDER, which is both the retired
-   accent and a literal nobody could find by grepping the token. It is a
-   SEGMENT, which the accent is allowed to fill, so it reads the accent. */
-[data-theme='night'] .pj-cov__seg--on { background: var(--m-accent); }
+.pj-bar--mass { background: var(--pj-bar-mass-track); }
+.pj-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pj-bar-fill);
+}
+.pj-bar--mass .pj-bar__fill { background: var(--pj-bar-mass-fill); }
+.pj-bar__cap {
+  flex: none;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--pj-ink-dim);
+}
+.pj-key .pj-bar__cap,
+.pj-mass .pj-bar__cap {
+  color: var(--pj-mass-dim);
+}
+/* The line under the hero's bar — "2 scenes left" / "every scene covered".
+   Reuses the old coverage caption's type: a caps eyebrow was always the
+   right register for this line, only what filled the bar above it changed. */
 .pj-cov__cap {
   margin-top: var(--sp-2);
   color: var(--pj-mass-faint);
@@ -291,6 +348,34 @@
   font-weight: 600;
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
+}
+
+/* The name row's own small caps: "No shot list" / "Wrapped". Plain text,
+   never a pill or a border — this screen already has ONE decorative accent
+   word (`.pj-key__live`) and these are not it; they read as metadata next to
+   the name, the same register `.pj-band__hdr` already uses for a heading. */
+.pj-row__toprow,
+.pj-key__toprow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.pj-row__toprow .pj-row__name,
+.pj-key__toprow .pj-key__name {
+  flex: 1;
+}
+.pj-flag {
+  flex: none;
+  font-size: var(--t-caps);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--pj-ink-faint);
+}
+.pj-key .pj-flag,
+.pj-mass .pj-flag {
+  color: var(--pj-mass-faint);
 }
 
 /* The two numbers, and the joint between them. `.pj-stats` runs to the card's
@@ -868,6 +953,26 @@
   box-shadow: none;
 }
 .pj .newproject--ghost:active { background: var(--pj-rule); }
+
+/* ============================================================ THE SEARCH ===
+   Same hairline face as `.newproject--ghost` above — a quiet outline on this
+   screen's own ground, never a second material. ALWAYS ON, never revealed
+   behind a tap (see the render site's own comment for why), and never
+   `autoFocus`: this field earns the keyboard only when a thumb taps it. */
+.pj-search {
+  display: block;
+  width: 100%;
+  min-height: var(--tap);
+  margin: var(--sp-4) 0 var(--sp-2);
+  padding: 0 var(--sp-4);
+  background: transparent;
+  border: 1px solid var(--pj-rule);
+  border-radius: var(--radius-lg);
+  color: var(--pj-ink);
+  font-size: var(--t-secondary);
+}
+.pj-search::placeholder { color: var(--pj-ink-faint); }
+.pj-search:focus { border-color: var(--pj-accent-edge); outline: none; }
 
 /* ================================================= MATERIAL, ON THIS GROUND
    The app mixes every frosted surface from ONE place in styles.css, against
