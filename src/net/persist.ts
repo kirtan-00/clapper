@@ -4,8 +4,9 @@
 // Manager API lets a page ask the browser to exempt its origin from that
 // eviction policy. Support is spotty (no iOS Safari support as of writing,
 // Chrome/Android grants it heuristically), so this is defense in depth, not a
-// guarantee — the real backstop is `InstallNudge` steering users to an
-// installed PWA, which iOS already exempts from the 7-day wipe.
+// guarantee — the real backstop is the first-open flow (src/ui/Onboarding.tsx,
+// stage two) steering users to an installed PWA, which iOS already exempts
+// from the 7-day wipe.
 //
 // NEVER throws. No-ops wherever `navigator.storage` (or its methods) don't
 // exist, so this is safe to call unconditionally at boot on any browser.

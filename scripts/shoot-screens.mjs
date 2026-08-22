@@ -154,6 +154,13 @@ const SHOTS = [
 async function seed(cdp) {
   return await cdp.evaluate(`
     (async () => {
+      // Merged in from feat/newproject-stages: AppShell now mounts a global,
+      // once-ever "first open" sheet (src/ui/Onboarding.tsx) that would
+      // otherwise sit on top of every screen this script shoots. Mark it (and
+      // the install nudge it folded in) already answered, the same way
+      // scripts/shoot-onboarding.mjs's own "home-after-skip" checkpoint does.
+      localStorage.setItem('clapper.onboardingDone', '1');
+      localStorage.setItem('clapper.installNudgeDismissed', '1');
       const { store } = await import('/src/store/index.ts');
       for (const p of await store.listProjects()) await store.deleteProject(p.id);
       const a = await store.createProject({
@@ -268,7 +275,9 @@ async function main() {
     await cdp.waitForExpr(CLICK_BY_TEXT("No Mans Hero"), { desc: 'project row' });
     await cdp.waitForExpr(`document.body.textContent.includes('Scene 1')`, { desc: 'project screen' });
     await setTheme(cdp, theme);
-    if (await cdp.evaluate(CLICK_BY_TEXT('Every clip rolled'))) {
+    // Label changed from "Every clip rolled" to "All rolled" when the shoot
+    // day actions became a 2x2 icon tile grid (feat/app-shell 6321531).
+    if (await cdp.evaluate(CLICK_BY_TEXT('All rolled'))) {
       await cdp.waitForExpr(`!!document.querySelector('.mclip')`, { desc: 'clip log' });
       await sleep(700);
       await take('07-cliplog', theme);

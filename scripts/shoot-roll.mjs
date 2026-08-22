@@ -229,6 +229,14 @@ async function seed(cdp, { cameraCount, soundOn, scriptMode, shots }) {
   const sound = soundOn ? { filePrefix: 'SND_', nextFileNumber: 1, filePadding: 4 } : undefined;
   await cdp.evaluate(`
     (async () => {
+      // AppShell mounts a global, once-ever "first open" sheet
+      // (src/ui/Onboarding.tsx) that arrived with the staged new project
+      // merge. Unanswered, it sits on top of the rolling screen and every
+      // wait in this file times out, which is exactly how the merge blinded
+      // this harness while leaving shoot-screens.mjs working: that file got
+      // the same two lines and this one did not. Mark both already answered.
+      localStorage.setItem('clapper.onboardingDone', '1');
+      localStorage.setItem('clapper.installNudgeDismissed', '1');
       const { store } = await import('/src/store/index.ts');
       for (const p of await store.listProjects()) await store.deleteProject(p.id);
       const project = await store.createProject({

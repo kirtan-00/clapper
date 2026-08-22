@@ -29,7 +29,6 @@ import type { Project } from '../types';
 import type { Nav } from './nav';
 import { Rail, Sheet, SheetClose } from './common';
 import { useScrolled, ScreenMark } from './glist';
-import InstallNudge from './InstallNudge';
 import { ShotlistSheet } from './ShotlistSheet';
 import { readResume, startPodcastRoll, type ResumeInfo } from './newRoll';
 import * as haptics from './haptics';
@@ -199,8 +198,6 @@ export function HomeScreen(props: { nav: Nav }) {
         <h1 className="ltitle">Home</h1>
         <ScreenMark />
       </header>
-
-      <InstallNudge />
 
       <button
         type="button"

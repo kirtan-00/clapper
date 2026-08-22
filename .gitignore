@@ -30,6 +30,8 @@ _archive/
 # repo; committing the directory would nest a repo inside itself.
 .claude/
 
-# Harness output. `scripts/shoot-roll.mjs` writes a few hundred PNGs per run;
-# they are evidence for one session, not source, and they stay on disk.
+# Screenshot harness output (scripts/shoot-*.mjs). Regenerated on demand and
+# measured in megabytes; the harness is tracked, the pictures are not.
 .shots/
+.shots-onboarding/
+.shots-newproject/
