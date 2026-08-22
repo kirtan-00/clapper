@@ -784,20 +784,26 @@
 .roll--live .keypad .keycap::before {
   display: none;
 }
-/* A TALLIED CAP IS A SOLID BLOCK, not a lit edge on a dark one - the same
-   :has(.keycap__count) condition the strip answered to, just answered with a
-   fill now. --m-accent, not brass: this key was TAPPED, not judged GOLD, and
-   the app keeps those two colours apart on purpose (see the --brass note in
-   styles.css) even on night, where the locked highlight happens to give both
-   the same hex. */
-.roll--live .keypad .keycap:has(.keycap__count) {
-  background: var(--m-accent);
-  border-color: var(--m-accent);
-  color: var(--m-accent-ink);
-}
-/* PRESS steps one shade, same rule the button system uses everywhere now
-   (see --m-accent-press in styles.css) - placed after the tallied rule above
-   so a re-press of an already-tallied key still shows the step. */
+/* THE CAP ITSELF STAYS NORMAL, EVEN TALLIED. A solid-fill cap for every
+   tapped tag was tried (commit 745824c) and, once several tags were on in
+   one take, read as a wall of acid rather than a set of receipts - the
+   owner, shown three treatments side by side, picked this one instead. No
+   `:has(.keycap__count)` override lives here any more: a tallied key falls
+   straight back to `.roll--live .keycap` above, the exact face an untapped
+   key wears, outline and label colour both. The badge below is the only
+   thing that answers "did I tap that" now - see its own comment for why a
+   small filled patch still carries the signal a whole filled key used to.
+   THE LEFT-EDGE LAMP STAYS RETIRED regardless: this is a different fill
+   moving to a different, smaller place, not a route back to a lit strip. */
+/* PRESS still steps to the full accent fill, and that is a DELIBERATE
+   keep, not an oversight left over from the wall-of-acid version. A tag key
+   under a gloved thumb gets one thing the settled state does not: a big,
+   unambiguous flash for the ~100ms the finger is actually down, which is
+   what makes the tap feel registered before the badge has even popped in.
+   It never causes the wall the owner rejected because at most one key is
+   ever `:active` at once - the accumulation problem was always about
+   SEVERAL tallied caps sitting lit at the same time, not about one cap
+   flashing for a press. */
 .roll--live .keypad .keycap:active,
 .roll--live .keypad .keycap.is-pressed {
   background: var(--m-accent-press);
@@ -805,19 +811,23 @@
   color: var(--m-accent-ink);
 }
 
-/* The tally badge, and it POPS: a tag tapped without looking needs a receipt
-   sized for arm's length. Two layouts share it now - a 3-across tag key
-   centres it beside the label, a full-width key-moment row parks it at the far
-   end (`.keypad--list .keycap` is justify-content: space-between) - and it is
-   the same ring in both, because it answers the same question in both. */
+/* THE TALLY BADGE IS THE FILL NOW, not the cap. A tag tapped without
+   looking still needs a receipt sized for arm's length, so the badge stays
+   the same size and position it always had (`.keypad--list .keycap` is
+   justify-content: space-between, the 3-across grid centres it beside the
+   label) and simply carries the accent as a SOLID pill instead of a ring on
+   the accent cap that no longer exists. Contrast against the cap's own
+   (unlit) face, computed off the actual tokens rather than eyeballed:
+   teal-on-paper-raised is 9.64:1 on day, acid-on-#1e1e1e is 14.85:1 on
+   night - both comfortably clear WCAG's 3:1 floor for a non-text UI patch
+   this size, on top of the 8.76:1 / 18.7:1 the fill already had to clear
+   for its OWN label (unchanged, see --m-accent-ink's own note in
+   styles.css) since the badge was always type-on-fill, just smaller now. */
 .roll--live .keypad .keycap__count {
   padding: 2px 7px;
   border-radius: var(--radius-pill);
-  /* AN OUTLINE, IN INK. The cap it sits on is a solid fill now, so the badge
-     answers in the cap's own ink colour rather than in the accent again -
-     an accent ring on an accent fill would vanish into it. */
-  background: none;
-  box-shadow: inset 0 0 0 1.5px var(--m-accent-ink);
+  background: var(--m-accent);
+  box-shadow: none;
   color: var(--m-accent-ink);
   font-size: 10px;
   font-weight: 700;
