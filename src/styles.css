@@ -1843,12 +1843,22 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
   color: var(--text);
 }
 .sl-opt span { font-size: var(--t-caption); }
+/* SELECTED. The label is the ACCENT, not --m-accent-ink.
+   --m-accent-ink is type that sits on a SOLID accent fill, so on day it is
+   var(--paper), a pale green meant to read against dark teal. This background
+   is not a fill: it is the accent at 20 percent over the card, which lands
+   around #c4d4c8. Pale green on that measures 1.54:1 and the selected chip's
+   own number was the least readable thing in the group, which is the exact
+   opposite of what selection is for.
+   The accent itself on that wash is 6.78:1. Night already did it this way
+   (see the block below) and was right; day was the one out of step. This is
+   every .sl-opt in the app, not only the frame rate chips. */
 .sl-opt[data-on] {
   border-color: var(--m-accent-deep);
   background: color-mix(in srgb, var(--m-accent) 20%, transparent);
-  color: var(--m-accent-ink);
+  color: var(--m-accent);
 }
-.sl-opt[data-on] b { color: var(--m-accent-ink); }
+.sl-opt[data-on] b { color: var(--m-accent); }
 [data-theme='night'] .sl-opt[data-on] {
   border-color: var(--m-accent);
   background: color-mix(in srgb, var(--m-accent) 14%, transparent);
