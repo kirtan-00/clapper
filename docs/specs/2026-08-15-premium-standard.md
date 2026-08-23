@@ -274,10 +274,21 @@ not in a comment two agents from now.
 
 **Banned:** bare `ease` · blur-in entrances · staggered list reveals ·
 scroll-triggered animation · hover-scale on cards · bouncy overshoot on
-sheets/toggles · new infinite pulses · skeleton shimmer · **the ProCta
-confetti** (confetti on an upsell is the definition of slop; a brass state
-change is enough) · anything over 300ms on an action performed more than once a
-day.
+sheets/toggles · new infinite pulses · skeleton shimmer · anything over 300ms
+on an action performed more than once a day.
+
+**No longer banned, reversed 2026-08-24: the ProCta confetti.** This section
+called it slop on an upsell and asked for a brass state change instead
+(ui/ProCta.tsx, a13e86b). The owner reversed that call outright the same day
+he put Pro back to a willingness-to-pay probe — the confetti argument does
+not even apply in the literal sense it was made, because ProCta is not an
+upsell control right now, it is a probe with no purchase behind it. Confetti
+is restored from a13e86b^, retargeted off the app's palette rather than the
+old hardcoded gold (the gold is gone app-wide, see the `--brass` token note in
+styles.css), and it still skips under `prefers-reduced-motion` / the app's own
+`data-motion="reduce"`. If Pro starts selling again, revisit whether confetti
+belongs on that button too — this reversal was granted to a probe, not
+pre-cleared for a paid upsell.
 
 ---
 

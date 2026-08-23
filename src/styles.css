@@ -4571,8 +4571,10 @@ select.field {
 }
 
 /* ------------------------------------------------------- go-Pro CTA ------ */
-/* Appears only when a free counter is exhausted. Reads as a real upsell control
-   in the brass GOLD register, never an error-red or a default gradient. */
+/* A willingness-to-pay PROBE as of 2026-08-24 (ui/ProCta.tsx), not a control
+   that takes money. Still reads as a real control rather than an error-red
+   or a default gradient — the --brass-* tokens are the "counted, deliberate"
+   register, not literal gold; see the token note in the signals block. */
 .procta {
   margin-top: var(--sp-4);
   display: flex;
@@ -4597,16 +4599,6 @@ select.field {
 }
 .procta__btn:active { transform: scale(0.97); }
 .procta__btn:hover { border-color: var(--brass-edge); }
-/* Logged. This is the whole of the feedback that replaced the confetti burst
-   (2026-08-15-premium-standard.md §6): the outline fills solid brass and STAYS
-   there while the note is up, so the state reads as "counted" rather than as a
-   1200ms celebration of a wall you just hit. --brass-fill/-ink are defined on
-   both themes, so it lands on paper and on charcoal without a second rule. */
-.procta__btn[data-logged] {
-  background: var(--brass-fill);
-  border-color: var(--brass-fill);
-  color: var(--brass-fill-ink);
-}
 .procta__spark { font-size: var(--t-secondary); line-height: 1; }
 .procta__msg {
   margin: 0;
@@ -4615,7 +4607,12 @@ select.field {
   color: var(--chalk-dim);
   animation: fade var(--dur-move) var(--ease-out);
 }
-/* The two plan buttons. Stacked, not side by side: at 375px two buttons in a
+/* UNREFERENCED as of 2026-08-24, same pause as net/pay.ts's startCheckout —
+   ui/ProCta.tsx no longer renders a plans UI, so nothing selects these three
+   rules right now. Left in place rather than deleted so restoring the plans
+   UI does not also mean rebuilding its styles.
+
+   The two plan buttons. Stacked, not side by side: at 375px two buttons in a
    row leave each one too narrow to read its own label without ellipsis, and
    this is the one control in the app where a misread costs money. */
 .procta__plans {

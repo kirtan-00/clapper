@@ -1,5 +1,24 @@
 // Razorpay Standard Checkout, client side.
 //
+// PAUSED, NOT REMOVED, 2026-08-24. `startCheckout` has no caller right now.
+// ui/ProCta.tsx went back to a willingness-to-pay probe (owner's call, taken
+// with the revenue consequence stated to him explicitly) and no longer opens
+// a plans modal or calls this function. Everything below is left intact and
+// exercised by nothing.
+//
+// The `pro_purchased`, `pro_payment_failed` and `pro_payment_unverified`
+// analytics events also went dark with it — they used to fire from
+// ProCta.tsx's `buy()` on the three outcomes of a call to `startCheckout`.
+// Those event names are not declared anywhere as constants (they were plain
+// string literals at the call site), so this note is the only record of them
+// while they are unreachable. A gap in `events` for these three names starting
+// 2026-08-24 is this change, not a broken pipe.
+//
+// TO SELL AGAIN: restore ProCta.tsx's plans UI and its `buy()` function (git
+// history has it, see the commit that added this paused-probe state) so it
+// calls `startCheckout` and re-fires those three events on the result. One
+// commit, nothing here needs to change.
+//
 // The browser's job here is small on purpose: ask the server for an order, hand
 // the modal the id it returns, and hand whatever the modal gives back to the
 // server for verification. It never sees a price it can change and never
