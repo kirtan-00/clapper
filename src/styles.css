@@ -4333,6 +4333,47 @@ select.field {
 }
 .sheet[data-scrolled] .sheet__head { border-bottom-color: var(--material-hairline); }
 
+/* The close control. Absolutely positioned rather than a flex sibling so it
+   cannot shift the title, which is centred against the sheet and not against
+   whatever else happens to be in the head.
+   The visible circle is 32px because a bigger one competes with the title, but
+   the TAP TARGET is the full --tap floor, spent as padding outside the circle.
+   Same trick the row pencils use: the thing you see and the thing you hit are
+   allowed to be different sizes, and on this app the thing you hit always wins.
+   Trailing edge, and it flips with the document so a right to left layout puts
+   it where that reader expects. */
+.sheet__close {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: calc(var(--sp-4) - ((var(--tap) - 32px) / 2));
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  height: var(--tap);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sheet__close > svg {
+  border-radius: 50%;
+  padding: 6px;
+  width: 32px;
+  height: 32px;
+  background: var(--surface-sunk);
+  transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+.sheet__close:active > svg { background: var(--hairline); color: var(--text); }
+.sheet__close:focus-visible > svg { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+
+/* The title reserves room for it, so a long sheet title wraps BEFORE it runs
+   under the button rather than sliding beneath it. */
+.sheet__head:has(.sheet__close) .sheet__title { padding-inline-end: var(--tap); }
+
 /* The specular edge, and the ONLY surface in the app that gets one.
    Apple's material bends light along a CURVED edge, so a highlight belongs
    where there is curvature to catch it at a grazing angle. The sheet cap has

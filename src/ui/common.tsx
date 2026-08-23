@@ -236,6 +236,39 @@ export function Sheet(props: {
         <div className="sheet__head" ref={headRef}>
           <div className="sheet__grab" aria-hidden="true" />
           {title && <h2 className="sheet__title">{title}</h2>}
+          {/* THE WAY OUT. Until now the head drew only the grabber, which is
+              aria-hidden and has no drag handler: it LOOKS like swipe to
+              dismiss and is not, which is worse than drawing nothing. The only
+              real exits were the scrim and whatever action the CONTENT chose to
+              render, so a sheet whose content is a list of sections and no
+              action row was a dead end. Setup was exactly that, and the owner
+              found it: "from there we cant come back".
+              The scrim was never a fair fallback either. The sheet is
+              max-height vvh minus 12px, so on a phone the tappable scrim is a
+              sliver a few dozen pixels tall above a full height sheet, which is
+              not a target anyone hits in gloves at 3am.
+              It lives HERE rather than in each caller so every sheet gets it at
+              once, and so no future sheet can be built without one. Sheets that
+              already carry their own Cancel or Done keep it; two ways out of a
+              modal is correct, one is the bug. */}
+          {onClose && (
+            <button
+              type="button"
+              className="sheet__close"
+              aria-label="Close"
+              onClick={dismiss}
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          )}
         </div>
         <div
           className="sheet__body"
