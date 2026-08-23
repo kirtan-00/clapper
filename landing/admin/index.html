@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<!-- Not linked from anywhere in the product. The path is guessable (it is a
+     public repo), which is exactly why every number on this page is fetched
+     live from Postgres and refused server-side to anyone not in
+     public.admins - see supabase/migrations/20260824090000_admin_analytics.sql.
+     Nothing in this FILE is a secret; the gate is the database, not this
+     page being hard to find. -->
+<meta name="theme-color" content="#e2f0cc" />
+<script>
+  // Same pre-paint theme read as the app (index.html) and the SAME storage
+  // key ('clapper.theme'), because this page is same-origin with /app/, so a
+  // theme picked on the phone already applies here with no extra toggle.
+  // Storage can throw (private mode); day is already the markup default.
+  (function () {
+    try {
+      var t = localStorage.getItem('clapper.theme');
+      if (t !== 'night') return;
+      document.documentElement.setAttribute('data-theme', 'night');
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', '#000000');
+    } catch (e) { /* day stays the default */ }
+  })();
+</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<title>Clapper - Admin</title>
+<style>
+/* ============================================================================
+   TOKENS - copied by hand from src/styles.css (same values, same names where
+   it doesn't collide with this file's own [data-theme] convention). Kept in
+   sync by hand, same project, same reason src/net/supabase.ts's ANON_KEY
+   comment gives for its own copy: this page ships with no build step, so it
+   cannot import the app's stylesheet, only match it.
+   ============================================================================ */
+:root {
+  --paper: #e2f0cc;
+  --paper-raised: #f2f8e6;
+  --paper-sunk: color-mix(in srgb, #e2f0cc 70%, #c6d8ac 30%);
+  --rule: #c6d8ac;
+  --ink: #08160c;
+  --ink-dim: #4a5b45;
+  --ink-faint: color-mix(in srgb, #4a5b45 60%, #e2f0cc 40%);
+  --accent: #0b4650;
+  --accent-press: #0f5c69;
+  --accent-ink: #e2f0cc;
+  --danger: #c0261d;
+  --danger-tint: color-mix(in srgb, #c0261d 8%, transparent);
+
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 48px;
+
+  --t-caps: 11px; --t-caption: 12px; --t-secondary: 13px;
+  --t-body: 16px; --t-row: 17px; --t-title: 20px; --t-display: 28px;
+
+  --tap: 44px;
+  --dur-state: 120ms;
+  --ease-out: cubic-bezier(0.2, 0.85, 0.25, 1);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Night is a manual toggle in the app (data-theme="night" on <html>, set
+   before paint), never prefers-color-scheme - see src/styles.css's own note
+   on why a 2pm interior and a 2pm exterior want opposite things. Same rule
+   here: this page has no toggle of its own, it just reads the app's choice. */
+[data-theme="night"] {
+  --paper: #000000;
+  --paper-raised: #161616;
+  --paper-sunk: #0e0e0e;
+  --rule: #262626;
+  --ink: #ece9e1;
+  --ink-dim: #999793;
+  --ink-faint: #615f5b;
+  --accent: #e6ff2b;
+  --accent-press: #c9e024;
+  --accent-ink: #000000;
+  --danger: #ff3b30;
+  --danger-tint: color-mix(in srgb, #ff3b30 10%, transparent);
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: var(--t-body)/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+.wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding:
+    calc(var(--safe-top) + var(--sp-5))
+    var(--sp-4)
+    calc(var(--safe-bottom) + var(--sp-8));
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+header.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+header.top h1 {
+  font-size: var(--t-title);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+header.top .sub {
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+  margin: 2px 0 0;
+}
+
+/* ---------- flat solid-fill buttons, same three rules as .btn in
+   src/styles.css: FLAT, no bevel/gradient/lift, press steps the fill one
+   shade. No leading-edge strip anywhere on this page. ---------- */
+.btn {
+  appearance: none;
+  min-height: var(--tap);
+  padding: 0 var(--sp-5);
+  border-radius: var(--radius-sm);
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font: 600 var(--t-row)/1 var(--font-ui);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+  transition: background var(--dur-state) var(--ease-out);
+}
+.btn:active { background: var(--paper-sunk); }
+.btn--primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: none;
+}
+.btn--primary:active { background: var(--accent-press); }
+.btn--full { width: 100%; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn--text {
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-dim);
+  font-weight: 600;
+  font-size: var(--t-secondary);
+  min-height: var(--tap);
+  padding: 0 var(--sp-2);
+}
+.btn--text:active { color: var(--ink); }
+
+/* ---------- theme is read-only chrome here, not a control - no toggle
+   rendered on this page. If a state note is needed it reads as plain text. */
+
+/* ---------- states ---------- */
+.state { flex: 1; display: flex; flex-direction: column; }
+.state[hidden] { display: none; }
+
+.center-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--sp-5);
+  padding: var(--sp-6) 0;
+}
+.center-card p.lede {
+  font-size: var(--t-row);
+  color: var(--ink);
+  max-width: 42ch;
+  margin: 0;
+}
+.center-card p.note {
+  font-size: var(--t-secondary);
+  color: var(--ink-dim);
+  max-width: 40ch;
+  margin: 0;
+}
+.center-card .btn { min-width: 240px; }
+
+/* signed-out mark: the clapper-stick stripe, the app's own recurring
+   signature, kept to two flat bars, no gradient, no shadow. */
+.mark { display: flex; gap: 3px; width: 64px; height: 18px; }
+.mark span { flex: 1; background: var(--ink); border-radius: 2px; }
+.mark span:nth-child(2n) { background: var(--accent); }
+
+/* ---------- dashboard ---------- */
+.banner {
+  background: var(--paper-raised);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  font-size: var(--t-secondary);
+  color: var(--ink-dim);
+}
+.banner strong { color: var(--ink); }
+.banner .n { color: var(--ink); font-weight: 700; }
+
+.card {
+  background: var(--paper-raised);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  padding: var(--sp-4) var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-4);
+}
+.card h2 {
+  font-size: var(--t-caps);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--ink-dim);
+  margin: 0 0 var(--sp-3);
+}
+.card p.foot-note {
+  font-size: var(--t-caption);
+  color: var(--ink-faint);
+  margin: var(--sp-3) 0 0;
+}
+
+.stat-row { display: flex; gap: var(--sp-6); flex-wrap: wrap; }
+.stat .num {
+  font-size: var(--t-display);
+  font-weight: 700;
+  line-height: 1;
+}
+.stat .label {
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+  margin-top: var(--sp-1);
+}
+
+/* day-bar chart: flat bars, height proportional to count, no 3D */
+.daybars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  height: 72px;
+  margin-top: var(--sp-4);
+}
+.daybars .col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 100%;
+  justify-content: flex-end;
+}
+.daybars .bar {
+  width: 100%;
+  max-width: 34px;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+  min-height: 3px;
+}
+.daybars .day-label {
+  font-size: 10px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.rows { display: flex; flex-direction: column; }
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-top: 1.5px solid var(--rule);
+}
+.row:first-child { border-top: 0; }
+.row .k { font-size: var(--t-row); color: var(--ink); }
+.row .k .sub { display: block; font-size: var(--t-caption); color: var(--ink-dim); font-weight: 400; }
+.row .v { font-size: var(--t-row); font-weight: 700; text-align: right; }
+.row .v .sub { display: block; font-size: var(--t-caption); color: var(--ink-dim); font-weight: 600; }
+
+.empty {
+  font-size: var(--t-secondary);
+  color: var(--ink-faint);
+  padding: var(--sp-2) 0;
+}
+
+.pause-note {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  background: var(--paper-sunk);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3);
+  margin-top: var(--sp-3);
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+}
+.pause-note .dot { flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-top: 5px; }
+
+.dropped {
+  font-size: var(--t-caption);
+  color: var(--ink-faint);
+  line-height: 1.6;
+}
+.dropped strong { color: var(--ink-dim); }
+
+.err-banner {
+  background: var(--danger-tint);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3);
+  color: var(--danger);
+  font-size: var(--t-secondary);
+  font-weight: 600;
+  margin-bottom: var(--sp-4);
+}
+
+footer.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1.5px solid var(--rule);
+}
+footer.foot .gen {
+  font-size: var(--t-caption);
+  color: var(--ink-faint);
+}
+
+.skeleton { opacity: 0.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Admin</h1>
+      <p class="sub">Clapper</p>
+    </div>
+  </header>
+
+  <!-- STATE 1: signed out -->
+  <section id="stateSignedOut" class="state center-card" hidden>
+    <div class="mark"><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="lede">Sign in to see whether this account is an admin.</p>
+    <button type="button" class="btn btn--primary" id="signInBtn">Sign in with Google</button>
+  </section>
+
+  <!-- STATE 2: signed in, not an admin -->
+  <section id="stateNotAdmin" class="state center-card" hidden>
+    <p class="lede">This account is not an admin.</p>
+    <button type="button" class="btn btn--text" id="signOutBtnNotAdmin">Sign out</button>
+  </section>
+
+  <!-- STATE 2b: signed in, admin check failed to reach the server (network,
+       not authorization). Kept visually distinct from "not an admin" so a
+       real admin on bad set wifi doesn't read a dropped request as being
+       booted. -->
+  <section id="stateOffline" class="state center-card" hidden>
+    <p class="lede">Couldn't reach the server.</p>
+    <p class="note">Check the connection and try again. This isn't a "not an admin" answer, the request just didn't complete.</p>
+    <button type="button" class="btn btn--primary" id="retryBtn">Try again</button>
+  </section>
+
+  <!-- STATE 3: admin dashboard -->
+  <section id="stateDashboard" class="state" hidden>
+    <div id="dashBody"></div>
+    <footer class="foot">
+      <span class="gen mono" id="generatedAt"></span>
+      <button type="button" class="btn btn--text" id="signOutBtn">Sign out</button>
+    </footer>
+  </section>
+
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.5';
+
+// Copied from src/net/supabase.ts (kept in sync by hand, same project, same
+// public anon key already shipped in the app bundle). Nothing beyond this
+// key lives in this file: no service_role, no management token, no numbers.
+const SUPABASE_URL = 'https://sqqdivfgdfaztfzrzkhu.supabase.co';
+const ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxcWRpdmZnZGZhenRmenJ6a2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTA2NTYsImV4cCI6MjA5OTU4NjY1Nn0.MUhO3nmPg4gmQI5vLK5LGpOMIzrcA_j9ZDj8sp8ftH4';
+
+const supabase = createClient(SUPABASE_URL, ANON_KEY, {
+  auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
+});
+
+const el = {
+  signedOut: document.getElementById('stateSignedOut'),
+  notAdmin: document.getElementById('stateNotAdmin'),
+  offline: document.getElementById('stateOffline'),
+  dashboard: document.getElementById('stateDashboard'),
+  dashBody: document.getElementById('dashBody'),
+  generatedAt: document.getElementById('generatedAt'),
+};
+
+function showOnly(node) {
+  for (const s of [el.signedOut, el.notAdmin, el.offline, el.dashboard]) {
+    s.hidden = s !== node;
+  }
+}
+
+/**
+ * The ONLY read this page ever performs. Authorization is decided by
+ * Postgres inside admin_analytics_summary() (public.admins membership,
+ * checked server-side), so this call either gets back real, pre-aggregated
+ * numbers, or it gets refused. There is no client-side admin check anywhere
+ * in this file, because a client-side check is a suggestion, not a gate.
+ */
+async function loadDashboard() {
+  let data, error;
+  try {
+    ({ data, error } = await supabase.rpc('admin_analytics_summary'));
+  } catch (networkErr) {
+    showOnly(el.offline);
+    return;
+  }
+  if (error || !data) {
+    // The database refused. Could be "not an admin" or "function doesn't
+    // exist yet" (migration not applied), either way the correct answer on
+    // screen is the same plain refusal, with no hint about which.
+    showOnly(el.notAdmin);
+    return;
+  }
+  renderDashboard(data);
+  showOnly(el.dashboard);
+}
+
+async function boot() {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    showOnly(el.signedOut);
+    return;
+  }
+  await loadDashboard();
+}
+
+document.getElementById('signInBtn').addEventListener('click', async () => {
+  await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname },
+  });
+});
+
+for (const id of ['signOutBtn', 'signOutBtnNotAdmin']) {
+  document.getElementById(id).addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    showOnly(el.signedOut);
+  });
+}
+
+document.getElementById('retryBtn').addEventListener('click', () => { void loadDashboard(); });
+
+// Finish an OAuth PKCE return exactly like src/net/supabase.ts's
+// initAuthReturn: await the session (which resolves only after the code
+// exchange completes) before stripping ?code=/?error= from the URL, so a
+// refresh never races the exchange and drops the code.
+(async function initAuthReturn() {
+  const search = window.location.search;
+  if (!/[?&](code|error)=/.test(search)) return;
+  try {
+    await supabase.auth.getSession();
+    history.replaceState({}, '', window.location.pathname);
+  } catch (e) { /* never block boot on this cleanup step */ }
+})();
+
+supabase.auth.onAuthStateChange((_event, _session) => { void boot(); });
+boot();
+
+/* ==========================================================================
+   RENDERING - pure functions of whatever JSON admin_analytics_summary()
+   returned. No number below is ever hardcoded; every one of them came back
+   from this call, on this load, for this signed-in admin.
+   ========================================================================== */
+
+const DAY_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+const DT_FMT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+function fmtDay(iso) { return DAY_FMT.format(new Date(iso + 'T00:00:00Z')); }
+function fmtDT(iso) { return DT_FMT.format(new Date(iso)); }
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+const FORMAT_LABEL = { pdf: 'PDF', premiere: 'Premiere XML', resolve: 'Resolve XML', csv: 'CSV' };
+const CAP_LABEL = { script: 'Script Mode parses', callsheet: 'Callsheet imports' };
+const GATE_LABEL = { script: 'Script Mode cap', premiere: 'Premiere/Resolve cap', csv: 'CSV cap', account: 'Account tab (no wall)' };
+
+function renderDashboard(data) {
+  const excluded = data.totals.excluded_pre_cutoff_events;
+  const cutoffDay = fmtDay(data.cutoff_day);
+
+  const daybars = (data.app_opens.by_day || []);
+  const maxDay = Math.max(1, ...daybars.map((d) => d.count));
+
+  el.dashBody.innerHTML = `
+    <div class="banner">
+      <strong>Showing data from ${esc(cutoffDay)} onward.</strong>
+      Before that date, roughly 4 in 5 recorded events were automated dev-server
+      traffic, not real use. A hostname gate fixed it on ${esc(cutoffDay)}.
+      <span class="n">${excluded.toLocaleString()}</span> earlier event${excluded === 1 ? '' : 's'}
+      ${excluded === 1 ? 'is' : 'are'} excluded from every number below.
+    </div>
+
+    <div class="card">
+      <h2>App opens</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="num mono">${data.app_opens.total.toLocaleString()}</div>
+          <div class="label">opens</div>
+        </div>
+        <div class="stat">
+          <div class="num mono">${data.app_opens.distinct_signed_in_users.toLocaleString()}</div>
+          <div class="label">distinct signed-in users</div>
+        </div>
+      </div>
+      ${daybars.length ? `
+        <div class="daybars">
+          ${daybars.map((d) => `
+            <div class="col">
+              <div class="bar" style="height:${Math.max(4, Math.round((d.count / maxDay) * 68))}px" title="${esc(d.day)}: ${d.count}"></div>
+              <div class="day-label mono">${esc(fmtDay(d.day))}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<p class="empty">No opens yet in this window.</p>'}
+      <p class="foot-note">Anonymous opens count toward the total but can't be told apart from each other: there's no device id in this schema, only an optional signed-in account.</p>
+    </div>
+
+    <div class="card">
+      <h2>Projects created</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="num mono">${data.projects_created.total.toLocaleString()}</div>
+          <div class="label">projects</div>
+        </div>
+      </div>
+      ${renderRows(data.projects_created.by_mode, (r) => ({
+        k: r.mode === 'normal' ? 'Manual setup' : r.mode === 'script' ? 'Script Mode' : r.mode === 'podcast' ? 'Podcast flow' : r.mode,
+        v: r.count,
+      }))}
+    </div>
+
+    <div class="card">
+      <h2>Exports</h2>
+      ${renderRows(data.exports.by_format, (r) => ({
+        k: FORMAT_LABEL[r.format] || r.format,
+        sub: `${r.cap_hits.toLocaleString()} hit the free-tier cap`,
+        v: r.exported,
+      }))}
+      ${data.cap_hits_other && data.cap_hits_other.length ? `
+        <p class="foot-note" style="margin-top:var(--sp-4)">Other caps hit: ${data.cap_hits_other.map((c) => `${(CAP_LABEL[c.which] || c.which)} x${c.count}`).join(', ')}</p>
+      ` : ''}
+    </div>
+
+    <div class="card">
+      <h2>Pro interest vs. purchases</h2>
+      ${renderRows(data.pro_interest.by_gate, (r) => ({
+        k: GATE_LABEL[r.gate] || r.gate,
+        v: r.count,
+      }))}
+      <div class="row" style="margin-top:var(--sp-2)">
+        <div class="k"><strong>Purchased</strong></div>
+        <div class="v mono">${data.pro_purchased.total.toLocaleString()}</div>
+      </div>
+      <div class="pause-note">
+        <span class="dot"></span>
+        <span>Selling is paused. Purchases will read as zero going forward: that's the pause working, not a drop-off to chase.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Not shown</h2>
+      <p class="dropped">
+        <strong>Takes logged</strong> and <strong>shoot days</strong> aren't here. The only related
+        events are ROLL and CUT, and they fire per camera unit, not per saved take:
+        a two-camera take can log two CUTs for one take, and a CUT with nothing to
+        save (a false start, a solo-sound abort) still fires one. There's no event at
+        all for wrapping a shoot day. A number built on either would look precise and
+        be wrong, so it isn't shown.
+      </p>
+    </div>
+  `;
+
+  el.generatedAt.textContent = `Updated ${fmtDT(data.generated_at)}`;
+}
+
+function renderRows(list, mapRow) {
+  if (!list || !list.length) return '<p class="empty">Nothing yet in this window.</p>';
+  return `<div class="rows">${list.map((raw) => {
+    const r = mapRow(raw);
+    return `
+      <div class="row">
+        <div class="k">${esc(r.k)}${r.sub ? `<span class="sub">${esc(r.sub)}</span>` : ''}</div>
+        <div class="v mono">${Number(r.v).toLocaleString()}</div>
+      </div>
+    `;
+  }).join('')}</div>`;
+}
+
+// Testability hook only, takes no embedded data, exposes the same pure
+// render function real traffic uses. Lets the dashboard state be previewed
+// with fixture JSON (screenshots, review) without a real admin session or
+// any number ever being written into this file. See deploy verification.
+window.__clapperAdmin = { renderDashboard, showOnly, el };
+</script>
+</body>
+</html>

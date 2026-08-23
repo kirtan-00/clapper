@@ -42,6 +42,18 @@ if [ -d landing/relink ]; then
   cp -R landing/relink/. "$STAGE/relink/"
 fi
 
+# Admin: password-gated (server-side, by Postgres) analytics dashboard at
+# /admin/. Self-contained, no build step, same pattern as relink above. The
+# gate is public.admins + admin_analytics_summary() in Supabase, not
+# anything in this file - see supabase/migrations/20260824090000_admin_analytics.sql.
+# No numbers are baked in here; the page ships only the code that asks for
+# data, and robots.txt/meta noindex keep it out of search, but the real gate
+# is server-side and holds even if this path is guessed or crawled.
+if [ -d landing/admin ]; then
+  mkdir -p "$STAGE/admin"
+  cp -R landing/admin/. "$STAGE/admin/"
+fi
+
 # Legal: Privacy Policy + Terms + cookie/storage notice at /legal/,
 # with /privacy and /terms as canonical redirect entry points.
 for d in legal privacy terms; do
