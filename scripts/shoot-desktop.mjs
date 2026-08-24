@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Shoots the app at DESKTOP window sizes, which is how it looks when someone
-// opens clapboard.duckdns.org/app on a laptop. The phone harness cannot see
+// opens clapper.in/app on a laptop. The phone harness cannot see
 // this: every desktop window is landscape and wider than 780px, so it trips
 // the tablet two-pane rule in styles.css that was written for a short iPad.
 //

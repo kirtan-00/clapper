@@ -11,7 +11,20 @@ import { pixel } from './pixel';
  * LAN address on someone's phone, a preview build, an HTML file opened straight
  * off disk - is NOT the product and must not write to the product's numbers.
  */
-const LIVE_HOSTS = new Set(['clapboard.duckdns.org', 'kirtan-00.github.io']);
+// clapper.in is the canonical home as of 2026-08-24. clapboard.duckdns.org
+// stays in this set on purpose and is NOT to be removed on a tidy-up pass:
+// an installed PWA keeps whatever origin it was added from, so a phone that
+// installed Clapper before the move goes on opening the old host for as long
+// as that person keeps the icon. Dropping it here would not stop dev traffic
+// (that is what this gate is for) - it would silently delete real users from
+// our own numbers and make the move look like a crash. www is listed because
+// the apex and www both resolve; whichever one someone lands on is live.
+const LIVE_HOSTS = new Set([
+  'clapper.in',
+  'www.clapper.in',
+  'clapboard.duckdns.org',
+  'kirtan-00.github.io',
+]);
 
 /**
  * ANALYTICS FIRE FROM THE LIVE SITE AND NOWHERE ELSE.

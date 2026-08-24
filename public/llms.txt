@@ -38,5 +38,5 @@ Free. No signup is needed to log takes, tag coverage, flag GOLD, or work offline
 
 ## Links
 
-- Landing page: https://clapboard.duckdns.org/
-- App: https://clapboard.duckdns.org/app/
+- Landing page: https://clapper.in/
+- App: https://clapper.in/app/

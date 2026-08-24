@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy Clapper to GitHub Pages, served at https://clapboard.duckdns.org
+# Deploy Clapper to GitHub Pages, served at https://clapper.in
 # Layout: landing page at /, app (PWA) at /app/
 # Usage: ./deploy.sh
 set -euo pipefail
@@ -69,7 +69,7 @@ done
 cp landing/sw-selfdestruct.js "$STAGE/sw.js"
 
 touch "$STAGE/.nojekyll"
-printf 'clapboard.duckdns.org\n' > "$STAGE/CNAME"
+printf 'clapper.in\n' > "$STAGE/CNAME"
 
 # 2b. Meta Pixel. The HTML sources carry the placeholder __META_PIXEL_ID__ wrapped in
 # <!-- META-PIXEL-START --> ... <!-- META-PIXEL-END --> sentinels. Here we either bake the
@@ -94,4 +94,4 @@ git commit -qm "deploy: landing + app $(git -C .. rev-parse --short HEAD 2>/dev/
 git push -qf "https://github.com/kirtan-00/clapper.git" gh-pages
 cd ..
 rm -rf "$STAGE/.git"
-echo "live: https://clapboard.duckdns.org/ (landing) and https://clapboard.duckdns.org/app/ (app)"
+echo "live: https://clapper.in/ (landing) and https://clapper.in/app/ (app)"

@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://clapboard.duckdns.org/sitemap.xml
+Sitemap: https://clapper.in/sitemap.xml

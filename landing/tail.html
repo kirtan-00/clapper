@@ -13,7 +13,7 @@
            thing somebody forgets and the failure is silent for a month. */
         var h = location.hostname;
         if (location.protocol === 'file:') return;
-        if (h !== 'clapboard.duckdns.org' && h !== 'kirtan-00.github.io') return;
+        if (h !== 'clapper.in' && h !== 'kirtan-00.github.io') return;
 
         var URL_ = 'https://sqqdivfgdfaztfzrzkhu.supabase.co/rest/v1/events';
         var KEY_ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxcWRpdmZnZGZhenRmenJ6a2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTA2NTYsImV4cCI6MjA5OTU4NjY1Nn0.MUhO3nmPg4gmQI5vLK5LGpOMIzrcA_j9ZDj8sp8ftH4';
@@ -44,7 +44,7 @@
            where on the page it was - never the link text, which is copy that
            changes without warning this beacon. */
         document.addEventListener('click', function (e) {
-          var a = e.target && e.target.closest ? e.target.closest('a[href^="https://clapboard.duckdns.org/app"]') : null;
+          var a = e.target && e.target.closest ? e.target.closest('a[href^="https://clapper.in/app"]') : null;
           if (!a) return;
           send('landing_cta_click', { path: window.location.pathname });
         }, true);

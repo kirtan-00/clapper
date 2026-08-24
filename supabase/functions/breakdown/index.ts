@@ -19,7 +19,17 @@ import { cors } from "../_shared/cors.ts";
 
 // Cloudflare testing keys so local dev works without a real secret configured.
 const DEV_TURNSTILE_SECRET = "1x0000000000000000000000000000000AA";
-const TURNSTILE_HOSTS = new Set(["clapboard.duckdns.org", "kirtan-00.github.io"]);
+// clapboard.duckdns.org is kept alongside the new home for the same reason it
+// is kept in _shared/cors.ts: an installed PWA keeps the origin it was added
+// from, so a pre-move install still presents the old hostname in its Turnstile
+// token. Dropping it would fail CAPTCHA validation - and therefore Script Mode
+// - for the people who installed Clapper earliest.
+const TURNSTILE_HOSTS = new Set([
+  "clapper.in",
+  "www.clapper.in",
+  "clapboard.duckdns.org",
+  "kirtan-00.github.io",
+]);
 
 const SYSTEM_SHOTS = [
   "You are given a JSON list of camera SHOTS already broken down from a shotlist. Each has a code, and some of: size, move, action, dialogue.",

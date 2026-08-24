@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Clapper - Admin: read-only analytics for the /admin/ dashboard
 --
--- The dashboard lives at clapboard.duckdns.org/admin/, a STATIC file in a
+-- The dashboard lives at clapper.in/admin/, a STATIC file in a
 -- PUBLIC repo, served with no server of its own. It ships only the anon key
 -- (already public - see src/net/supabase.ts) and the code that asks for
 -- numbers, never a number itself. Whoever decides "does this caller get
