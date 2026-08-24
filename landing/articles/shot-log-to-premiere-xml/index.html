@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>Shot Log to Premiere XML: How the Export Actually Works | Clapper</title>
+<meta name="description" content="How a shot log becomes an importable Premiere or Resolve timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and how media relinking actually works." />
+<meta name="keywords" content="shot log to premiere xml, export shot log to premiere, continuity sheet to editor, FCP7 xmeml import premiere, davinci resolve fcpxml import, camera log to timeline" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/shot-log-to-premiere-xml/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="Shot Log to Premiere XML: How the Export Actually Works" />
+<meta property="og:description" content="How a shot log becomes an importable Premiere or Resolve timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and media relinking." />
+<meta property="og:url" content="https://clapper.in/articles/shot-log-to-premiere-xml/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Shot Log to Premiere XML: How the Export Actually Works" />
+<meta name="twitter:description" content="How a shot log becomes an importable Premiere or Resolve timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and media relinking." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to turn a shot log into a Premiere or Resolve timeline",
+  "description": "How to export a shot log as a Premiere-ready XML or a DaVinci Resolve FCPXML, and get the footage relinked and playing on a timeline.",
+  "totalTime": "PT10M",
+  "supply": [
+    { "@type": "HowToSupply", "name": "A logged shoot (scene, shot, take, GOLD selects)" },
+    { "@type": "HowToSupply", "name": "The camera footage copied to a drive" }
+  ],
+  "step": [
+    { "@type": "HowToStep", "name": "Pick the right export", "text": "Export as Premiere (legacy FCP7 xmeml) for Premiere Pro, or as Resolve (FCPXML) for DaVinci Resolve. They are two different files built for two different apps, sharing one free-export allowance." },
+    { "@type": "HowToStep", "name": "Set a footage root if you know it", "text": "Point the export at the folder the footage actually lives in so the import lands online immediately instead of offline." },
+    { "@type": "HowToStep", "name": "Import the XML", "text": "Drag the file into a Premiere project panel, or use Resolve's File > Import > Timeline dialog. It lands as a new sequence." },
+    { "@type": "HowToStep", "name": "Relink the media", "text": "Locate one clip and choose relink others automatically by file name to bring the rest of the shoot online in one pass." },
+    { "@type": "HowToStep", "name": "Read the two bands", "text": "The good takes in story order sit first as a rough assembly. Past the gap, every take, good and bad, sits again as a selects pool for alternates." }
+  ]
+}
+</script>
+
+<style>
+:root{
+  --paper:#e2f0cc; --paper-raised:#f2f8e6; --paper-sunk:#d7e7bd;
+  --ink:#08160c; --ink-dim:#4a5b45; --rule:#c6d8ac;
+  --accent:#0b4650; --accent-press:#0f5c69; --accent-ink:#e2f0cc;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#000000; --paper-raised:#161616; --paper-sunk:#0e0e0e;
+    --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+  }
+}
+html{color-scheme:light dark}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{width:100%;max-width:1000px;margin:0 auto;padding:0 22px}
+a{color:inherit}
+.kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 16px}
+h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.14;color:var(--ink)}
+h1{font-size:clamp(27px,4.4vw,42px);margin:0 0 18px}
+h2{font-size:clamp(21px,3vw,27px);margin:44px 0 14px}
+h3{font-size:18px;margin:22px 0 8px}
+p{margin:0 0 16px}
+.lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch}
+.prose p{max-width:70ch;color:var(--ink-dim)}
+.prose li{color:var(--ink-dim);margin-bottom:6px}
+.prose strong{color:var(--ink)}
+.mono{font-family:var(--font-mono)}
+
+.topbar{border-bottom:1px solid var(--rule)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brandmark{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;text-decoration:none;color:var(--ink)}
+.brandmark svg{border-radius:6px}
+.topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+.topnav:hover{color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;gap:.55em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+.btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+.btn-lg{padding:15px 24px;font-size:16px}
+
+section{padding:0}
+.hero{padding:50px 0 8px}
+
+.codeblock{font-family:var(--font-mono);font-size:13.5px;line-height:1.7;background:var(--paper-sunk);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;overflow-x:auto;color:var(--ink);white-space:pre}
+.codeblock .dim{color:var(--ink-dim)}
+
+.note{border-left:3px solid var(--accent);background:var(--paper-raised);padding:14px 20px;border-radius:0 10px 10px 0;margin:22px 0}
+.note p{margin:0;color:var(--ink-dim);font-size:15px;max-width:none}
+.note p strong{color:var(--ink)}
+
+.band{border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin:8px 0 20px}
+.band-row{display:flex;align-items:center;gap:14px;padding:14px 18px}
+.band-row + .band-row{border-top:1px solid var(--rule)}
+.band-row.gap{background:var(--paper-sunk);justify-content:center;padding:8px 18px}
+.band-row .tag{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);flex:0 0 116px}
+.band-row .desc{color:var(--ink-dim);font-size:15px}
+.band-row .desc strong{color:var(--ink)}
+.band-row.gap .desc{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim)}
+
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:34px}
+@media(max-width:720px){.cols{grid-template-columns:1fr}}
+
+ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+ol.steps li{position:relative;padding:0 0 20px 50px;counter-increment:s}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:32px;height:32px;border-radius:50%;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;color:var(--ink)}
+ol.steps li h3{margin:0 0 4px}
+ol.steps li p{margin:0;color:var(--ink-dim);font-size:15.5px}
+
+.cta{background:var(--ink);color:var(--paper);border-radius:18px;padding:clamp(30px,5vw,50px);margin:36px 0}
+.cta .kicker{color:var(--paper);opacity:.6}
+.cta h2{color:inherit;margin-top:0}
+.cta p{color:inherit;opacity:.86;max-width:58ch}
+.cta .btn{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);margin-top:8px}
+
+.more{border-top:1px solid var(--rule);padding:44px 0}
+.more h2{font-size:21px;margin-top:0}
+.more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+@media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+.more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:18px 20px;color:var(--ink)}
+.more-card:hover{border-color:var(--accent)}
+.more-card .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+.more-card .n{font-weight:800;font-size:18px;margin-top:6px}
+
+footer.foot{border-top:1px solid var(--rule);padding:26px 0}
+footer.foot .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+footer.foot .fm{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;color:var(--ink)}
+footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:18px}
+footer.foot .flinks a:first-child{margin-left:0}
+footer.foot .flinks a:hover{color:var(--ink)}
+footer.foot .made{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <a class="topnav" href="https://clapper.in/">Open the app &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Post-production handoff</p>
+        <h1>From shot log to a Premiere (or Resolve) timeline</h1>
+        <p class="lede">An XML export is not a copy of your footage. It is a small text file that describes a timeline, in the standard your editing app already reads, and points at files that already exist on a drive. This is what that file actually contains, why the export builds two passes instead of one, and what happens when you open it.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Two formats, one shared allowance</h2>
+        <p>&ldquo;Export to Premiere&rdquo; and &ldquo;export to Resolve&rdquo; are not the same file with a different label. They are two different generators writing two different XML dialects: the Premiere export is legacy FCP7 <span class="mono">xmeml</span> (version 5), the format Premiere Pro has always read natively. The Resolve export is FCPXML, the Final Cut Pro X interchange format, because that is the dialect DaVinci Resolve's own import tooling is built around. Feed Resolve the Premiere-shaped file, or Premiere the Resolve-shaped one, and you will get an import that only partly works, if it opens at all.</p>
+        <p>Clapper treats them as one handoff for the purpose of the free tier: exporting a Premiere XML and a Resolve XML both draw from the same pooled allowance, because it is the same underlying shot log going to the same editor either way, just shaped for a different app. Pick the one that matches the editor's software, not both by default.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>The timeline structure, in both formats</h2>
+        <p>Every export, single-camera or multi-camera, Premiere or Resolve, lays the same two-pass structure onto the sequence:</p>
+      </div>
+      <div class="wrap">
+        <div class="band">
+          <div class="band-row"><span class="tag">Band 1</span><span class="desc"><strong>GOLD and good takes only</strong>, back to back, in story order (scene, then shot, then take). This alone plays close to a rough assembly.</span></div>
+          <div class="band-row gap"><span class="desc">&mdash; a few seconds of gap &mdash;</span></div>
+          <div class="band-row"><span class="tag">Band 2</span><span class="desc"><strong>Every take</strong>, good and rejected, in the same story order again, as a selects pool. A take that was good sits in both bands.</span></div>
+        </div>
+      </div>
+      <div class="wrap prose">
+        <p>The point of building it this way rather than one flat bin is that the timeline itself tells you where to look. Scrub the front of it and you are watching the assembly the set thought it had. Cross the gap and you have every alternate and every rejected attempt at the same shots, in the same order, without opening a browser panel and hunting for them.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>What rides on each clip: markers</h2>
+        <p>Every moment tapped on set, a beat, a GOLD flag, a spoken note, lands as a marker on the clip at the exact frame it happened, not as a separate row in a spreadsheet you have to cross-reference. The marker's name is built from the shot code, the tag, and the label, in that order: a GOLD moment on shot 5.31 reads on the timeline as <span class="mono">5.31 GOLD the look</span>. Nothing gets inferred; if the take was not scoped to a shot the code is simply blank, and the marker still carries whatever tag and label it had.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Multi-camera: synced tracks, not a flattened cut</h2>
+        <p>On a multi-camera project (two to four units), every camera gets its own picture-and-audio track pair, unit A on V1/A1, unit B on V2/A2, and so on. Every take places each camera's clip at the exact same timeline position across those tracks, so the angles stack vertically in sync and the sequence is ready for Premiere's or Resolve's own multicam tools the moment it opens, rather than needing to be synced by hand from scratch.</p>
+        <p>Production sound, if the project uses a separate recorder, rides its own additional audio track underneath the camera tracks, placed at the take's start plus whatever offset that take's sound clip actually started at. The editor relinks the recorder's file once and it already sits in sync under the picture.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Media relinking: a footage root, or a bare file name</h2>
+        <p>The export writes a path for every clip, and which kind of path depends on one setting. Give the project a <strong>footage root</strong>, the folder on the editing machine the footage will actually live in, and every clip's path points straight into it, so the import can land fully online with no relinking at all. Leave it blank and the export falls back to the bare file name only, the same name the camera wrote to the card, which imports offline but relinks in one pass with &ldquo;locate, relink others automatically by file name.&rdquo;</p>
+        <p>The one exception is the cross-day collision covered in <a href="../camera-clip-naming-conventions/">camera clip naming conventions</a>: when the same bare file name genuinely belongs to two different physical cards from two different shoot days, the export pushes both into a dated reel folder instead, so a blind filename match can never bind the wrong day's clip.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Why a good take does not duplicate your bin</h2>
+        <p>A take that made GOLD appears twice on the timeline, once in the story cut, once again in the selects pool. Writing that naively, one new imported clip per appearance, is a real and common failure mode: an editor bringing in a 232-clip shoot without this safeguard has watched an import land 351 separate items in the bin for those 232 physical files, each duplicate needing to be relinked and consolidated by hand.</p>
+        <p>Both formats avoid it the same way: every clip reference on the timeline is keyed back to the physical file, not to the clip's appearance, so a take that shows up in both bands still resolves to a single item in the project panel or media pool. You get one clip, referenced twice on the timeline, which is what actually happened on set.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Importing it</h2>
+        <ol class="steps">
+          <li><h3>Premiere</h3><p>Drag the exported <span class="mono">.xml</span> straight into a project panel bin, or use File &gt; Import. It lands as a new sequence carrying the project's name, with every clip referencing the card's native file name.</p></li>
+          <li><h3>DaVinci Resolve</h3><p>Use Resolve's File &gt; Import &gt; Timeline dialog and point it at the exported FCPXML. It builds a new timeline in the current project, sourcing whichever media it can already see in the Media Pool and leaving the rest offline until relinked.</p></li>
+          <li><h3>Relink</h3><p>Locate one clip by hand, then choose the option to relink the rest automatically by file name. With no footage root set, this is the step that brings the whole card online in one pass.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>CSV and PDF: when you want data, not a timeline</h2>
+        <p>Not every handoff needs a sequence. The CSV export is one row per tapped moment, plus one row per take that has zero moments so an untouched take still shows up, with every field a spreadsheet-minded assistant editor could want:</p>
+        <div class="codeblock">scene, shot, take, date, clip, camera, operator, sound_file,
+status, kind, tag, label, in_clock, out_clock, in_tc, out_tc,
+camera_in_tc, camera_out_tc, wall_in, wall_out, duration_ms, note,
+file_path, file_status, file_alternatives</div>
+        <p>The PDF export is built for production and the director rather than the edit bay: scenes, shots, clip numbers, durations, camera and wall-clock timecode, a GOLD summary up front, and the discarded takes at the back where they belong.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Before you export at wrap</h2>
+        <ul style="max-width:70ch;color:var(--ink-dim);padding-left:20px">
+          <li>Set the footage root once you know where the drive will actually sit on the edit machine, if you know it before wrap.</li>
+          <li>Get the project's frame rate right before you shoot, not after: changing it later reshapes the frame math for every export from that point on, but does not rewrite anything already exported.</li>
+          <li>Pick Premiere or Resolve to match the editor's app. They read different files, even though they share one free allowance.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cta">
+          <p class="kicker">Same log, four formats</p>
+          <h2>Clapper builds this from the shot log you already kept</h2>
+          <p>Log takes on your phone as you shoot, mark GOLD and circle selects with a tap, and Clapper numbers your camera clips to match the card automatically. At wrap, export a Premiere or Resolve timeline built exactly the way this page describes, plus a PDF shot log and a CSV of every take.</p>
+          <a class="btn btn-lg" href="https://clapper.in/app/">Open Clapper <span>&rarr;</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Keep reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="../how-to-read-a-clapperboard/">
+            <div class="l">On-set reference</div>
+            <div class="n">How to read a clapperboard</div>
+          </a>
+          <a class="more-card" href="../camera-clip-naming-conventions/">
+            <div class="l">Reference</div>
+            <div class="n">Camera clip naming conventions, camera by camera</div>
+          </a>
+          <a class="more-card" href="../../templates/script-supervisor-daily-report/">
+            <div class="l">Free template</div>
+            <div class="n">Script supervisor daily report</div>
+          </a>
+          <a class="more-card" href="../../templates/camera-log-sheet/">
+            <div class="l">Free template</div>
+            <div class="n">Camera log sheet (PDF)</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
+        <a href="../how-to-read-a-clapperboard/">Clapperboard</a>
+        <a href="../camera-clip-naming-conventions/">Clip naming</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+      <span class="made">made for set</span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+</body>
+</html>

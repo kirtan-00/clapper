@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>Camera Clip Naming Conventions: Sony, RED, ARRI, iPhone and More | Clapper</title>
+<meta name="description" content="How Sony, Canon, RED, ARRI, Blackmagic, DJI, GoPro, and iPhone actually name clip files, why you should not rename them by hand, and the filename collision that bites multi-day shoots." />
+<meta name="keywords" content="camera clip naming convention, camera file naming, A001C001 meaning, C0001 sony clip name, camera roll naming film, DIT file naming, clip numbering film set" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/camera-clip-naming-conventions/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="Camera Clip Naming Conventions: Sony, RED, ARRI, iPhone and More" />
+<meta property="og:description" content="How every major camera actually names its clip files, why renaming them by hand is a bad idea, and the cross-day filename collision that bites multi-day shoots." />
+<meta property="og:url" content="https://clapper.in/articles/camera-clip-naming-conventions/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Camera Clip Naming Conventions: Sony, RED, ARRI, iPhone and More" />
+<meta name="twitter:description" content="How every major camera actually names its clip files, why renaming them by hand is a bad idea, and the cross-day filename collision that bites multi-day shoots." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Camera clip naming conventions, camera by camera",
+  "description": "How Sony, Canon, RED, ARRI, Blackmagic, DJI, GoPro, and iPhone actually name their clip files, why you should not rename them by hand, and the filename collision that bites multi-day shoots.",
+  "author": { "@type": "Organization", "name": "Clapper" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Clapper",
+    "logo": { "@type": "ImageObject", "url": "https://clapper.in/og.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://clapper.in/articles/camera-clip-naming-conventions/" },
+  "image": "https://clapper.in/og.png",
+  "datePublished": "2026-08-24",
+  "dateModified": "2026-08-24"
+}
+</script>
+
+<style>
+:root{
+  --paper:#e2f0cc; --paper-raised:#f2f8e6; --paper-sunk:#d7e7bd;
+  --ink:#08160c; --ink-dim:#4a5b45; --rule:#c6d8ac;
+  --accent:#0b4650; --accent-press:#0f5c69; --accent-ink:#e2f0cc;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#000000; --paper-raised:#161616; --paper-sunk:#0e0e0e;
+    --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+  }
+}
+html{color-scheme:light dark}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{width:100%;max-width:1000px;margin:0 auto;padding:0 22px}
+a{color:inherit}
+.kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 16px}
+h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.14;color:var(--ink)}
+h1{font-size:clamp(28px,4.6vw,44px);margin:0 0 18px}
+h2{font-size:clamp(21px,3vw,27px);margin:44px 0 14px}
+h3{font-size:18px;margin:22px 0 8px}
+p{margin:0 0 16px}
+.lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch}
+.prose p{max-width:70ch;color:var(--ink-dim)}
+.prose li{color:var(--ink-dim);margin-bottom:6px}
+.prose strong{color:var(--ink)}
+.mono{font-family:var(--font-mono)}
+
+.topbar{border-bottom:1px solid var(--rule)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brandmark{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;text-decoration:none;color:var(--ink)}
+.brandmark svg{border-radius:6px}
+.topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+.topnav:hover{color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;gap:.55em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+.btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+.btn-lg{padding:15px 24px;font-size:16px}
+
+section{padding:0}
+.hero{padding:50px 0 8px}
+
+.codeblock{font-family:var(--font-mono);font-size:14px;line-height:1.7;background:var(--paper-sunk);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;overflow-x:auto;color:var(--ink)}
+.codeblock .dim{color:var(--ink-dim)}
+
+.note{border-left:3px solid var(--accent);background:var(--paper-raised);padding:14px 20px;border-radius:0 10px 10px 0;margin:22px 0}
+.note p{margin:0;color:var(--ink-dim);font-size:15px;max-width:none}
+.note p strong{color:var(--ink)}
+
+.ref-wrap{border:1px solid var(--rule);border-radius:14px;overflow-x:auto;background:var(--paper-raised);margin:8px 0 20px}
+table.ref{width:100%;min-width:680px;border-collapse:collapse;font-size:14.5px}
+table.ref th,table.ref td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+table.ref tbody tr:last-child td{border-bottom:0}
+table.ref thead th{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);font-weight:400}
+table.ref td.mono{font-family:var(--font-mono);color:var(--ink);white-space:nowrap}
+table.ref td.note{color:var(--ink-dim);font-size:13.5px}
+
+.cta{background:var(--ink);color:var(--paper);border-radius:18px;padding:clamp(30px,5vw,50px);margin:36px 0}
+.cta .kicker{color:var(--paper);opacity:.6}
+.cta h2{color:inherit;margin-top:0}
+.cta p{color:inherit;opacity:.86;max-width:58ch}
+.cta .btn{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);margin-top:8px}
+
+.more{border-top:1px solid var(--rule);padding:44px 0}
+.more h2{font-size:21px;margin-top:0}
+.more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+@media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+.more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:18px 20px;color:var(--ink)}
+.more-card:hover{border-color:var(--accent)}
+.more-card .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+.more-card .n{font-weight:800;font-size:18px;margin-top:6px}
+
+footer.foot{border-top:1px solid var(--rule);padding:26px 0}
+footer.foot .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+footer.foot .fm{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;color:var(--ink)}
+footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:18px}
+footer.foot .flinks a:first-child{margin-left:0}
+footer.foot .flinks a:hover{color:var(--ink)}
+footer.foot .made{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <a class="topnav" href="https://clapper.in/">Open the app &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Reference &middot; camera by camera</p>
+        <h1>Camera clip naming conventions</h1>
+        <p class="lede"><span class="mono">C0001.MP4</span>, <span class="mono">A001C001</span>, <span class="mono">IMG_0001.MOV</span>. Every camera writes its own file names, in its own format, and none of them are yours to change. Here is what each one actually does, why renaming the files yourself is a worse idea than it sounds, and the one filename collision that quietly wrecks multi-day shoots.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Why the file name is not yours to invent</h2>
+        <p>Every camera writes clip files the same structural way: a fixed prefix, an incrementing counter, and sometimes a fixed suffix. The prefix and suffix almost never change. The counter is the only part that moves, and it is the part that has to line up with what you write on the slate and in the shot log, or the editor spends day one of the cut just figuring out which file is which.</p>
+        <p>Some of that suffix is not even predictable in advance. RED and ARRI both append a wildcard, a date-and-camera-ID stamp the camera generates at record time, which you cannot know until the card comes off the camera. Blackmagic does the same. When you are naming a shot in a log ahead of time, you match on the part you control, the running number, and let the unpredictable stamp travel through untouched.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>The reference table</h2>
+        <div class="ref-wrap">
+          <table class="ref">
+            <thead><tr><th>Camera</th><th>Pattern</th><th>Extension</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td>Sony A7 / FX</td><td class="mono">C0001</td><td class="mono">.MP4</td><td class="note">Exact match, counter is picture-only.</td></tr>
+              <tr><td>Canon R5 / R6 (hybrid)</td><td class="mono">MVI_0001</td><td class="mono">.MP4</td><td class="note">Counter is shared with stills, so numbers skip.</td></tr>
+              <tr><td>Canon Cinema / R5C</td><td class="mono">A001C001</td><td class="mono">.MXF / .MP4</td><td class="note">The reel (A001) is baked into the prefix. New card, bump it to A002C, A003C.</td></tr>
+              <tr><td>Blackmagic Pocket</td><td class="mono">A001_*_C001</td><td class="mono">.braw / .MOV</td><td class="note">The <span class="mono">*</span> is a record-time stamp, unknowable ahead of time.</td></tr>
+              <tr><td>RED</td><td class="mono">A001_C001_*</td><td class="mono">.R3D</td><td class="note">The <span class="mono">*</span> is date plus random characters. Match on the C-number.</td></tr>
+              <tr><td>ARRI</td><td class="mono">A001C001_*</td><td class="mono">.mxf</td><td class="note">The <span class="mono">*</span> is date plus camera ID. Match on the C-number.</td></tr>
+              <tr><td>DJI (modern)</td><td class="mono">DJI_*_0001_D</td><td class="mono">.MP4</td><td class="note">The <span class="mono">*</span> is a timestamp. Match on the incrementing number.</td></tr>
+              <tr><td>DJI (classic)</td><td class="mono">DJI_0001</td><td class="mono">.MP4</td><td class="note">Exact match.</td></tr>
+              <tr><td>GoPro</td><td class="mono">GX010001</td><td class="mono">.MP4</td><td class="note">A shot that runs long splits into chapters, GX02, GX03, sharing one number.</td></tr>
+              <tr><td>iPhone</td><td class="mono">IMG_0001</td><td class="mono">.MOV</td><td class="note">Counter is shared with photos, so numbers skip.</td></tr>
+              <tr><td>Panasonic Lumix</td><td class="mono">P1000001</td><td class="mono">.MOV</td><td class="note">Exact match.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="prose" style="color:var(--ink-dim);max-width:70ch">&ldquo;Exact&rdquo; means the name matches the card byte for byte, so you can predict tomorrow's file name today. Everything else is approximate: the counter is right, the characters around it are not fully knowable until the card is off the camera.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Do not rename the native files</h2>
+        <p>It is tempting to batch-rename a card straight to <span class="mono">Scene24_TakeB3.MP4</span> the moment it lands on a drive, so the folder reads like the script. Resist it, especially on RAW formats. RED, ARRI, and Blackmagic RAW files travel with sidecar metadata, lens data, color decisions, look files, that is keyed to the original file name. Rename the picture file without renaming its sidecar in lockstep and you can silently detach the metadata from the clip it belongs to.</p>
+        <p>Even on formats with no sidecar to break, renaming still fights the tools you will use next. Premiere Pro's own batch rename in the Project panel applies one name to every selected clip at once, which is exactly backwards for a card full of individually different takes; you end up undoing the batch rename by hand, clip by clip, which is slower than not renaming at all.</p>
+        <p>The fix is not to touch the file name. It is to keep a shot log, a spreadsheet or an app, that maps the camera's own file name to the scene, shot, and take it belongs to. The camera's numbering stays exactly what the camera wrote; your log is where the human-readable version lives.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>The reel letter: bump it when the card changes</h2>
+        <p>On cameras that bake a reel number into the prefix, Canon Cinema's <span class="mono">A001C001</span>, RED's <span class="mono">A001_C001</span>, ARRI's <span class="mono">A001C001</span>, that leading <span class="mono">A001</span> is the reel or magazine, not the clip. It does not increment on its own. When you swap to a fresh card, you bump it by hand: <span class="mono">A001</span> becomes <span class="mono">A002</span>, and the clip counter usually resets to <span class="mono">C001</span> underneath it. Forget to bump it and two different cards both claim to be reel <span class="mono">A001</span>, which is a much harder mixup to untangle in post than it looks like on set, because both cards' clip numbers can genuinely overlap too.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>The collision nobody warns you about</h2>
+        <p>Here is the one that actually costs a day in the edit and almost never makes it into a naming-convention guide: <strong>most cameras restart their clip counter every shoot day</strong>, not just every card. Day 1 starts at <span class="mono">C0001</span>. Day 5, on a fresh card with the same camera and the same settings, also starts at <span class="mono">C0001</span>. Two completely different physical files, on two different days, with the byte-identical name.</p>
+        <p>On its own that is harmless, the files sit in different day folders. It stops being harmless the moment an NLE's automatic relink feature is loose about what counts as a match. Point &ldquo;relink others automatically&rdquo; at a filename match with nothing else pinned down, and it will happily bind day 5's <span class="mono">C0001.MP4</span> to day 1's take, silently, with no error, because as far as the match rule is concerned they are the same file.</p>
+        <div class="note"><p><strong>The fix:</strong> the moment a clip name repeats across two different shoot days, push both into a dated reel subfolder, <span class="mono">A_20260808/C0001.MP4</span> versus <span class="mono">A_20260812/C0001.MP4</span>, so the paths differ even though the bare file names do not. Leave every non-colliding name exactly as the camera wrote it, so a single &ldquo;locate, relink others automatically&rdquo; still brings the rest of the shoot online in one pass.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Production sound has its own numbering</h2>
+        <p>A separate sound recorder, a Zoom, a Sound Devices unit, is its own device with its own counter and its own file-naming pattern, typically a prefix like <span class="mono">SND_</span> followed by a zero-padded number: <span class="mono">SND_0001.WAV</span>. It does not share a namespace with picture, and it should not be renamed to mirror the scene or take either, for the identical metadata reason as RAW picture files. Keep the recorder's native name, and let the shot log carry the mapping from <span class="mono">SND_0041</span> to &ldquo;scene 24B, take 3&rdquo; instead of baking it into the file itself.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cta">
+          <p class="kicker">One log, every camera's own numbers</p>
+          <h2>Log the take. Let the camera keep its own name.</h2>
+          <p>Clapper numbers clips the way your actual camera does, Sony, Canon Cinema, RED, ARRI, GoPro, or a custom pattern, and counts them up automatically as you shoot, reel bumps included. Nothing gets renamed on the card. At wrap the shot log carries the mapping from every native file name to the scene, shot, and take it belongs to.</p>
+          <a class="btn btn-lg" href="https://clapper.in/app/">Open Clapper <span>&rarr;</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Keep reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="../how-to-read-a-clapperboard/">
+            <div class="l">On-set reference</div>
+            <div class="n">How to read a clapperboard</div>
+          </a>
+          <a class="more-card" href="../shot-log-to-premiere-xml/">
+            <div class="l">Workflow</div>
+            <div class="n">Turning a shot log into a Premiere or Resolve timeline</div>
+          </a>
+          <a class="more-card" href="../../templates/camera-log-sheet/">
+            <div class="l">Free template</div>
+            <div class="n">Camera log sheet (PDF)</div>
+          </a>
+          <a class="more-card" href="../../templates/continuity-sheet-template/">
+            <div class="l">Free template</div>
+            <div class="n">Continuity sheet template</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
+        <a href="../how-to-read-a-clapperboard/">Clapperboard</a>
+        <a href="../shot-log-to-premiere-xml/">Shot log to XML</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+      <span class="made">made for set</span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+</body>
+</html>

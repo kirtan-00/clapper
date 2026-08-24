@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>How to Read a Clapperboard: Slate, Scene, Take, MOS Explained | Clapper</title>
+<meta name="description" content="What every field on a clapperboard actually means, why scene number and slate number are not the same thing, and how a 2nd AC reads one out loud under pressure." />
+<meta name="keywords" content="how to read a clapperboard, how to read a film slate, clapperboard meaning, slate number vs scene number, MOS clapperboard, tail slate, second sticks" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/how-to-read-a-clapperboard/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="How to Read a Clapperboard: Slate, Scene, Take, MOS Explained" />
+<meta property="og:description" content="Every field on a clapperboard, why scene number and slate number are not the same thing, and how a 2nd AC actually reads one under pressure." />
+<meta property="og:url" content="https://clapper.in/articles/how-to-read-a-clapperboard/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="How to Read a Clapperboard: Slate, Scene, Take, MOS Explained" />
+<meta name="twitter:description" content="Every field on a clapperboard, why scene number and slate number are not the same thing, and how a 2nd AC actually reads one under pressure." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to read a clapperboard",
+  "description": "How to read every field on a film clapperboard: production, roll, scene, shot letter, take, MOS, and a tail slate, in the order a script supervisor or assistant editor actually checks them.",
+  "totalTime": "PT3M",
+  "supply": [
+    { "@type": "HowToSupply", "name": "A slated take (clapperboard in frame at head or tail)" }
+  ],
+  "step": [
+    { "@type": "HowToStep", "name": "Read the header", "text": "Production title, director, DP, and date. These stay fixed for the whole shoot day and confirm you are looking at the right project's footage." },
+    { "@type": "HowToStep", "name": "Read roll and camera", "text": "The card or magazine number, and which camera unit (A, B, C) shot it on a multi-camera set." },
+    { "@type": "HowToStep", "name": "Read scene, shot, and take", "text": "The scene number from the script, the shot letter for this camera setup within that scene, and the take number for this attempt at it." },
+    { "@type": "HowToStep", "name": "Check for MOS or a tail slate", "text": "MOS means the take has no synced sound. A slate held upside down means it was shot at the end of the take, not the start." },
+    { "@type": "HowToStep", "name": "Confirm the sync point", "text": "Find the frame where the sticks meet and the spike in the audio waveform where they clap. That frame is the sync point picture and sound are lined up on." }
+  ]
+}
+</script>
+
+<style>
+:root{
+  --paper:#e2f0cc; --paper-raised:#f2f8e6; --paper-sunk:#d7e7bd;
+  --ink:#08160c; --ink-dim:#4a5b45; --rule:#c6d8ac;
+  --accent:#0b4650; --accent-press:#0f5c69; --accent-ink:#e2f0cc;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#000000; --paper-raised:#161616; --paper-sunk:#0e0e0e;
+    --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+  }
+}
+html{color-scheme:light dark}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{width:100%;max-width:1000px;margin:0 auto;padding:0 22px}
+a{color:inherit}
+.kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 16px}
+h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.14;color:var(--ink)}
+h1{font-size:clamp(30px,5vw,46px);margin:0 0 18px}
+h2{font-size:clamp(21px,3vw,27px);margin:44px 0 14px}
+h3{font-size:18px;margin:22px 0 8px}
+p{margin:0 0 16px}
+.lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch}
+.prose p{max-width:70ch;color:var(--ink-dim)}
+.prose li{color:var(--ink-dim);margin-bottom:6px}
+.prose strong{color:var(--ink)}
+.rule{border:0;border-top:1px solid var(--rule);margin:0}
+
+.topbar{border-bottom:1px solid var(--rule)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brandmark{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;text-decoration:none;color:var(--ink)}
+.brandmark svg{border-radius:6px}
+.topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+.topnav:hover{color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;gap:.55em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+.btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+.btn-ghost:hover{border-color:var(--ink)}
+.btn-lg{padding:15px 24px;font-size:16px}
+
+section{padding:0}
+.hero{padding:50px 0 8px}
+
+.field-list{list-style:none;margin:0;padding:0}
+.field-list li{padding:11px 0;border-bottom:1px solid var(--rule);display:flex;gap:14px;align-items:baseline}
+.field-list li b{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink);flex:0 0 128px}
+.field-list li span{color:var(--ink-dim);font-size:15.5px}
+
+ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+ol.steps li{position:relative;padding:0 0 20px 50px;counter-increment:s}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:32px;height:32px;border-radius:50%;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;color:var(--ink)}
+ol.steps li h3{margin:0 0 4px}
+ol.steps li p{margin:0;color:var(--ink-dim);font-size:15.5px}
+
+.note{border-left:3px solid var(--accent);background:var(--paper-raised);padding:14px 20px;border-radius:0 10px 10px 0;margin:22px 0}
+.note p{margin:0;color:var(--ink-dim);font-size:15px;max-width:none}
+.note p strong{color:var(--ink)}
+
+.codeblock{font-family:var(--font-mono);font-size:14px;line-height:1.7;background:var(--paper-sunk);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;overflow-x:auto;color:var(--ink)}
+.codeblock .dim{color:var(--ink-dim)}
+
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:34px}
+@media(max-width:720px){.cols{grid-template-columns:1fr}}
+
+.cta{background:var(--ink);color:var(--paper);border-radius:18px;padding:clamp(30px,5vw,50px);margin:36px 0}
+.cta .kicker{color:var(--paper);opacity:.6}
+.cta h2{color:inherit;margin-top:0}
+.cta p{color:inherit;opacity:.86;max-width:58ch}
+.cta .btn{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);margin-top:8px}
+
+.more{border-top:1px solid var(--rule);padding:44px 0}
+.more h2{font-size:21px;margin-top:0}
+.more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+@media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+.more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:18px 20px;color:var(--ink)}
+.more-card:hover{border-color:var(--accent)}
+.more-card .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+.more-card .n{font-weight:800;font-size:18px;margin-top:6px}
+
+footer.foot{border-top:1px solid var(--rule);padding:26px 0}
+footer.foot .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+footer.foot .fm{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;color:var(--ink)}
+footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:18px}
+footer.foot .flinks a:first-child{margin-left:0}
+footer.foot .flinks a:hover{color:var(--ink)}
+footer.foot .made{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <a class="topnav" href="https://clapper.in/">Open the app &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">On-set reference</p>
+        <h1>How to read a clapperboard</h1>
+        <p class="lede">Two wooden sticks and a whiteboard tell an editor four numbers, a sync point, and one warning label. Here is what each field means, why the scene number and the slate number are usually not the same thing, and what a 2nd AC is actually watching for when the sticks come together.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>What the clap is actually for</h2>
+        <p>The board itself is called the <strong>slate</strong>. The hinged wooden bit on top is the <strong>sticks</strong>. When the sticks close, they do two things at once: they make a sharp, single-frame visual event on the picture, and a sharp transient on the audio track. In the edit, the assistant editor lines up the frame where the sticks meet with the spike in the audio waveform, and picture and sound lock together from that frame onward. That is the whole job. Everything else written on the board is there so a human, not the sync algorithm, can tell one clip from ten thousand others without opening it.</p>
+        <p>On a fully digital set with jam-synced timecode, you would think the clap is decoration. It is not. Timecode drifts a frame or two over a long day if two devices are not re-jammed, and a dropped jam is silent until someone notices the dialogue is out of sync three scenes later. The clap is a physical, un-droppable fallback: if the timecode ever looks wrong, the editor can always resync by eye and ear off the sticks. It is also, bluntly, the thing that tells the entire crew &ldquo;action is next,&rdquo; which is worth something on its own.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Reading the board, field by field</h2>
+        <ul class="field-list">
+          <li><b>Production</b><span>The project's title or a shortened working title, so dailies never get mixed up with another job on the same drive.</span></li>
+          <li><b>Director / DP</b><span>Confirms you are looking at the right unit on a multi-unit shoot.</span></li>
+          <li><b>Date</b><span>The shoot day. Matters more than it sounds: clip counters restart every day, so the date is what tells two identically numbered cards apart.</span></li>
+          <li><b>Roll / Card</b><span>Which physical card or magazine this take lives on.</span></li>
+          <li><b>Camera</b><span>The unit letter, A, B, C, D, on a multi-camera setup. Single camera is always A and often left off.</span></li>
+          <li><b>Scene</b><span>The scene number as printed in the script.</span></li>
+          <li><b>Shot / Setup</b><span>A letter appended to the scene number for each new camera angle within that scene: 24, then 24A, then 24B.</span></li>
+          <li><b>Take</b><span>Which attempt at this exact setup this is. Resets to 1 every time the shot letter changes.</span></li>
+          <li><b>INT/EXT, D/N</b><span>Interior or exterior, day or night, mostly for continuity and the DIT's grading pass.</span></li>
+          <li><b>FPS</b><span>Frame rate, only written when it differs from the sequence's base rate, e.g. a slow-motion insert.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Scene number and slate number are not the same thing</h2>
+        <p>Most guides to reading a slate quietly assume the two are interchangeable. They are not, and mixing them up is exactly the kind of mistake that makes a shot log useless three weeks later. There are two systems in real use, and you need to know which one the production in front of you is running.</p>
+        <h3>Scene-based lettering (the common one)</h3>
+        <p>The slate's scene field carries the script's scene number, and the shot letter increments for every new setup <em>within</em> that scene: 24, 24A, 24B, 24C. Move to scene 25 and the letter resets. This is what almost every narrative film, TV drama, and ad shoot does, and it is the system that makes a slate double as a rough outline of the script's coverage: read down a stack of slates in order and you can see how many angles scene 24 got.</p>
+        <h3>Continuous slate numbering (less common, still real)</h3>
+        <p>Some productions, especially certain unscripted or multi-unit setups, number slates in one running sequence for the whole shoot day regardless of scene: slate 1, slate 2, slate 3, climbing straight through no matter which scene each one belongs to. When this system is in use, the scene number for editorial purposes lives on a separate <strong>slate-to-scene correlation sheet</strong> the script supervisor keeps, because the board in frame no longer tells you the scene on its own.</p>
+        <div class="note"><p><strong>Why this matters:</strong> if you build a shot log by reading slates without knowing which system is running, a continuous-numbering shoot will look like one enormous scene with fifty consecutive shots. Ask the script supervisor before day one, not after wrap.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>MOS, second sticks, and the other shorthand</h2>
+        <p><strong>MOS</strong> means the take has no usable synced sound, most commonly because it is a silent insert, a plate, or a pickup shot with no dialogue. Write it large on the board so the assistant editor never goes hunting for audio that was never recorded. The physical convention is to leave the sticks shut, or to have someone hold a hand flat between them so no clap happens at all, since a clap on an MOS take with no audio track just reads as a glitch in the edit.</p>
+        <p><strong>Second sticks</strong> is what you call when the first slate did not land clean: it was out of frame, the clap was too soft to register on the waveform, or the sound department was not actually rolling yet. Say &ldquo;second sticks&rdquo; out loud before you clap again, so the editor knows to expect two slate events on one take and does not sync to the wrong one.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>The tail slate, and why it is upside down</h2>
+        <p>Sometimes you cannot slate at the start without wrecking the shot: a Steadicam move that is already walking, a macro insert where the slate would knock the focus off, a VFX plate that needs a clean first frame, or a performance where the actor needs to start rolling before anyone breaks their concentration with a clap in their face. In all of those, the slate goes in at the <strong>end</strong> instead, held upside down.</p>
+        <p>Upside down is the signal, not an accident. It tells the editor, at a glance and without reading a single field, that this is a <strong>tail slate</strong>: the sync point is at the end of the clip, not the start. Everything else on the board reads exactly the same, scene, shot, take, MOS if it applies; only the position and orientation change.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>What actually goes wrong on set</h2>
+        <p>The failures are boring and repeat on every production: the slate held out of frame or in someone's shadow, the sticks clapped too gently to register on the audio track, a thumb covering half the writing, and the classic, holding the board so close to the lens it goes soft before the AC pulls it away. None of these are subtle once you know to check for them, which is exactly why they still happen, because nobody is checking in the moment.</p>
+        <p>Two habits fix most of it. First, call the numbers out loud, clearly, before the clap: <em>&ldquo;Scene twenty-four Bravo, take three.&rdquo;</em> Saying the letter phonetically (Alpha, Bravo, Charlie) matters more than it feels like it should, because B and D and a mumbled &ldquo;24A&rdquo; sound identical on a rough set mic. Second, open the sticks to their full range before you clap, not a half-hearted tap; a full swing gives a cleaner, louder transient that is far easier to find in the waveform later.</p>
+        <p>Striped clapper sticks are not decoration either. High-contrast stripes exist so the board pops against whatever is behind it on a busy frame, and a camera assistant can use the known width of a stripe as a quick, in-frame reference for pulling focus. It is a small, genuinely useful detail most explainers skip entirely.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cta">
+          <p class="kicker">Where the numbers go next</p>
+          <h2>The slate says it. Clapper keeps it.</h2>
+          <p>Everything called out on the board, scene, shot, take, GOLD or not, is exactly what a script supervisor or 1st AC logs by hand on a continuity sheet all day. Clapper logs the same fields on your phone as you shoot, tap by tap, and turns them into a shot log at wrap instead of a stack of paper to retype.</p>
+          <a class="btn btn-lg" href="https://clapper.in/app/">Open Clapper <span>&rarr;</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Keep reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="../camera-clip-naming-conventions/">
+            <div class="l">Reference</div>
+            <div class="n">Camera clip naming conventions, camera by camera</div>
+          </a>
+          <a class="more-card" href="../shot-log-to-premiere-xml/">
+            <div class="l">Workflow</div>
+            <div class="n">Turning a shot log into a Premiere or Resolve timeline</div>
+          </a>
+          <a class="more-card" href="../../templates/continuity-sheet-template/">
+            <div class="l">Free template</div>
+            <div class="n">Continuity sheet template (PDF)</div>
+          </a>
+          <a class="more-card" href="../../templates/script-supervisor-daily-report/">
+            <div class="l">Free template</div>
+            <div class="n">Script supervisor daily report</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
+        <a href="../camera-clip-naming-conventions/">Clip naming</a>
+        <a href="../shot-log-to-premiere-xml/">Shot log to XML</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+      <span class="made">made for set</span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+</body>
+</html>
