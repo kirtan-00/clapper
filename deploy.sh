@@ -33,6 +33,15 @@ if [ -d landing/templates ]; then
   cp -R landing/templates/. "$STAGE/templates/"
 fi
 
+# Articles at /articles/<slug>/. Same shape as templates above: self-contained
+# HTML, no build step. Added when the first articles were written - without
+# this step they sit in the repo and never reach the site, which is a silent
+# failure (the deploy succeeds, the pages just are not there).
+if [ -d landing/articles ]; then
+  mkdir -p "$STAGE/articles"
+  cp -R landing/articles/. "$STAGE/articles/"
+fi
+
 # Relink: the standalone XML path-rewriter at /relink/. Self-contained, no build
 # step, and deliberately no analytics beacon - it is handed to editors who load a
 # client's shot log into it, and the page's own promise is that nothing leaves the
@@ -83,6 +92,66 @@ else
   find "$STAGE" -type f -name '*.html' -exec \
     perl -0777 -i -pe 's/[ \t]*<!-- META-PIXEL-START -->.*?<!-- META-PIXEL-END -->[ \t]*\r?\n?//gs' {} +
   echo "WARNING: META_PIXEL_ID is unset or empty - Meta Pixel block stripped, no pixel will ship."
+fi
+
+# 2c. Google Analytics 4, injected here rather than written into the HTML
+# sources. Two reasons, and the second is the important one:
+#
+#   1. Pages are authored by several hands (landing, templates, articles). A
+#      snippet that has to be pasted into every new page is a snippet that
+#      will be missing from the next one somebody adds. Injecting at deploy
+#      time means every page is covered, including ones not written yet.
+#   2. It is NOT behind an env var like META_PIXEL_ID above, on purpose. A
+#      GA4 Measurement ID is public by definition - it ships in the source of
+#      every page it runs on, so hiding it buys nothing. And an unset env var
+#      fails SILENTLY: see the Meta Pixel's own "WARNING: ... no pixel will
+#      ship" line, which is exactly what would happen to analytics on every
+#      deploy from a shell that had not exported it. Analytics that quietly
+#      is not running is worse than no analytics, because you trust the zero.
+#
+# THREE PATHS ARE DELIBERATELY EXCLUDED:
+#   /app/     the PWA has its own first-party analytics (src/net/analytics.ts)
+#             writing to Supabase. GA here would double-count every session
+#             and add a third-party request to an app whose whole point is
+#             working offline on a set with bad wifi.
+#   /admin/   the private dashboard. It is gated by Postgres, not obscurity,
+#             but there is no reason to send its page views to Google.
+#   /relink/  READ THE COMMENT ON THE relink COPY STEP ABOVE BEFORE CHANGING
+#             THIS. That page promises editors that a client's shot log never
+#             leaves their machine. A tracking tag would make that sentence a
+#             lie. This exclusion is a promise, not a preference.
+GA4_ID="G-RMLDR8GENF"
+cat > "$STAGE/.ga-snippet.html" <<GAEOF
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=${GA4_ID}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '${GA4_ID}');
+</script>
+GAEOF
+
+GA_INJECTED=0
+while IFS= read -r page; do
+  case "$page" in
+    "$STAGE"/app/*|"$STAGE"/admin/*|"$STAGE"/relink/*) continue ;;
+  esac
+  # Insert before the FIRST </head>. Skip a page that somehow already carries
+  # the tag, so a re-run cannot double-fire every pageview.
+  if grep -q "$GA4_ID" "$page"; then continue; fi
+  GA_SNIPPET_FILE="$STAGE/.ga-snippet.html" perl -0777 -i -pe '
+    BEGIN { local $/; open my $fh, "<", $ENV{GA_SNIPPET_FILE} or die; our $snip = <$fh>; close $fh; }
+    s{</head>}{$main::snip</head>}i unless $done++;
+  ' "$page" && GA_INJECTED=$((GA_INJECTED + 1))
+done < <(find "$STAGE" -type f -name '*.html')
+rm -f "$STAGE/.ga-snippet.html"
+echo "GA4 $GA4_ID: injected into $GA_INJECTED page(s) (app/, admin/, relink/ excluded by design)"
+
+# Fail loudly rather than shipping a site with no analytics and no warning.
+if [ "$GA_INJECTED" -eq 0 ]; then
+  echo "ERROR: GA4 was injected into ZERO pages. Something is wrong with the stage. Aborting." >&2
+  exit 1
 fi
 
 # 3. Push as orphan gh-pages
