@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<link rel="canonical" href="https://clapper.in/" />
+<title>Clapper has moved to clapper.in</title>
+<meta name="description" content="Clapper now lives at clapper.in. If you signed in here, your projects already followed you. If you didn't, here's how to bring your shot logs along." />
+
+<!--
+  Theme, applied BEFORE first paint, same trick as index.html in the main app
+  (see the inline script there and src/ui/theme.ts). This page is served from
+  the SAME origin as the app (clapboard.duckdns.org), so localStorage's
+  'clapper.theme' key is the real, current value the owner last picked in the
+  app itself - reading it here means this page opens in whichever theme they
+  left the app in, instead of defaulting to day and flashing to night.
+  Storage can throw (Safari private mode, blocked cookies); the failure mode
+  is "day", never "no page".
+-->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('clapper.theme');
+      if (t === 'night') document.documentElement.setAttribute('data-theme', 'night');
+    } catch (e) {}
+  })();
+</script>
+
+<style>
+  /* ==========================================================================
+     Palette: pulled verbatim from src/styles.css (the locked Clapper theme),
+     not reinvented. Day tokens from :root, night tokens from
+     [data-theme="night"]. Only the roles this page actually uses are copied
+     over: ground/surface, ink, hairline, and the one accent (--m-accent and
+     friends). No purple, no green-as-accent, no gradients, no glow - the flat
+     "tally lamp" button is the only affordance style in the app and the only
+     one here.
+     ========================================================================== */
+  :root {
+    --paper: #e2f0cc;
+    --paper-raised: #f2f8e6;
+    --paper-sunk-deep: color-mix(in srgb, var(--paper) 42%, var(--rule) 58%);
+    --ink: #08160c;
+    --ink-dim: #4a5b45;
+    --rule: #c6d8ac;
+    --rule-soft: color-mix(in srgb, var(--rule) 45%, var(--paper) 55%);
+
+    --m-accent: #0b4650;
+    --m-accent-press: #0f5c69;
+    --m-accent-ink: var(--paper);
+    --m-accent-text: var(--m-accent);
+
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+
+    --radius-sm: 10px;
+    --radius: 14px;
+    --radius-lg: 20px;
+
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 20px;
+    --sp-6: 24px;
+    --sp-7: 32px;
+    --sp-8: 48px;
+
+    --track-caps: 0.08em;
+    --track-tight: -0.01em;
+
+    --ease-out: cubic-bezier(0.2, 0.85, 0.25, 1);
+    --dur-state: 120ms;
+    --dur-panel: 320ms;
+    --tap: 44px;
+  }
+
+  [data-theme="night"] {
+    --paper: #000000;
+    --paper-raised: #161616;
+    --paper-sunk-deep: #1c1c1c;
+    --ink: #ece9e1;
+    --ink-dim: #999793;
+    --rule: #262626;
+    --rule-soft: #1c1c1c;
+
+    --m-accent: #e6ff2b;
+    --m-accent-press: #c9e024;
+    --m-accent-ink: #000000;
+    --m-accent-text: var(--m-accent);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+  }
+
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: var(--sp-7) var(--sp-4) var(--sp-8);
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 0 0 var(--sp-5);
+  }
+  .eyebrow .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--m-accent-text);
+    flex: none;
+  }
+
+  h1 {
+    margin: 0 0 var(--sp-3);
+    font-size: clamp(28px, 7.5vw, 40px);
+    line-height: 1.12;
+    font-weight: 700;
+    letter-spacing: var(--track-tight);
+  }
+  h1 .accent-word { color: var(--m-accent-text); }
+
+  .lede {
+    margin: 0 0 var(--sp-6);
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ink-dim);
+    max-width: 46ch;
+  }
+
+  .btn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: var(--tap);
+    width: 100%;
+    padding: 0 var(--sp-5);
+    border-radius: var(--radius);
+    border: 0;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--dur-state) var(--ease-out);
+  }
+  .btn--primary {
+    background: var(--m-accent);
+    color: var(--m-accent-ink);
+  }
+  .btn--primary:active,
+  .btn--primary:hover { background: var(--m-accent-press); }
+
+  .btn--ghost {
+    background: transparent;
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1.5px var(--rule);
+  }
+  .btn--ghost:active,
+  .btn--ghost:hover { background: var(--paper-sunk-deep); }
+
+  .btn-row { margin: 0 0 var(--sp-3); }
+
+  .fineprint {
+    margin: 0 0 var(--sp-7);
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .fineprint a { color: var(--m-accent-text); font-weight: 600; text-decoration-color: var(--rule); }
+
+  hr.rule {
+    border: 0;
+    border-top: 1px solid var(--rule-soft);
+    margin: 0 0 var(--sp-7);
+  }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 0 0 var(--sp-4);
+  }
+
+  .stack { display: grid; gap: var(--sp-4); margin: 0 0 var(--sp-7); }
+  @media (min-width: 720px) {
+    .stack { grid-template-columns: 1fr 1fr; }
+  }
+
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule-soft);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-5);
+  }
+  .card__head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin: 0 0 var(--sp-3);
+  }
+  .card__tally {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--rule);
+    flex: none;
+    transition: background var(--dur-panel) var(--ease-out);
+  }
+  .is-in .card__tally { background: var(--m-accent-text); }
+  .card h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: var(--track-tight);
+  }
+  .card p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+  }
+  .card p + p { margin-top: var(--sp-3); }
+
+  .recover {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule-soft);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-5);
+    margin: 0 0 var(--sp-8);
+  }
+  .recover h2 {
+    margin: 0 0 var(--sp-4);
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: var(--track-tight);
+  }
+  .steps {
+    margin: 0 0 var(--sp-5);
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+    display: grid;
+    gap: var(--sp-3);
+  }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 34px;
+    min-height: 24px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: -1px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px var(--m-accent-text);
+    color: var(--m-accent-text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  footer {
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+  footer a { color: var(--ink-dim); }
+
+  /* ---- Scroll reveal ------------------------------------------------------
+     Progressive enhancement only. Without JS (or with it disabled), nothing
+     below ever gets the .reveal treatment removed - the .js class is only
+     added by script, so a no-JS visitor sees every section at opacity:1,
+     already in place. With JS, sections below the fold fade and rise into
+     place as they cross into view (IntersectionObserver), and each card's
+     tally dot lights up from --rule to the accent at the same moment, the
+     same cue the app uses for "this thing just went live" state. Respects
+     prefers-reduced-motion by skipping the animated state entirely, in both
+     the CSS guard below and by the script never arming without checking it
+     first. */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity var(--dur-panel) var(--ease-out), transform var(--dur-panel) var(--ease-out);
+  }
+  .js .reveal.is-in { opacity: 1; transform: none; }
+  .js .stack .reveal:nth-child(2) { transition-delay: 70ms; }
+  .js .steps li.reveal:nth-child(2) { transition-delay: 60ms; }
+  .js .steps li.reveal:nth-child(3) { transition-delay: 120ms; }
+  .js .steps li.reveal:nth-child(4) { transition-delay: 180ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .js .reveal {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+  }
+
+  @media (min-width: 720px) {
+    .wrap { padding-top: var(--sp-8); }
+    h1 { font-size: 44px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>clapboard.duckdns.org &rarr; clapper.in</p>
+
+    <h1>Clapper moved to <span class="accent-word">its own address.</span></h1>
+    <p class="lede">Same app, new home. If you were signed in here, nothing changes. Sign in again over there and your projects are already waiting.</p>
+
+    <div class="btn-row">
+      <a class="btn btn--primary" href="https://clapper.in">Open clapper.in</a>
+    </div>
+    <p class="fineprint">Signed out and missing shot logs? <a href="#recover">Read this before you leave.</a></p>
+
+    <hr class="rule" />
+
+    <p class="section-label">Where's my data</p>
+
+    <div class="stack">
+      <div class="card reveal">
+        <div class="card__head">
+          <span class="card__tally" aria-hidden="true"></span>
+          <h2>You signed in</h2>
+        </div>
+        <p>Your projects synced to the cloud the moment you signed in. Open clapper.in, sign in with the same account, and everything is already there. Nothing to do.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="card__head">
+          <span class="card__tally" aria-hidden="true"></span>
+          <h2>You never signed in</h2>
+        </div>
+        <p>Shot logs made without an account are saved only in this browser, tied to this address. They're not lost and nothing got deleted, but clapper.in cannot see them until you move them yourself.</p>
+      </div>
+    </div>
+
+    <div class="recover reveal" id="recover">
+      <h2>Get your shot logs onto clapper.in</h2>
+      <ol class="steps">
+        <li class="reveal">Open the app here, on this address, using the button below.</li>
+        <li class="reveal">Sign in, or create an account if you don't already have one.</li>
+        <li class="reveal">Give it a few seconds to sync your projects to the cloud.</li>
+        <li class="reveal">Now go to clapper.in and sign in there too. Your work follows the account, not the address.</li>
+      </ol>
+      <div class="btn-row">
+        <a class="btn btn--ghost" href="https://clapboard.duckdns.org/app/">Open the app on this domain</a>
+      </div>
+    </div>
+
+    <footer>
+      This address stays up so nothing gets stranded. <a href="https://clapper.in">clapper.in</a> is the permanent home from here.
+    </footer>
+
+  </div>
+
+  <script>
+    (function () {
+      var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduceMotion || typeof IntersectionObserver === 'undefined') return;
+
+      document.documentElement.classList.add('js');
+
+      var targets = document.querySelectorAll('.reveal');
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-in');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.2, rootMargin: '0px 0px -10% 0px' });
+
+      targets.forEach(function (el) { io.observe(el); });
+    })();
+  </script>
+</body>
+</html>
