@@ -38,10 +38,16 @@ AAAA  @    2606:50c0:8003::153
 CNAME www  kirtan-00.github.io
 ```
 
-**Status 2026-08-24: only `185.199.108.153` is actually present.** The site
-works on one A record, but there is no failover: if that single GitHub edge
-has a bad day the site is down with nothing to fall back on. The remaining
-seven are still to be added.
+**Status 2026-08-24: all nine records are in and verified** against
+`ns77.domaincontrol.com` directly, not just the registrar's success toast.
+`http://www.clapper.in` 301s to the apex, which serves 200 over HTTPS.
+
+One thing settles on its own: for up to an hour after the `www` CNAME
+changed, `https://www.clapper.in` presented GitHub's `*.github.io`
+certificate rather than one for this domain, because GitHub had not yet
+issued a cert for the new hostname. That is normal after a DNS change, not a
+misconfiguration. If it persists past a day, toggle the custom domain off and
+on in the repo's Pages settings to force a re-issue.
 
 ### GOTCHA: GoDaddy Forwarding locks the apex A record
 
