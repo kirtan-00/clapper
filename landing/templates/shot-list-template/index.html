@@ -9,41 +9,41 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-<title>Camera Log Sheet PDF: Free Printable Template | Clapper</title>
-<meta name="description" content="Free camera log sheet PDF for film sets. Keep roll, card, clip name, scene, take, timecode in and out, frame rate, resolution, and lens in one place. Download or print it." />
-<meta name="keywords" content="camera log sheet PDF, camera report template, DIT log sheet, camera log template, camera department log" />
+<title>Shot List Template: Free Printable PDF | Clapper</title>
+<meta name="description" content="Free printable shot list template for film sets. Columns for scene, shot number, size, movement, description, lens, and a status box to mark what's in the can. Download the PDF or print it." />
+<meta name="keywords" content="shot list template, film shot list, shot list PDF, shooting shot list, camera shot list template" />
 <meta name="author" content="Clapper" />
-<link rel="canonical" href="https://clapper.in/templates/camera-log-sheet/" />
+<link rel="canonical" href="https://clapper.in/templates/shot-list-template/" />
 
 <meta property="og:type" content="article" />
 <meta property="og:site_name" content="Clapper" />
-<meta property="og:title" content="Camera Log Sheet PDF: Free Printable Template" />
-<meta property="og:description" content="A printable camera log with roll, card, clip name, scene, take, timecode, frame rate, resolution, lens, and a good-take box. Free download, no email required." />
-<meta property="og:url" content="https://clapper.in/templates/camera-log-sheet/" />
+<meta property="og:title" content="Shot List Template: Free Printable PDF" />
+<meta property="og:description" content="A clean, print-ready shot list with scene, shot number, size, movement, description, lens, and a status box for what's already in the can. Free download, no email required." />
+<meta property="og:url" content="https://clapper.in/templates/shot-list-template/" />
 <meta property="og:image" content="https://clapper.in/og.png" />
 
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Camera Log Sheet PDF: Free Printable Template" />
-<meta name="twitter:description" content="A printable camera log with roll, card, clip name, scene, take, timecode, frame rate, resolution, lens, and a good-take box. Free download, no email required." />
+<meta name="twitter:title" content="Shot List Template: Free Printable PDF" />
+<meta name="twitter:description" content="A clean, print-ready shot list with scene, shot number, size, movement, description, lens, and a status box for what's already in the can. Free download, no email required." />
 <meta name="twitter:image" content="https://clapper.in/og.png" />
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "HowTo",
-  "name": "How to fill in a camera log sheet",
-  "description": "A step-by-step guide to keeping a camera log on set: card and roll, clip file name, scene and take, timecode in and out, frame rate, resolution, lens, and good-take marks.",
-  "totalTime": "PT2M",
+  "name": "How to build and use a film shot list on set",
+  "description": "A step-by-step guide to planning a shot list before the shoot and running it on the day: scene, shot number, size, movement, description, lens, and marking off what's in the can.",
+  "totalTime": "PT5M",
   "supply": [
-    { "@type": "HowToSupply", "name": "Camera log sheet (one card per sheet)" },
-    { "@type": "HowToSupply", "name": "Pen and clipboard" }
+    { "@type": "HowToSupply", "name": "Shot list (one page per scene or scheduled block)" },
+    { "@type": "HowToSupply", "name": "Pen and clipboard, or the script" }
   ],
   "step": [
-    { "@type": "HowToStep", "name": "Head the sheet with the card", "text": "Write the production, camera body or letter, operator, DIT or loader, and the roll or card ID. Start a fresh sheet for every card so nothing crosses over." },
-    { "@type": "HowToStep", "name": "Log the clip and file name", "text": "For each clip, write the clip or file name exactly as the camera wrote it so the log matches the card with no drift." },
-    { "@type": "HowToStep", "name": "Tie it to scene and take", "text": "Note the scene, setup, and take for the clip so the editor can match footage to the continuity and script." },
-    { "@type": "HowToStep", "name": "Record timecode and format", "text": "Write timecode in and out, frame rate, resolution, and lens, plus ND or stop if your workflow tracks it." },
-    { "@type": "HowToStep", "name": "Mark the good takes", "text": "Check the good-take box on the keepers and add a short note for anything the editor or colorist should know." }
+    { "@type": "HowToStep", "name": "Break the scene into shots", "text": "Read the scene and list every shot you plan to get: the establishing wide, the coverage, the inserts. One row per shot." },
+    { "@type": "HowToStep", "name": "Set the size and movement", "text": "For each shot, note the size (WS, MS, CU) and any camera movement (static, handheld, push in, pan) so the operator knows the frame before you roll." },
+    { "@type": "HowToStep", "name": "Write the description", "text": "One line describing what happens in the shot, specific enough that someone else could shoot it from the sheet alone." },
+    { "@type": "HowToStep", "name": "Note the lens", "text": "Write the lens or focal length if the shot is planned around one, so the AC can have it ready before the setup." },
+    { "@type": "HowToStep", "name": "Mark it off as you get it", "text": "Check the status box the moment the shot is in the can, so the 1st AD can see coverage left at a glance without asking." }
   ]
 }
 </script>
@@ -70,6 +70,7 @@
   h3{font-size:20px;margin:0 0 6px}
   p{margin:0 0 16px}
 
+  /* top bar */
   .topbar{border-bottom:1px solid var(--hair)}
   .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
   .brandmark{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-size:22px;letter-spacing:-.02em;text-decoration:none}
@@ -77,6 +78,7 @@
   .topnav{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey);text-decoration:none}
   .topnav:hover{color:var(--ink)}
 
+  /* buttons */
   .btn{display:inline-flex;align-items:center;gap:.55em;background:var(--ink);color:var(--ivory);font-family:var(--sans);font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--ink);cursor:pointer;padding:14px 22px;border-radius:12px;transition:transform .2s var(--ease),background .2s var(--ease)}
   .btn:hover{transform:translateY(-1px)}
   .btn .arw{transition:transform .2s var(--ease)}
@@ -105,9 +107,10 @@
   ol.steps li h3{margin-bottom:3px}
   ol.steps li p{margin:0;color:#444;font-size:15.5px}
 
+  /* embedded sheet preview */
   .sheet-frame{border:1px solid var(--hair);border-radius:16px;background:var(--ivory);padding:16px;box-shadow:0 30px 60px -40px rgba(21,20,20,.35)}
   .sheet-scroll{overflow-x:auto}
-  #printSheet{background:var(--paper);color:#141313;min-width:1040px;padding:20px 22px;border-radius:8px}
+  #printSheet{background:var(--paper);color:#141313;min-width:900px;padding:20px 22px;border-radius:8px}
   .sh-mast{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #141313;padding-bottom:8px}
   .sh-mast .t{font-family:var(--serif);font-size:24px}
   .sh-mast .s{font-family:var(--mono);font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--grey);margin-top:3px}
@@ -120,12 +123,12 @@
   .sh-head .f label{font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--grey);display:block}
   table.sh{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}
   table.sh th,table.sh td{border:1px solid #c2c3ba;padding:0}
-  table.sh thead th{font-family:var(--mono);font-size:7px;letter-spacing:.04em;text-transform:uppercase;background:#f2f3ec;height:24px;vertical-align:middle;padding:2px 4px;text-align:left}
-  table.sh tbody td{height:26px;padding:2px 4px}
+  table.sh thead th{font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;background:#f2f3ec;height:24px;vertical-align:middle;padding:2px 5px;text-align:left}
+  table.sh tbody td{height:27px;padding:2px 5px}
   table.sh tbody tr:nth-child(even) td{background:#fafbf6}
-  td.chk{text-align:center}
-  .box{display:inline-block;width:12px;height:12px;border:1.4px solid #141313;border-radius:2px;margin-top:3px}
   .sh-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);align-items:center}
+  .sh-dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid #141313;vertical-align:-1px;margin-right:5px}
+  .sh-dot.gold{background:var(--gold);border-color:#b4881f}
 
   /* paper vs clapper comparison */
   .cmp-wrap{border:1px solid var(--hair);border-radius:16px;overflow-x:auto;margin-top:24px;background:var(--paper)}
@@ -148,6 +151,7 @@
   .cta ul li{font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;color:#b9d9c8;display:flex;align-items:center;gap:7px}
   .cta ul li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
 
+  /* more templates */
   .more{border-top:1px solid var(--hair)}
   .more h2{font-size:22px}
   .more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
@@ -213,10 +217,10 @@
     <section class="hero">
       <div class="wrap">
         <p class="kicker">Free template &middot; no email needed</p>
-        <h1>Camera log sheet (PDF)</h1>
-        <p class="lede">A printable camera log that keeps roll, card, clip name, scene, take, and timecode in one place, so nothing gets lost between the card and the edit. Room for frame rate, resolution, lens, and a good-take box on every row.</p>
+        <h1>Shot list template</h1>
+        <p class="lede">A clean, print-ready shot list built the way a working 1st AD or DP actually runs one. Scene, shot number, size, movement, description, lens, and a status box to check off what's in the can. One page per scene, sized to fit a clipboard.</p>
         <div class="dl-row">
-          <a class="btn btn-lg" href="clapper-camera-log-sheet.pdf" download>Download PDF <span class="arw">&darr;</span></a>
+          <a class="btn btn-lg" href="clapper-shot-list.pdf" download>Download PDF <span class="arw">&darr;</span></a>
           <button class="btn btn-ghost btn-lg" type="button" onclick="window.print()">Print this sheet</button>
           <p class="dl-note">PDF, A4 landscape, prints clean in black and white. Free to use on any shoot.</p>
         </div>
@@ -227,9 +231,9 @@
 
     <section>
       <div class="wrap">
-        <h2>What a camera log sheet is</h2>
-        <p class="lede" style="max-width:70ch">A camera log, or camera report, is the record the camera department keeps of what each card holds. It ties every clip file name to a scene, setup, and take, and notes the technical detail, timecode, frame rate, resolution, lens, so the DIT can offload cleanly and the editor can match footage to the script without opening every clip to check.</p>
-        <p style="max-width:70ch;color:#444">The one rule that matters most: the clip name on the sheet has to match the clip name on the card exactly. Get that right and the whole downstream chain, offload, sync, edit, lines up on its own.</p>
+        <h2>What a shot list is</h2>
+        <p class="lede" style="max-width:70ch">A shot list is the plan for every shot a scene needs, made before the day so the crew isn't inventing coverage on set. It breaks a scene into its wide, its coverage, and its inserts, with a size and a movement for each, so the whole crew is shooting the same plan instead of guessing at it between setups.</p>
+        <p style="max-width:70ch;color:#444">Get it wrong and a fast day eats coverage you needed for the cut. Get it right and the 1st AD can see exactly what's left to get at a glance, and the edit has options instead of gaps.</p>
       </div>
     </section>
 
@@ -238,26 +242,24 @@
         <div>
           <h2>What is on the sheet</h2>
           <ul class="field-list">
-            <li><b>Roll / card</b><span>The card or roll ID this clip lives on.</span></li>
-            <li><b>Clip / file</b><span>The clip file name, exactly as the camera wrote it.</span></li>
-            <li><b>Scene / setup</b><span>The scene and camera setup the clip belongs to.</span></li>
-            <li><b>Take</b><span>The take number, so it matches the continuity sheet.</span></li>
-            <li><b>TC in / out</b><span>Clip start and end timecode.</span></li>
-            <li><b>FPS</b><span>Frame rate, so nothing gets conformed wrong.</span></li>
-            <li><b>Resolution</b><span>Capture resolution and format.</span></li>
-            <li><b>Lens / mm</b><span>Lens and focal length for the setup.</span></li>
-            <li><b>ND / stop</b><span>Filtration or stop, if your workflow tracks it.</span></li>
-            <li><b>Good take</b><span>A box to check the keepers at a glance.</span></li>
+            <li><b>Scene</b><span>The scene number, so the list lines up with the script.</span></li>
+            <li><b>Shot #</b><span>The shot number within the scene, in the order you plan to get it.</span></li>
+            <li><b>Size</b><span>WS, MS, CU, or whatever shorthand your crew uses.</span></li>
+            <li><b>Movement</b><span>Static, handheld, push in, pan, whatever the shot calls for.</span></li>
+            <li><b>Description</b><span>One line, specific enough that someone else could shoot it from the sheet alone.</span></li>
+            <li><b>Lens</b><span>The focal length, if the shot is planned around one.</span></li>
+            <li><b>Status</b><span>A box to check the moment the shot is in the can.</span></li>
+            <li><b>Notes</b><span>Anything the next unit or the edit needs to know about the shot.</span></li>
           </ul>
         </div>
         <div>
           <h2>How a pro fills it in</h2>
           <ol class="steps">
-            <li><h3>Head the sheet with the card</h3><p>Production, camera body or letter, operator, DIT or loader, and the roll or card ID. One sheet per card so nothing crosses over.</p></li>
-            <li><h3>Log the clip name exactly</h3><p>Write the file name the way the camera wrote it. No shorthand, no drift, no off-by-one.</p></li>
-            <li><h3>Tie it to scene and take</h3><p>Scene, setup, take, so the editor can match footage to the continuity and script.</p></li>
-            <li><h3>Record timecode and format</h3><p>Timecode in and out, frame rate, resolution, lens, and ND or stop if you track it.</p></li>
-            <li><h3>Check the good takes</h3><p>Tick the good-take box on the keepers and note anything the editor or colorist should know.</p></li>
+            <li><h3>Break the scene into shots</h3><p>Read the scene and list every shot you plan to get: the establishing wide, the coverage, the inserts. One row per shot.</p></li>
+            <li><h3>Set the size and movement</h3><p>Note the size and any camera movement so the operator knows the frame before you roll.</p></li>
+            <li><h3>Write the description</h3><p>One line, specific enough to shoot from the sheet alone if you're not the one who wrote it.</p></li>
+            <li><h3>Note the lens</h3><p>Write the lens if the shot is planned around one, so the AC has it ready before the setup.</p></li>
+            <li><h3>Mark it off as you get it</h3><p>Check the status box the moment the shot is in the can, so the AD can see coverage left without asking.</p></li>
           </ol>
         </div>
       </div>
@@ -266,7 +268,7 @@
     <section style="padding-top:8px">
       <div class="wrap">
         <h2>When to use it</h2>
-        <p style="max-width:70ch;color:#444">Use it any time you are shooting to cards and someone has to account for them: narrative, documentary, commercial, or multi-camera. Start a fresh sheet for every card, keep it with the camera or the DIT cart, and hand it off at wrap with the media. When a card comes up short or a clip goes missing, this sheet is the paper trail that finds it.</p>
+        <p style="max-width:70ch;color:#444">Build one sheet per scene during prep, from the script or a scout, then bring it to set and run it live. It works for a short film, a feature, a spec, a student project, or a branded shoot with a locked board. Update it as the day changes, not after wrap, so it stays the thing the 1st AD actually checks coverage against.</p>
       </div>
     </section>
 
@@ -278,49 +280,45 @@
           <div class="sheet-scroll">
             <div id="printSheet">
               <div class="sh-mast">
-                <div><div class="t serif">Camera Log Sheet</div><div class="s">Camera report &middot; one card per sheet</div></div>
+                <div><div class="t serif">Shot List</div><div class="s">Scene plan &middot; one page per scene</div></div>
                 <div class="sh-brand serif">Clapper<span class="u">clapper.in</span></div>
               </div>
               <div class="sh-accent"></div>
               <div class="sh-head">
                 <div class="f"><label>Production</label></div>
-                <div class="f"><label>Camera (body / letter)</label></div>
-                <div class="f"><label>Operator</label></div>
-                <div class="f"><label>DIT / Loader</label></div>
-                <div class="f"><label>Roll / Card ID</label></div>
-                <div class="f"><label>Codec / Format</label></div>
+                <div class="f"><label>Scene</label></div>
+                <div class="f"><label>Director</label></div>
+                <div class="f"><label>DP</label></div>
                 <div class="f"><label>Date</label></div>
-                <div class="f"><label>Sheet (of)</label></div>
+                <div class="f"><label>Location</label></div>
+                <div class="f"><label>Shoot day (of)</label></div>
+                <div class="f"><label>Page (of)</label></div>
               </div>
               <table class="sh">
                 <thead><tr>
-                  <th style="width:7%">Roll / Card</th><th style="width:13%">Clip / File name</th><th style="width:6%">Scene</th><th style="width:7%">Setup</th><th style="width:5%">Take</th><th style="width:9%">TC In</th><th style="width:9%">TC Out</th><th style="width:6.5%">FPS</th><th style="width:9%">Resolution</th><th style="width:9%">Lens / mm</th><th style="width:6%">ND / Stop</th><th style="width:6.5%">Good take</th><th style="width:11.5%">Note</th>
+                  <th style="width:6%">Shot #</th><th style="width:7%">Size</th><th style="width:12%">Movement</th><th style="width:32%">Description</th><th style="width:9%">Lens</th><th style="width:6%">Done</th><th style="width:28%">Notes</th>
                 </tr></thead>
                 <tbody>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
                 </tbody>
               </table>
               <div class="sh-legend">
-                <span>Good take = checked when the take is a keeper</span>
-                <span>TC In / Out = clip start and end timecode</span>
-                <span>Match clip names to the card exactly</span>
+                <span><span class="sh-dot"></span>Done = shot is in the can</span>
+                <span><span class="sh-dot gold"></span>Circle back = still owed, reschedule</span>
+                <span>Size shorthand: WS, MS, CU, OTS, INSERT</span>
               </div>
             </div>
           </div>
@@ -331,20 +329,20 @@
     <section>
       <div class="wrap">
         <p class="kicker">Paper vs Clapper</p>
-        <h2 class="serif">The log is free. Re-keying every clip number is the tax.</h2>
-        <p style="max-width:64ch;color:#444">Download the camera log and it does the job on paper. This is only the part that disappears when Clapper numbers your clips for you. The sheet stays free to print as often as you like.</p>
+        <h2 class="serif">The sheet is free. Doing it by hand is the expensive part.</h2>
+        <p style="max-width:64ch;color:#444">Print the shot list and it will serve you well. This is only what stops being manual the day you run the same list in Clapper instead. The download stays free either way.</p>
         <div class="cmp-wrap">
           <table class="cmp">
             <thead>
-              <tr><th class="feat">&nbsp;</th><th class="paper">Paper log</th><th class="col-clap">Clapper</th></tr>
+              <tr><th class="feat">&nbsp;</th><th class="paper">Paper sheet</th><th class="col-clap">Clapper</th></tr>
             </thead>
             <tbody>
               <tr><td class="feat">Cost</td><td class="paper">Free to print</td><td class="col-clap">Free with a Google account</td></tr>
-              <tr><td class="feat">Fill it in</td><td class="paper">By hand, card by card</td><td class="col-clap">Tap on your phone</td></tr>
-              <tr><td class="feat">Camera clip numbers</td><td class="paper">You read and copy each one</td><td class="col-clap">Auto-counted, matched to your camera</td></tr>
-              <tr><td class="feat">GOLD / circle selects</td><td class="paper">Marker on the good takes</td><td class="col-clap">One tap</td></tr>
-              <tr><td class="feat">Hand off to editor</td><td class="paper">Type the clip list into a spreadsheet</td><td class="col-clap">Export Premiere XML, CSV, and PDF</td></tr>
-              <tr><td class="feat">At wrap</td><td class="paper">New sheet for the next card</td><td class="col-clap">Already done</td></tr>
+              <tr><td class="feat">Build the list</td><td class="paper">Type it up before the shoot</td><td class="col-clap">Script Mode turns your script into tappable buttons</td></tr>
+              <tr><td class="feat">Mark a shot done</td><td class="paper">Cross it off with a pen</td><td class="col-clap">Tap the shot, it logs the take with a timecode</td></tr>
+              <tr><td class="feat">Coverage left</td><td class="paper">Count the unchecked boxes</td><td class="col-clap">Visible at a glance on the project screen</td></tr>
+              <tr><td class="feat">Hand off to editor</td><td class="paper">Re-type the sheet into a spreadsheet</td><td class="col-clap">Export Premiere XML, CSV, and PDF</td></tr>
+              <tr><td class="feat">At wrap</td><td class="paper">Start a fresh stack tomorrow</td><td class="col-clap">Already done</td></tr>
             </tbody>
           </table>
         </div>
@@ -354,12 +352,12 @@
     <section>
       <div class="wrap">
         <div class="cta">
-          <p class="kicker">Skip the retype</p>
-          <h2 class="serif">Clapper numbers your clips for you</h2>
-          <p>If you would rather not re-key every clip number by hand, Clapper auto-numbers your camera clips as you log takes. Pick your camera body and it numbers clips the way that camera does, so the log matches the cards with no drift. At wrap it exports a Premiere-ready XML plus a CSV and a printable PDF the editor can open directly.</p>
+          <p class="kicker">Skip the printout</p>
+          <h2 class="serif">Clapper turns the shot list into buttons you tap</h2>
+          <p>Feed your script PDF into Script Mode and every key moment of every shot becomes a button on your phone. Tap it as you shoot, and Clapper stamps the timecode, marks the take, and tracks what's still left in the scene, so the shot list runs itself instead of getting crossed off by hand.</p>
           <ul>
             <li>Free with a Google account</li>
-            <li>Clip numbering matched to your camera</li>
+            <li>Works offline on set</li>
             <li>Exports Premiere XML, CSV, and PDF</li>
           </ul>
           <a class="btn btn-lg" href="https://clapper.in/">Open Clapper <span class="arw">&rarr;</span></a>
@@ -375,6 +373,10 @@
             <div class="l">Free template</div>
             <div class="n serif">Continuity sheet template</div>
           </a>
+          <a class="more-card" href="../camera-log-sheet/">
+            <div class="l">Free template</div>
+            <div class="n serif">Camera log sheet (PDF)</div>
+          </a>
           <a class="more-card" href="../script-supervisor-daily-report/">
             <div class="l">Free template</div>
             <div class="n serif">Script supervisor daily report</div>
@@ -382,10 +384,6 @@
           <a class="more-card" href="../sound-report-template/">
             <div class="l">Free template</div>
             <div class="n serif">Sound report template</div>
-          </a>
-          <a class="more-card" href="../shot-list-template/">
-            <div class="l">Free template</div>
-            <div class="n serif">Shot list template</div>
           </a>
         </div>
       </div>
@@ -401,9 +399,9 @@
       <span class="flinks">
         <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
         <a href="../continuity-sheet-template/">Continuity sheet</a>
+        <a href="../camera-log-sheet/">Camera log</a>
         <a href="../script-supervisor-daily-report/">Daily report</a>
         <a href="../sound-report-template/">Sound report</a>
-        <a href="../shot-list-template/">Shot list</a>
         <a href="mailto:purohit.krick@gmail.com">Contact</a>
       </span>
       <span class="made">made for set</span>

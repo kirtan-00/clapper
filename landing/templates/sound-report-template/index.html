@@ -9,41 +9,42 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-<title>Camera Log Sheet PDF: Free Printable Template | Clapper</title>
-<meta name="description" content="Free camera log sheet PDF for film sets. Keep roll, card, clip name, scene, take, timecode in and out, frame rate, resolution, and lens in one place. Download or print it." />
-<meta name="keywords" content="camera log sheet PDF, camera report template, DIT log sheet, camera log template, camera department log" />
+<title>Sound Report Template: Free Printable PDF | Clapper</title>
+<meta name="description" content="Free printable production sound report for film sets. Columns for scene, take, sound file number, timecode, track assignments, and circle takes. Download the PDF or print it." />
+<meta name="keywords" content="sound report template, production sound report, sound log sheet, sound mixer report template, sound report PDF" />
 <meta name="author" content="Clapper" />
-<link rel="canonical" href="https://clapper.in/templates/camera-log-sheet/" />
+<link rel="canonical" href="https://clapper.in/templates/sound-report-template/" />
 
 <meta property="og:type" content="article" />
 <meta property="og:site_name" content="Clapper" />
-<meta property="og:title" content="Camera Log Sheet PDF: Free Printable Template" />
-<meta property="og:description" content="A printable camera log with roll, card, clip name, scene, take, timecode, frame rate, resolution, lens, and a good-take box. Free download, no email required." />
-<meta property="og:url" content="https://clapper.in/templates/camera-log-sheet/" />
+<meta property="og:title" content="Sound Report Template: Free Printable PDF" />
+<meta property="og:description" content="A clean, print-ready production sound report with scene, take, file number, timecode, track assignments, and circle takes. Free download, no email required." />
+<meta property="og:url" content="https://clapper.in/templates/sound-report-template/" />
 <meta property="og:image" content="https://clapper.in/og.png" />
 
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Camera Log Sheet PDF: Free Printable Template" />
-<meta name="twitter:description" content="A printable camera log with roll, card, clip name, scene, take, timecode, frame rate, resolution, lens, and a good-take box. Free download, no email required." />
+<meta name="twitter:title" content="Sound Report Template: Free Printable PDF" />
+<meta name="twitter:description" content="A clean, print-ready production sound report with scene, take, file number, timecode, track assignments, and circle takes. Free download, no email required." />
 <meta name="twitter:image" content="https://clapper.in/og.png" />
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "HowTo",
-  "name": "How to fill in a camera log sheet",
-  "description": "A step-by-step guide to keeping a camera log on set: card and roll, clip file name, scene and take, timecode in and out, frame rate, resolution, lens, and good-take marks.",
+  "name": "How to fill in a production sound report",
+  "description": "A step-by-step guide to keeping a production sound report on set: roll or card ID, scene and take, sound file name, timecode, track assignments, and circle takes.",
   "totalTime": "PT2M",
   "supply": [
-    { "@type": "HowToSupply", "name": "Camera log sheet (one card per sheet)" },
+    { "@type": "HowToSupply", "name": "Sound report (one page per roll or card)" },
     { "@type": "HowToSupply", "name": "Pen and clipboard" }
   ],
   "step": [
-    { "@type": "HowToStep", "name": "Head the sheet with the card", "text": "Write the production, camera body or letter, operator, DIT or loader, and the roll or card ID. Start a fresh sheet for every card so nothing crosses over." },
-    { "@type": "HowToStep", "name": "Log the clip and file name", "text": "For each clip, write the clip or file name exactly as the camera wrote it so the log matches the card with no drift." },
-    { "@type": "HowToStep", "name": "Tie it to scene and take", "text": "Note the scene, setup, and take for the clip so the editor can match footage to the continuity and script." },
-    { "@type": "HowToStep", "name": "Record timecode and format", "text": "Write timecode in and out, frame rate, resolution, and lens, plus ND or stop if your workflow tracks it." },
-    { "@type": "HowToStep", "name": "Mark the good takes", "text": "Check the good-take box on the keepers and add a short note for anything the editor or colorist should know." }
+    { "@type": "HowToStep", "name": "Head the roll", "text": "Write the production, sound mixer, recorder and format, sample rate and timecode frame rate, and the roll or card ID at the top. Start a fresh sheet for every roll or card." },
+    { "@type": "HowToStep", "name": "Log scene and take", "text": "For every take, write the scene and take number as it is slated, in the order the recorder rolled them." },
+    { "@type": "HowToStep", "name": "Note the file name", "text": "Write the exact file name the recorder wrote for that take, so the sound file matches the log with no drift and no renaming later." },
+    { "@type": "HowToStep", "name": "Assign the tracks", "text": "Note which track carries the boom and which carries each lav, so editorial does not have to guess whose mic is on which channel." },
+    { "@type": "HowToStep", "name": "Mark circle takes and NG", "text": "Circle the take when the mixer or director calls it good. Mark NG for a false start, a wild line, or a take ruined by noise." },
+    { "@type": "HowToStep", "name": "Write the notes", "text": "Flag anything editorial or the re-recording mixer needs to know: a plane overhead, a generator hum, a line that will need ADR." }
   ]
 }
 </script>
@@ -70,6 +71,7 @@
   h3{font-size:20px;margin:0 0 6px}
   p{margin:0 0 16px}
 
+  /* top bar */
   .topbar{border-bottom:1px solid var(--hair)}
   .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
   .brandmark{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-size:22px;letter-spacing:-.02em;text-decoration:none}
@@ -77,6 +79,7 @@
   .topnav{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey);text-decoration:none}
   .topnav:hover{color:var(--ink)}
 
+  /* buttons */
   .btn{display:inline-flex;align-items:center;gap:.55em;background:var(--ink);color:var(--ivory);font-family:var(--sans);font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--ink);cursor:pointer;padding:14px 22px;border-radius:12px;transition:transform .2s var(--ease),background .2s var(--ease)}
   .btn:hover{transform:translateY(-1px)}
   .btn .arw{transition:transform .2s var(--ease)}
@@ -105,9 +108,10 @@
   ol.steps li h3{margin-bottom:3px}
   ol.steps li p{margin:0;color:#444;font-size:15.5px}
 
+  /* embedded sheet preview */
   .sheet-frame{border:1px solid var(--hair);border-radius:16px;background:var(--ivory);padding:16px;box-shadow:0 30px 60px -40px rgba(21,20,20,.35)}
   .sheet-scroll{overflow-x:auto}
-  #printSheet{background:var(--paper);color:#141313;min-width:1040px;padding:20px 22px;border-radius:8px}
+  #printSheet{background:var(--paper);color:#141313;min-width:900px;padding:20px 22px;border-radius:8px}
   .sh-mast{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #141313;padding-bottom:8px}
   .sh-mast .t{font-family:var(--serif);font-size:24px}
   .sh-mast .s{font-family:var(--mono);font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--grey);margin-top:3px}
@@ -120,12 +124,12 @@
   .sh-head .f label{font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--grey);display:block}
   table.sh{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}
   table.sh th,table.sh td{border:1px solid #c2c3ba;padding:0}
-  table.sh thead th{font-family:var(--mono);font-size:7px;letter-spacing:.04em;text-transform:uppercase;background:#f2f3ec;height:24px;vertical-align:middle;padding:2px 4px;text-align:left}
-  table.sh tbody td{height:26px;padding:2px 4px}
+  table.sh thead th{font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;background:#f2f3ec;height:24px;vertical-align:middle;padding:2px 5px;text-align:left}
+  table.sh tbody td{height:27px;padding:2px 5px}
   table.sh tbody tr:nth-child(even) td{background:#fafbf6}
-  td.chk{text-align:center}
-  .box{display:inline-block;width:12px;height:12px;border:1.4px solid #141313;border-radius:2px;margin-top:3px}
   .sh-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);align-items:center}
+  .sh-dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid #141313;vertical-align:-1px;margin-right:5px}
+  .sh-dot.gold{background:var(--gold);border-color:#b4881f}
 
   /* paper vs clapper comparison */
   .cmp-wrap{border:1px solid var(--hair);border-radius:16px;overflow-x:auto;margin-top:24px;background:var(--paper)}
@@ -148,6 +152,7 @@
   .cta ul li{font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;color:#b9d9c8;display:flex;align-items:center;gap:7px}
   .cta ul li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
 
+  /* more templates */
   .more{border-top:1px solid var(--hair)}
   .more h2{font-size:22px}
   .more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
@@ -213,10 +218,10 @@
     <section class="hero">
       <div class="wrap">
         <p class="kicker">Free template &middot; no email needed</p>
-        <h1>Camera log sheet (PDF)</h1>
-        <p class="lede">A printable camera log that keeps roll, card, clip name, scene, take, and timecode in one place, so nothing gets lost between the card and the edit. Room for frame rate, resolution, lens, and a good-take box on every row.</p>
+        <h1>Sound report template</h1>
+        <p class="lede">A clean, print-ready production sound report built the way a working sound mixer actually keeps one. Scene, take, sound file, timecode, track assignments, and circle takes. One page per roll or card, sized to fit a clipboard.</p>
         <div class="dl-row">
-          <a class="btn btn-lg" href="clapper-camera-log-sheet.pdf" download>Download PDF <span class="arw">&darr;</span></a>
+          <a class="btn btn-lg" href="clapper-sound-report.pdf" download>Download PDF <span class="arw">&darr;</span></a>
           <button class="btn btn-ghost btn-lg" type="button" onclick="window.print()">Print this sheet</button>
           <p class="dl-note">PDF, A4 landscape, prints clean in black and white. Free to use on any shoot.</p>
         </div>
@@ -227,9 +232,9 @@
 
     <section>
       <div class="wrap">
-        <h2>What a camera log sheet is</h2>
-        <p class="lede" style="max-width:70ch">A camera log, or camera report, is the record the camera department keeps of what each card holds. It ties every clip file name to a scene, setup, and take, and notes the technical detail, timecode, frame rate, resolution, lens, so the DIT can offload cleanly and the editor can match footage to the script without opening every clip to check.</p>
-        <p style="max-width:70ch;color:#444">The one rule that matters most: the clip name on the sheet has to match the clip name on the card exactly. Get that right and the whole downstream chain, offload, sync, edit, lines up on its own.</p>
+        <h2>What a sound report is</h2>
+        <p class="lede" style="max-width:70ch">A sound report is the roll-by-roll record the production sound mixer keeps of everything the recorder captured. It ties every sound file to its scene and take, notes which track carries which mic, and flags the takes worth cutting into so post never has to open a file blind.</p>
+        <p style="max-width:70ch;color:#444">Get it wrong and the editor spends a morning matching sound files to picture by ear, or a wild line gets missed entirely. Get it right and sync is a formality. This sheet gives you one row per take and a column for each thing the recorder and the edit both need.</p>
       </div>
     </section>
 
@@ -238,26 +243,23 @@
         <div>
           <h2>What is on the sheet</h2>
           <ul class="field-list">
-            <li><b>Roll / card</b><span>The card or roll ID this clip lives on.</span></li>
-            <li><b>Clip / file</b><span>The clip file name, exactly as the camera wrote it.</span></li>
-            <li><b>Scene / setup</b><span>The scene and camera setup the clip belongs to.</span></li>
-            <li><b>Take</b><span>The take number, so it matches the continuity sheet.</span></li>
-            <li><b>TC in / out</b><span>Clip start and end timecode.</span></li>
-            <li><b>FPS</b><span>Frame rate, so nothing gets conformed wrong.</span></li>
-            <li><b>Resolution</b><span>Capture resolution and format.</span></li>
-            <li><b>Lens / mm</b><span>Lens and focal length for the setup.</span></li>
-            <li><b>ND / stop</b><span>Filtration or stop, if your workflow tracks it.</span></li>
-            <li><b>Good take</b><span>A box to check the keepers at a glance.</span></li>
+            <li><b>Scene</b><span>The scene number, so the report lines up with the script and the camera log.</span></li>
+            <li><b>Take</b><span>Every take number, logged in the order the recorder rolled it.</span></li>
+            <li><b>File #</b><span>The exact file name the recorder wrote, so the file matches the log with no renaming later.</span></li>
+            <li><b>Timecode</b><span>Record-run timecode in and out, so editorial can find the take without scrubbing.</span></li>
+            <li><b>Track 1 / Track 2</b><span>Which mic, boom or which lav, is on which channel.</span></li>
+            <li><b>Circle</b><span>Which takes the mixer or director called good, and which are NG.</span></li>
+            <li><b>Notes</b><span>Wind, a generator, a plane overhead, a line that will need ADR.</span></li>
           </ul>
         </div>
         <div>
           <h2>How a pro fills it in</h2>
           <ol class="steps">
-            <li><h3>Head the sheet with the card</h3><p>Production, camera body or letter, operator, DIT or loader, and the roll or card ID. One sheet per card so nothing crosses over.</p></li>
-            <li><h3>Log the clip name exactly</h3><p>Write the file name the way the camera wrote it. No shorthand, no drift, no off-by-one.</p></li>
-            <li><h3>Tie it to scene and take</h3><p>Scene, setup, take, so the editor can match footage to the continuity and script.</p></li>
-            <li><h3>Record timecode and format</h3><p>Timecode in and out, frame rate, resolution, lens, and ND or stop if you track it.</p></li>
-            <li><h3>Check the good takes</h3><p>Tick the good-take box on the keepers and note anything the editor or colorist should know.</p></li>
+            <li><h3>Head the roll</h3><p>Production, sound mixer, recorder and format, sample rate and timecode frame rate, roll or card ID, date. One sheet per roll or card.</p></li>
+            <li><h3>Log scene and take</h3><p>Write the scene and take number for every take, in the order the recorder rolled them.</p></li>
+            <li><h3>Note the file name</h3><p>Write the exact file name the recorder wrote, the moment it is written, not from memory later.</p></li>
+            <li><h3>Assign the tracks</h3><p>Which mic is on which channel, so editorial does not have to guess whose voice is where.</p></li>
+            <li><h3>Mark circle takes and NG</h3><p>Circle the good takes as they happen. Mark NG for a false start, a wild line, or a take a truck ruined.</p></li>
           </ol>
         </div>
       </div>
@@ -266,7 +268,7 @@
     <section style="padding-top:8px">
       <div class="wrap">
         <h2>When to use it</h2>
-        <p style="max-width:70ch;color:#444">Use it any time you are shooting to cards and someone has to account for them: narrative, documentary, commercial, or multi-camera. Start a fresh sheet for every card, keep it with the camera or the DIT cart, and hand it off at wrap with the media. When a card comes up short or a clip goes missing, this sheet is the paper trail that finds it.</p>
+        <p style="max-width:70ch;color:#444">Use one sheet per roll or card on any shoot with a dedicated sound mixer: short film, feature, documentary, or a commercial with sync dialogue. Start a fresh sheet every time you swap cards, and keep the circled takes and the notes column legible, because that is what the editor and the re-recording mixer both read first.</p>
       </div>
     </section>
 
@@ -278,49 +280,45 @@
           <div class="sheet-scroll">
             <div id="printSheet">
               <div class="sh-mast">
-                <div><div class="t serif">Camera Log Sheet</div><div class="s">Camera report &middot; one card per sheet</div></div>
+                <div><div class="t serif">Sound Report</div><div class="s">Roll log &middot; one page per roll or card</div></div>
                 <div class="sh-brand serif">Clapper<span class="u">clapper.in</span></div>
               </div>
               <div class="sh-accent"></div>
               <div class="sh-head">
                 <div class="f"><label>Production</label></div>
-                <div class="f"><label>Camera (body / letter)</label></div>
-                <div class="f"><label>Operator</label></div>
-                <div class="f"><label>DIT / Loader</label></div>
-                <div class="f"><label>Roll / Card ID</label></div>
-                <div class="f"><label>Codec / Format</label></div>
+                <div class="f"><label>Sound Mixer</label></div>
+                <div class="f"><label>Recorder / Format</label></div>
+                <div class="f"><label>Sample Rate / TC Rate</label></div>
+                <div class="f"><label>Roll / Card</label></div>
                 <div class="f"><label>Date</label></div>
-                <div class="f"><label>Sheet (of)</label></div>
+                <div class="f"><label>Boom Op</label></div>
+                <div class="f"><label>Page (of)</label></div>
               </div>
               <table class="sh">
                 <thead><tr>
-                  <th style="width:7%">Roll / Card</th><th style="width:13%">Clip / File name</th><th style="width:6%">Scene</th><th style="width:7%">Setup</th><th style="width:5%">Take</th><th style="width:9%">TC In</th><th style="width:9%">TC Out</th><th style="width:6.5%">FPS</th><th style="width:9%">Resolution</th><th style="width:9%">Lens / mm</th><th style="width:6%">ND / Stop</th><th style="width:6.5%">Good take</th><th style="width:11.5%">Note</th>
+                  <th style="width:6%">Scene</th><th style="width:5%">Take</th><th style="width:11%">File #</th><th style="width:11%">Timecode In / Out</th><th style="width:12%">Track 1</th><th style="width:12%">Track 2</th><th style="width:6%">Circle</th><th style="width:37%">Notes</th>
                 </tr></thead>
                 <tbody>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
-                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="chk"><span class="box"></span></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                  <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
                 </tbody>
               </table>
               <div class="sh-legend">
-                <span>Good take = checked when the take is a keeper</span>
-                <span>TC In / Out = clip start and end timecode</span>
-                <span>Match clip names to the card exactly</span>
+                <span><span class="sh-dot"></span>Circle = good take, usable</span>
+                <span><span class="sh-dot gold"></span>NG = not good, do not transfer</span>
+                <span>TC = record run timecode, in and out</span>
               </div>
             </div>
           </div>
@@ -331,20 +329,20 @@
     <section>
       <div class="wrap">
         <p class="kicker">Paper vs Clapper</p>
-        <h2 class="serif">The log is free. Re-keying every clip number is the tax.</h2>
-        <p style="max-width:64ch;color:#444">Download the camera log and it does the job on paper. This is only the part that disappears when Clapper numbers your clips for you. The sheet stays free to print as often as you like.</p>
+        <h2 class="serif">The sheet is free. Doing it by hand is the expensive part.</h2>
+        <p style="max-width:64ch;color:#444">Print the sound report and it will serve you well. This is only what stops being manual the day you log the same roll in Clapper instead. The download stays free either way.</p>
         <div class="cmp-wrap">
           <table class="cmp">
             <thead>
-              <tr><th class="feat">&nbsp;</th><th class="paper">Paper log</th><th class="col-clap">Clapper</th></tr>
+              <tr><th class="feat">&nbsp;</th><th class="paper">Paper sheet</th><th class="col-clap">Clapper</th></tr>
             </thead>
             <tbody>
               <tr><td class="feat">Cost</td><td class="paper">Free to print</td><td class="col-clap">Free with a Google account</td></tr>
-              <tr><td class="feat">Fill it in</td><td class="paper">By hand, card by card</td><td class="col-clap">Tap on your phone</td></tr>
-              <tr><td class="feat">Camera clip numbers</td><td class="paper">You read and copy each one</td><td class="col-clap">Auto-counted, matched to your camera</td></tr>
-              <tr><td class="feat">GOLD / circle selects</td><td class="paper">Marker on the good takes</td><td class="col-clap">One tap</td></tr>
-              <tr><td class="feat">Hand off to editor</td><td class="paper">Type the clip list into a spreadsheet</td><td class="col-clap">Export Premiere XML, CSV, and PDF</td></tr>
-              <tr><td class="feat">At wrap</td><td class="paper">New sheet for the next card</td><td class="col-clap">Already done</td></tr>
+              <tr><td class="feat">Fill it in</td><td class="paper">By hand on a clipboard</td><td class="col-clap">Tap on your phone</td></tr>
+              <tr><td class="feat">Sound file numbers</td><td class="paper">You copy them off the recorder</td><td class="col-clap">Auto-counted as you log, matching your prefix</td></tr>
+              <tr><td class="feat">Circle takes</td><td class="paper">Highlighter and a circle</td><td class="col-clap">One tap</td></tr>
+              <tr><td class="feat">Hand off to editor</td><td class="paper">Re-type the sheet into a spreadsheet</td><td class="col-clap">Export Premiere XML, CSV, and PDF</td></tr>
+              <tr><td class="feat">At wrap</td><td class="paper">Start a fresh stack tomorrow</td><td class="col-clap">Already done</td></tr>
             </tbody>
           </table>
         </div>
@@ -354,12 +352,12 @@
     <section>
       <div class="wrap">
         <div class="cta">
-          <p class="kicker">Skip the retype</p>
-          <h2 class="serif">Clapper numbers your clips for you</h2>
-          <p>If you would rather not re-key every clip number by hand, Clapper auto-numbers your camera clips as you log takes. Pick your camera body and it numbers clips the way that camera does, so the log matches the cards with no drift. At wrap it exports a Premiere-ready XML plus a CSV and a printable PDF the editor can open directly.</p>
+          <p class="kicker">Skip the printout</p>
+          <h2 class="serif">Clapper does this report automatically</h2>
+          <p>When the paper starts slowing you down on a fast day, Clapper builds the same roll-by-roll report on your phone. Log takes live in the browser, tap to mark circle and GOLD selects, and let it number your camera and sound files as you go. At wrap it exports a Premiere-ready XML plus a CSV and a printable PDF, so the editor opens the file already knowing what is good.</p>
           <ul>
             <li>Free with a Google account</li>
-            <li>Clip numbering matched to your camera</li>
+            <li>Works offline on set</li>
             <li>Exports Premiere XML, CSV, and PDF</li>
           </ul>
           <a class="btn btn-lg" href="https://clapper.in/">Open Clapper <span class="arw">&rarr;</span></a>
@@ -375,13 +373,13 @@
             <div class="l">Free template</div>
             <div class="n serif">Continuity sheet template</div>
           </a>
+          <a class="more-card" href="../camera-log-sheet/">
+            <div class="l">Free template</div>
+            <div class="n serif">Camera log sheet (PDF)</div>
+          </a>
           <a class="more-card" href="../script-supervisor-daily-report/">
             <div class="l">Free template</div>
             <div class="n serif">Script supervisor daily report</div>
-          </a>
-          <a class="more-card" href="../sound-report-template/">
-            <div class="l">Free template</div>
-            <div class="n serif">Sound report template</div>
           </a>
           <a class="more-card" href="../shot-list-template/">
             <div class="l">Free template</div>
@@ -401,8 +399,8 @@
       <span class="flinks">
         <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
         <a href="../continuity-sheet-template/">Continuity sheet</a>
+        <a href="../camera-log-sheet/">Camera log</a>
         <a href="../script-supervisor-daily-report/">Daily report</a>
-        <a href="../sound-report-template/">Sound report</a>
         <a href="../shot-list-template/">Shot list</a>
         <a href="mailto:purohit.krick@gmail.com">Contact</a>
       </span>
