@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>What Is a Circle Take? The Real Meaning, From Film Labs to Digital | Clapper</title>
+<meta name="description" content="What a circle take actually is: why it's called circling, where the term comes from (35mm lab printing costs, not enthusiasm), and how it works differently on digital and multicam sets." />
+<meta name="keywords" content="circle take meaning, what is a circle take, print take vs circle take, good take marking film" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/circle-takes-explained/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="What Is a Circle Take? The Real Meaning, From Film Labs to Digital" />
+<meta property="og:description" content="Circling a take started as a cost-control instruction to the film lab, not a compliment. Here's the actual etymology and how the practice changed on digital and multicam sets." />
+<meta property="og:url" content="https://clapper.in/articles/circle-takes-explained/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="What Is a Circle Take? The Real Meaning, From Film Labs to Digital" />
+<meta name="twitter:description" content="Circling a take started as a cost-control instruction to the film lab, not a compliment. Here's the actual etymology and how the practice changed on digital and multicam sets." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "What Is a Circle Take? The Real Meaning, From Film Labs to Digital",
+  "description": "The etymology of the circle take, how it worked on 35mm camera reports, and how the term is used differently now that everything gets recorded and nothing gets printed by the foot.",
+  "author": { "@type": "Organization", "name": "Clapper" },
+  "publisher": { "@type": "Organization", "name": "Clapper", "url": "https://clapper.in/" },
+  "mainEntityOfPage": "https://clapper.in/articles/circle-takes-explained/"
+}
+</script>
+
+<style>
+  :root{
+    --paper:#e2f0cc; --paper-raised:#f2f8e6; --ink:#08160c; --ink-dim:#4a5b45;
+    --rule:#c6d8ac; --rule-soft:color-mix(in srgb, var(--rule) 45%, var(--paper) 55%);
+    --accent:#0b4650; --accent-press:#0f5c69; --accent-ink:var(--paper);
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+    --ease:cubic-bezier(.4,0,.2,1);
+  }
+  [data-theme="night"]{
+    --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793;
+    --rule:#262626; --rule-soft:#1c1c1c;
+    --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="day"]){
+      --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793;
+      --rule:#262626; --rule-soft:#1c1c1c;
+      --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+    }
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{width:100%;max-width:1000px;margin:0 auto;padding:0 22px}
+  a{color:inherit}
+  .kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 18px}
+  h1,h2,h3{font-family:var(--font-ui);font-weight:700;letter-spacing:-.02em;line-height:1.12}
+  h1{font-size:clamp(30px,5vw,48px);margin:0 0 20px}
+  h2{font-size:clamp(22px,3vw,30px);margin:0 0 14px}
+  h3{font-size:18px;margin:0 0 6px}
+  p{margin:0 0 16px}
+
+  .topbar{border-bottom:1px solid var(--rule)}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brandmark{display:flex;align-items:center;gap:9px;font-family:var(--font-ui);font-weight:700;font-size:20px;letter-spacing:-.02em;text-decoration:none;color:var(--ink)}
+  .brandmark svg{border-radius:6px}
+  .topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+  .topnav:hover{color:var(--ink)}
+
+  .btn{display:inline-flex;align-items:center;gap:.55em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px;transition:transform .2s var(--ease)}
+  .btn:hover{transform:translateY(-1px);background:var(--accent-press);border-color:var(--accent-press)}
+  .btn .arw{transition:transform .2s var(--ease)}
+  .btn:hover .arw{transform:translateX(3px)}
+
+  section{padding:44px 0}
+  .hero{padding:52px 0 30px}
+  .lede{font-size:clamp(17px,1.8vw,19px);color:var(--ink-dim);max-width:64ch}
+  .rule{border:0;border-top:1px solid var(--rule);margin:0}
+  p.body-text{max-width:70ch;color:var(--ink-dim)}
+
+  .field-list{list-style:none;margin:0;padding:0}
+  .field-list li{padding:11px 0;border-bottom:1px solid var(--rule);display:flex;gap:12px;align-items:baseline}
+  .field-list li b{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink);flex:0 0 148px}
+  .field-list li span{color:var(--ink-dim);font-size:15px}
+
+  .cmp-wrap{border:1px solid var(--rule);border-radius:14px;overflow-x:auto;margin-top:20px;background:var(--paper-raised)}
+  table.cmp{width:100%;min-width:520px;border-collapse:collapse;font-size:14.5px}
+  table.cmp th,table.cmp td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--rule);vertical-align:top}
+  table.cmp tbody tr:last-child td{border-bottom:0}
+  table.cmp thead th{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
+  table.cmp .feat{font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);width:22%}
+  table.cmp td{color:var(--ink-dim)}
+
+  .callout{border-left:3px solid var(--accent);padding:4px 0 4px 18px;margin:22px 0;color:var(--ink-dim);max-width:66ch}
+  .callout b{color:var(--ink)}
+
+  .cta{background:var(--accent);color:var(--accent-ink);border-radius:18px;padding:clamp(28px,4.5vw,48px);margin:20px 0}
+  .cta .kicker{color:var(--accent-ink);opacity:.72}
+  .cta h2{color:var(--accent-ink)}
+  .cta p{color:var(--accent-ink);opacity:.9;max-width:56ch}
+  .cta .btn{background:var(--paper);color:var(--ink);border-color:var(--paper);margin-top:8px}
+  .cta .btn:hover{background:var(--paper-raised);border-color:var(--paper-raised)}
+
+  .more{border-top:1px solid var(--rule)}
+  .more h2{font-size:20px}
+  .more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+  @media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+  .more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:12px;padding:16px 18px;transition:border-color .2s var(--ease),transform .2s var(--ease);color:var(--ink)}
+  .more-card:hover{border-color:var(--ink);transform:translateY(-2px)}
+  .more-card .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+  .more-card .n{font-family:var(--font-ui);font-weight:700;font-size:18px;margin-top:5px}
+
+  footer.foot{border-top:1px solid var(--rule);padding:24px 0}
+  footer.foot .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+  footer.foot .fm{display:flex;align-items:center;gap:8px;font-family:var(--font-ui);font-weight:700;font-size:16px;color:var(--ink)}
+  footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:16px}
+  footer.foot .flinks a:first-child{margin-left:0}
+  footer.foot .flinks a:hover{color:var(--ink)}
+  footer.foot .made{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim)}
+  footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10px;letter-spacing:.02em;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <a class="topnav" href="https://clapper.in/app/">Open the app &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">On-set terminology</p>
+        <h1>What is a circle take?</h1>
+        <p class="lede">A circle take is a take the director wants processed and cut in. Most explainers stop there and call it "the mark of a great performance." That's the effect, not the reason. The reason is money: on film, printing every take cost real cash by the foot, so someone had to tell the lab which ones to bother with.</p>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section>
+      <div class="wrap">
+        <h2>Where the term comes from</h2>
+        <p class="body-text">On a 35mm shoot, the camera negative from every take gets developed regardless, but developing isn't the expensive part, printing a workprint (or, later, telecine-transferring to video for dailies) is. Processing and printing every single take of every setup was slow and costly enough that productions didn't do it by default. Instead, the director told the script supervisor which takes to circle on the camera report, and the lab printed only the circled ones. "Circle takes" and "print takes" were, for most of film history, the same instruction given twice: once on paper for the record, once as a line item to a lab that billed by the foot.</p>
+        <p class="body-text">That's a narrower, more useful answer than "it's the mark of a great performance." It also explains something the vague version can't: why the take doesn't have to be flawless to get circled. A director will circle a take with a technical flaw, a boom shadow, a slightly late cue, because the performance is what they want in the cut and the fix is cheaper in post than another take. Circling was never a purity test. It was an instruction: spend the money on this one.</p>
+      </div>
+    </section>
+
+    <section style="padding-top:8px">
+      <div class="wrap">
+        <h2>Circle vs. print: same instruction, two places it lived</h2>
+        <p class="body-text">On most sets these are used interchangeably today, but they weren't identical documents. The script supervisor circled the take number on her copy of the script or her daily log, for continuity and for the record. The camera report, filled out by the camera assistant and sent to the lab with the film, had its own <b>Print</b> column, checked for the same takes. Two different papers, same list, because two different people downstream needed to see it: the editor reading the script supervisor's notes, and the lab reading the camera report.</p>
+        <div class="cmp-wrap">
+          <table class="cmp">
+            <thead><tr><th class="feat">&nbsp;</th><th>Circled</th><th>Printed</th></tr></thead>
+            <tbody>
+              <tr><td class="feat">Marked by</td><td>Script supervisor, from the director's call</td><td>Camera assistant, on the camera report sent to the lab</td></tr>
+              <tr><td class="feat">Lived where</td><td>Script pages, daily continuity log</td><td>Camera report, one per roll</td></tr>
+              <tr><td class="feat">Meant</td><td>"This is the take we want"</td><td>"Process and produce a workprint of this take"</td></tr>
+              <tr><td class="feat">On digital sets</td><td>Still used, means "flag it as a keeper"</td><td>Rarely a distinct action; everything is already recorded</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:8px">
+      <div class="wrap">
+        <h2>What changed once everything got recorded</h2>
+        <p class="body-text">Digital acquisition removed the cost that made circling necessary in the first place. Every take gets recorded to a card regardless of whether the director likes it, so there's no lab bill to control. The vocabulary survived anyway, because the underlying job didn't go away: someone still has to tell post which takes matter, out of the pile that got shot. "Circle it" on a digital set means the same thing it always meant, mark this as a keeper, it's just no longer an instruction to a lab. It's a flag in a script supervisor's log, a checkbox in a slate app, or a GOOD/GOLD tag on a clip's metadata.</p>
+        <p class="body-text">A few places the practice genuinely diverges by workflow, which most single-paragraph definitions flatten out:</p>
+        <ul class="field-list">
+          <li><b>Multicam</b><span>One circle call from the director can apply to a take shared across two or three cameras at once, so the mark has to propagate to every camera's log, not just one.</span></li>
+          <li><b>Documentary</b><span>There's rarely a repeated take structure to circle in the moment. Selects get marked in review afterward, not called out loud on set.</span></li>
+          <li><b>Multiple circles</b><span>A director sometimes circles two or three takes as live options rather than one winner, leaving the choice to the edit. A circle is a shortlist, not always a verdict.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section style="padding-top:8px">
+      <div class="wrap">
+        <h2>What a circle take isn't</h2>
+        <p class="body-text">A circle doesn't guarantee a take makes the final cut, it guarantees it gets a first look. Editors routinely go back into the uncircled takes when the circled one doesn't cut well against its neighbors, especially for reaction shots or timing on a line. The circle tells post where to start looking, not where to stop.</p>
+        <p class="body-text">It also isn't the same thing as "good take" in the loose sense people use online. On set, a take can be technically clean and never get circled because the performance wasn't what the director wanted, and a take with a visible flaw can get circled anyway because the performance was. If you're logging takes and want the practical difference between marking something a keeper versus marking it print, see our <a href="../how-to-log-takes-on-set/">guide to logging takes on set</a>.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cta">
+          <p class="kicker">The digital equivalent</p>
+          <h2>Clapper's GOLD tag is the modern circle</h2>
+          <p>Clapper lets you tag any take GOLD with one tap while it's still fresh, the same call a director used to make to a script supervisor holding a pen. At wrap, GOLD takes are highlighted in the exported PDF shot log so the editor sees the shortlist before they open a single clip.</p>
+          <a class="btn" href="https://clapper.in/app/">Open Clapper <span class="arw">&rarr;</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Related reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="../how-to-log-takes-on-set/">
+            <div class="l">Article</div>
+            <div class="n">How to log takes on set</div>
+          </a>
+          <a class="more-card" href="../mos-meaning-in-film/">
+            <div class="l">Article</div>
+            <div class="n">MOS: what it means and where it came from</div>
+          </a>
+          <a class="more-card" href="../../templates/script-supervisor-daily-report/">
+            <div class="l">Free template</div>
+            <div class="n">Script supervisor daily report</div>
+          </a>
+          <a class="more-card" href="../../templates/continuity-sheet-template/">
+            <div class="l">Free template</div>
+            <div class="n">Continuity sheet template</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
+        <a href="../how-to-log-takes-on-set/">Logging takes</a>
+        <a href="../mos-meaning-in-film/">MOS</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+      <span class="made">made for set</span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+</body>
+</html>

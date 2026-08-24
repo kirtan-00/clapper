@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>How to Log Takes on Set: The Slate-to-Editor Chain | Clapper</title>
+<meta name="description" content="How to log takes on a film set without losing the mapping between slate, clip name, and card. What a script supervisor, camera department, and sound department each log, and where that chain actually breaks." />
+<meta name="keywords" content="how to log takes on set, script supervisor log, take logging, camera log vs continuity log, on set logging" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/how-to-log-takes-on-set/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="How to Log Takes on Set: The Slate-to-Editor Chain" />
+<meta property="og:description" content="What a script supervisor, camera department, and sound department each log, and the one number that breaks the whole chain if nobody owns it." />
+<meta property="og:url" content="https://clapper.in/articles/how-to-log-takes-on-set/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="How to Log Takes on Set: The Slate-to-Editor Chain" />
+<meta name="twitter:description" content="What a script supervisor, camera department, and sound department each log, and the one number that breaks the whole chain if nobody owns it." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to log takes on set",
+  "description": "A working method for logging takes on a film set: what to write down for every take, who owns which log, and how to keep the slate number, clip file name, and sound file name from drifting apart.",
+  "totalTime": "PT3M",
+  "supply": [
+    { "@type": "HowToSupply", "name": "Slate or clapperboard" },
+    { "@type": "HowToSupply", "name": "Log sheet, app, or notebook" }
+  ],
+  "step": [
+    { "@type": "HowToStep", "name": "Decide who owns the log before day one", "text": "Pick one person's log as the source of truth for scene, slate, and take. On sets without a script supervisor, that is usually the 1st AD or camera department." },
+    { "@type": "HowToStep", "name": "Log the slate the moment it is called", "text": "Write scene, setup, take, and camera letter as the slate closes, not from memory an hour later. Waiting is how takes get renumbered in your head." },
+    { "@type": "HowToStep", "name": "Write the camera's clip name next to the take, not instead of it", "text": "The take number on the slate and the clip file name the camera writes to card are two different counters. Log both, every time, or the mapping between them has to be reconstructed later by watching footage." },
+    { "@type": "HowToStep", "name": "Note the call, one line, while it is still fresh", "text": "Print, circle, hold, no good, or a one-line reason. Do not wait for a wrap-up pass; the director's reaction is gone in ten minutes." },
+    { "@type": "HowToStep", "name": "Reconcile camera, sound, and script logs at the end of each set-up", "text": "Before moving on, check that the take count on the slate, the clip count on the card, and the sound roll's file count agree. A mismatch here is cheap to fix now and expensive to fix at the edit." }
+  ]
+}
+</script>
+
+<style>
+  :root{
+    --paper:#e2f0cc; --paper-raised:#f2f8e6; --ink:#08160c; --ink-dim:#4a5b45;
+    --rule:#c6d8ac; --rule-soft:color-mix(in srgb, var(--rule) 45%, var(--paper) 55%);
+    --accent:#0b4650; --accent-press:#0f5c69; --accent-ink:var(--paper);
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+    --ease:cubic-bezier(.4,0,.2,1);
+  }
+  [data-theme="night"]{
+    --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793;
+    --rule:#262626; --rule-soft:#1c1c1c;
+    --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="day"]){
+      --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793;
+      --rule:#262626; --rule-soft:#1c1c1c;
+      --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+    }
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{width:100%;max-width:1000px;margin:0 auto;padding:0 22px}
+  a{color:inherit}
+  .kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 18px}
+  h1,h2,h3{font-family:var(--font-ui);font-weight:700;letter-spacing:-.02em;line-height:1.12}
+  h1{font-size:clamp(30px,5vw,48px);margin:0 0 20px}
+  h2{font-size:clamp(22px,3vw,30px);margin:0 0 14px}
+  h3{font-size:18px;margin:0 0 6px}
+  p{margin:0 0 16px}
+
+  .topbar{border-bottom:1px solid var(--rule)}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brandmark{display:flex;align-items:center;gap:9px;font-family:var(--font-ui);font-weight:700;font-size:20px;letter-spacing:-.02em;text-decoration:none;color:var(--ink)}
+  .brandmark svg{border-radius:6px}
+  .topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+  .topnav:hover{color:var(--ink)}
+
+  .btn{display:inline-flex;align-items:center;gap:.55em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:600;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px;transition:transform .2s var(--ease)}
+  .btn:hover{transform:translateY(-1px);background:var(--accent-press);border-color:var(--accent-press)}
+  .btn .arw{transition:transform .2s var(--ease)}
+  .btn:hover .arw{transform:translateX(3px)}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+  .btn-ghost:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+  section{padding:44px 0}
+  .hero{padding:52px 0 30px}
+  .lede{font-size:clamp(17px,1.8vw,19px);color:var(--ink-dim);max-width:64ch}
+  .rule{border:0;border-top:1px solid var(--rule);margin:0}
+  p.body-text{max-width:70ch;color:var(--ink-dim)}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:34px}
+  @media(max-width:720px){.cols{grid-template-columns:1fr;gap:22px}}
+
+  .field-list{list-style:none;margin:0;padding:0}
+  .field-list li{padding:11px 0;border-bottom:1px solid var(--rule);display:flex;gap:12px;align-items:baseline}
+  .field-list li b{font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink);flex:0 0 128px}
+  .field-list li span{color:var(--ink-dim);font-size:15px}
+
+  ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+  ol.steps li{position:relative;padding:0 0 22px 50px;counter-increment:s}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:32px;height:32px;border-radius:50%;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;color:var(--ink)}
+  ol.steps li h3{margin-bottom:3px}
+  ol.steps li p{margin:0;color:var(--ink-dim);font-size:15px}
+
+  .cmp-wrap{border:1px solid var(--rule);border-radius:14px;overflow-x:auto;margin-top:20px;background:var(--paper-raised)}
+  table.cmp{width:100%;min-width:560px;border-collapse:collapse;font-size:14.5px}
+  table.cmp th,table.cmp td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--rule);vertical-align:top}
+  table.cmp tbody tr:last-child td{border-bottom:0}
+  table.cmp thead th{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
+  table.cmp .feat{font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);width:20%}
+  table.cmp td{color:var(--ink-dim)}
+
+  .callout{border-left:3px solid var(--accent);padding:4px 0 4px 18px;margin:22px 0;color:var(--ink-dim);max-width:66ch}
+  .callout b{color:var(--ink)}
+
+  .cta{background:var(--accent);color:var(--accent-ink);border-radius:18px;padding:clamp(28px,4.5vw,48px);margin:20px 0}
+  .cta .kicker{color:var(--accent-ink);opacity:.72}
+  .cta h2{color:var(--accent-ink)}
+  .cta p{color:var(--accent-ink);opacity:.9;max-width:56ch}
+  .cta .btn{background:var(--paper);color:var(--ink);border-color:var(--paper);margin-top:8px}
+  .cta .btn:hover{background:var(--paper-raised);border-color:var(--paper-raised)}
+
+  .more{border-top:1px solid var(--rule)}
+  .more h2{font-size:20px}
+  .more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+  @media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+  .more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:12px;padding:16px 18px;transition:border-color .2s var(--ease),transform .2s var(--ease);color:var(--ink)}
+  .more-card:hover{border-color:var(--ink);transform:translateY(-2px)}
+  .more-card .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+  .more-card .n{font-family:var(--font-ui);font-weight:700;font-size:18px;margin-top:5px}
+
+  footer.foot{border-top:1px solid var(--rule);padding:24px 0}
+  footer.foot .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+  footer.foot .fm{display:flex;align-items:center;gap:8px;font-family:var(--font-ui);font-weight:700;font-size:16px;color:var(--ink)}
+  footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:16px}
+  footer.foot .flinks a:first-child{margin-left:0}
+  footer.foot .flinks a:hover{color:var(--ink)}
+  footer.foot .made{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim)}
+  footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10px;letter-spacing:.02em;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <a class="topnav" href="https://clapper.in/app/">Open the app &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">On-set practice</p>
+        <h1>How to log takes on set</h1>
+        <p class="lede">The hard part of logging takes isn't the writing, it's keeping three different counters, the slate take number, the camera's clip file name, and the sound file name, pointing at the same take. Most guides tell you to "write down the takes." Here's what actually goes in the log, who owns it, and where the mapping breaks.</p>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section>
+      <div class="wrap">
+        <h2>There isn't one log, there are three</h2>
+        <p class="body-text">Search for "how to log takes" and most results describe a single generic log kept by a single generic person. On an actual set there are usually three separate logs, kept by three separate departments, that all have to describe the same take without contradicting each other:</p>
+        <div class="cmp-wrap">
+          <table class="cmp">
+            <thead>
+              <tr><th class="feat">Log</th><th>Kept by</th><th>Its number</th><th>What it's for</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="feat">Continuity / daily log</td><td>Script supervisor, or the 1st AD if there isn't one</td><td>Scene, setup, take</td><td>Screen direction, action, print calls, timing, so the edit matches the script</td></tr>
+              <tr><td class="feat">Camera log</td><td>Camera department or DIT</td><td>Clip file name (e.g. A007_C0042)</td><td>Ties the card's file names to scene/take so the offload matches the shoot</td></tr>
+              <tr><td class="feat">Sound report</td><td>Sound mixer</td><td>Sound file name (e.g. SND_0091)</td><td>Ties audio files to scene/take for sync in the edit</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="body-text">A one-person indie crew collapses all three into a notebook, and that's fine. The point isn't headcount, it's that <b>scene/take is the only number all three logs share</b>. Everything else, the clip name, the sound file name, is a different counter that has to be logged alongside it, not instead of it.</p>
+      </div>
+    </section>
+
+    <section style="padding-top:8px">
+      <div class="wrap cols">
+        <div>
+          <h2>What actually goes on one line</h2>
+          <ul class="field-list">
+            <li><b>Scene / setup</b><span>Scene number and which setup within it.</span></li>
+            <li><b>Take</b><span>The take number as called at the slate.</span></li>
+            <li><b>Camera clip</b><span>The file name the camera wrote, exactly as it appears on the card.</span></li>
+            <li><b>Sound file</b><span>The sound roll's file number, if sound is rolling.</span></li>
+            <li><b>Call</b><span>Print, circle, hold, or no good. See our <a href="../circle-takes-explained/">circle takes explainer</a> for what these actually mean.</span></li>
+            <li><b>One-line note</b><span>What was different about this take, in the director's or your own words, while you still remember it.</span></li>
+            <li><b>Lens / size</b><span>Framing and lens, useful for matching coverage later.</span></li>
+            <li><b>MOS</b><span>Flagged if the take was shot without sound. See our <a href="../mos-meaning-in-film/">MOS explainer</a>.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h2>A real log line</h2>
+          <p class="body-text">Not an abstraction, an actual row from a daily log:</p>
+          <div class="callout">
+            <b>Sc 14 / Take 3</b> &middot; A007_C0042 &middot; SND_0091 &middot; WIDE, 35mm &middot; <b>Circle</b> &middot; Boom shadow enters frame left at 0:08, otherwise clean. Actor missed the mark by a foot, camera compensated.
+          </div>
+          <p class="body-text">That line does three jobs at once: it tells the editor which file to pull (A007_C0042), it tells them why it's marked as a keeper anyway despite a technical flaw (boom shadow, noted, judged acceptable), and it gives continuity a heads-up for the next setup (mark position). Strip any one of those out and someone downstream has to re-derive it by scrubbing footage.</p>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding-top:8px">
+      <div class="wrap">
+        <h2>Where the mapping actually breaks</h2>
+        <p class="body-text">This is the part most guides skip entirely, because it only shows up once you've run a full shooting day: the take number on the slate and the clip file name on the card are <b>independent counters</b>. Under ideal conditions they move in lockstep, take 1 is clip 41, take 2 is clip 42, and so on. In practice they drift apart constantly, and a log that assumes they never will is a log that lies by the afternoon.</p>
+        <p class="body-text">Common ways it drifts:</p>
+        <ul class="field-list">
+          <li><b>False start</b><span>Camera rolls, someone calls cut before action, the camera still burned a clip number. The slate never got a take called for it, but the card did.</span></li>
+          <li><b>Card swap mid-scene</b><span>A fresh card resets or continues the clip counter depending on the camera, and if the operator doesn't say so out loud, the log silently goes wrong from that point on.</span></li>
+          <li><b>Multicam</b><span>Camera A and camera B are on the same take number but two entirely different clip counters. A log built for single camera will conflate them unless it has a column per camera.</span></li>
+          <li><b>Reslate</b><span>A take gets renumbered mid-setup (3 becomes 3A) because someone realized the count was off. If the log isn't corrected at that moment, everything after it is off by one against the card.</span></li>
+        </ul>
+        <p class="body-text">None of this is solved by writing faster. It's solved by logging the clip name at the same moment as the take, every single time, so the two counters are tied together at the source instead of reconciled later by ear.</p>
+      </div>
+    </section>
+
+    <section style="padding-top:8px">
+      <div class="wrap">
+        <h2>Minimum viable log, if you have no script supervisor</h2>
+        <p class="body-text">Most solo and small-crew shoots don't have a dedicated script supervisor, and the honest advice most articles won't give you is: don't try to replicate a full continuity log by yourself while also operating camera. You will drop something. Log the four things that are expensive to lose and skip the rest:</p>
+        <ol class="steps">
+          <li><h3>Scene, setup, take</h3><p>The one number every other log has to agree with. Non-negotiable, even on a two-person crew.</p></li>
+          <li><h3>Clip name, next to the take</h3><p>Not after wrap from memory. At the slate, or right after cut, before the next take rolls.</p></li>
+          <li><h3>Print or no good</h3><p>One word. You can add nuance in the edit; you cannot recover a missed call.</p></li>
+          <li><h3>Anything an editor would otherwise have to guess</h3><p>A line missed, a prop in the wrong hand, a take that's actually a different take than the slate says. Ten seconds now saves an hour of scrubbing later.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cta">
+          <p class="kicker">Where Clapper actually helps</p>
+          <h2>The clip name gets written down for you, at the same tap that logs the take</h2>
+          <p>Clapper is a phone-first take logger built for exactly the failure mode above. Pick your camera body and it numbers clips the way that camera does, so the clip name in the log always matches the card, even across a reslate or a card swap. Log the take, mark it print or no good, add a one-line note, and at wrap it exports a Premiere-ready XML, a CSV, and a PDF shot log the editor can open directly. It doesn't replace a script supervisor's continuity notes, but it keeps the one number that actually breaks logs from drifting.</p>
+          <a class="btn" href="https://clapper.in/app/">Open Clapper <span class="arw">&rarr;</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Related reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="../circle-takes-explained/">
+            <div class="l">Article</div>
+            <div class="n">What a circle take actually means</div>
+          </a>
+          <a class="more-card" href="../mos-meaning-in-film/">
+            <div class="l">Article</div>
+            <div class="n">MOS: what it means and where it came from</div>
+          </a>
+          <a class="more-card" href="../../templates/camera-log-sheet/">
+            <div class="l">Free template</div>
+            <div class="n">Printable camera log sheet (PDF)</div>
+          </a>
+          <a class="more-card" href="../../templates/script-supervisor-daily-report/">
+            <div class="l">Free template</div>
+            <div class="n">Script supervisor daily report</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
+        <a href="../circle-takes-explained/">Circle takes</a>
+        <a href="../mos-meaning-in-film/">MOS</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+      <span class="made">made for set</span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+</body>
+</html>
