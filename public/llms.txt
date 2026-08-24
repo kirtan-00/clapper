@@ -36,7 +36,20 @@ Clapper is a free web app (PWA) that runs on the phone already in your pocket. D
 
 Free. No signup is needed to log takes, tag coverage, flag GOLD, or work offline. Sign-in is only required for Script Mode and for XML / CSV export.
 
+## Free templates
+
+Clapper also publishes free, print-ready PDF templates for the paper-and-clipboard version of this workflow, no email required to download:
+
+- Continuity sheet template: https://clapper.in/templates/continuity-sheet-template/
+- Camera log sheet: https://clapper.in/templates/camera-log-sheet/
+- Script supervisor daily report: https://clapper.in/templates/script-supervisor-daily-report/
+- Production sound report: https://clapper.in/templates/sound-report-template/
+- Shot list template: https://clapper.in/templates/shot-list-template/
+
 ## Links
 
 - Landing page: https://clapper.in/
 - App: https://clapper.in/app/
+- Free templates index: https://clapper.in/templates/continuity-sheet-template/
+- Relink (rewrite media paths in a Premiere/FCP7 XML, runs in-browser): https://clapper.in/relink/
+- Privacy Policy & Terms: https://clapper.in/legal/
