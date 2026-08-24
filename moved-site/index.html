@@ -2,6 +2,61 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+
+<!-- OAUTH RESCUE. Runs before anything else renders, on purpose.
+
+     Symptom: you sign in with Google on clapper.in and land HERE, on the old
+     domain, looking at a "we have moved" page, still signed out.
+
+     Cause: Supabase does not error on a redirectTo that is missing from its
+     allowlist. It silently falls back to the project's Site URL, which is
+     still this domain. The app's own code is correct - src/net/auth.ts sends
+     `window.location.origin + BASE_URL`, which is https://clapper.in/app/.
+
+     The real fix is two fields in the Supabase dashboard (Authentication ->
+     URL Configuration: Site URL, and Redirect URLs). This is NOT a substitute
+     for that. It is the safety net, and it is worth keeping permanently
+     because any future auth-URL mistake lands here too.
+
+     Why forwarding the code actually works, rather than just moving the
+     failure: this is a PKCE flow, and the code_verifier was written to
+     localStorage by the origin that STARTED the flow - clapper.in. This
+     origin has no verifier and can never complete the exchange itself. Hand
+     the code back to clapper.in and it pairs with the verifier already
+     sitting there, so the exchange succeeds. We are returning the code to
+     the only origin that can use it, not passing a secret somewhere new.
+
+     Guards:
+       - only fires when an auth parameter is actually present, so an
+         ordinary visitor sees the page and never a redirect;
+       - forwards to a hardcoded https://clapper.in/app/ and never to a
+         destination read out of the URL, so this cannot be used as an open
+         redirect;
+       - preserves the query string AND the hash, because the implicit flow
+         returns tokens in the hash while PKCE uses ?code=;
+       - carries `error` through too, so a genuine auth failure is reported
+         by the app instead of being swallowed by a page that cannot show it;
+       - replace() rather than assign(), so the back button does not bounce
+         the user straight back here. -->
+<script>
+(function () {
+  try {
+    var qs = new URLSearchParams(window.location.search);
+    var hs = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+    var isAuthReturn =
+      qs.has('code') || qs.has('error') || qs.has('error_description') ||
+      hs.has('access_token') || hs.has('error');
+    if (!isAuthReturn) return;
+    window.location.replace(
+      'https://clapper.in/app/' + window.location.search + window.location.hash
+    );
+  } catch (e) {
+    // Never let this break the page. A visitor who cannot be forwarded still
+    // gets the move notice and the button, which is the whole point of it.
+  }
+})();
+</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="robots" content="noindex" />
 <link rel="canonical" href="https://clapper.in/" />
