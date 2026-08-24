@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>Guides: on-set logging, slates, continuity and post handoff | Clapper</title>
+<meta name="description" content="Reference guides on how takes actually get logged on a film set: reading a slate, writing continuity notes, camera clip naming across Sony, RED and ARRI, and getting a shot log into Premiere or Resolve." />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="Guides: on-set logging, slates, continuity and post handoff" />
+<meta property="og:description" content="How takes actually get logged on a film set. Written to be useful on their own, not as product pages." />
+<meta property="og:url" content="https://clapper.in/articles/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Guides: on-set logging, slates, continuity and post handoff" />
+<meta name="twitter:description" content="How takes actually get logged on a film set. Written to be useful on their own, not as product pages." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<!-- CollectionPage listing every guide, so the hub is understood as an index
+     rather than nine unrelated orphans. itemListElement carries the same URLs
+     that are in sitemap.xml; if you add an article, add it in both places. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Clapper guides",
+  "description": "Reference guides on on-set logging practice.",
+  "url": "https://clapper.in/articles/",
+  "mainEntity": {
+    "@type": "ItemList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "How to log takes on set", "url": "https://clapper.in/articles/how-to-log-takes-on-set/" },
+      { "@type": "ListItem", "position": 2, "name": "How to read a clapperboard", "url": "https://clapper.in/articles/how-to-read-a-clapperboard/" },
+      { "@type": "ListItem", "position": 3, "name": "Script supervisor duties", "url": "https://clapper.in/articles/script-supervisor-duties/" },
+      { "@type": "ListItem", "position": 4, "name": "How to write continuity notes", "url": "https://clapper.in/articles/continuity-notes-guide/" },
+      { "@type": "ListItem", "position": 5, "name": "Camera clip naming conventions", "url": "https://clapper.in/articles/camera-clip-naming-conventions/" },
+      { "@type": "ListItem", "position": 6, "name": "Shot log to Premiere XML", "url": "https://clapper.in/articles/shot-log-to-premiere-xml/" },
+      { "@type": "ListItem", "position": 7, "name": "What is a circle take", "url": "https://clapper.in/articles/circle-takes-explained/" },
+      { "@type": "ListItem", "position": 8, "name": "MOS meaning in film", "url": "https://clapper.in/articles/mos-meaning-in-film/" },
+      { "@type": "ListItem", "position": 9, "name": "What is a TCR sheet", "url": "https://clapper.in/articles/what-is-a-tcr-sheet/" }
+    ]
+  }
+}
+</script>
+
+<style>
+  /* Locked app tokens, copied from src/styles.css rather than re-picked, so
+     this hub matches the articles it indexes. Day ground is the pale green
+     paper, day accent the deep teal, night true black with the acid accent. */
+  :root{
+    --paper:#e2f0cc; --paper-raised:#f2f8e6; --ink:#08160c; --ink-dim:#4a5b45;
+    --rule:#c6d8ac; --accent:#0b4650; --accent-ink:#e2f0cc;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --wrap:820px;
+  }
+  /* Guarded so an explicit day choice still wins over a dark OS setting. */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="day"]){
+      --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793;
+      --rule:#262626; --accent:#e6ff2b; --accent-ink:#000000;
+    }
+  }
+  :root[data-theme="night"]{
+    --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793;
+    --rule:#262626; --accent:#e6ff2b; --accent-ink:#000000;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+       line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 22px}
+
+  .topbar{border-bottom:1px solid var(--rule)}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;
+                padding-top:16px;padding-bottom:16px}
+  .brand{font-weight:700;letter-spacing:-.01em;color:var(--ink);text-decoration:none}
+  .topbar a.app{font-family:var(--mono);font-size:12px;letter-spacing:.12em;
+                text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+  .topbar a.app:hover{color:var(--ink)}
+
+  header.hero{padding:52px 0 8px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;
+           text-transform:uppercase;color:var(--ink-dim);margin:0 0 14px}
+  h1{font-size:clamp(30px,6vw,46px);line-height:1.1;letter-spacing:-.02em;
+     margin:0 0 16px;text-wrap:balance}
+  .lede{font-size:clamp(16px,2.4vw,19px);color:var(--ink-dim);margin:0;max-width:62ch}
+
+  .list{list-style:none;padding:0;margin:36px 0 0}
+  .list li{border-top:1px solid var(--rule)}
+  .list li:last-child{border-bottom:1px solid var(--rule)}
+  .list a{display:block;padding:20px 0;text-decoration:none;color:inherit}
+  .list a:hover .t{color:var(--accent)}
+  .list .t{font-size:19px;font-weight:650;letter-spacing:-.01em;margin:0 0 4px;
+           transition:color .15s ease}
+  .list .d{font-size:15px;color:var(--ink-dim);margin:0;max-width:64ch}
+
+  .cta{margin:44px 0 0;padding:24px;background:var(--paper-raised);
+       border:1px solid var(--rule);border-radius:12px}
+  .cta p{margin:0 0 16px;color:var(--ink-dim)}
+  .cta a{display:inline-block;background:var(--accent);color:var(--accent-ink);
+         text-decoration:none;font-weight:650;padding:13px 22px;border-radius:10px}
+
+  footer{margin-top:56px;border-top:1px solid var(--rule);padding:22px 0 40px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13.5px}
+  footer a{color:var(--ink-dim);text-decoration:none}
+  footer a:hover{color:var(--ink)}
+
+  a:focus-visible,.list a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="/">Clapper</a>
+  <a class="app" href="/app/">Open the app</a>
+</div></div>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Guides</p>
+    <h1>How takes actually get logged</h1>
+    <p class="lede">Reference pieces on slates, continuity, clip naming and the handoff to post. Written to be useful on their own. If one of these answers your question and you never open the app, that is a fine outcome.</p>
+  </header>
+
+  <ul class="list">
+    <li><a href="/articles/how-to-log-takes-on-set/">
+      <p class="t">How to log takes on set</p>
+      <p class="d">The slate-to-editor chain, and why a set keeps three separate logs that share exactly one number.</p></a></li>
+    <li><a href="/articles/how-to-read-a-clapperboard/">
+      <p class="t">How to read a clapperboard</p>
+      <p class="d">Every field on the slate, and why the scene number and the slate number are not the same thing.</p></a></li>
+    <li><a href="/articles/script-supervisor-duties/">
+      <p class="t">Script supervisor duties</p>
+      <p class="d">What the job actually covers, and how it changes between US, UK and Indian sets.</p></a></li>
+    <li><a href="/articles/continuity-notes-guide/">
+      <p class="t">How to write continuity notes</p>
+      <p class="d">With real note examples, not a list of categories to think about.</p></a></li>
+    <li><a href="/articles/camera-clip-naming-conventions/">
+      <p class="t">Camera clip naming conventions</p>
+      <p class="d">Sony, RED, ARRI and iPhone, plus the cross-day filename collision most guides never mention.</p></a></li>
+    <li><a href="/articles/shot-log-to-premiere-xml/">
+      <p class="t">Shot log to Premiere XML</p>
+      <p class="d">How the export works, and why editors end up running Consolidate Duplicates.</p></a></li>
+    <li><a href="/articles/circle-takes-explained/">
+      <p class="t">What is a circle take</p>
+      <p class="d">Traced back to 35mm lab print costs, which is why a flawed take can still get circled.</p></a></li>
+    <li><a href="/articles/mos-meaning-in-film/">
+      <p class="t">MOS meaning in film</p>
+      <p class="d">The "mit out sound" story does not survive contact with German. Here is the better-supported origin.</p></a></li>
+    <li><a href="/articles/what-is-a-tcr-sheet/">
+      <p class="t">What is a TCR sheet</p>
+      <p class="d">Timecode logging on set, including an honest note that the term gets used inconsistently.</p></a></li>
+  </ul>
+
+  <div class="cta">
+    <p>Clapper is the free app these guides describe: tap what happens during a take, get the shot log your editor needs.</p>
+    <a href="/app/">Open Clapper</a>
+  </div>
+</div>
+
+<footer><div class="wrap">
+  <a href="/">Home</a>
+  <a href="/app/">App</a>
+  <a href="/templates/continuity-sheet-template/">Continuity sheet</a>
+  <a href="/templates/camera-log-sheet/">Camera log</a>
+  <a href="/templates/script-supervisor-daily-report/">Daily report</a>
+  <a href="/templates/sound-report-template/">Sound report</a>
+  <a href="/templates/shot-list-template/">Shot list</a>
+  <a href="/relink/">Relink</a>
+  <a href="/legal/#privacy">Privacy</a>
+  <a href="/legal/#terms">Terms</a>
+</div></footer>
+
+</body>
+</html>

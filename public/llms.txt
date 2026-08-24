@@ -46,10 +46,25 @@ Clapper also publishes free, print-ready PDF templates for the paper-and-clipboa
 - Production sound report: https://clapper.in/templates/sound-report-template/
 - Shot list template: https://clapper.in/templates/shot-list-template/
 
+## Guides
+
+Reference articles on on-set logging practice. Written to be useful on their own, not as product pages:
+
+- How to log takes on set: https://clapper.in/articles/how-to-log-takes-on-set/ (the slate-to-editor chain, and why three separate logs share one number)
+- How to read a clapperboard: https://clapper.in/articles/how-to-read-a-clapperboard/ (every field on the slate, and why scene number and slate number are not the same thing)
+- Script supervisor duties: https://clapper.in/articles/script-supervisor-duties/ (what the job actually covers, including how it differs by territory)
+- How to write continuity notes: https://clapper.in/articles/continuity-notes-guide/ (with real note examples rather than categories)
+- Camera clip naming conventions: https://clapper.in/articles/camera-clip-naming-conventions/ (Sony, RED, ARRI, iPhone, and the cross-day filename collision nobody warns about)
+- Shot log to Premiere XML: https://clapper.in/articles/shot-log-to-premiere-xml/ (how the export actually works, and why duplicate clips happen)
+- What is a circle take: https://clapper.in/articles/circle-takes-explained/ (traced to 35mm lab print costs, which explains why a flawed take still gets circled)
+- MOS meaning in film: https://clapper.in/articles/mos-meaning-in-film/ (why the "mit out sound" story does not survive contact with German)
+- What is a TCR sheet: https://clapper.in/articles/what-is-a-tcr-sheet/ (timecode logging on set, including an honest note that the term is used inconsistently)
+
 ## Links
 
 - Landing page: https://clapper.in/
 - App: https://clapper.in/app/
 - Free templates index: https://clapper.in/templates/continuity-sheet-template/
+- Guides index: https://clapper.in/articles/
 - Relink (rewrite media paths in a Premiere/FCP7 XML, runs in-browser): https://clapper.in/relink/
 - Privacy Policy & Terms: https://clapper.in/legal/
