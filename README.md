@@ -1,5 +1,14 @@
 # Clapper
 
+**Live at [clapper.in](https://clapper.in)** — landing at `/`, the app at
+[`/app/`](https://clapper.in/app/), guides at
+[`/articles/`](https://clapper.in/articles/), free templates at `/templates/`.
+
+For where it is hosted, how it gets deployed, DNS, analytics, Supabase, and the
+gotchas that have bitten this project, see **[docs/INFRA.md](docs/INFRA.md)**.
+That file is the single source of truth; if something here disagrees with it,
+it is right and this is stale.
+
 A phone-first PWA for logging shots on set. Start a big timer on "roll", tap
 tags and mark moments while rolling, hit CUT to close the shot and bump the
 camera clip counter. It runs fully offline, installs to the home screen, and
