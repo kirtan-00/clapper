@@ -2986,11 +2986,40 @@ select.field {
      `position: fixed`, so an over-tall fixed box CLIPS at the viewport rather
      than adding to the document's scrollable overflow. Worst case there is a
      deck sitting below the fold on a browser nobody on set is running; it can
-     never be a scrolling page. Every browser this app actually ships to takes
-     the `svh` line. */
+     never be a scrolling page.
+
+     WHAT `svh` GOT WRONG, found from a phone screenshot rather than this
+     harness: `svh` is not "the current small viewport", it is a STATIC number
+     baked in at load - the height the glass would be if the toolbar were
+     showing, whether or not it actually is right now. The moment the toolbar
+     collapses (scrolled down) or the app is running as the installed, toolbar-
+     less standalone PWA, the real visible area is taller than that number by about
+     one toolbar's worth, and `.roll` stops short of the bottom of the screen -
+     a band of bare page ground below the ring, on the owner's own phone, in
+     both frames he sent. Fixed positioning does not save this the way it
+     saves the `vh` fallback above: a box that is TOO SHORT does not clip
+     anything, it just leaves a gap.
+
+     So the real height comes from `--vvh` (src/main.tsx, `window.visual-
+     Viewport.height`, already built for the keyboard-aware sheet) rather than
+     from any CSS viewport unit at all. This is not the `dvh` this comment
+     used to reject: `dvh` recalculates every layout frame WHILE the toolbar
+     animates, which is what produced the 46px slide measured above. `--vvh`
+     is a custom property written from a `resize`/`scroll` listener on
+     `visualViewport` - it updates once, after the toolbar has finished
+     moving, not continuously during the motion, so CUT still does not slide
+     mid-gesture. What it fixes that static `svh` could not is the SETTLED
+     state: standalone PWA, toolbar collapsed, toolbar expanded - `--vvh`
+     matches the true visible height in all three, so there is never a gap to
+     leave. `svh` stays as the pre-JS fallback (`main.tsx` sets `--vvh`
+     synchronously before the first render, so this only carries the very
+     first paint tick, and the odd browser with no `visualViewport` at all -
+     `main.tsx` falls back to `window.innerHeight` for those, so `--vvh` is
+     always defined once JS has run). */
   bottom: auto;
   height: 100vh;
   height: 100svh;
+  height: var(--vvh, 100svh);
   /* The toast reads --tray-lift to clear the tab tray, and the comment on
      .toast used to say this was correctly ZERO here because the roll screen
      unmounts the tray. That stopped being true the day ROLL/CUT got bottom
@@ -3015,6 +3044,39 @@ select.field {
   max-width: 620px;
   margin: 0 auto;
 }
+
+/* THE DOCUMENT ITSELF MUST HAVE NOTHING TO SCROLL WHILE THIS SCREEN IS UP.
+   `--vvh` above closes the dead band, but it does not by itself stop a touch
+   drag from moving anything: on iOS a drag past either edge of the page
+   rubber-bands the WHOLE visual viewport, fixed-position children included,
+   as long as `html`/`body` have even a few px more scrollable room than what
+   is on glass - which `html, body, #root { height: 100% }` (top of this
+   file) can leave behind, because a percentage height resolves against the
+   small-viewport-sized initial containing block and does not shrink back
+   down the moment the toolbar reveals more canvas underneath it. That spare
+   room is exactly what a drag on the ring was riding: the report was "gets
+   up and down if I drag it", not a wheel event, which is why the CDP wheel
+   assertions elsewhere in this file's harness (see shoot-roll.mjs) passed
+   on a build that still had this bug.
+
+   Fixed here rather than on the global rule, because CUT and the ring are
+   the one place on the whole app a stray px of page scroll is a filmed
+   defect and not a cosmetic one - every other screen is a normal scrolling
+   list and SHOULD keep whatever headroom `height: 100%` gives it. `:has()`
+   is already the house pattern for scoping a document-level rule to one
+   screen without a class to thread through AppShell (see
+   `.shell:has(.mscreen)` in shell.css); this reads the same way: while a
+   `.roll` is anywhere in the tree, `html` - the element `document.
+   scrollingElement` actually is in standards mode - takes an explicit
+   `overflow`, and an explicit value on the root is what the spec has the UA
+   use for the VIEWPORT's own scrollability (not `body`'s, unless `html`
+   leaves it at the initial `visible`). The moment `.roll` unmounts, the
+   selector stops matching and every other screen's scroll returns with no
+   cleanup code needed on either side. */
+html:has(.roll) {
+  overflow: hidden;
+}
+
 .roll--live {
   /* --rec-wash carries the theme split (§7.8) - see its definition. Pulled in
      from the original (80%->70%, 60%->55% stop) so the red reads as a HEADER

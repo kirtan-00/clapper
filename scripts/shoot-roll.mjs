@@ -706,6 +706,282 @@ async function momentClipCheck(cdp, rows, fails) {
   await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
 }
 
+/** ASSERTION 8: THE DOCUMENT HAS NOTHING TO SCROLL, AND `.roll` TRACKS A
+ *  LIVE RESIZE RATHER THAN JUST LANDING CORRECTLY AT A FRESH PAGE LOAD.
+ *
+ * Everything above this line re-navigates before it measures (`setViewport`
+ * then `seed` then `openRoll`), so it proves the roll screen is correct AT a
+ * given height, never that it STAYS correct while the height changes under
+ * it - and a toolbar collapsing or expanding on a phone is exactly that: the
+ * same mounted page, a shorter or taller `window.innerHeight`, no reload.
+ * `--vvh` is the fix (see the comment on `.roll` in styles.css), and the
+ * only honest way to prove it tracks is to resize the SAME open page and
+ * read `.roll`'s own box afterwards, which is what this does: 844 -> 800 ->
+ * 844, an iPhone-sized toolbar delta, on a page already rolling.
+ *
+ * `document.scrollingElement.scrollHeight <= clientHeight + 1` is asserted
+ * at every one of those three steps, not just at rest. This is the number
+ * the brief asked for by name: unit-free, reproduces in this emulator (it
+ * does not depend on iOS actually having a toolbar to hide), and is exactly
+ * the check that would have failed on the build this was filed against -
+ * before this pass, `.roll` was sized off a static `svh`/`vh` while
+ * `html, body, #root` carried `height: 100%`, and the two did not always
+ * agree at every resize step, which is the spare scrollable room a drag
+ * rides. */
+async function viewportTrackingCheck(cdp, rows, fails) {
+  const note = (ok, text) => {
+    rows.push(`${ok ? ' ok ' : 'FAIL'} ${text}`);
+    if (!ok) fails.push(text);
+  };
+
+  const READ = `
+    (() => {
+      const doc = document.documentElement, body = document.body;
+      const roll = document.querySelector('.roll');
+      const r = roll ? roll.getBoundingClientRect() : null;
+      return {
+        innerH: window.innerHeight,
+        rollTop: r ? Math.round(r.top) : null,
+        rollBottom: r ? Math.round(r.bottom) : null,
+        rollH: r ? Math.round(r.height) : null,
+        docScroll: doc.scrollHeight, docClient: doc.clientHeight,
+        bodyScroll: body.scrollHeight, bodyClient: body.clientHeight,
+      };
+    })()
+  `;
+
+  for (const theme of ['day', 'night']) {
+    await cdp.setViewport(VIEWPORT.width, 844);
+    await seed(cdp, { cameraCount: 1, soundOn: false, scriptMode: false, shots: false });
+    await openRoll(cdp, theme);
+    const p = await cdp.centreOf('.bigbtn');
+    await cdp.mouseDown(p.x, p.y);
+    await cdp.mouseUp(p.x, p.y);
+    await cdp.waitForExpr(`document.querySelector('.roll--live')`, { desc: `live for viewport-track ${theme}` });
+    await sleep(500);
+
+    const steps = [];
+    for (const h of [844, 800, 844]) {
+      await cdp.setViewport(VIEWPORT.width, h);
+      await sleep(220); // let the resize -> visualViewport 'resize' -> --vvh chain settle
+      steps.push({ h, ...(await cdp.evaluate(READ)) });
+    }
+    await cdp.shot(join(OUT_DIR, `viewporttrack.${theme}.png`));
+
+    for (const s of steps) {
+      note(
+        s.rollH !== null && Math.abs(s.rollH - s.innerH) <= 1 && s.rollBottom !== null && Math.abs(s.rollBottom - s.innerH) <= 1,
+        `viewport-track ${theme} resized-to-${s.h}  .roll height ${s.rollH} bottom ${s.rollBottom} vs innerHeight ${s.innerH} (must fill it, no dead band)`,
+      );
+      note(
+        s.docScroll <= s.docClient + 1,
+        `viewport-track ${theme} resized-to-${s.h}  documentElement scrollHeight ${s.docScroll} vs clientHeight ${s.docClient} (must not be scrollable)`,
+      );
+      note(
+        s.bodyScroll <= s.bodyClient + 1,
+        `viewport-track ${theme} resized-to-${s.h}  body scrollHeight ${s.bodyScroll} vs clientHeight ${s.bodyClient} (must not be scrollable)`,
+      );
+    }
+  }
+  await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
+}
+
+/** ASSERTION 10: PIN THE MECHANISM, BECAUSE THE SYMPTOM IS UNREACHABLE HERE.
+ *
+ * Read this before trusting any green run of the two checks above. BOTH of
+ * them pass on a build with the fix REMOVED - measured, not assumed, by
+ * stashing the CSS and re-running. They are not worthless (they catch a
+ * regression that makes .roll the wrong size at all, and they cost seconds)
+ * but they cannot see the bug the owner filmed, for two reasons that are
+ * properties of the emulator and will not change:
+ *
+ *   1. Headless Chrome has NO COLLAPSING TOOLBAR. The small viewport and the
+ *      large viewport are the same number here, so `100svh` and the real
+ *      visible height are identical and the dead band never appears. On the
+ *      phone they differ by about one toolbar, which is the entire bug.
+ *   2. Chrome DOES NOT RUBBER-BAND. Overscroll bounce at a document edge is
+ *      a WebKit behaviour; dispatching a perfect touchstart/move/end drag at
+ *      a non-scrollable page in Chrome produces no movement whether or not
+ *      the page had spare scroll room to give. So the drag check confirms
+ *      "nothing moved" in an engine where nothing was ever going to move.
+ *
+ * This is the same class of blindness as the wheel-vs-touch mistake the
+ * comment above describes, one level deeper, and the honest conclusion is
+ * that THE PHONE IS THE ORACLE for the symptom. What CAN be pinned in an
+ * emulator is that the two mechanisms are actually in force, so a later
+ * refactor cannot quietly delete them and leave a green harness behind.
+ * These three assertions DO fail with the fix stashed - verified the same
+ * way, by stashing it. They assert structure, not behaviour, and they say so
+ * in their own text rather than claiming the bug is covered. */
+async function viewportMechanismCheck(cdp, rows, fails) {
+  const note = (ok, text) => {
+    rows.push(`${ok ? ' ok ' : 'FAIL'} ${text}`);
+    if (!ok) fails.push(text);
+  };
+
+  const READ = `
+    (() => {
+      const doc = document.documentElement;
+      const roll = document.querySelector('.roll');
+      const cs = roll ? getComputedStyle(roll) : null;
+      return {
+        htmlOverflowY: getComputedStyle(doc).overflowY,
+        vvh: doc.style.getPropertyValue('--vvh').trim(),
+        rollHeight: cs ? cs.height : null,
+        hasRoll: !!roll,
+        // The WINNING height declaration on the .roll rule, as AUTHORED.
+        // getComputedStyle resolves it to a pixel number, and on this engine
+        // svh and --vvh resolve to the SAME number - so the computed value
+        // cannot tell the two apart and a value comparison passes either
+        // way (measured: it did). The cascade within one rule keeps only the
+        // last declaration of a property, so rule.style.height IS whichever
+        // of the stacked fallbacks won.
+        rollHeightDecl: (() => {
+          const out = [];
+          for (const sheet of document.styleSheets) {
+            let rules;
+            try { rules = sheet.cssRules; } catch { continue; } // cross-origin
+            if (!rules) continue;
+            for (const r of rules) {
+              // EXACTLY the .roll rule - not .roll__deck, not a descendant
+              // like ".roll .grab". A loose match pulls in child heights
+              // (9px, 16px, 28px were the real ones) and any of them could
+              // satisfy the var(--vvh) test while .roll itself stayed on
+              // svh, which is the false pass this assertion exists to avoid.
+              if (r.selectorText && r.style && r.style.height &&
+                  r.selectorText.split(',').some((s) => s.trim() === '.roll')) {
+                out.push(r.style.height);
+              }
+            }
+          }
+          return out.join(' | ');
+        })(),
+      };
+    })()
+  `;
+
+  await cdp.setViewport(VIEWPORT.width, 844);
+  await seed(cdp, { cameraCount: 1, soundOn: false, scriptMode: false, shots: false });
+  await openRoll(cdp, 'night');
+  await sleep(400);
+  const live = await cdp.evaluate(READ);
+
+  // 10a. While a .roll is mounted the ROOT element must be unscrollable. This
+  // is what removes the spare room an iOS drag rubber-bands; `overflow:
+  // hidden` on `html` is what the spec has the UA propagate to the viewport.
+  note(
+    live.htmlOverflowY === 'hidden',
+    `viewport-mech  html overflow-y is "${live.htmlOverflowY}" while .roll is mounted (must be "hidden" - this is what leaves an iOS drag nothing to rubber-band)`,
+  );
+
+  // 10b. .roll's height must be AUTHORED as var(--vvh, ...) - the real
+  // visible height from visualViewport - and not left on a static viewport
+  // unit. This asserts the declaration, not the computed pixel value, for
+  // the reason spelled out on rollHeightDecl above: this engine resolves
+  // svh and --vvh to the same number, so the value proves nothing. Both
+  // halves are checked - the declaration is the fix, and --vvh being
+  // non-empty confirms main.tsx is actually feeding it (a var() pointing at
+  // a property nobody writes would silently fall through to the fallback).
+  note(
+    /var\(\s*--vvh/.test(live.rollHeightDecl) && live.vvh !== '',
+    `viewport-mech  .roll height is authored as "${live.rollHeightDecl}" with --vvh="${live.vvh}" (must be a var(--vvh, ...) fed by main.tsx, not a static svh baked in at load)`,
+  );
+
+  // 10c. NEGATIVE CONTROL. The moment the roll screen unmounts, every other
+  // screen must get its scrolling back - they are normal lists and SHOULD
+  // scroll. A fix that locked the whole app would also pass 10a.
+  await cdp.evaluate(`(() => {
+    const b = [...document.querySelectorAll('button')].find((x) => /^Back/.test(x.textContent || ''));
+    if (b) b.click();
+    return true;
+  })()`);
+  await cdp.waitForExpr(`!document.querySelector('.roll')`, { desc: 'left the roll screen for mech check' });
+  await sleep(300);
+  const after = await cdp.evaluate(READ);
+  note(
+    after.hasRoll === false && after.htmlOverflowY !== 'hidden',
+    `viewport-mech  html overflow-y is "${after.htmlOverflowY}" after leaving the roll screen (must NOT be hidden - the lock is scoped to .roll, every other screen still scrolls)`,
+  );
+
+  await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
+}
+
+/** ASSERTION 9: A REAL TOUCH DRAG, NOT A WHEEL EVENT.
+ *
+ * The whole reason assertions 1-7 shipped green on a still-broken build:
+ * `tryToScroll` above drives `Input.dispatchMouseEvent` wheel events, and
+ * WebKit's rubber-band overscroll on iOS is a touch gesture, not a wheel
+ * gesture - a wheel event cannot produce it and never exercises the code
+ * path the owner's thumb does. This drives `Input.dispatchTouchEvent`
+ * directly: touchstart near the top, a run of touchmove steps dragging DOWN
+ * (the gesture that pulls a page into overscroll at its top edge), then
+ * touchend - and the same shape again dragging UP from near the bottom. If
+ * `.roll` or CUT moves a single pixel, or the document picks up any
+ * scrollTop, that is the bug the owner reported twice. */
+async function touchDragCheck(cdp, rows, fails) {
+  const note = (ok, text) => {
+    rows.push(`${ok ? ' ok ' : 'FAIL'} ${text}`);
+    if (!ok) fails.push(text);
+  };
+
+  const touch = async (type, x, y) => {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: type === 'touchEnd' ? [] : [{ x, y, radiusX: 12, radiusY: 12, force: 1, id: 1 }],
+    });
+  };
+  const drag = async (x, points) => {
+    await touch('touchStart', x, points[0]);
+    for (const y of points.slice(1)) {
+      await touch('touchMove', x, y);
+      await sleep(30);
+    }
+    await touch('touchEnd', x, points[points.length - 1]);
+  };
+
+  for (const theme of ['day', 'night']) {
+    await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
+    await seed(cdp, { cameraCount: 1, soundOn: false, scriptMode: false, shots: false });
+    await openRoll(cdp, theme);
+    const p = await cdp.centreOf('.bigbtn');
+    await cdp.mouseDown(p.x, p.y);
+    await cdp.mouseUp(p.x, p.y);
+    await cdp.waitForExpr(`document.querySelector('.roll--live')`, { desc: `live for touch-drag ${theme}` });
+    await sleep(400);
+
+    const before = await cdp.evaluate(MEASURE);
+    let threw = null;
+    try {
+      // Down-drag from near the top: the gesture that rubber-bands a page's
+      // TOP edge into overscroll.
+      await drag(195, [80, 200, 340, 480]);
+      await sleep(80);
+      // Up-drag from near the bottom: the gesture that rubber-bands a
+      // page's BOTTOM edge, which is the one under CUT's thumb.
+      await drag(195, [VIEWPORT.height - 60, VIEWPORT.height - 200, VIEWPORT.height - 400, VIEWPORT.height - 600]);
+      await sleep(80);
+    } catch (err) {
+      threw = err.message;
+    }
+    const after = await cdp.evaluate(MEASURE);
+    await cdp.shot(join(OUT_DIR, `touchdrag.${theme}.png`));
+
+    if (threw) {
+      note(false, `touch-drag ${theme}  Input.dispatchTouchEvent threw: ${threw}`);
+      continue;
+    }
+    note(
+      sameBox(before.cut, after.cut),
+      `touch-drag ${theme}  CUT ${fmt(before.cut)} -> ${fmt(after.cut)} across a real touchstart/move/end drag`,
+    );
+    note(
+      after.scrollY === 0 && after.docScroll <= after.docClient + 1,
+      `touch-drag ${theme}  scrollY ${after.scrollY}  doc ${after.docScroll}/${after.docClient} after the drag`,
+    );
+  }
+  await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
+}
+
 async function assertMain(cdp) {
   mkdirSync(OUT_DIR, { recursive: true });
   const rows = [];
@@ -803,11 +1079,14 @@ async function assertMain(cdp) {
 
   await behaviourChecks(cdp, rows, fails);
   await momentClipCheck(cdp, rows, fails);
+  await viewportTrackingCheck(cdp, rows, fails);
+  await viewportMechanismCheck(cdp, rows, fails);
+  await touchDragCheck(cdp, rows, fails);
 
   console.log(rows.join('\n'));
   console.log('\n' + bar.join('\n'));
   console.log(`\nPNGs in ${OUT_DIR}`);
-  console.log(fails.length === 0 ? '\nALL SEVEN PASS, every state.' : `\n${fails.length} FAILURES:\n  ${fails.join('\n  ')}`);
+  console.log(fails.length === 0 ? '\nALL NINE PASS, every state.' : `\n${fails.length} FAILURES:\n  ${fails.join('\n  ')}`);
   if (fails.length) process.exitCode = 1;
 }
 
