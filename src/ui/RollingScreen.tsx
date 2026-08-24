@@ -883,6 +883,12 @@ export function RollingScreen(props: {
       markInMs !== null
         ? [...buffered, { kind: 'range', atMs: markInMs, endMs: durationMs, label: '' }]
         : buffered;
+    // MARK IN was armed and never explicitly closed - CUT folds it into a
+    // range ending at the take boundary instead of dropping it (see
+    // finalBuffer above). Still a moment marked, just closed by the cut
+    // rather than a second tap, so it counts the same way markInOut's own
+    // explicit close does.
+    if (markInMs !== null) track('moment_marked');
     setMarkInMs(null);
     setRangeLabelTarget(null);
 
@@ -1218,6 +1224,10 @@ export function RollingScreen(props: {
       markInMs !== null
         ? [...buffered, { kind: 'range', atMs: markInMs, endMs: durationMs, label: '' }]
         : buffered;
+    // Same fold as closeMultiTake's own copy of this comment: MARK IN armed
+    // and never explicitly closed still counts as a moment marked, just
+    // closed by CUT instead of a second tap.
+    if (markInMs !== null) track('moment_marked');
     setMarkInMs(null);
     setRangeLabelTarget(null);
 
@@ -1309,6 +1319,12 @@ export function RollingScreen(props: {
   function tapTag(tag: string) {
     if (!rolling) return;
     haptics.tap();
+    // Never the tag TEXT itself - a project's tags are its own house
+    // vocabulary (see tagdefaults.ts), free text an operator typed, not an
+    // enum this app controls. `gold` is safe: it is a fixed boolean asking
+    // "was this the one tag with its own brass button", not a value that
+    // could ever carry a name or a note.
+    track('tag_used', { gold: tag === 'GOLD' });
     setBuffered((prev) => [...prev, { kind: 'point', atMs: elapsedMs, label: '', tag }]);
     // NO TOAST. It used to say "WIDE marked" over the deck for a couple of
     // seconds; the owner: "tapping a button makes a message of it pressed,
@@ -1330,6 +1346,7 @@ export function RollingScreen(props: {
       const start = markInMs;
       const end = elapsedMs;
       setMarkInMs(null);
+      track('moment_marked');
       setBuffered((prev) => {
         const next: Buffered[] = [...prev, { kind: 'range', atMs: start, endMs: end, label: '' }];
         setRangeLabelTarget(next.length - 1);
@@ -2783,6 +2800,7 @@ export function RollingScreen(props: {
             const updated = await store.updateProject(project.id, { cameras: merged });
             setProject(updated);
             setEditingUnit(null);
+            track('clip_number_edited', { surface: 'counter' });
             haptics.tap();
           }}
         />
@@ -2849,6 +2867,7 @@ export function RollingScreen(props: {
               const updated = await store.updateProject(project.id, { cameras: units });
               setProject(updated);
               setEditingClip(false);
+              track('clip_number_edited', { surface: 'counter' });
               haptics.tap();
             }}
           />
@@ -2860,6 +2879,7 @@ export function RollingScreen(props: {
               const updated = await store.updateProject(project.id, { nextClipNumber: n });
               setProject(updated);
               setEditingClip(false);
+              track('clip_number_edited', { surface: 'counter' });
               haptics.tap();
             }}
           />

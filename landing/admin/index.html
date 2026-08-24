@@ -509,13 +509,37 @@ function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const FORMAT_LABEL = { pdf: 'PDF', premiere: 'Premiere XML', resolve: 'Resolve XML', csv: 'CSV' };
 const CAP_LABEL = { script: 'Script Mode parses', callsheet: 'Callsheet imports' };
 const GATE_LABEL = { script: 'Script Mode cap', premiere: 'Premiere/Resolve cap', csv: 'CSV cap', account: 'Account tab (no wall)' };
+const SCREEN_LABEL = {
+  home: 'Home', projects: 'Projects list', project: 'A project', shots: 'Shot list',
+  cliplog: 'Clip log', rolling: 'Rolling', settings: 'Settings', account: 'Account',
+  how_to: 'How-to guide',
+};
+const SURFACE_LABEL = { counter: 'Live clip counter', take: 'A logged take' };
 
+// Every key below 'totals'/'app_opens.total'/'app_opens.distinct_signed_in_users'
+// was added in 20260824150000_admin_analytics_engagement.sql, a SEPARATE
+// migration from the one that created this function. If the owner deploys
+// this page before applying that migration (or applies neither), `data`
+// still comes back from the OLDER function and simply lacks these keys - so
+// every read below falls back to an empty/zero shape rather than throwing,
+// which would otherwise take the whole dashboard down, cards that DO have
+// data included.
 function renderDashboard(data) {
   const excluded = data.totals.excluded_pre_cutoff_events;
   const cutoffDay = fmtDay(data.cutoff_day);
 
   const daybars = (data.app_opens.by_day || []);
   const maxDay = Math.max(1, ...daybars.map((d) => d.count));
+  const returning = data.app_opens.returning_signed_in_users;
+  const singleDay = data.app_opens.single_day_signed_in_users;
+  const hasReturning = typeof returning === 'number' && typeof singleDay === 'number';
+
+  const screens = (data.screens && data.screens.by_screen) || [];
+  const tagsUsed = data.tags_used || { total: 0, gold: 0 };
+  const momentsMarked = typeof data.moments_marked === 'number' ? data.moments_marked : 0;
+  const clipEdits = (data.clip_number_edits && data.clip_number_edits.by_surface) || [];
+  const wrapDays = data.wrap_days || { wrapped: 0, undone: 0 };
+  const sessionEnds = data.session_ends || { total: 0, by_screen: [] };
 
   el.dashBody.innerHTML = `
     <div class="banner">
@@ -537,7 +561,20 @@ function renderDashboard(data) {
           <div class="num mono">${data.app_opens.distinct_signed_in_users.toLocaleString()}</div>
           <div class="label">distinct signed-in users</div>
         </div>
+        ${hasReturning ? `
+          <div class="stat">
+            <div class="num mono">${returning.toLocaleString()}</div>
+            <div class="label">opened on 2+ days</div>
+          </div>
+        ` : ''}
       </div>
+      ${hasReturning ? `
+        <p class="foot-note">
+          Of the signed-in users above, <strong>${returning.toLocaleString()}</strong> came back on a
+          later day and <strong>${singleDay.toLocaleString()}</strong> have only ever opened on one. This is a
+          floor, not the true rate: a PWA left open across days fires no second open.
+        </p>
+      ` : ''}
       ${daybars.length ? `
         <div class="daybars">
           ${daybars.map((d) => `
@@ -563,6 +600,37 @@ function renderDashboard(data) {
         k: r.mode === 'normal' ? 'Manual setup' : r.mode === 'script' ? 'Script Mode' : r.mode === 'podcast' ? 'Podcast flow' : r.mode,
         v: r.count,
       }))}
+    </div>
+
+    <div class="card">
+      <h2>Screens reached</h2>
+      ${renderRows(screens, (r) => ({
+        k: SCREEN_LABEL[r.screen] || r.screen,
+        v: r.count,
+      }))}
+      <p class="foot-note">One view per visit to a screen - switching projects or stepping to the next shot within the same screen isn't counted again.</p>
+    </div>
+
+    <div class="card">
+      <h2>On-set actions</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="num mono">${tagsUsed.total.toLocaleString()}</div>
+          <div class="label">quick tags used</div>
+        </div>
+        <div class="stat">
+          <div class="num mono">${tagsUsed.gold.toLocaleString()}</div>
+          <div class="label">were GOLD</div>
+        </div>
+        <div class="stat">
+          <div class="num mono">${momentsMarked.toLocaleString()}</div>
+          <div class="label">moments marked (MARK IN/OUT)</div>
+        </div>
+      </div>
+      ${clipEdits.length ? `
+        <p class="foot-note" style="margin-top:var(--sp-4)">Clip numbers fixed: ${clipEdits.map((c) => `${(SURFACE_LABEL[c.surface] || c.surface)} x${c.count}`).join(', ')}</p>
+      ` : ''}
+      <p class="foot-note">Tag NAMES are never recorded - a project's tags are free text a crew typed for itself. Only whether a tap was the GOLD button is counted.</p>
     </div>
 
     <div class="card">
@@ -594,14 +662,45 @@ function renderDashboard(data) {
     </div>
 
     <div class="card">
+      <h2>Wrap day</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="num mono">${wrapDays.wrapped.toLocaleString()}</div>
+          <div class="label">wrap day presses</div>
+        </div>
+        <div class="stat">
+          <div class="num mono">${wrapDays.undone.toLocaleString()}</div>
+          <div class="label">undone</div>
+        </div>
+      </div>
+      <p class="foot-note">This counts the BUTTON PRESS, not shoot days worked. A crew that forgets to press it keeps logging under the day that never closed, and this number can't tell that apart from a day that genuinely ran long - see "Not shown" below for why a true shoot-day count still isn't attempted.</p>
+    </div>
+
+    <div class="card">
+      <h2>Where people drop off</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="num mono">${sessionEnds.total.toLocaleString()}</div>
+          <div class="label">times the app went to background</div>
+        </div>
+      </div>
+      ${renderRows(sessionEnds.by_screen, (r) => ({
+        k: SCREEN_LABEL[r.screen] || r.screen,
+        v: r.count,
+      }))}
+      <p class="foot-note">NOT a session count. On set the phone locks between takes constantly, so one real sitting can appear here several times - read this only as "which screen tends to be up when the app leaves the foreground", never as "how many sessions happened".</p>
+    </div>
+
+    <div class="card">
       <h2>Not shown</h2>
       <p class="dropped">
-        <strong>Takes logged</strong> and <strong>shoot days</strong> aren't here. The only related
-        events are ROLL and CUT, and they fire per camera unit, not per saved take:
-        a two-camera take can log two CUTs for one take, and a CUT with nothing to
-        save (a false start, a solo-sound abort) still fires one. There's no event at
-        all for wrapping a shoot day. A number built on either would look precise and
-        be wrong, so it isn't shown.
+        <strong>Takes logged</strong> and <strong>shoot days worked</strong> aren't here. The only
+        related events are ROLL and CUT, and they fire per camera unit, not per saved
+        take: a two-camera take can log two CUTs for one take, and a CUT with nothing
+        to save (a false start, a solo-sound abort) still fires one. Wrap day PRESSES
+        are shown above, but a press is a human signal, not a clock - it undercounts
+        any day the crew forgot to press it. A number built on any of these to mean
+        "shoot days" would look precise and be wrong, so it isn't shown.
       </p>
     </div>
   `;

@@ -16,6 +16,7 @@ import { renderUnitClip, soundBadgeStyle } from './cameras';
 import { Sheet, SheetClose } from './common';
 import { SpeakerMark } from './marks';
 import * as haptics from './haptics';
+import { track } from '../net/analytics';
 
 /**
  * One clip per camera that rolled this take - the FIRST file each one wrote.
@@ -368,6 +369,12 @@ export function TakeEditSheet(props: {
     const rebased = numbersEdited()
       ? await store.rebaseClips(project.id, take.id, newNumbers, soundNumber)
       : null;
+    // Distinct surface from the live-counter editors in RollingScreen.tsx:
+    // this is correcting a number on a take already logged in the can, not
+    // steering where the NEXT clip lands. Only fires when a number actually
+    // changed - a status/tag/note-only save through this same sheet isn't a
+    // clip-number edit.
+    if (numbersEdited()) track('clip_number_edited', { surface: 'take' });
 
     const trimmedNote = note.trim();
     // Status/tags/note are this row's alone; the clip names were just written

@@ -21,6 +21,7 @@ import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { useNavState, type Nav, type Route } from './nav';
 import { TabTray } from './TabTray';
 import { Onboarding } from './Onboarding';
+import { trackScreenView } from '../net/analytics';
 
 // ------------------------------------------------- full-screen claims -----
 
@@ -64,6 +65,17 @@ export function AppShell(props: { render: (route: Route, nav: Nav) => ReactNode 
   const { route, nav } = useNavState();
   const overlay = useFullScreenClaimed();
   const tray = route.name !== 'rolling' && !overlay;
+
+  // ONE `screen_view` per distinct screen NAME, not per route object — keyed
+  // that way on purpose. `nav.replace` swaps a route's payload without
+  // changing its name (editing the project you're already looking at,
+  // stepping to the next shot on the rolling screen); neither is a
+  // navigation and neither should count as a second view of the same screen.
+  // See src/net/analytics.ts for what this also feeds: a later `session_end`
+  // reports whatever screen was recorded here last.
+  useEffect(() => {
+    trackScreenView(route.name);
+  }, [route.name]);
 
   return (
     // --tray-lift rides on this class, so anything floating inside (the toast)

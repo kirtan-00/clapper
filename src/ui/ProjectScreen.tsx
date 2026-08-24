@@ -946,6 +946,12 @@ function ShootDaySection(props: {
   async function doWrap() {
     const { project: next } = wrapShootDay(project, Date.now());
     await props.onCommit(next);
+    // A PRESS count, never presented as "shoot days": a crew that forgets to
+    // wrap simply keeps logging under the day that's still open, and this
+    // event has no way to tell that apart from a day that genuinely had one
+    // long session. See the dashboard's own "Not shown" card for the same
+    // caveat already written about ROLL/CUT.
+    track('wrap_day', { action: 'wrap' });
     setConfirming(false);
     setWrapped(true);
     props.onWrapped();
@@ -960,6 +966,7 @@ function ShootDaySection(props: {
       return;
     }
     await props.onCommit(result.project);
+    track('wrap_day', { action: 'undo' });
     props.onUndone(result.project.openShootDay);
   }
 

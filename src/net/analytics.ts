@@ -154,3 +154,103 @@ export function trackError(err: unknown, context?: Record<string, unknown>): voi
     /* error telemetry is best-effort; never surface, never throw */
   }
 }
+
+// ============================================================================
+// SCREEN TRACKING. What is on top right now, kept for two things: firing
+// `screen_view` the moment it changes, and remembering it so a later
+// `session_end` (below) can say where the person actually was.
+//
+// This is a plain module-level variable, not React state — AppShell already
+// re-renders on every route change, so a second subscription mechanism here
+// would just be a duplicate of information the router already has. The only
+// thing missing from the router is "what was on screen right before the tab
+// went away", which is exactly what this file is for.
+// ============================================================================
+
+let screen: string | null = null;
+
+/** The screen currently on top, or `null` before the first navigation. */
+export function currentScreen(): string | null {
+  return screen;
+}
+
+/**
+ * Record a screen change and fire `screen_view` for it. Call once per
+ * distinct screen NAME — AppShell's route-change effect keys on `route.name`
+ * rather than the route object, so replacing a project/shot in place (an
+ * edit, not a navigation) never double-counts a view. HowToScreen calls this
+ * too: it is a full-window overlay reached from Settings, not a nav route
+ * (see AppShell.tsx's UNMOUNT-DO-NOT-HIDE comment), so nothing else would
+ * ever record it.
+ */
+export function trackScreenView(name: string): void {
+  screen = name;
+  track('screen_view', { screen: name });
+}
+
+/**
+ * Put the screen marker back WITHOUT firing an event. For an overlay like
+ * HowToScreen: it is not a nav route, so AppShell's effect never runs again
+ * when the overlay closes (`route.name` never changed underneath it) —
+ * without this, a `session_end` fired minutes later would still say "how_to"
+ * long after the guide was dismissed. This only ever affects what a LATER
+ * session_end reports; it is not itself a measurement of anything.
+ */
+export function restoreScreen(name: string): void {
+  screen = name;
+}
+
+// ============================================================================
+// SESSION END. Answers "which screen was last seen before a session ends" —
+// approximated as "which screen was showing the moment the tab went to the
+// background", via the Page Visibility API rather than `beforeunload`/
+// `pagehide`: on a phone, backgrounding (screen lock, app switch, a call
+// coming in) is how almost every session actually ends, and visibilitychange
+// fires reliably for that where unload-family events do not on mobile Safari.
+//
+// TRADE-OFF, on purpose: on set the phone locks between takes constantly, so
+// one real sitting throws off several `session_end` rows, not one. This is
+// fine for the question this answers ("what screen do people fall out on",
+// a distribution) and WRONG for "how many sessions" — the dashboard must
+// never total this as a session count. See its own comment for why.
+//
+// Also on purpose: a `track()` fired at hide-time is a normal fetch, not
+// `navigator.sendBeacon`. If the OS kills the page before that fetch lands,
+// the event is silently lost — same trade-off `roll`/`cut` already accept
+// (this file has never used sendBeacon), and adding it here only would give
+// this one event a reliability guarantee nothing else in the table has.
+// ============================================================================
+
+/**
+ * Pure decision, split out so it is testable without a DOM: fire only on the
+ * transition INTO hidden, and only once a screen has actually been recorded
+ * (a tab backgrounded before the first navigation — e.g. a bot fetching the
+ * page — has nothing meaningful to report).
+ */
+export function shouldFireSessionEnd(
+  visibilityState: string,
+  screenName: string | null,
+): screenName is string {
+  return visibilityState === 'hidden' && screenName !== null;
+}
+
+// Installed once, at module load, guarded so importing this file under a
+// DOM-less test runner (this repo's vitest config has no jsdom — see
+// vite.config.ts) never throws and never takes the rest of the suite down
+// with it. Every branch inside is itself best-effort, same contract as the
+// rest of this file.
+try {
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+      try {
+        if (shouldFireSessionEnd(document.visibilityState, screen)) {
+          track('session_end', { screen });
+        }
+      } catch {
+        /* best-effort; never surface, never throw */
+      }
+    });
+  }
+} catch {
+  /* best-effort; never surface, never throw */
+}

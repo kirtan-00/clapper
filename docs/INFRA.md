@@ -151,6 +151,34 @@ stopped it shipped 2026-08-20 (commit `92c31ac`); nothing before that date is
 trustworthy. Every number on the admin dashboard is scoped to
 `created_at >= 2026-08-20` and the page says so on screen.
 
+**Event vocabulary**, all fire-and-forget, all props limited to counts, enums
+and booleans — never a project name, scene text, shot text, an operator name,
+a file name, or any free text a user typed:
+
+| Event | Props | Answers |
+|---|---|---|
+| `app_open` | `ref`, `standalone` | how many people opened the app |
+| `screen_view` | `screen` (nav route name, or `how_to` for the guide overlay) | which screens people reach |
+| `session_end` | `screen` | which screen was showing when the app went to the background — an *approximation* of drop-off, not a session count (see the migration/dashboard comment) |
+| `project_created` | `mode` (`normal`/`script`/`podcast`), `cameras`, `sound` | which setup flow people use |
+| `roll`, `cut` | — | per camera unit, not per take — see "Not shown" below |
+| `tag_used` | `gold` (boolean) | quick-tag use, and GOLD/circle specifically — never the tag text, which is a crew's own free-text vocabulary (`tagdefaults.ts`) |
+| `moment_marked` | — | MARK IN/OUT ranges, whether closed by a second tap or folded in at CUT |
+| `clip_number_edited` | `surface` (`counter`/`take`) | the clip-number editor — the live counter vs. correcting an already-logged take |
+| `wrap_day` | `action` (`wrap`/`undo`) | wrap-day PRESSES, not shoot days worked — see below |
+| `shotlist_uploaded`, `shotlist_parsed`, `example_loaded` | — / `scenes`,`shots` / `which` | Script Mode use |
+| `export` | `format` | which export formats get used |
+| `cap_hit` | `which` | which gated action hit its free-tier cap |
+| `pro_interest`, `pro_purchased` | `gate` / `plan` | interest vs. purchases (selling is paused; `pro_purchased` is aggregated but has no client call site right now) |
+| `persist` | `granted`, `already` | storage-permission prompt outcome |
+| `error` | `message`, `stack`, `name`, `...context` | crash telemetry |
+
+**Not tracked, on purpose:** a device/anonymous-user identifier. It would let
+"distinct users" and "how often they come back" include anonymous opens, not
+just signed-in ones — but adding one is a privacy decision reserved for the
+owner, not something to add silently. Flagged as an open question wherever
+this analytics work is discussed.
+
 ---
 
 ## Supabase
@@ -224,21 +252,31 @@ numbers. Authorisation is decided by Postgres, never by client JavaScript:
 never a row of `public.events` — that matters because `events.props` carries
 `trackError`'s raw stack traces.
 
-**Four steps to make it work, in order. None are automated.**
+**Five steps to make it work, in order. None are automated.**
 
 1. Apply `supabase/migrations/20260822090000_admin_suspension.sql` — creates
    `public.admins` and `is_admin`.
 2. Apply `supabase/migrations/20260824090000_admin_analytics.sql`.
-3. Insert your own `auth.users` id into `public.admins`. **Nobody is seeded.**
+3. Apply `supabase/migrations/20260824150000_admin_analytics_engagement.sql`
+   — same function, `create or replace`d with the full body restated plus
+   screens/tagging/moments/clip-edits/wrap-day/session-end/returning-users
+   added. **Not applied yet as of this writing** — the dashboard's own
+   `renderDashboard()` still works against just step 2's function (every new
+   card falls back to an empty/zero shape instead of throwing), so applying
+   this step can happen whenever the owner reviews it, independent of when
+   the app-side code deploys.
+4. Insert your own `auth.users` id into `public.admins`. **Nobody is seeded.**
    Until this row exists every account, including the owner's, sees "This
    account is not an admin". That is fail-closed by design, not a bug.
-4. Add `https://clapper.in/admin/` to Supabase Auth's redirect allowlist, or
+5. Add `https://clapper.in/admin/` to Supabase Auth's redirect allowlist, or
    Google sign-in bounces to the site root instead of the dashboard.
 
-Deliberately not shown on the dashboard: **takes logged** and **shoot days**.
-`ROLL`/`CUT` fire per camera unit, not per saved take (a two-camera take logs
-two CUTs; a false start logs a CUT with nothing saved), and there is no event
-at all for wrapping a shoot day. A number built on either would look precise
+Deliberately not shown on the dashboard: **takes logged** and **shoot days
+worked**. `ROLL`/`CUT` fire per camera unit, not per saved take (a two-camera
+take logs two CUTs; a false start logs a CUT with nothing saved). `wrap_day`
+IS shown, but only as a press count — it undercounts any day the crew forgot
+to press it, so it is labelled "wrap day presses", never "shoot days". A
+number built on any of these to mean "shoot days worked" would look precise
 and be wrong.
 
 ---
@@ -246,7 +284,7 @@ and be wrong.
 ## Deploy checklist
 
 ```bash
-npm test          # 331 tests
+npm test          # 337 tests
 npm run build
 ./deploy.sh       # builds, assembles, injects GA4, force-pushes gh-pages
 ```

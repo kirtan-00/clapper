@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFullScreenClaim } from './AppShell';
 import * as haptics from './haptics';
 import { BackButton } from './marks';
+import { currentScreen, restoreScreen, trackScreenView } from '../net/analytics';
 
 const GUIDE_NAV: { id: string; label: string }[] = [
   { id: 'g-what', label: 'What it is' },
@@ -48,6 +49,18 @@ export function HowToScreen(props: { onClose: () => void }) {
   // Claiming it unmounts the tab tray (see AppShell), rather than leaving a bar
   // of chrome floating over documentation that owns the whole viewport.
   useFullScreenClaim();
+
+  // Not a nav route (it is opened as a Settings overlay - see SettingsScreen),
+  // so AppShell's own route-change effect never sees it and never fires a
+  // second `screen_view` when it closes. Record it directly here, and put the
+  // underlying screen back (Settings, in practice, but captured rather than
+  // hardcoded) on unmount without firing an event, so a `session_end` fired
+  // after the guide is dismissed doesn't keep reporting "how_to" forever.
+  useEffect(() => {
+    const under = currentScreen();
+    trackScreenView('how_to');
+    return () => restoreScreen(under ?? 'settings');
+  }, []);
 
   // The guide faded IN and then vanished between two frames, which is the
   // defect the sheets just had: an entrance that animates and an exit that does
