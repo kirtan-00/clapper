@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" />
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('clapper.theme');
+      if (t !== 'night') return;
+      document.documentElement.setAttribute('data-theme', 'night');
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', '#000000');
+    } catch (e) { /* light is the default and is already in the markup */ }
+  })();
+</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>Script Supervisor Duties: What the Job Actually Covers | Clapper</title>
+<meta name="description" content="What a script supervisor actually tracks on set: prep, lined scripts, take notation, and how the job differs US vs UK vs Indian sets. Written for people who work on set, not for a listicle." />
+<meta name="keywords" content="script supervisor duties, script supervisor responsibilities, what does a script supervisor do, continuity supervisor role, script supervisor job" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/script-supervisor-duties/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="Script Supervisor Duties: What the Job Actually Covers" />
+<meta property="og:description" content="What a script supervisor actually tracks on set: prep, lined scripts, take notation, and how the job differs US vs UK vs Indian sets." />
+<meta property="og:url" content="https://clapper.in/articles/script-supervisor-duties/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Script Supervisor Duties: What the Job Actually Covers" />
+<meta name="twitter:description" content="What a script supervisor actually tracks on set: prep, lined scripts, take notation, and how the job differs US vs UK vs Indian sets." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "What a script supervisor actually does on set",
+  "description": "What a script supervisor actually tracks on set: prep, lined scripts, take notation, and how the job differs US vs UK vs Indian sets.",
+  "image": "https://clapper.in/og.png",
+  "datePublished": "2026-08-24",
+  "dateModified": "2026-08-24",
+  "author": { "@type": "Organization", "name": "Clapper", "url": "https://clapper.in/" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Clapper",
+    "logo": { "@type": "ImageObject", "url": "https://clapper.in/apple-touch-icon.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://clapper.in/articles/script-supervisor-duties/" }
+}
+</script>
+
+<style>
+  :root{
+    --paper:#e2f0cc; --paper-raised:#f2f8e6; --ink:#08160c; --ink-dim:#4a5b45; --rule:#c6d8ac;
+    --accent:#0b4650; --accent-press:#0f5c69; --accent-ink:#e2f0cc;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+    --ease: cubic-bezier(.4,0,.2,1);
+  }
+  [data-theme="night"]{
+    --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{width:100%;max-width:820px;margin:0 auto;padding:0 22px}
+  a{color:inherit}
+  .kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 16px}
+  h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.16;color:var(--ink)}
+  h1{font-size:clamp(30px,5vw,46px);margin:0 0 16px}
+  h2{font-size:clamp(22px,3vw,28px);margin:46px 0 14px}
+  h3{font-size:18px;margin:22px 0 8px;font-weight:700}
+  p{margin:0 0 16px}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin-bottom:7px}
+  strong{color:var(--ink)}
+
+  header.topbar{border-bottom:1px solid var(--rule)}
+  header.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:62px;max-width:1000px}
+  .brandmark{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:800;letter-spacing:-.01em;text-decoration:none;color:var(--ink)}
+  .brandmark svg{border-radius:6px}
+  .navr{display:flex;align-items:center;gap:16px}
+  .topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+  .topnav:hover{color:var(--ink)}
+  .themebtn{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--rule);color:var(--ink-dim);padding:7px 12px;border-radius:8px;cursor:pointer}
+  .themebtn:hover{color:var(--ink);border-color:var(--ink-dim)}
+
+  .btn{display:inline-flex;align-items:center;gap:.5em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+  .btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+
+  section{padding:0 0 40px}
+  .hero{padding:48px 0 6px}
+  .lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch;margin-top:14px}
+  .byline{font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;color:var(--ink-dim);margin-top:14px}
+
+  .rule{border:0;border-top:1px solid var(--rule);margin:36px 0 0}
+
+  .note-card{border:1px solid var(--rule);background:var(--paper-raised);border-radius:12px;padding:16px 18px;margin:18px 0;font-family:var(--font-mono);font-size:13.5px;line-height:1.75;color:var(--ink)}
+  .note-card .tag{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:8px}
+
+  .callout{border-left:3px solid var(--accent);background:var(--paper-raised);border-radius:0 12px 12px 0;padding:16px 20px;margin:20px 0}
+  .callout .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+  .callout p{margin:0 0 10px}
+  .callout p:last-child{margin-bottom:0}
+  .callout b{color:var(--ink)}
+
+  .table-scroll{overflow-x:auto}
+  table.notation{width:100%;border-collapse:collapse;margin:18px 0;font-size:14.5px;min-width:480px}
+  table.notation th,table.notation td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+  table.notation thead th{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);font-weight:500}
+  table.notation tbody tr:last-child td{border-bottom:0}
+  @media(max-width:640px){
+    .table-scroll{overflow-x:visible}
+    table.notation{min-width:0}
+    table.notation thead{display:none}
+    table.notation, table.notation tbody, table.notation tr, table.notation td{display:block;width:100%}
+    table.notation tr{padding:12px 0;border-bottom:1px solid var(--rule)}
+    table.notation tr:last-child{border-bottom:0}
+    table.notation td{border-bottom:0;padding:3px 0}
+    table.notation td:first-child{font-weight:700;color:var(--ink);padding-top:8px}
+  }
+
+  .cta{background:var(--paper-raised);border:1px solid var(--rule);border-radius:20px;padding:clamp(26px,4vw,42px);margin:6px 0}
+  .cta .kicker{margin-bottom:12px}
+  .cta h2{margin:0 0 12px;font-size:24px}
+  .cta p{color:var(--ink-dim);max-width:60ch}
+  .cta .btn{margin-top:6px}
+
+  .more{border-top:1px solid var(--rule);padding-top:40px}
+  .more h2{font-size:20px;margin:0 0 6px}
+  .more-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:16px}
+  @media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+  .more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:16px 18px}
+  .more-card:hover{border-color:var(--ink-dim)}
+  .more-card .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+  .more-card .n{font-size:16px;margin-top:6px;font-weight:700}
+
+  footer.foot{border-top:1px solid var(--rule);padding:24px 0 0}
+  footer.foot .wrap{max-width:1000px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-bottom:18px}
+  footer.foot .fm{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800}
+  footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:16px}
+  footer.foot .flinks a:first-child{margin-left:0}
+  footer.foot .flinks a:hover{color:var(--ink)}
+  footer.foot .copy{max-width:956px;margin:0 auto;padding:14px 22px 20px;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="22" height="22" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <div class="navr">
+        <a class="topnav" href="https://clapper.in/app/">Open the app &rarr;</a>
+        <button class="themebtn" id="themeToggle" type="button" aria-pressed="false">Night</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">On set &middot; role guide</p>
+        <h1>What a script supervisor actually does on set</h1>
+        <p class="lede">Not "continuity" in the vague sense people use it. The job is matching, timing, and being the editor's eyes on set, done in the gap between "cut" and the next take, on a clock nobody else on the crew is watching.</p>
+        <p class="byline">9 min read</p>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section style="padding-top:40px">
+      <div class="wrap">
+        <h2>The job in one sentence</h2>
+        <p>A script supervisor's job is to make sure that whatever gets shot today, out of order, across however many days, can be cut together as if it happened in one continuous take. That means three separate things happening at once: <strong>continuity</strong> (does it match what came before), <strong>timing</strong> (how long is this going to run, against how long the schedule allows), and <strong>the paper trail</strong> (which takes are good, what changed from the page, and what the editor needs to know that isn't visible in the frame). Most write-ups stop at continuity. It's a third of the job.</p>
+
+        <h2>Before the camera rolls</h2>
+        <p>The work starts in prep, not on day one. A script supervisor breaks the script down scene by scene, notes anything that will need to match across a time jump (a bandage that has to heal, a haircut that hasn't happened yet, a pregnancy that has to progress), and times a cold read against the schedule so the 1st AD knows before day one if the script is running long. Scripts get counted in <strong>eighths</strong>: one page equals eight-eighths, a scene that runs half a page is 4/8, and every scheduling document downstream runs on that unit, not on page count.</p>
+        <p>During tech scouts and rehearsal, they're building the mental model they'll check every take against for the rest of the shoot: who's meant to be where, holding what, wearing what, at what point in the dialogue.</p>
+
+        <h2>During a take, what actually gets tracked</h2>
+        <p>Once the camera rolls, the note has to happen live, because there's no second chance to remember what take 3 looked like once you're on take 9. What gets written down, every take:</p>
+        <ul>
+          <li><strong>Dialogue against the page.</strong> Every ad-lib, dropped line, or paraphrase gets marked, because the editor needs to know which line reading actually matches the script supervisor's continuity notes, not what's in the shooting script.</li>
+          <li><strong>Physical state.</strong> Prop in which hand, glass how full, cigarette how far burned down, wardrobe buttoned or not, hair pinned or loose. Not everything, just whatever is visible on screen and could change take to take.</li>
+          <li><strong>Screen direction and eyeline.</strong> Which way a character exits, which way they have to enter the next linked shot, where their eyeline lands relative to the person they're supposedly looking at.</li>
+          <li><strong>Camera data.</strong> Lens, filter, camera height to the lens center, sometimes contrast ratio, in case the setup has to be rebuilt for a pickup weeks later.</li>
+          <li><strong>The take's result.</strong> Circled (the one to use), NG (no good), PU (a pickup, meaning only part of the take was reshot), or a series (repeated without cutting between).</li>
+        </ul>
+        <p>Here's roughly what that looks like as a real note, not a form field:</p>
+        <div class="note-card">
+          <span class="tag">SC 14 &middot; setup C &middot; take 3</span>
+          Lights cig on "you always do this" &middot; 2 drags by end of line &middot; glass 3/4 full, held in R hand &middot; exits frame left toward door. Circled. PU from "you always do this" if we need the tighter size later, cig should be at the same length.
+        </div>
+        <p>Notice what's missing: no scene-setting prose, no adjectives, nothing that isn't a fact someone downstream has to match. A note that takes ninety seconds to write during a three-minute turnaround between takes is a note that gets written accurately. A note that takes five minutes is a note that gets written from memory after wrap, which is a different and worse document.</p>
+
+        <h2>The lined script</h2>
+        <p>Alongside the note-by-note continuity log, the script supervisor marks up a physical or digital copy of the script called the <strong>lined script</strong>: a vertical line drawn through the dialogue and action for every setup, showing exactly which camera angle covered which piece of the scene. A straight line through a line of dialogue means the actor's face was on camera saying it. A wavy line means the camera was rolling but that line was off screen, covered, or happening out of frame. Stack enough of these lines side by side down a page and an editor can see, at a glance, every angle that exists for a given beat of dialogue without having to scrub through footage to find out.</p>
+        <p>This document, plus the day's continuity notes, becomes the reference an editor works from before they've watched a single frame of dailies. If you want the one-page version that summarizes a day's totals against schedule rather than the take-by-take detail, that's a separate document: see the <a href="https://clapper.in/templates/script-supervisor-daily-report/">script supervisor daily report template</a>, which is what actually goes to the production office at wrap.</p>
+
+        <h2>Where practice differs</h2>
+        <div class="callout">
+          <p class="l">US &middot; union productions</p>
+          <p>The role is <strong>Script Supervisor</strong>, or "scripty" informally. On a union production the script supervisor is represented by <strong>IATSE Local 871</strong>, the local that also covers accountants and writers' assistants, not Local 700, which is the editors. That's a distinction worth getting right if you're talking to a working script supervisor: they aren't in the same guild as the person cutting their notes together.</p>
+        </div>
+        <div class="callout">
+          <p class="l">UK</p>
+          <p>Historically the job was called <strong>Continuity</strong>, and older UK crews still use the title interchangeably with Script Supervisor. Functionally it's the same job; ScreenSkills, the UK industry body, lists it under both names.</p>
+        </div>
+        <div class="callout">
+          <p class="l">India</p>
+          <p>This is the one most write-ups skip entirely: a meaningful share of Indian productions shoot without a dedicated script supervisor at all, and the gap gets absorbed by an AD or the editor working from memory and whatever photos exist. Reporting on Bollywood sets by Caravan magazine describes script supervisors improvising with a phone stopwatch and mirror to time scenes, building "dialogue sheets" and "continuity log sheets" by hand, and, on at least one production, being the last crew member to get a seat on a moving vehicle rig during a driving shot. The job exists and the people doing it are serious about it; the infrastructure around it, on a lot of sets, isn't. <em>Andaaz Apna Apna</em> (1994) is the standard cited example of what happens without one: Salman Khan's haircut visibly changes between scenes that are meant to be continuous, because they were shot on different schedules months apart.</p>
+        </div>
+        <div class="callout">
+          <p class="l">Single camera vs multicam</p>
+          <p>Everything above describes single-camera continuity, where scenes get covered across multiple angles shot out of order over hours or days. On a multicam sitcom or a live-audience format, most of a scene is captured in one continuous pass across several cameras at once, so the physical-continuity burden drops sharply: there's no gap in time between "wide" and "close" for a prop to move. Timing and paperwork still matter just as much, continuity in the classic sense mostly doesn't.</p>
+        </div>
+        <div class="callout">
+          <p class="l">Film vs digital</p>
+          <p>"Circled" and "printed" both survive from the negative-cutting era, when circling a take on the report meant a lab would actually print that piece of negative to a work print, an expensive step you didn't do for every take. Digital sets kept the vocabulary; there's nothing left to physically print, but "circle the take" still means the same thing it always did: this is the one to use.</p>
+        </div>
+
+        <h2>The part that isn't paperwork</h2>
+        <p>The skill that separates a good script supervisor from someone who's just fast at typing notes is being willing to tell a director, in front of the crew, on a tight schedule, that a shot as covered won't cut together. That's an unpopular thing to say at 4pm on day 11. It's also the entire point of having someone in the job: the alternative is finding out in the edit bay, months later, when it's far more expensive to fix.</p>
+
+        <div class="cta">
+          <p class="kicker">Where the paperwork goes digital</p>
+          <h2>Clapper logs the take, the tags, and the timecode as you shoot</h2>
+          <p>It doesn't replace the judgment call on whether a shot will cut, that's still the script supervisor's read. What it does is stop the day's totals, circled takes, and camera clip numbers from being something you re-add by hand at wrap. Free with a Google account, and it exports a Premiere-ready timeline, CSV, and PDF at the end of the day.</p>
+          <a class="btn" href="https://clapper.in/app/">Open Clapper &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Related reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="https://clapper.in/articles/continuity-notes-guide/">
+            <div class="l">Guide</div>
+            <div class="n">How to write continuity notes</div>
+          </a>
+          <a class="more-card" href="https://clapper.in/articles/what-is-a-tcr-sheet/">
+            <div class="l">Glossary</div>
+            <div class="n">What is a TCR sheet?</div>
+          </a>
+          <a class="more-card" href="https://clapper.in/templates/continuity-sheet-template/">
+            <div class="l">Free template</div>
+            <div class="n">Continuity sheet template</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/">App</a>
+        <a href="https://clapper.in/articles/continuity-notes-guide/">Continuity notes</a>
+        <a href="https://clapper.in/templates/script-supervisor-daily-report/">Daily report template</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+
+  <script>
+    (function () {
+      var btn = document.getElementById('themeToggle');
+      if (!btn) return;
+      function sync() {
+        var night = document.documentElement.getAttribute('data-theme') === 'night';
+        btn.textContent = night ? 'Day' : 'Night';
+        btn.setAttribute('aria-pressed', night ? 'true' : 'false');
+      }
+      sync();
+      btn.addEventListener('click', function () {
+        var night = document.documentElement.getAttribute('data-theme') === 'night';
+        var next = night ? 'light' : 'night';
+        try { localStorage.setItem('clapper.theme', next); } catch (e) {}
+        if (next === 'night') document.documentElement.setAttribute('data-theme', 'night');
+        else document.documentElement.removeAttribute('data-theme');
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', next === 'night' ? '#000000' : '#e2f0cc');
+        sync();
+      });
+    })();
+  </script>
+</body>
+</html>

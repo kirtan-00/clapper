@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" />
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('clapper.theme');
+      if (t !== 'night') return;
+      document.documentElement.setAttribute('data-theme', 'night');
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', '#000000');
+    } catch (e) { /* light is the default and is already in the markup */ }
+  })();
+</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>What Is a TCR Sheet? Timecode Logging on Set, Explained | Clapper</title>
+<meta name="description" content="TCR sheet, explained honestly: what it means, why there's no single standard template for it, and where the timecode you're actually looking for already lives on a real set." />
+<meta name="keywords" content="TCR sheet, timecode reference sheet, timecode report film, TCR film production, timecode log sheet" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/what-is-a-tcr-sheet/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="What Is a TCR Sheet? Timecode Logging on Set, Explained" />
+<meta property="og:description" content="What a TCR sheet actually means, why there's no single standard template for it, and where the timecode you need already lives on a real set." />
+<meta property="og:url" content="https://clapper.in/articles/what-is-a-tcr-sheet/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="What Is a TCR Sheet? Timecode Logging on Set, Explained" />
+<meta name="twitter:description" content="What a TCR sheet actually means, why there's no single standard template for it, and where the timecode you need already lives on a real set." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "What is a TCR sheet?",
+  "description": "TCR sheet, explained honestly: what it means, why there's no single standard template for it, and where the timecode you're actually looking for already lives on a real set.",
+  "image": "https://clapper.in/og.png",
+  "datePublished": "2026-08-24",
+  "dateModified": "2026-08-24",
+  "author": { "@type": "Organization", "name": "Clapper", "url": "https://clapper.in/" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Clapper",
+    "logo": { "@type": "ImageObject", "url": "https://clapper.in/apple-touch-icon.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://clapper.in/articles/what-is-a-tcr-sheet/" }
+}
+</script>
+
+<style>
+  :root{
+    --paper:#e2f0cc; --paper-raised:#f2f8e6; --ink:#08160c; --ink-dim:#4a5b45; --rule:#c6d8ac;
+    --accent:#0b4650; --accent-press:#0f5c69; --accent-ink:#e2f0cc;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+    --ease: cubic-bezier(.4,0,.2,1);
+  }
+  [data-theme="night"]{
+    --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{width:100%;max-width:820px;margin:0 auto;padding:0 22px}
+  a{color:inherit}
+  .kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 16px}
+  h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.16;color:var(--ink)}
+  h1{font-size:clamp(30px,5vw,46px);margin:0 0 16px}
+  h2{font-size:clamp(22px,3vw,28px);margin:46px 0 14px}
+  h3{font-size:18px;margin:22px 0 8px;font-weight:700}
+  p{margin:0 0 16px}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin-bottom:7px}
+  strong{color:var(--ink)}
+
+  header.topbar{border-bottom:1px solid var(--rule)}
+  header.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:62px;max-width:1000px}
+  .brandmark{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:800;letter-spacing:-.01em;text-decoration:none;color:var(--ink)}
+  .brandmark svg{border-radius:6px}
+  .navr{display:flex;align-items:center;gap:16px}
+  .topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+  .topnav:hover{color:var(--ink)}
+  .themebtn{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--rule);color:var(--ink-dim);padding:7px 12px;border-radius:8px;cursor:pointer}
+  .themebtn:hover{color:var(--ink);border-color:var(--ink-dim)}
+
+  .btn{display:inline-flex;align-items:center;gap:.5em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+  .btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+
+  section{padding:0 0 40px}
+  .hero{padding:48px 0 6px}
+  .lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch;margin-top:14px}
+  .byline{font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;color:var(--ink-dim);margin-top:14px}
+
+  .rule{border:0;border-top:1px solid var(--rule);margin:36px 0 0}
+
+  .quick{border:1px solid var(--rule);background:var(--paper-raised);border-radius:14px;padding:20px 22px;margin:26px 0 0}
+  .quick .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 10px}
+  .quick p{margin:0 0 10px;font-size:16.5px}
+  .quick p:last-child{margin-bottom:0}
+
+  .note-card{border:1px solid var(--rule);background:var(--paper-raised);border-radius:12px;padding:16px 18px;margin:18px 0;font-family:var(--font-mono);font-size:13.5px;line-height:1.75;color:var(--ink)}
+  .note-card .tag{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:8px}
+
+  .callout{border-left:3px solid var(--accent);background:var(--paper-raised);border-radius:0 12px 12px 0;padding:16px 20px;margin:20px 0}
+  .callout .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+  .callout p{margin:0 0 10px}
+  .callout p:last-child{margin-bottom:0}
+  .callout b{color:var(--ink)}
+
+  .table-scroll{overflow-x:auto}
+  table.notation{width:100%;border-collapse:collapse;margin:18px 0;font-size:14.5px;min-width:480px}
+  table.notation th,table.notation td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+  table.notation thead th{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);font-weight:500}
+  table.notation tbody tr:last-child td{border-bottom:0}
+  @media(max-width:640px){
+    .table-scroll{overflow-x:visible}
+    table.notation{min-width:0}
+    table.notation thead{display:none}
+    table.notation, table.notation tbody, table.notation tr, table.notation td{display:block;width:100%}
+    table.notation tr{padding:12px 0;border-bottom:1px solid var(--rule)}
+    table.notation tr:last-child{border-bottom:0}
+    table.notation td{border-bottom:0;padding:3px 0}
+    table.notation td:first-child{font-weight:700;color:var(--ink);padding-top:8px}
+  }
+
+  .cta{background:var(--paper-raised);border:1px solid var(--rule);border-radius:20px;padding:clamp(26px,4vw,42px);margin:6px 0}
+  .cta .kicker{margin-bottom:12px}
+  .cta h2{margin:0 0 12px;font-size:24px}
+  .cta p{color:var(--ink-dim);max-width:60ch}
+  .cta .btn{margin-top:6px}
+
+  .more{border-top:1px solid var(--rule);padding-top:40px}
+  .more h2{font-size:20px;margin:0 0 6px}
+  .more-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:16px}
+  @media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+  .more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:16px 18px}
+  .more-card:hover{border-color:var(--ink-dim)}
+  .more-card .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+  .more-card .n{font-size:16px;margin-top:6px;font-weight:700}
+
+  footer.foot{border-top:1px solid var(--rule);padding:24px 0 0}
+  footer.foot .wrap{max-width:1000px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-bottom:18px}
+  footer.foot .fm{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800}
+  footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:16px}
+  footer.foot .flinks a:first-child{margin-left:0}
+  footer.foot .flinks a:hover{color:var(--ink)}
+  footer.foot .copy{max-width:956px;margin:0 auto;padding:14px 22px 20px;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="22" height="22" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <div class="navr">
+        <a class="topnav" href="https://clapper.in/app/">Open the app &rarr;</a>
+        <button class="themebtn" id="themeToggle" type="button" aria-pressed="false">Night</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">On set &middot; glossary</p>
+        <h1>What is a TCR sheet?</h1>
+        <p class="lede">Short answer: it depends who you ask, and that's worth saying plainly instead of pretending there's one industry-standard form. Here's what the phrase actually points to, and where the real document already lives on your set.</p>
+        <p class="byline">5 min read</p>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section style="padding-top:40px">
+      <div class="wrap">
+        <div class="quick">
+          <p class="l">Quick answer</p>
+          <p>A TCR sheet is a take-by-take log that pairs each take, or each moment inside a take, with its timecode, so anyone in post can jump straight to a specific frame without scrubbing through footage to find it.</p>
+          <p>It is not a single standardized industry form the way a call sheet or a continuity sheet is. There's no one PDF everyone in the industry agrees is "the" TCR sheet. It's closer to a description of a job a document does than the name of a specific document.</p>
+        </div>
+
+        <h2>Where the term actually comes from</h2>
+        <p>"TCR" doesn't have one settled expansion. In telecine and broadcast delivery, you'll see it used for <strong>timecode reference</strong> or <strong>timecode reading</strong>, mostly in the context of checking a finished program against a reference timecode before it airs, or syncing a transfer back to the original camera negative. That's a post and delivery term, not something that started on a film set.</p>
+        <p>On the set side, Clapper uses "TCR sheet" as shorthand for a take-by-take record of what happened during each take, timecoded, which is closer to a continuity log with timecodes attached than to the broadcast-QC meaning. Both usages are real. Neither is the one true definition, and if you go looking for a universal "TCR sheet template," you won't find one, because the paperwork under that specific name was never standardized the way, say, a sound report was.</p>
+
+        <h2>Where the timecode already lives, without anyone calling it a TCR sheet</h2>
+        <p>The useful part isn't the label, it's that most sets already generate this data under other names:</p>
+        <div class="table-scroll">
+          <table class="notation">
+            <thead><tr><th>Document</th><th>What carries the timecode</th></tr></thead>
+            <tbody>
+              <tr><td>Sound report</td><td>A timecode column against every take, filled in by the sound mixer as a matter of course.</td></tr>
+              <tr><td>Camera report / camera log sheet</td><td>Timecode in and out per clip, critical once more than one camera is rolling and dailies need to sync.</td></tr>
+              <tr><td>Script supervisor's continuity log</td><td>References timecode once dailies are synced, tying a written note to an exact frame.</td></tr>
+              <tr><td>DIT verification pass</td><td>Checks offloaded cards for factory-default timecode, a red flag that a camera's internal clock wasn't jam-synced correctly.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Put those four together and you already have everything a "TCR sheet" would claim to be. The gap isn't the data, it's that it's scattered across documents owned by different departments, written at different points in the day, and rarely cross-referenced until someone in the edit needs a specific frame fast.</p>
+
+        <h2>Why it's worth logging as you shoot, not after</h2>
+        <p>The moment this matters is an editor or a director scrubbing through dailies at the end of a long day, trying to find the one line reading everyone remembered as great. Without a timecoded note pointing at it, that's minutes of scrubbing per take, across every take shot that day. With one, it's a lookup: take 3C, circled, timecode noted at the moment it happened. The value isn't the document format, it's that the timecode got captured live, next to a note about what was actually happening at that frame, instead of reconstructed later from memory.</p>
+
+        <div class="callout">
+          <p class="l">Where practice differs</p>
+          <p>On a scripted union US set, both the sound report and the camera report carry a timecode column as a matter of routine, whether or not anyone calls the resulting document a "TCR sheet." On a lot of indie and lower-budget Indian sets, that discipline is inconsistent: timecode gets burned into the picture and the editor is left to eyeball it, because there's no dedicated crew member logging it live. Neither is wrong, they're different amounts of infrastructure for the same underlying problem.</p>
+        </div>
+
+        <h2>What a usable timecode log actually needs</h2>
+        <ul>
+          <li>Scene, setup, and take identifier, matching the slate.</li>
+          <li>Timecode in, and camera letter if more than one camera is rolling.</li>
+          <li>A one-line note on what happened at that moment: a great line reading, a boom dip, a prop drop.</li>
+          <li>The take's result: circled, NG, or PU, same as a continuity log.</li>
+        </ul>
+        <p>That's the whole document. It doesn't need a separate name to be useful; it needs to exist, and to exist while the take is still fresh, logged next to the note about what happened rather than reconstructed later from a camera card.</p>
+
+        <div class="cta">
+          <p class="kicker">Skip the reconstruction</p>
+          <h2>Every take, tagged and timecoded as it happens</h2>
+          <p>Clapper is a free, phone-first take logger. Tap to log a take, circle the good ones, and every moment gets its timecode automatically, no separate sheet to keep in sync with the slate.</p>
+          <a class="btn" href="https://clapper.in/app/">Open Clapper &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Related reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="https://clapper.in/articles/script-supervisor-duties/">
+            <div class="l">Role guide</div>
+            <div class="n">Script supervisor duties</div>
+          </a>
+          <a class="more-card" href="https://clapper.in/articles/continuity-notes-guide/">
+            <div class="l">Guide</div>
+            <div class="n">How to write continuity notes</div>
+          </a>
+          <a class="more-card" href="https://clapper.in/templates/camera-log-sheet/">
+            <div class="l">Free template</div>
+            <div class="n">Camera log sheet (PDF)</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/">App</a>
+        <a href="https://clapper.in/articles/script-supervisor-duties/">Script supervisor duties</a>
+        <a href="https://clapper.in/templates/camera-log-sheet/">Camera log sheet</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+
+  <script>
+    (function () {
+      var btn = document.getElementById('themeToggle');
+      if (!btn) return;
+      function sync() {
+        var night = document.documentElement.getAttribute('data-theme') === 'night';
+        btn.textContent = night ? 'Day' : 'Night';
+        btn.setAttribute('aria-pressed', night ? 'true' : 'false');
+      }
+      sync();
+      btn.addEventListener('click', function () {
+        var night = document.documentElement.getAttribute('data-theme') === 'night';
+        var next = night ? 'light' : 'night';
+        try { localStorage.setItem('clapper.theme', next); } catch (e) {}
+        if (next === 'night') document.documentElement.setAttribute('data-theme', 'night');
+        else document.documentElement.removeAttribute('data-theme');
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', next === 'night' ? '#000000' : '#e2f0cc');
+        sync();
+      });
+    })();
+  </script>
+</body>
+</html>

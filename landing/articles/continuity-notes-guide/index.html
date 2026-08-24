@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#e2f0cc" />
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('clapper.theme');
+      if (t !== 'night') return;
+      document.documentElement.setAttribute('data-theme', 'night');
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', '#000000');
+    } catch (e) { /* light is the default and is already in the markup */ }
+  })();
+</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>How to Write Continuity Notes (With Real Examples) | Clapper</title>
+<meta name="description" content="A working structure for continuity notes: what to write down before, during, and after a take, real note excerpts, and the mistakes that don't show up in the generic guides." />
+<meta name="keywords" content="continuity notes, how to write continuity notes, script supervisor notes, continuity sheet examples, film continuity guide" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/articles/continuity-notes-guide/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="How to Write Continuity Notes (With Real Examples)" />
+<meta property="og:description" content="A working structure for continuity notes: what to write down before, during, and after a take, real note excerpts, and the mistakes generic guides skip." />
+<meta property="og:url" content="https://clapper.in/articles/continuity-notes-guide/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="How to Write Continuity Notes (With Real Examples)" />
+<meta name="twitter:description" content="A working structure for continuity notes: what to write down before, during, and after a take, real note excerpts, and the mistakes generic guides skip." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to write continuity notes",
+  "description": "A step-by-step structure for continuity notes during a shoot day: header the take, log the baseline, log the delta, mark the result, and flag anything that crosses a cut.",
+  "totalTime": "PT2M",
+  "supply": [
+    { "@type": "HowToSupply", "name": "Continuity sheet or note-taking app" },
+    { "@type": "HowToSupply", "name": "The day's shooting script" }
+  ],
+  "step": [
+    { "@type": "HowToStep", "name": "Header the take", "text": "Scene, setup letter, and take number, written before the take starts so the note doesn't get orphaned if you're interrupted." },
+    { "@type": "HowToStep", "name": "Note the baseline before you roll", "text": "The physical state you're protecting: prop position, wardrobe state, hair, anything a later take or a matching angle has to reproduce." },
+    { "@type": "HowToStep", "name": "Note the delta, not the whole shot", "text": "Only write down what changed from the baseline or from the previous take: an ad-lib, a dropped line, a prop that moved to a different hand." },
+    { "@type": "HowToStep", "name": "Mark the result and why", "text": "Circled, NG, PU, or series, plus the one-line reason, so the editor knows why a take was chosen without having to ask." },
+    { "@type": "HowToStep", "name": "Flag anything that crosses a cut", "text": "Screen direction, eyeline, and the exact word or action a pickup should be matched from." }
+  ]
+}
+</script>
+
+<style>
+  :root{
+    --paper:#e2f0cc; --paper-raised:#f2f8e6; --ink:#08160c; --ink-dim:#4a5b45; --rule:#c6d8ac;
+    --accent:#0b4650; --accent-press:#0f5c69; --accent-ink:#e2f0cc;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+    --ease: cubic-bezier(.4,0,.2,1);
+  }
+  [data-theme="night"]{
+    --paper:#000000; --paper-raised:#161616; --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#e6ff2b; --accent-press:#c9e024; --accent-ink:#000000;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{width:100%;max-width:820px;margin:0 auto;padding:0 22px}
+  a{color:inherit}
+  .kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 16px}
+  h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.16;color:var(--ink)}
+  h1{font-size:clamp(30px,5vw,46px);margin:0 0 16px}
+  h2{font-size:clamp(22px,3vw,28px);margin:46px 0 14px}
+  h3{font-size:18px;margin:22px 0 8px;font-weight:700}
+  p{margin:0 0 16px}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin-bottom:7px}
+  strong{color:var(--ink)}
+
+  header.topbar{border-bottom:1px solid var(--rule)}
+  header.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:62px;max-width:1000px}
+  .brandmark{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:800;letter-spacing:-.01em;text-decoration:none;color:var(--ink)}
+  .brandmark svg{border-radius:6px}
+  .navr{display:flex;align-items:center;gap:16px}
+  .topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+  .topnav:hover{color:var(--ink)}
+  .themebtn{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--rule);color:var(--ink-dim);padding:7px 12px;border-radius:8px;cursor:pointer}
+  .themebtn:hover{color:var(--ink);border-color:var(--ink-dim)}
+
+  .btn{display:inline-flex;align-items:center;gap:.5em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+  .btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+
+  section{padding:0 0 40px}
+  .hero{padding:48px 0 6px}
+  .lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch;margin-top:14px}
+  .byline{font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;color:var(--ink-dim);margin-top:14px}
+
+  .rule{border:0;border-top:1px solid var(--rule);margin:36px 0 0}
+
+  .note-card{border:1px solid var(--rule);background:var(--paper-raised);border-radius:12px;padding:16px 18px;margin:18px 0;font-family:var(--font-mono);font-size:13.5px;line-height:1.75;color:var(--ink)}
+  .note-card .tag{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:8px}
+
+  .callout{border-left:3px solid var(--accent);background:var(--paper-raised);border-radius:0 12px 12px 0;padding:16px 20px;margin:20px 0}
+  .callout .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+  .callout p{margin:0 0 10px}
+  .callout p:last-child{margin-bottom:0}
+  .callout b{color:var(--ink)}
+
+  ol.steps{list-style:none;margin:0 0 8px;padding:0;counter-reset:s}
+  ol.steps li{position:relative;padding:0 0 22px 46px;counter-increment:s}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:30px;height:30px;border-radius:50%;border:1px solid var(--ink-dim);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;color:var(--ink-dim)}
+  ol.steps li h3{margin:0 0 4px}
+  ol.steps li p{margin:0;color:var(--ink-dim)}
+
+  .table-scroll{overflow-x:auto}
+  table.notation{width:100%;border-collapse:collapse;margin:18px 0;font-size:14.5px;min-width:480px}
+  table.notation th,table.notation td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+  table.notation thead th{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);font-weight:500}
+  table.notation tbody tr:last-child td{border-bottom:0}
+  @media(max-width:640px){
+    .table-scroll{overflow-x:visible}
+    table.notation{min-width:0}
+    table.notation thead{display:none}
+    table.notation, table.notation tbody, table.notation tr, table.notation td{display:block;width:100%}
+    table.notation tr{padding:12px 0;border-bottom:1px solid var(--rule)}
+    table.notation tr:last-child{border-bottom:0}
+    table.notation td{border-bottom:0;padding:3px 0}
+    table.notation td:first-child{font-weight:700;color:var(--ink);padding-top:8px}
+  }
+
+  .cta{background:var(--paper-raised);border:1px solid var(--rule);border-radius:20px;padding:clamp(26px,4vw,42px);margin:6px 0}
+  .cta .kicker{margin-bottom:12px}
+  .cta h2{margin:0 0 12px;font-size:24px}
+  .cta p{color:var(--ink-dim);max-width:60ch}
+  .cta .btn{margin-top:6px}
+
+  .more{border-top:1px solid var(--rule);padding-top:40px}
+  .more h2{font-size:20px;margin:0 0 6px}
+  .more-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:16px}
+  @media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+  .more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:16px 18px}
+  .more-card:hover{border-color:var(--ink-dim)}
+  .more-card .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+  .more-card .n{font-size:16px;margin-top:6px;font-weight:700}
+
+  footer.foot{border-top:1px solid var(--rule);padding:24px 0 0}
+  footer.foot .wrap{max-width:1000px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-bottom:18px}
+  footer.foot .fm{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800}
+  footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:16px}
+  footer.foot .flinks a:first-child{margin-left:0}
+  footer.foot .flinks a:hover{color:var(--ink)}
+  footer.foot .copy{max-width:956px;margin:0 auto;padding:14px 22px 20px;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="22" height="22" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <div class="navr">
+        <a class="topnav" href="https://clapper.in/app/">Open the app &rarr;</a>
+        <button class="themebtn" id="themeToggle" type="button" aria-pressed="false">Night</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Continuity &middot; how-to</p>
+        <h1>How to write continuity notes that actually help the edit</h1>
+        <p class="lede">A continuity note has one job: let a stranger who wasn't on set reconstruct exactly what a shot looked like, without watching it. Most guides tell you what categories to track. Few tell you how to write the note fast enough that you actually write it.</p>
+        <p class="byline">8 min read</p>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section style="padding-top:40px">
+      <div class="wrap">
+        <h2>What a note has to survive</h2>
+        <p>Between the take you're logging and the day someone reads your note again, weeks or months can pass. The editor reading it wasn't on set. The reshoot happening four months later is being shot by a crew that's never seen the original scene. Your note is the only thing standing between "this matches" and a visible jump cut in a finished film. That's the bar: not "did I write something down," but "can a stranger rebuild this shot from what I wrote."</p>
+
+        <h2>Five things, every take</h2>
+        <ol class="steps">
+          <li>
+            <h3>Header it before you roll</h3>
+            <p>Scene number, setup letter, take number, written down before the take starts, not after. Setup letters run alphabetically but skip I and O, so the third distinct camera setup in scene 3 is 3C, not 3I. Heading the note first means it survives even if you're pulled away mid-take.</p>
+          </li>
+          <li>
+            <h3>Note the baseline before you roll</h3>
+            <p>The physical state you're protecting: which hand holds the prop, how full the glass is, whether a button is done up. This is the thing a matching angle, shot hours or days later, has to reproduce exactly.</p>
+          </li>
+          <li>
+            <h3>Note the delta, not the whole shot</h3>
+            <p>Once you've logged the baseline once for a scene, later takes only need what changed: an ad-lib, a dropped line, a prop that moved hands, a step taken earlier than blocked. Re-writing the full baseline every take is why continuity notes stop getting written by take six.</p>
+          </li>
+          <li>
+            <h3>Mark the result, and why</h3>
+            <p>Circled, NG, PU, or series, plus a half-sentence reason: "circled, best reading," "NG, boom in frame," "PU from 'you always do this.'" The reason matters more than the mark. A circle with no reason is a guess for whoever picks between two circled takes later.</p>
+          </li>
+          <li>
+            <h3>Flag anything that crosses a cut</h3>
+            <p>Screen direction, eyeline, and, if this take is a partial pickup, the exact word or action it has to be matched from. This is the note that saves the edit, not the one that describes it.</p>
+          </li>
+        </ol>
+
+        <h2>What that looks like written down</h2>
+        <p>A dialogue scene, a prop, and a continuity risk in one:</p>
+        <div class="note-card">
+          <span class="tag">SC 22 &middot; setup A &middot; take 5</span>
+          Baseline (set on take 1): coffee cup 2/3 full, held in L hand, character seated. Take 5: ad-libs "look, I'm sorry" before the scripted line, otherwise matches. Cup now half full, still L hand. Circled. Editor: line addition is fine to keep, doesn't affect the cut point into SC 23.
+        </div>
+        <p>A day-for-night discontinuity, the kind that's invisible on set and obvious in a rough cut:</p>
+        <div class="note-card">
+          <span class="tag">SC 41 &middot; setup B &middot; take 2</span>
+          Shot day 4, day-for-night. Actor's jacket bone dry. SC 40 (shot day 9, practical rain) ends with jacket soaked. These two scenes cut together: flag to editor, wardrobe needs a wet-down pass for SC 41 reshoot or SC 40 gets trimmed before the cut point.
+        </div>
+        <p>A wardrobe-damage continuity chain across a stunt sequence:</p>
+        <div class="note-card">
+          <span class="tag">SC 58 &middot; setup D &middot; take 1</span>
+          Pre-fight: shirt intact, no visible dirt. This is the LAST clean take of the shirt before the stunt. All subsequent setups for this fight must match the torn/dirty state established in take 3 onward, not this baseline.
+        </div>
+
+        <h2>Mistakes the generic guides don't mention</h2>
+        <div class="callout">
+          <p class="l">Writing prose instead of shorthand</p>
+          <p>A note in full sentences is a note that gets abbreviated in your head first, written slowly, and finished late. Shorthand isn't sloppiness, it's the only format that survives a three-minute turnaround. If it takes longer to write than the gap between takes, it gets written after wrap, from memory, which defeats the entire point of taking it live.</p>
+        </div>
+        <div class="callout">
+          <p class="l">Not noting the negative</p>
+          <p>"No visible steam on the mirror" is a note precisely when a later shot in the same bathroom needs steam and someone has to know it wasn't there yet. New script supervisors log what's present and skip what's absent. What's absent is often exactly what a future setup depends on.</p>
+        </div>
+        <div class="callout">
+          <p class="l">Losing the pickup anchor</p>
+          <p>A pickup is only useful if it's anchored to an exact point: a word, a gesture, a footstep. "PU the second half of the scene" is not an anchor. "PU from 'you always do this,' cigarette should be at the same length as take 3C" is one an editor and an actor can both hit.</p>
+        </div>
+        <div class="callout">
+          <p class="l">Trusting the slate alone</p>
+          <p>Digital cameras embed metadata automatically, and it's tempting to assume the clip name and timecode are enough. They drift, get mis-set, or get skipped on a rushed setup. A written or app-side note next to the take is the backstop for exactly the take where the metadata is wrong, which is also the take nobody double-checks until it's a problem in the edit.</p>
+        </div>
+
+        <h2>Paper, phone, or app</h2>
+        <p>On a film-era set, "circle the take" meant marking a paper continuity sheet in grease pencil, because the physical negative for that take would actually get printed to a work print. Digital sets kept the vocabulary and lost the physical step: there's no negative to print, so the circle is now just a flag in a note. That shift is also why the note-taking medium has drifted, on plenty of sets, from a clipboard to a phone: a tap that timestamps itself is strictly less work than writing a timecode by hand, and it's one less thing to get wrong under a three-minute turnaround. Clapper is built around exactly that gap: tag a take, circle it, and note the delta as you shoot, and the totals and exports build themselves at wrap instead of getting re-typed from a paper sheet later.</p>
+
+        <div class="cta">
+          <p class="kicker">Log it as you go</p>
+          <h2>Tag, circle, and note takes without breaking the turnaround</h2>
+          <p>Clapper is a free, phone-first take logger built for exactly the three-minute gap between takes: log a take, mark it circled or NG, add a short continuity note, and it's timestamped and totalled automatically. At wrap, export a Premiere-ready timeline, a CSV, and a PDF.</p>
+          <a class="btn" href="https://clapper.in/app/">Open Clapper &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Related reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="https://clapper.in/articles/script-supervisor-duties/">
+            <div class="l">Role guide</div>
+            <div class="n">Script supervisor duties</div>
+          </a>
+          <a class="more-card" href="https://clapper.in/articles/what-is-a-tcr-sheet/">
+            <div class="l">Glossary</div>
+            <div class="n">What is a TCR sheet?</div>
+          </a>
+          <a class="more-card" href="https://clapper.in/templates/continuity-sheet-template/">
+            <div class="l">Free template</div>
+            <div class="n">Continuity sheet template</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/">App</a>
+        <a href="https://clapper.in/articles/script-supervisor-duties/">Script supervisor duties</a>
+        <a href="https://clapper.in/templates/continuity-sheet-template/">Continuity sheet template</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+
+  <script>
+    (function () {
+      var btn = document.getElementById('themeToggle');
+      if (!btn) return;
+      function sync() {
+        var night = document.documentElement.getAttribute('data-theme') === 'night';
+        btn.textContent = night ? 'Day' : 'Night';
+        btn.setAttribute('aria-pressed', night ? 'true' : 'false');
+      }
+      sync();
+      btn.addEventListener('click', function () {
+        var night = document.documentElement.getAttribute('data-theme') === 'night';
+        var next = night ? 'light' : 'night';
+        try { localStorage.setItem('clapper.theme', next); } catch (e) {}
+        if (next === 'night') document.documentElement.setAttribute('data-theme', 'night');
+        else document.documentElement.removeAttribute('data-theme');
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', next === 'night' ? '#000000' : '#e2f0cc');
+        sync();
+      });
+    })();
+  </script>
+</body>
+</html>
