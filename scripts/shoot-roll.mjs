@@ -827,6 +827,7 @@ async function viewportMechanismCheck(cdp, rows, fails) {
       return {
         htmlOverflowY: getComputedStyle(doc).overflowY,
         vvh: doc.style.getPropertyValue('--vvh').trim(),
+        glassh: doc.style.getPropertyValue('--glassh').trim(),
         rollHeight: cs ? cs.height : null,
         hasRoll: !!roll,
         // The WINNING height declaration on the .roll rule, as AUTHORED.
@@ -874,17 +875,26 @@ async function viewportMechanismCheck(cdp, rows, fails) {
     `viewport-mech  html overflow-y is "${live.htmlOverflowY}" while .roll is mounted (must be "hidden" - this is what leaves an iOS drag nothing to rubber-band)`,
   );
 
-  // 10b. .roll's height must be AUTHORED as var(--vvh, ...) - the real
-  // visible height from visualViewport - and not left on a static viewport
-  // unit. This asserts the declaration, not the computed pixel value, for
-  // the reason spelled out on rollHeightDecl above: this engine resolves
-  // svh and --vvh to the same number, so the value proves nothing. Both
-  // halves are checked - the declaration is the fix, and --vvh being
-  // non-empty confirms main.tsx is actually feeding it (a var() pointing at
-  // a property nobody writes would silently fall through to the fallback).
+  // 10b. .roll's height must be AUTHORED as var(--glassh, ...) - the height
+  // of the glass this app owns, written by main.tsx - and not left on a
+  // static viewport unit. This asserts the declaration, not the computed
+  // pixel value, for the reason spelled out on rollHeightDecl above: this
+  // engine resolves svh and the custom property to the same number, so the
+  // value proves nothing. Both halves are checked - the declaration is the
+  // fix, and --glassh being non-empty confirms main.tsx is actually feeding
+  // it (a var() pointing at a property nobody writes would silently fall
+  // through to the fallback).
+  //
+  // WHY --glassh AND NOT --vvh, which this assertion named until the dead
+  // band came back on the owner's phone WITH --vvh already shipped: --vvh is
+  // `visualViewport.height` alone, it shrinks under the keyboard because the
+  // sheets need it to, and it came back one status bar short on his device.
+  // --glassh is max(visualViewport.height, window.innerHeight). Naming the
+  // wrong property here would pass a build that has the old bug, so the
+  // property name is part of the assertion, not decoration.
   note(
-    /var\(\s*--vvh/.test(live.rollHeightDecl) && live.vvh !== '',
-    `viewport-mech  .roll height is authored as "${live.rollHeightDecl}" with --vvh="${live.vvh}" (must be a var(--vvh, ...) fed by main.tsx, not a static svh baked in at load)`,
+    /var\(\s*--glassh/.test(live.rollHeightDecl) && live.glassh !== '',
+    `viewport-mech  .roll height is authored as "${live.rollHeightDecl}" with --glassh="${live.glassh}" (must be a var(--glassh, ...) fed by main.tsx, not a static svh baked in at load, and not --vvh which the keyboard shrinks)`,
   );
 
   // 10c. NEGATIVE CONTROL. The moment the roll screen unmounts, every other
@@ -902,6 +912,66 @@ async function viewportMechanismCheck(cdp, rows, fails) {
     after.hasRoll === false && after.htmlOverflowY !== 'hidden',
     `viewport-mech  html overflow-y is "${after.htmlOverflowY}" after leaving the roll screen (must NOT be hidden - the lock is scoped to .roll, every other screen still scrolls)`,
   );
+
+
+  // 10d. THE RING IS THE FRAME OF THIS SCREEN, AND HAS TO STAY ONE BOX WITH
+  // IT WHEN THE HEIGHT SOURCE IS WRONG. The tally ring is a fixed-position
+  // pseudo-element; before this pass it took its bottom edge from `inset`,
+  // i.e. from the fixed-positioning containing block, while .roll took its
+  // height from a custom property. Two independently-derived boxes for one
+  // frame. Forced --glassh 47px short (the exact deficit measured off the
+  // owner's screenshot) the old rule left .roll at 797 and the ring at 810 -
+  // the ring drawing outside the screen it frames. This forces the same
+  // deficit and asserts they move together. It FAILS on the pre-fix rule,
+  // verified by forcing the same property against it.
+  const RING_VS_ROLL = `
+    (() => {
+      const live = document.querySelector('.roll--live');
+      if (!live) return null;
+      const r = live.getBoundingClientRect();
+      const a = getComputedStyle(live, '::after');
+      const cs = getComputedStyle(document.documentElement);
+      const num = (v) => parseFloat(v) || 0;
+      // The ring's own box, in the same coordinates: .roll is position:fixed
+      // at top 0 of the same containing block the pseudo-element uses, so the
+      // pseudo's resolved top IS its viewport y.
+      const ringTop = num(a.top);
+      const ringBottom = ringTop + num(a.height);
+      return {
+        rollTop: Math.round(r.top), rollBottom: Math.round(r.bottom),
+        ringTop: Math.round(ringTop), ringBottom: Math.round(ringBottom),
+        safeTop: num(cs.getPropertyValue('--safe-top')),
+        safeBottom: num(cs.getPropertyValue('--safe-bottom')),
+      };
+    })()
+  `;
+  await openRoll(cdp, 'night');
+  {
+    const p = await cdp.centreOf('.bigbtn');
+    await cdp.mouseDown(p.x, p.y);
+    await cdp.mouseUp(p.x, p.y);
+    await cdp.waitForExpr(`document.querySelector('.roll--live')`, { desc: 'live for ring-vs-roll' });
+    await sleep(400);
+  }
+  // main.tsx writes --glassh as an INLINE style on <html>, so the honest way
+  // to put it back afterwards is to re-run its own arithmetic, not to delete
+  // the property and leave the screen on the `100svh` fallback.
+  const restoreGlass = `document.documentElement.style.setProperty('--glassh', Math.max(window.visualViewport ? window.visualViewport.height : 0, window.innerHeight) + 'px'); true`;
+  for (const deficit of [0, 47]) {
+    await cdp.evaluate(
+      `document.documentElement.style.setProperty('--glassh', (window.innerHeight - ${deficit}) + 'px'); true`,
+    );
+    await sleep(200);
+    const g = await cdp.evaluate(RING_VS_ROLL);
+    note(
+      g !== null &&
+        Math.abs(g.ringTop - (g.rollTop + g.safeTop)) <= 1 &&
+        Math.abs(g.ringBottom - (g.rollBottom - g.safeBottom)) <= 1,
+      `viewport-mech  ring-vs-roll (--glassh short by ${deficit})  .roll ${g ? g.rollTop + '..' + g.rollBottom : 'none'}  ring ${g ? g.ringTop + '..' + g.ringBottom : 'none'}  safe ${g ? g.safeTop + '/' + g.safeBottom : '?'} (the ring must be .roll's box inset by the safe areas, at any height)`,
+    );
+  }
+  await cdp.evaluate(restoreGlass);
+  await sleep(200);
 
   await cdp.setViewport(VIEWPORT.width, VIEWPORT.height);
 }

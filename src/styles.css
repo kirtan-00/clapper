@@ -3000,26 +3000,39 @@ select.field {
      saves the `vh` fallback above: a box that is TOO SHORT does not clip
      anything, it just leaves a gap.
 
-     So the real height comes from `--vvh` (src/main.tsx, `window.visual-
-     Viewport.height`, already built for the keyboard-aware sheet) rather than
-     from any CSS viewport unit at all. This is not the `dvh` this comment
-     used to reject: `dvh` recalculates every layout frame WHILE the toolbar
-     animates, which is what produced the 46px slide measured above. `--vvh`
-     is a custom property written from a `resize`/`scroll` listener on
-     `visualViewport` - it updates once, after the toolbar has finished
-     moving, not continuously during the motion, so CUT still does not slide
-     mid-gesture. What it fixes that static `svh` could not is the SETTLED
-     state: standalone PWA, toolbar collapsed, toolbar expanded - `--vvh`
-     matches the true visible height in all three, so there is never a gap to
-     leave. `svh` stays as the pre-JS fallback (`main.tsx` sets `--vvh`
-     synchronously before the first render, so this only carries the very
-     first paint tick, and the odd browser with no `visualViewport` at all -
-     `main.tsx` falls back to `window.innerHeight` for those, so `--vvh` is
-     always defined once JS has run). */
+     So the real height comes from JS (src/main.tsx) rather than from any CSS
+     viewport unit at all. This is not the `dvh` this comment used to reject:
+     `dvh` recalculates every layout frame WHILE the toolbar animates, which is
+     what produced the 46px slide measured above. The custom property is
+     written from a `resize`/`scroll` listener on `visualViewport` - it updates
+     once, after the toolbar has finished moving, not continuously during the
+     motion, so CUT still does not slide mid-gesture. What it fixes that static
+     `svh` could not is the SETTLED state: standalone PWA, toolbar collapsed,
+     toolbar expanded - it matches the true visible height in all three, so
+     there is never a gap to leave. `svh` stays as the pre-JS fallback
+     (`main.tsx` writes the property synchronously before the first render, so
+     this only carries the very first paint tick, and the odd browser with no
+     `visualViewport` at all - `main.tsx` falls back to `window.innerHeight`
+     for those, so the property is always defined once JS has run).
+
+     AND THE PROPERTY IS `--glassh`, NOT `--vvh`, WHICH IS THE CORRECTION THIS
+     COMMENT NEEDED. `--vvh` is `visualViewport.height` and nothing else: it
+     SHRINKS when the keyboard comes up, because that is what the sheets read
+     it for. It also came back one status bar short on the owner's phone -
+     measured off his own 390x844pt screenshot, the tally ring stopped 81pt
+     above the bottom of the glass where 34pt (safe-area-inset-bottom) is the
+     entire designed clearance, and the extra 47pt is exactly that device's
+     safe-area-inset-top. `--glassh` is `max(visualViewport.height,
+     window.innerHeight)`: the same settled-only update, never smaller than
+     either metric, so one metric under-reporting can no longer leave a band
+     of bare ground under the screen. See main.tsx for the full argument.
+     HONEST LIMIT: the emulator this repo's harness runs in reports the two
+     metrics as the SAME number in every state, so it can prove the mechanism
+     is wired and cannot prove the band is gone. The phone is the oracle. */
   bottom: auto;
   height: 100vh;
   height: 100svh;
-  height: var(--vvh, 100svh);
+  height: var(--glassh, 100svh);
   /* The toast reads --tray-lift to clear the tab tray, and the comment on
      .toast used to say this was correctly ZERO here because the roll screen
      unmounts the tray. That stopped being true the day ROLL/CUT got bottom
@@ -3117,11 +3130,28 @@ html:has(.roll) {
 .roll--live::after {
   content: "";
   position: fixed;
-  inset:
-    calc(var(--safe-top) + var(--m-ring-standoff))
-    calc(var(--safe-right) + var(--m-ring-standoff))
-    calc(var(--safe-bottom) + var(--m-ring-standoff))
-    calc(var(--safe-left) + var(--m-ring-standoff));
+  /* THE RING'S HEIGHT COMES FROM THE SAME NUMBER `.roll`'s DOES, and that is
+     a fix, not a flourish. `inset` gave the bottom edge to the FIXED-POSITION
+     containing block - the viewport - while `.roll` above took its height
+     from `--glassh`. Two independently-derived boxes for one frame: measured
+     in the harness by forcing the property 47px short, `.roll` moved to 797
+     and the ring stayed at 810, so the ring was drawing OUTSIDE the screen it
+     is supposed to be the frame of. On the phone they were short together and
+     the divergence hid; the moment one source is right and the other is not,
+     the ring is the thing that lies. Stating the height off `--glassh` (same
+     fallback chain as `.roll`) makes them one box by construction.
+     LEFT/RIGHT stay on the viewport on purpose: `.roll` is a max-width 620px
+     column centred on a tablet, and the ring is a frame around the SCREEN,
+     which is what the two-pane landscape layout also assumes. */
+  top: calc(var(--safe-top) + var(--m-ring-standoff));
+  right: calc(var(--safe-right) + var(--m-ring-standoff));
+  bottom: auto;
+  left: calc(var(--safe-left) + var(--m-ring-standoff));
+  height: calc(
+    var(--glassh, 100svh) - var(--safe-top) - var(--safe-bottom)
+      - 2 * var(--m-ring-standoff)
+  );
+  box-sizing: border-box;
   border: var(--m-ring-weight) solid var(--m-rec);
   border-radius: var(--m-ring-radius);
   pointer-events: none;
@@ -3411,6 +3441,34 @@ html:has(.roll) {
   justify-content: normal;
   justify-items: stretch;
   gap: 0;
+  /* THE ZONE GROWS INTO SPARE ROOM AND NEVER SHRINKS OUT OF ITS OWN CONTENT,
+     and `flex-shrink: 0` is the line that guarantees it. This box used to
+     carry the base rule's `flex: 1 1 0` and lean on `min-height: min-content`
+     below to stop the flex algorithm crushing it - which HOLDS IN CHROME
+     (measured, every rig in scripts/shoot-roll.mjs' sweep: the zone floors at
+     152.7px with a 128.7px readout inside it and the deck below yields
+     instead) and DID NOT HOLD ON THE OWNER'S iPhone. Measured off his own
+     screenshot, a two-camera project in day theme: the clapper stripe ends at
+     188pt, the clip cards start at 204pt, so this zone was ~15pt tall around a
+     ~52pt clock - a flat 42-50 non-ground pixels per row for 13pt and then
+     nothing, which is one horizontal SLICE of full-size glyphs, not a shrunk
+     clock. An intrinsic-sizing floor (`min-height: min-content`) on a grid
+     that is also a flex item with `overflow: hidden` is exactly the kind of
+     rule two engines disagree about, and the disagreement is invisible from
+     the emulator because Chrome gets it right.
+     `flex: 1 0 auto` needs no engine to compute an intrinsic minimum: base
+     size is this grid's own content height, shrink is off, and grow still
+     lets the two `minmax(0, 1fr)` rows open up and centre the readout when
+     there IS spare room. The deck below is `flex: 0 1 auto` and is the box
+     the design already says should yield.
+     BASIS `auto` IS SAFE HERE, AND WAS NOT ALWAYS. The base rule's comment
+     rejects `auto` because the moments list used to grow this band's own
+     intrinsic height (measured: four tags tapped grew it 87px and shrank the
+     deck by the same 87). That was before `.momentlog` got `contain: size` in
+     this same block - contained, it contributes ZERO to the intrinsic height,
+     so `auto` can no longer be moved by a tapped tag. The sweep asserts it:
+     the zone measures identical before and after four taps. */
+  flex: 1 0 auto;
   min-height: min-content;
   /* Never a scroller while rolling. The one gesture this screen accepts
      mid-take is a tap. */
