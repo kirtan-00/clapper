@@ -37,6 +37,7 @@
 // of faders (a sound desk, not the gear every other app reaches for), ACCOUNT
 // is a plain head and shoulders.
 
+import type { CSSProperties } from 'react';
 import type { Nav, Tab } from './nav';
 import { TABS } from './nav';
 import * as haptics from './haptics';
@@ -132,7 +133,35 @@ export function TabTray(props: { nav: Nav }) {
                   a screen reader gets is then the same string a sighted user
                   reads on the pill - one source, so they can never disagree
                   the way a hand-written aria-label eventually does. */}
-              <span className="mnav__label">{LABEL[tab]}</span>
+              <span className="mnav__label">
+                <span className="mnav__word">{LABEL[tab]}</span>
+                {/* THE POD IS A LANDMARK, so it may not change size when the
+                    word inside it does. The pill was `width: auto` around the
+                    active label, so PROJECTS made the whole pod 29.5px wider
+                    than HOME and - being centred - shunted every icon 14.8px
+                    sideways. An operator reaching for the same spot found a
+                    different key.
+                    So the pill reserves the width of the LONGEST label at all
+                    times: these gauges stack on the visible word in one grid
+                    cell (see .mnav__gauge), and a grid cell is as wide as its
+                    widest child. Measured, not guessed - it re-derives itself
+                    from the real font metrics at whatever --ui-scale Glove is
+                    set to, which a hard-coded px min-width could not.
+                    The string arrives as a custom property and is drawn by
+                    `content`, so it never enters textContent: these buttons
+                    are matched by their visible label in scripts/shoot-*.mjs,
+                    and a ghost word in the DOM would make the active tab
+                    answer to all four names. */}
+                {on &&
+                  TABS.filter((other) => other !== tab).map((other) => (
+                    <span
+                      key={other}
+                      className="mnav__gauge"
+                      aria-hidden="true"
+                      style={{ '--m-nav-gauge': JSON.stringify(LABEL[other]) } as CSSProperties}
+                    />
+                  ))}
+              </span>
             </button>
           );
         })}

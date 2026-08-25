@@ -360,6 +360,37 @@ html[data-uiscale='fine'] textarea {
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
   line-height: 1;
+  /* ONE CELL, EVERY WORD IN IT. The visible word and the three gauges below
+     all sit in the same grid area, so this box is as wide as the WIDEST of
+     the four labels no matter which one is showing - and the pod, which is
+     content-sized and centred, therefore keeps one width and one x on every
+     screen. Before this it measured 223.88px on Home and 253.41px on
+     Projects, moving every icon 14.8px sideways between the two.
+     `inline-grid`, not `grid`: the pill lays its icon-less label out inline
+     beside nothing, and a block-level grid would stretch to the pill's
+     padding box and re-introduce a width the label does not control. */
+  display: inline-grid;
+  grid-template-areas: "word";
+  place-items: center;
+}
+.mnav__tab--on .mnav__label > * {
+  grid-area: word;
+}
+
+/* A gauge holds no text of its own: the string arrives as --m-nav-gauge from
+   TabTray.tsx and is drawn by `content`, which keeps all four words out of
+   textContent (read the note at the call site - the shoot scripts match these
+   buttons by their visible label). `visibility: hidden` rather than
+   `display: none` because a display:none child contributes no width, which is
+   the entire job here; it also keeps the gauges out of the accessibility tree
+   on top of their aria-hidden. */
+.mnav__gauge {
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.mnav__gauge::before {
+  content: var(--m-nav-gauge, "");
 }
 
 /* The active tab drops its icon: the word IS the mark, and an icon beside it

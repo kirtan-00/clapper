@@ -52,21 +52,56 @@
         }).catch(function () { /* best-effort */ });
       }
 
+      /* The anonymous visitor id, read with the SAME key the app uses
+         (`clapper.vid`, see src/net/analytics.ts). Same key and same origin
+         is the entire point: it is what lets the dashboard say "of the people
+         who landed, this many went on to open the app" rather than comparing
+         two unconnected totals. A random UUID and nothing else - not derived
+         from the device, the network or the person.
+
+         MINTED HERE TOO, not just read. The landing page is usually the first
+         thing a stranger sees, so if only the app minted the id, every visit
+         that did not convert would be unattributed and "unique visitors"
+         would collapse to "unique people who opened the app". Whichever side
+         runs first wins; the other reads it back. Kept in step with
+         resolveVisitorId() in analytics.ts: anything that is not a 36-char
+         uuid gets replaced rather than counted forever as one visitor. */
+      var vid = null;
+      try {
+        vid = window.localStorage.getItem('clapper.vid');
+        if (!vid || !/^[0-9a-f-]{36}$/i.test(vid)) {
+          vid = (window.crypto && window.crypto.randomUUID)
+            ? window.crypto.randomUUID()
+            : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                var r = (Math.random() * 16) | 0;
+                return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+              });
+          window.localStorage.setItem('clapper.vid', vid);
+        }
+      } catch (e) {
+        /* Private mode or blocked storage. Stay null so the row reads as
+           UNATTRIBUTED - inventing a fresh id per page load would inflate the
+           unique count, which is the exact way these numbers got ruined once
+           already with dev traffic. */
+        vid = null;
+      }
+
       var ref = null;
       try { ref = new URLSearchParams(window.location.search).get('ref'); } catch (e) { ref = null; }
 
       /* `path` is what makes this worth injecting everywhere: it is the only
-         column that can tell a guide apart from the landing page or a
-         template. `section` saves the dashboard from having to parse paths
-         to group nine guides together. Neither carries anything about the
-         person - no id, no query string beyond `ref`, no referrer. */
+         field that can tell a guide apart from the landing page or a
+         template. `section` saves the dashboard from having to parse paths to
+         group nine guides together. Neither describes the person, and beyond
+         these and `vid` above nothing else is collected: no referrer, no
+         screen size, no query string except `ref`, no IP-derived anything. */
       var path = window.location.pathname;
       var section =
         path.indexOf('/articles/') === 0 ? 'articles' :
         path.indexOf('/templates/') === 0 ? 'templates' :
         path === '/' ? 'landing' : 'other';
 
-      send('landing_view', { ref: ref, path: path, section: section });
+      send('landing_view', { vid: vid, ref: ref, path: path, section: section });
 
       /* landing_view alone cannot tell "nobody looks past the fold" apart from
          "people look and don't click" - a page has zero signal on that without
@@ -78,7 +113,7 @@
       document.addEventListener('click', function (e) {
         var a = e.target && e.target.closest ? e.target.closest('a[href*="clapper.in/app"], a[href^="/app/"]') : null;
         if (!a) return;
-        send('landing_cta_click', { path: path, section: section });
+        send('landing_cta_click', { vid: vid, path: path, section: section });
       }, true);
     } catch (e) { /* never surface */ }
   })();

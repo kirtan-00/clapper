@@ -49,10 +49,99 @@ function isLiveSite(): boolean {
   return LIVE_HOSTS.has(window.location.hostname);
 }
 
+// ============================================================================
+// VISITOR ID. The one thing the numbers could never answer: "how many PEOPLE",
+// as opposed to "how many views". Until this existed, one person opening the
+// site seven times and seven people opening it once were indistinguishable,
+// and `count(distinct user_id)` only ever counted SIGNED-IN accounts - which
+// is why the dashboard read 1 to 4 users on days with dozens of opens. Most of
+// Clapper's use is deliberately signed-out (the app needs no account), so the
+// signed-in count is close to a measure of nothing.
+//
+// WHAT THIS IS: a random UUID in localStorage. Nothing derived from the
+// device, the network, or the person - not an IP hash, not a fingerprint, no
+// canvas or font probing. It cannot be correlated with anything outside this
+// origin and carries no meaning off it. That is a deliberate ceiling on what
+// this can ever be used for, not a limitation to engineer around later.
+//
+// WHAT IT HONESTLY COSTS, so the dashboard can say so out loud:
+//   - Clearing site data, or a private window, mints a new id. Returning
+//     visitors get counted twice; "unique visitors" therefore runs HIGH and
+//     "returning" runs LOW. It is a ceiling on people, not an exact count.
+//   - On iOS an installed home-screen PWA can hold storage separately from
+//     Safari, so one person who installs after visiting can appear as two.
+//     Given app_open already outnumbers landing_view here, that split is
+//     real traffic and this will overcount it.
+//   - Storage can be unavailable (private mode, embedded webviews, a locked-
+//     down browser). Then `vid` is null and the row is UNATTRIBUTED rather
+//     than being given a fresh per-session id - inventing one per page load
+//     would silently inflate the unique count, which is the exact failure
+//     this whole file already got burned by once with dev traffic.
+// ============================================================================
+
+const VID_KEY = 'clapper.vid';
+
+/**
+ * Pure, DOM-free, and therefore testable: given whatever was already in
+ * storage and a generator, decide the id to use. Returns the existing value
+ * only if it looks like an id we wrote - a truncated or corrupted entry gets
+ * replaced rather than being counted forever as one immortal visitor.
+ */
+export function resolveVisitorId(
+  stored: string | null,
+  mint: () => string,
+): { id: string; isNew: boolean } {
+  if (stored && /^[0-9a-f-]{36}$/i.test(stored)) return { id: stored, isNew: false };
+  return { id: mint(), isNew: true };
+}
+
+function mintId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch {
+    /* fall through to the manual path */
+  }
+  // No crypto.randomUUID (older Safari, some webviews). Math.random is not a
+  // security concern here - this id guards nothing and grants nothing; it only
+  // needs to not collide across a few thousand browsers.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+// Resolved once per page load, not per event: reading localStorage on every
+// tag tap during a take is work this screen does not need to do.
+let vidCache: string | null | undefined;
+
+/**
+ * The visitor id for this browser, or null when storage is unavailable.
+ * Never throws.
+ */
+export function visitorId(): string | null {
+  if (vidCache !== undefined) return vidCache;
+  try {
+    const stored = window.localStorage.getItem(VID_KEY);
+    const { id, isNew } = resolveVisitorId(stored, mintId);
+    if (isNew) window.localStorage.setItem(VID_KEY, id);
+    vidCache = id;
+  } catch {
+    // Private mode, blocked storage, no window at all. Stay null - see the
+    // UNATTRIBUTED note above for why we do not invent one.
+    vidCache = null;
+  }
+  return vidCache;
+}
+
 /**
  * Record an analytics event. Attaches the current user's id when signed in,
- * otherwise inserts a null-user row. Uses `return=minimal` (no `.select()`) so
- * the client never needs read access to `events`. Swallows every error.
+ * otherwise inserts a null-user row, plus the anonymous `vid` on every event
+ * so any question ("how many people rolled", "how many reached settings") can
+ * be answered per-person and not just per-tap. Uses `return=minimal` (no
+ * `.select()`) so the client never needs read access to `events`. Swallows
+ * every error.
  */
 export function track(name: string, props?: Record<string, unknown>): void {
   // Off the live site this is a no-op, including the ad pixel: a dev session
@@ -69,9 +158,17 @@ export function track(name: string, props?: Record<string, unknown>): void {
     try {
       const { data } = await supabase.auth.getSession();
       const userId = data.session?.user.id ?? null;
+      // `vid` rides in props rather than in a column of its own, on purpose:
+      // `events.props` is jsonb, so this needs NO migration and starts
+      // collecting the moment it deploys. Three migrations are already written
+      // and unapplied on this project; making the one number the owner asked
+      // for depend on a fourth would mean it measures nothing until somebody
+      // remembers to run it. `count(distinct props->>'vid')` is the query.
+      // Note it is spread FIRST so an explicit prop can never be silently
+      // overwritten by it, and the pixel above deliberately never sees it.
       await supabase
         .from('events')
-        .insert({ name, props: props ?? {}, user_id: userId });
+        .insert({ name, props: { vid: visitorId(), ...(props ?? {}) }, user_id: userId });
     } catch {
       /* analytics is best-effort; never surface */
     }
