@@ -652,10 +652,6 @@ function svgBars(series, opts) {
   return '<svg class="chart-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" role="img">' + bars + '</svg>';
 }
 function panelTraffic(t, meta) {
-  var vidNote = meta.pre_cutoff_events_excluded > 0
-    ? '<strong>' + fmtN(meta.pre_cutoff_events_excluded) + '</strong> event(s) from before ' + fmtDay(meta.dev_gate_cutoff.slice(0, 10)) +
-      ' are excluded from every count on this page (~79% of everything recorded before then was automated dev-server traffic, not real use - see src/net/analytics.ts).'
-    : 'No pre-cutoff dev traffic in this window.';
   var uniqueNote = 'Unique visitors only count from <strong>' + fmtDay(meta.vid_cutoff.slice(0, 10)) +
     '</strong> onward - the anonymous visitor id (<code>vid</code>) is absent on every row before that date, so it reads honestly as zero rather than a misleading ramp. ' +
     'Clearing storage or a private window mints a fresh id, so uniques run HIGH and returning visitors run LOW.';
@@ -675,7 +671,6 @@ function panelTraffic(t, meta) {
     '<h3 class="sub-h">By section</h3>' + renderRows(sectionRows, function (r) { return r; }) +
     '<h3 class="sub-h">The nine guides</h3>' + renderRows(guideRows, function (r) { return r; }) +
     '<h3 class="sub-h">The five templates</h3>' + renderRows(templateRows, function (r) { return r; }) +
-    '<p class="foot-note">' + vidNote + '</p>' +
     '<p class="foot-note">' + uniqueNote + '</p>' +
   '</div>';
 }
@@ -775,7 +770,18 @@ function renderDashboard(data) {
     excludeBits.push('Exclusion is OFF - every row, including your own testing, is counted below.');
   }
 
+  // Global honesty banner - covers EVERY panel below, not just Traffic. Every
+  // count and chart on this page (Traffic, Funnel, App usage, LLM) is already
+  // filtered server-side to dev_gate_cutoff; this is where that filter and
+  // what it silently drops gets said out loud, once, in the one place a
+  // reader can't miss it before scrolling into any specific panel.
+  var cutoffBanner = '<div class="banner">' +
+    'Every number on this page (Traffic, Funnel, App usage, LLM) counts only events from <strong>' + esc(fmtDay(meta.dev_gate_cutoff.slice(0, 10))) + '</strong> onward. ' +
+    '<strong>' + fmtN(meta.pre_cutoff_events_excluded) + '</strong> earlier event(s) are excluded: a hostname gate that fixed real vs. dev-server traffic landed 20 Aug (commit <code>92c31ac</code>), and roughly 4 in 5 events recorded before it were automated dev traffic, not real use - see src/net/analytics.ts. They are dropped, not charted as if real.' +
+  '</div>';
+
   el.dashBody.innerHTML =
+    cutoffBanner +
     '<div class="banner">' + excludeBits.join(' ') + '</div>' +
     (meta.events_truncated ? '<div class="banner">Event fetch hit its row cap (' + fmtN(meta.events_fetched) + ' rows) - counts below may undercount. Raise EVENTS_ROW_CAP in dashboard-api/index.ts.</div>' : '') +
     panelTraffic(data.traffic, meta) +
