@@ -154,6 +154,59 @@ if [ "$GA_INJECTED" -eq 0 ]; then
   exit 1
 fi
 
+# 2d. The first-party landing beacon (landing/beacon.html), injected exactly
+# the way GA4 is above and for exactly the same reason - read that comment
+# first, it explains why a hand-pasted snippet is the wrong shape.
+#
+# What went wrong when this WAS hand-pasted, which is the whole argument:
+#   - The nine pages under /articles/ never got it. That is the entire SEO
+#     surface, the pages most likely to be a stranger's first contact with
+#     Clapper, and on 25 Aug 2026 the path breakdown read 272 views on `/`
+#     and a flat ZERO on every guide. Not "low traffic" - no instrument.
+#   - The five /templates/ pages each carried their own copy, and those copies
+#     had already drifted: they sent `landing_view` but never
+#     `landing_cta_click`, so a template could not tell "nobody scrolled" from
+#     "everybody scrolled and left".
+# One file, injected everywhere, and a page added next month is covered on the
+# day it ships rather than whenever somebody notices.
+#
+# SAME THREE EXCLUSIONS AS GA4, and /relink/ is the one that matters: that page
+# promises editors a client's shot log never leaves their machine. Any beacon
+# on it makes that sentence a lie. This exclusion is a promise, not a
+# preference. /app/ has its own first-party analytics (src/net/analytics.ts)
+# and would double-count; /admin/ is the private dashboard.
+BEACON_MARK="clapper-landing-beacon-v2"
+BEACON_INJECTED=0
+while IFS= read -r page; do
+  case "$page" in
+    "$STAGE"/app/*|"$STAGE"/admin/*|"$STAGE"/relink/*) continue ;;
+  esac
+  # Skip a page that somehow already carries it, so a re-run cannot double-fire
+  # every pageview - the same guard GA4 uses.
+  if grep -q "$BEACON_MARK" "$page"; then continue; fi
+  BEACON_FILE="landing/beacon.html" perl -0777 -i -pe '
+    BEGIN { local $/; open my $fh, "<", $ENV{BEACON_FILE} or die; our $snip = <$fh>; close $fh; }
+    s{</body>}{$main::snip</body>}i unless $done++;
+  ' "$page" && BEACON_INJECTED=$((BEACON_INJECTED + 1))
+done < <(find "$STAGE" -type f -name '*.html')
+echo "landing beacon: injected into $BEACON_INJECTED page(s) (app/, admin/, relink/ excluded by design)"
+
+# Fail loudly rather than shipping a site that silently measures nothing. A
+# zero here reads as "quiet week" forever after, which is worse than an error.
+if [ "$BEACON_INJECTED" -eq 0 ]; then
+  echo "ERROR: the landing beacon was injected into ZERO pages. Aborting." >&2
+  exit 1
+fi
+
+# /relink/ must never carry either tag. Assert it rather than trust the case
+# statement above, because this is a promise made in writing to users.
+if [ -d "$STAGE/relink" ]; then
+  if grep -rql "$BEACON_MARK\|$GA4_ID" "$STAGE/relink" 2>/dev/null; then
+    echo "ERROR: a tracking tag reached /relink/, which promises no tracking. Aborting." >&2
+    exit 1
+  fi
+fi
+
 # 3. Push as orphan gh-pages
 cd "$STAGE"
 git init -q

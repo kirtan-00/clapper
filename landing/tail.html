@@ -1,55 +1,7 @@
-  <script>
-    /* landing analytics beacon - cookie-free, fire-and-forget, never blocks or
-       throws. Inserts rows into the same Supabase `events` table the app uses.
-       This IS the landing page's `track()` - there's no JS bundle here to call
-       the app's real one, so a raw fetch in the same insert shape is the one
-       mechanism this page has. Anon key is a public client key by design. */
-    (function () {
-      try {
-        /* THE LIVE SITE AND NOWHERE ELSE. Opening this page off disk, or from a
-           dev server, used to fire a real beacon at the production table: ten
-           rows currently carry a `file://` path because somebody previewed the
-           page locally. A hostname check, not a build flag, because a flag is a
-           thing somebody forgets and the failure is silent for a month. */
-        var h = location.hostname;
-        if (location.protocol === 'file:') return;
-        if (h !== 'clapper.in' && h !== 'kirtan-00.github.io') return;
-
-        var URL_ = 'https://sqqdivfgdfaztfzrzkhu.supabase.co/rest/v1/events';
-        var KEY_ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxcWRpdmZnZGZhenRmenJ6a2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTA2NTYsImV4cCI6MjA5OTU4NjY1Nn0.MUhO3nmPg4gmQI5vLK5LGpOMIzrcA_j9ZDj8sp8ftH4';
-
-        function send(name, props) {
-          fetch(URL_, {
-            method: 'POST',
-            keepalive: true,
-            headers: {
-              'apikey': KEY_,
-              'Authorization': 'Bearer ' + KEY_,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({ name: name, props: props, user_id: null })
-          }).catch(function () { /* best-effort */ });
-        }
-
-        var ref = null;
-        try { ref = new URLSearchParams(window.location.search).get('ref'); } catch (e) { ref = null; }
-        send('landing_view', { ref: ref, path: window.location.pathname });
-
-        /* landing_view alone can't tell "nobody looks past the fold" apart from
-           "people look and don't click" - the page had zero signal on that until
-           now. Delegated on document so it survives whatever markup the page
-           grows; matches only the CTAs that actually cross into the app (the
-           footer's template/legal links are not the funnel). No label beyond
-           where on the page it was - never the link text, which is copy that
-           changes without warning this beacon. */
-        document.addEventListener('click', function (e) {
-          var a = e.target && e.target.closest ? e.target.closest('a[href^="https://clapper.in/app"]') : null;
-          if (!a) return;
-          send('landing_cta_click', { path: window.location.pathname });
-        }, true);
-      } catch (e) { /* never surface */ }
-    })();
-  </script>
+  <!-- The landing analytics beacon used to be pasted here, and separately into
+       each /templates/ page, and never into /articles/ at all. It now lives in
+       landing/beacon.html and is injected into every page at deploy time
+       (deploy.sh step 2d), the same way GA4 is and for the same reason. Do not
+       paste it back. -->
 </body>
 </html>

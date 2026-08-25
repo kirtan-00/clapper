@@ -1,0 +1,85 @@
+<!-- clapper-landing-beacon-v2 -->
+<script>
+  /* THE landing analytics beacon. Cookie-free, fire-and-forget, never blocks
+     and never throws. Inserts rows into the same Supabase `events` table the
+     app writes to. This IS the landing side's `track()`: there is no JS bundle
+     on these pages to call src/net/analytics.ts, so a raw fetch in the same
+     insert shape is the only mechanism available. The anon key is a public
+     client key by design and ships in the source of every page it runs on.
+
+     ONE COPY, INJECTED AT DEPLOY TIME (deploy.sh step 2d), for the reason GA4
+     is injected the same way: a snippet that must be pasted into every new
+     page is a snippet that will be missing from the next page somebody adds.
+     It already happened here twice over. The nine article pages under
+     /articles/ - the entire SEO surface, the pages most likely to be somebody's
+     first contact with Clapper - carried no beacon at all, which is why the
+     path breakdown on 25 Aug 2026 read 272 views on `/` and a flat zero on
+     every guide. Meanwhile the five /templates/ pages each carried their own
+     hand-pasted copy that had already drifted from this one: they fired
+     `landing_view` but never `landing_cta_click`, so those pages could not
+     tell "nobody scrolled" apart from "everybody scrolled and left".
+
+     Both classes of bug are the same bug, and injecting from one file is the
+     fix for both. Do not paste this into a page. Add the page and it is
+     covered. */
+  (function () {
+    try {
+      /* THE LIVE SITE AND NOWHERE ELSE. Opening a page off disk, or from a dev
+         server, used to fire a real beacon at the production table: ten rows
+         still carry a `file://` path because somebody previewed a page
+         locally, and four more carry a /private/tmp/ scratch path. A hostname
+         check rather than a build flag, because a flag is a thing somebody
+         forgets to set and the failure is silent and invisible for a month.
+         Keep this list in step with LIVE_HOSTS in src/net/analytics.ts. */
+      var h = location.hostname;
+      if (location.protocol === 'file:') return;
+      if (h !== 'clapper.in' && h !== 'www.clapper.in' && h !== 'kirtan-00.github.io') return;
+
+      var URL_ = 'https://sqqdivfgdfaztfzrzkhu.supabase.co/rest/v1/events';
+      var KEY_ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxcWRpdmZnZGZhenRmenJ6a2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTA2NTYsImV4cCI6MjA5OTU4NjY1Nn0.MUhO3nmPg4gmQI5vLK5LGpOMIzrcA_j9ZDj8sp8ftH4';
+
+      function send(name, props) {
+        fetch(URL_, {
+          method: 'POST',
+          keepalive: true,
+          headers: {
+            'apikey': KEY_,
+            'Authorization': 'Bearer ' + KEY_,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ name: name, props: props, user_id: null })
+        }).catch(function () { /* best-effort */ });
+      }
+
+      var ref = null;
+      try { ref = new URLSearchParams(window.location.search).get('ref'); } catch (e) { ref = null; }
+
+      /* `path` is what makes this worth injecting everywhere: it is the only
+         column that can tell a guide apart from the landing page or a
+         template. `section` saves the dashboard from having to parse paths
+         to group nine guides together. Neither carries anything about the
+         person - no id, no query string beyond `ref`, no referrer. */
+      var path = window.location.pathname;
+      var section =
+        path.indexOf('/articles/') === 0 ? 'articles' :
+        path.indexOf('/templates/') === 0 ? 'templates' :
+        path === '/' ? 'landing' : 'other';
+
+      send('landing_view', { ref: ref, path: path, section: section });
+
+      /* landing_view alone cannot tell "nobody looks past the fold" apart from
+         "people look and don't click" - a page has zero signal on that without
+         this. Delegated on document so it survives whatever markup a page
+         grows; matches only the CTAs that actually cross into the app (footer
+         template/legal links are not the funnel). No label beyond where on the
+         page it was - never the link text, which is copy that changes without
+         warning this beacon. */
+      document.addEventListener('click', function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href*="clapper.in/app"], a[href^="/app/"]') : null;
+        if (!a) return;
+        send('landing_cta_click', { path: path, section: section });
+      }, true);
+    } catch (e) { /* never surface */ }
+  })();
+</script>

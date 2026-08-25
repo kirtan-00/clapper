@@ -1,0 +1,448 @@
+<title>Clapper — traffic report</title>
+<style>
+  :root {
+    --bg: #FBFAF4;
+    --surface: #FFFFFF;
+    --surface-2: #F2F0E6;
+    --rule: #DCD8C8;
+    --rule-hard: #14151A;
+    --ink: #14151A;
+    --ink-mid: #55524A;
+    --ink-soft: #86827A;
+    --brass: #A8801A;
+    --brass-fill: #F0E2B8;
+    --rec: #C4231B;
+    --stripe-a: #14151A;
+    --stripe-b: #FBFAF4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #000000;
+      --surface: #0C0C0E;
+      --surface-2: #141417;
+      --rule: #26262B;
+      --rule-hard: #3A3A42;
+      --ink: #F2F0EA;
+      --ink-mid: #A5A29A;
+      --ink-soft: #6E6B64;
+      --brass: #D8B23C;
+      --brass-fill: #2A2210;
+      --rec: #FF453A;
+      --stripe-a: #F2F0EA;
+      --stripe-b: #000000;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #000000;
+    --surface: #0C0C0E;
+    --surface-2: #141417;
+    --rule: #26262B;
+    --rule-hard: #3A3A42;
+    --ink: #F2F0EA;
+    --ink-mid: #A5A29A;
+    --ink-soft: #6E6B64;
+    --brass: #D8B23C;
+    --brass-fill: #2A2210;
+    --rec: #FF453A;
+    --stripe-a: #F2F0EA;
+    --stripe-b: #000000;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    margin: 0;
+    padding: clamp(20px, 5vw, 56px) clamp(16px, 5vw, 40px) 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet { max-width: 940px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- masthead: a camera report header, not a hero ---- */
+  header { display: flex; flex-direction: column; gap: 14px; }
+  .slate {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: 8px 18px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .slate b { color: var(--brass); font-weight: 600; letter-spacing: 0.16em; }
+  h1 {
+    font-size: clamp(30px, 6vw, 46px);
+    line-height: 1.04; margin: 0; letter-spacing: -0.022em;
+    text-wrap: balance; font-weight: 620;
+  }
+  .standfirst { margin: 0; max-width: 62ch; color: var(--ink-mid); font-size: 17px; }
+
+  /* the clapper stick stripe — the app's own recurring signature */
+  .stripe {
+    height: 12px; border-radius: 2px;
+    background: repeating-linear-gradient(
+      66deg,
+      var(--stripe-a) 0 22px,
+      var(--stripe-b) 22px 44px
+    );
+    border: 1px solid var(--rule-hard);
+  }
+
+  /* ---- the headline figure ---- */
+  .headline {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--brass);
+    border-radius: 4px;
+    padding: clamp(20px, 4vw, 30px);
+    display: flex; flex-wrap: wrap; gap: 28px 44px; align-items: flex-end;
+  }
+  .figure { display: flex; flex-direction: column; gap: 4px; }
+  .figure .num {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(52px, 12vw, 82px);
+    line-height: 0.88; letter-spacing: -0.03em; font-weight: 600;
+    color: var(--brass);
+  }
+  .figure .cap {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-soft);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .figure.small .num { font-size: clamp(30px, 7vw, 42px); color: var(--ink); }
+  .headline .note {
+    flex: 1 1 240px; min-width: 220px;
+    font-size: 14px; color: var(--ink-mid); margin: 0;
+    border-left: 1px solid var(--rule); padding-left: 18px;
+  }
+
+  /* ---- sections ---- */
+  section { display: flex; flex-direction: column; gap: 16px; }
+  h2 {
+    font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-soft); margin: 0; font-weight: 600;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    padding-bottom: 8px; border-bottom: 1px solid var(--rule);
+  }
+  p { margin: 0; }
+  .lede { color: var(--ink-mid); max-width: 68ch; }
+
+  /* ---- warning band: the honesty this report lives or dies on ---- */
+  .caveat {
+    background: var(--brass-fill);
+    border: 1px solid var(--brass);
+    border-radius: 4px;
+    padding: 16px 18px;
+    display: flex; gap: 14px; align-items: flex-start;
+    font-size: 15px;
+  }
+  .caveat .tag {
+    flex: none;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--brass); border: 1px solid var(--brass);
+    border-radius: 2px; padding: 3px 7px; margin-top: 2px;
+  }
+  .caveat p { color: var(--ink); }
+
+  /* ---- table ---- */
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; background: var(--surface); }
+  caption { caption-side: bottom; text-align: left; padding: 10px 14px; font-size: 13px; color: var(--ink-soft); }
+  th, td { padding: 11px 14px; text-align: right; border-bottom: 1px solid var(--rule); }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 600;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule-hard);
+    white-space: nowrap;
+  }
+  tbody td {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; font-size: 14px;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tfoot td {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600; border-top: 1px solid var(--rule-hard); font-size: 14px;
+    background: var(--surface-2);
+  }
+  tr.flagged td { color: var(--ink-mid); }
+  .flag {
+    display: inline-block; margin-left: 8px; vertical-align: middle;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--rec); border: 1px solid var(--rec);
+    border-radius: 2px; padding: 1px 5px;
+  }
+
+  /* ---- funnel: bars sized by share of the top step ---- */
+  .funnel { display: flex; flex-direction: column; gap: 2px; }
+  .step {
+    display: grid;
+    grid-template-columns: minmax(96px, 152px) 1fr minmax(84px, auto);
+    align-items: center; gap: 14px;
+    padding: 9px 0; border-bottom: 1px solid var(--rule);
+  }
+  .step:last-child { border-bottom: none; }
+  .step .label { font-size: 14px; color: var(--ink); }
+  .step .track { background: var(--surface-2); border-radius: 2px; height: 22px; position: relative; overflow: hidden; }
+  .step .bar { height: 100%; background: var(--brass); border-radius: 2px; }
+  .step .bar.dim { background: var(--ink-soft); }
+  .step .val {
+    text-align: right; font-size: 14px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; color: var(--ink);
+  }
+  .step .val small { color: var(--ink-soft); font-size: 12px; display: block; }
+
+  /* ---- findings ---- */
+  .finding {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .finding h3 { margin: 0; font-size: 16px; font-weight: 620; letter-spacing: -0.01em; }
+  .finding p { color: var(--ink-mid); font-size: 15px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+
+  /* ---- page inventory ---- */
+  ul.pages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 26px; }
+  ul.pages li { border-bottom: 1px solid var(--rule); padding: 9px 0; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  ul.pages a {
+    color: var(--ink); text-decoration: none;
+    border-bottom: 1px solid var(--brass);
+    font-size: 14px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    word-break: break-word;
+  }
+  ul.pages a:hover, ul.pages a:focus-visible { color: var(--brass); }
+  ul.pages .hits {
+    flex: none;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px; color: var(--ink-soft);
+  }
+  ul.pages .hits.zero { color: var(--rec); }
+
+  a:focus-visible, :focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+
+  footer {
+    border-top: 1px solid var(--rule); padding-top: 16px;
+    font-size: 13px; color: var(--ink-soft);
+    display: flex; flex-wrap: wrap; gap: 6px 20px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+</style>
+
+<div class="sheet">
+
+  <header>
+    <div class="slate">
+      <span>Clapper</span>
+      <span>·</span>
+      <span>Traffic report</span>
+      <span>·</span>
+      <b>25 Aug 2026</b>
+      <span>·</span>
+      <span>Source: first-party <code>events</code> table</span>
+    </div>
+    <h1>62 landings on clapper.in since the domain went live.</h1>
+    <p class="standfirst">Two days of data on the new domain, five days of data anyone should trust at all. Here is
+      everything the numbers say, and the three things they cannot say.</p>
+    <div class="stripe" role="presentation"></div>
+  </header>
+
+  <div class="headline">
+    <div class="figure">
+      <span class="num">62</span>
+      <span class="cap">Landings on clapper.in</span>
+    </div>
+    <div class="figure small">
+      <span class="num">20</span>
+      <span class="cap">Clicked through to the app</span>
+    </div>
+    <div class="figure small">
+      <span class="num">14</span>
+      <span class="cap">Projects created</span>
+    </div>
+    <p class="note">24–25 Aug, the only days clapper.in has existed. A large share of the 24th is internal
+      verification traffic, not an audience.</p>
+  </div>
+
+  <div class="caveat">
+    <span class="tag">Read first</span>
+    <p><strong>Only data from 21 Aug onward is real.</strong> Before the live-site gate shipped on 20 Aug, roughly
+      four fifths of every row in the table came from automated browser sessions hitting a dev server — one day was
+      452 fake opens out of 465. All-time totals (2,904 app opens, 285 landing views) are meaningless and are not
+      used anywhere on this page.</p>
+  </div>
+
+  <section>
+    <h2>Daily, since the gate</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Day</th>
+            <th scope="col">Landings</th>
+            <th scope="col">CTA clicks</th>
+            <th scope="col">App opens</th>
+            <th scope="col">Projects</th>
+            <th scope="col">Rolls</th>
+            <th scope="col">Cuts</th>
+            <th scope="col">Signed in</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>25 Aug <span class="flag">partial</span></td><td>8</td><td>0</td><td>4</td><td>0</td><td>1</td><td>1</td><td>1</td></tr>
+          <tr class="flagged"><td>24 Aug <span class="flag">internal</span></td><td>54</td><td>20</td><td>41</td><td>14</td><td>18</td><td>19</td><td>4</td></tr>
+          <tr><td>23 Aug</td><td>2</td><td>1</td><td>10</td><td>3</td><td>4</td><td>4</td><td>1</td></tr>
+          <tr><td>22 Aug</td><td>5</td><td>1</td><td>17</td><td>4</td><td>35</td><td>33</td><td>1</td></tr>
+          <tr><td>21 Aug</td><td>7</td><td>0</td><td>16</td><td>4</td><td>11</td><td>10</td><td>2</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td>Five days</td><td>76</td><td>22</td><td>88</td><td>25</td><td>69</td><td>67</td><td>4 peak</td></tr>
+        </tfoot>
+      </table>
+      <caption><strong>Internal</strong> marks the deploy-and-verify day: the domain moved, sixteen pages went live,
+        and every one was clicked through to check it. <strong>Partial</strong> is today, still running. Signed-in is
+        distinct accounts that day, not a running total.</caption>
+    </div>
+  </section>
+
+  <section>
+    <h2>The funnel, five days</h2>
+    <p class="lede">Bars are scaled against landings. The step that matters is the one that breaks the pattern.</p>
+    <div class="funnel">
+      <div class="step">
+        <span class="label">Landed on the site</span>
+        <span class="track"><span class="bar" style="width:100%"></span></span>
+        <span class="val">76</span>
+      </div>
+      <div class="step">
+        <span class="label">Clicked into the app</span>
+        <span class="track"><span class="bar" style="width:28.9%"></span></span>
+        <span class="val">22<small>29% of landings</small></span>
+      </div>
+      <div class="step">
+        <span class="label">Opened the app</span>
+        <span class="track"><span class="bar dim" style="width:100%"></span></span>
+        <span class="val">88<small>more than landed</small></span>
+      </div>
+      <div class="step">
+        <span class="label">Made a project</span>
+        <span class="track"><span class="bar" style="width:28.4%"></span></span>
+        <span class="val">25<small>28% of opens</small></span>
+      </div>
+      <div class="step">
+        <span class="label">Hit ROLL</span>
+        <span class="track"><span class="bar" style="width:78.4%"></span></span>
+        <span class="val">69</span>
+      </div>
+      <div class="step">
+        <span class="label">Hit CUT</span>
+        <span class="track"><span class="bar" style="width:76.1%"></span></span>
+        <span class="val">67<small>97% of rolls</small></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the shape says</h2>
+    <div class="grid">
+      <div class="finding">
+        <h3>App opens outnumber landings</h3>
+        <p>88 opens against 76 landings. Most sessions never touch the landing page at all — they come from an
+          installed home-screen icon opening the app directly. The marketing site and the product already have
+          different audiences, and the product's is bigger.</p>
+      </div>
+      <div class="finding">
+        <h3>The core loop completes</h3>
+        <p>67 cuts against 69 rolls. Effectively every take that starts also gets closed properly. Whatever is
+          wrong with the rolling screen's layout, it is not stopping people finishing a take.</p>
+      </div>
+      <div class="finding">
+        <h3>No outside audience yet</h3>
+        <p>Strip the deploy day and you have roughly four landings a day. clapper.in is 2 days old and the nine
+          guides went up with it. Nothing has been crawled or ranked. This is day one, not a bad result.</p>
+      </div>
+      <div class="finding">
+        <h3>22 CTA clicks, 25 projects</h3>
+        <p>Almost everyone who crosses from the site into the app does create a project. The leak is upstream, at
+          getting anyone to the site at all — not in the first-run experience.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Three things these numbers cannot tell you</h2>
+    <div class="grid">
+      <div class="finding">
+        <h3>Views, never people</h3>
+        <p>There is no device or anonymous ID. One person opening the site seven times and seven people opening it
+          once are the same row. "Distinct users" counts signed-in accounts only, which is why it reads 1–4.
+          Adding an anonymous ID is an open decision, and it is a privacy call as much as a technical one.</p>
+      </div>
+      <div class="finding">
+        <h3>The nine guides are unmeasured</h3>
+        <p>The <code>landing_view</code> beacon lives in the shared page tail and the five template pages. The
+          articles never got it. That is why the path breakdown puts 272 of 275 views on <code>/</code> and zero on
+          every guide — the best SEO surface is the one the database cannot see. Google Analytics covers them from
+          24 Aug; the first-party table does not.</p>
+      </div>
+      <div class="finding">
+        <h3>Sessions are not sessions</h3>
+        <p>The new <code>session_end</code> event fires when the tab goes to the background. On set a phone locks
+          between every take, so one real sitting produces several rows. It answers "which screen do people fall
+          out on" and must never be totalled as a session count.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The sixteen SEO pages</h2>
+    <p class="lede">All live, all returning 200, all carrying the GA4 tag. First-party views shown where the beacon
+      exists.</p>
+    <ul class="pages">
+      <li><a href="https://clapper.in/">clapper.in/</a><span class="hits">272 views</span></li>
+      <li><a href="https://clapper.in/articles/">/articles/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/how-to-log-takes-on-set/">/articles/how-to-log-takes-on-set/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/how-to-read-a-clapperboard/">/articles/how-to-read-a-clapperboard/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/script-supervisor-duties/">/articles/script-supervisor-duties/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/continuity-notes-guide/">/articles/continuity-notes-guide/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/camera-clip-naming-conventions/">/articles/camera-clip-naming-conventions/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/shot-log-to-premiere-xml/">/articles/shot-log-to-premiere-xml/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/circle-takes-explained/">/articles/circle-takes-explained/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/mos-meaning-in-film/">/articles/mos-meaning-in-film/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/articles/what-is-a-tcr-sheet/">/articles/what-is-a-tcr-sheet/</a><span class="hits zero">no beacon</span></li>
+      <li><a href="https://clapper.in/templates/shot-list-template/">/templates/shot-list-template/</a><span class="hits">0 views</span></li>
+      <li><a href="https://clapper.in/templates/continuity-sheet-template/">/templates/continuity-sheet-template/</a><span class="hits">0 views</span></li>
+      <li><a href="https://clapper.in/templates/camera-log-sheet/">/templates/camera-log-sheet/</a><span class="hits">3 views</span></li>
+      <li><a href="https://clapper.in/templates/script-supervisor-daily-report/">/templates/script-supervisor-daily-report/</a><span class="hits">0 views</span></li>
+      <li><a href="https://clapper.in/templates/sound-report-template/">/templates/sound-report-template/</a><span class="hits">0 views</span></li>
+    </ul>
+  </section>
+
+  <div class="stripe" role="presentation"></div>
+
+  <footer>
+    <span>Window: 21–25 Aug 2026</span>
+    <span>Gate: commit 92c31ac, 20 Aug</span>
+    <span>Rows before 21 Aug excluded as dev traffic</span>
+    <span>GA4 G-RMLDR8GENF live on all 16 pages</span>
+  </footer>
+
+</div>
