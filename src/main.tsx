@@ -43,19 +43,76 @@ import { initSync } from './net/sync';
 // picks the same number either way and CUT still does not move mid-gesture.
 // The one place they diverge on purpose is the keyboard, and there the larger
 // number is the one the rolling screen wants.
+/**
+ * A THIRD SOURCE FOR THE GLASS HEIGHT, because on a real iPhone the other two
+ * are both wrong in the same direction.
+ *
+ * Measured off the owner's 390x844pt screenshot AFTER `--glassh` shipped as
+ * `max(visualViewport.height, window.innerHeight)`: the band of bare ground
+ * under the rolling screen was still 81.3pt, bit-for-bit what it was before.
+ * The tally ring sat 47.0..762.7, and 762.7 is 797 minus 34
+ * (safe-area-inset-bottom), so `--glassh` had resolved to 797 on an 844pt
+ * screen. `max()` only helps when the two metrics disagree; installed on iOS
+ * they BOTH report 797, one status bar short of the glass, so no combination
+ * of them can find the missing 47pt. It needs a number that does not come
+ * from the layout viewport at all.
+ *
+ * `screen` is that number, and it is ONLY safe to use when running as an
+ * installed app. In a browser tab `screen.height` is still the whole display
+ * while the visible area is smaller by however much chrome is showing, and
+ * `.roll` bottom-anchors CUT - so trusting it in Safari would push the one
+ * button you press without looking off the bottom of the screen. Installed,
+ * there is no chrome to subtract and the screen IS the glass.
+ *
+ * ORIENTATION, the trap in using `screen` at all: iOS reports `screen.width`
+ * and `screen.height` in the DEVICE's natural orientation and does not swap
+ * them when the phone turns. Reading `.height` blind would hand landscape an
+ * 844pt height for a 390pt-tall glass, and every control below the fold. So
+ * the dimension is chosen by comparing the viewport's own aspect instead of
+ * trusting which property is which.
+ *
+ * Returns 0 - not a height - when this is not an installed app or anything is
+ * unavailable, so it simply drops out of the `max()` and behaviour is exactly
+ * what it was before.
+ */
+function installedGlass(): number {
+  try {
+    const standalone =
+      (typeof window.matchMedia === 'function' &&
+        window.matchMedia('(display-mode: standalone)').matches) ||
+      // iOS Safari's legacy flag, still the only signal on older versions.
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+    if (!standalone) return 0;
+
+    const sw = Number(window.screen?.width) || 0;
+    const sh = Number(window.screen?.height) || 0;
+    if (!sw || !sh) return 0;
+
+    // Portrait glass is the LONGER screen dimension, landscape the shorter -
+    // decided from the viewport we can actually see, never from which property
+    // iOS happens to call "height".
+    const portrait = window.innerHeight >= window.innerWidth;
+    return portrait ? Math.max(sw, sh) : Math.min(sw, sh);
+  } catch {
+    // Never let a viewport probe break boot: the app must render even if every
+    // one of these APIs is missing.
+    return 0;
+  }
+}
+
 function trackViewport() {
   const vv = window.visualViewport;
   const root = document.documentElement;
   if (!vv) {
     root.style.setProperty('--vvh', window.innerHeight + 'px');
-    root.style.setProperty('--glassh', window.innerHeight + 'px');
+    root.style.setProperty('--glassh', Math.max(window.innerHeight, installedGlass()) + 'px');
     return;
   }
   const apply = () => {
     const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
     root.style.setProperty('--vvh', vv.height + 'px');
     root.style.setProperty('--kb', kb + 'px');
-    root.style.setProperty('--glassh', Math.max(vv.height, window.innerHeight) + 'px');
+    root.style.setProperty('--glassh', Math.max(vv.height, window.innerHeight, installedGlass()) + 'px');
   };
   vv.addEventListener('resize', apply);
   vv.addEventListener('scroll', apply);
