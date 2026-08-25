@@ -21,6 +21,7 @@ import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { useNavState, type Nav, type Route } from './nav';
 import { TabTray } from './TabTray';
 import { Onboarding } from './Onboarding';
+import { RollRecovery } from './RollRecovery';
 import { trackScreenView } from '../net/analytics';
 
 // ------------------------------------------------- full-screen claims -----
@@ -90,6 +91,13 @@ export function AppShell(props: { render: (route: Route, nav: Nav) => ReactNode 
           It decides for itself whether it has anything to ask; the only thing
           it cannot know is the route, and mid-roll it must not appear at all. */}
       <Onboarding rolling={route.name === 'rolling'} />
+      {/* Crash recovery for an in-flight take (see RollRecovery.tsx and
+          src/engine/rollCheckpoint.ts). Mounted once, at the shell, same
+          reasoning as Onboarding above — cold launch always lands on Home,
+          never on the rolling screen directly, so a killed-tab recovery
+          prompt cannot live inside RollingScreen itself. It renders nothing
+          when there is no checkpoint to offer back. */}
+      <RollRecovery nav={nav} />
     </div>
   );
 }

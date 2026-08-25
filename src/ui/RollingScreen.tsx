@@ -44,6 +44,7 @@ import { sizeInWords } from './shotlist';
 import { ShotDeck } from './ShotDeck';
 import { TagEditor } from './TagEditor';
 import { useRollTimer, useWakeLock, createSpeechListener } from '../engine';
+import { clearCheckpoint, takePendingResume, writeCheckpoint, type RollCheckpoint } from '../engine/rollCheckpoint';
 import { ClipNum, Sheet, SheetClose, Rail, Toast, Confirm } from './common';
 import { BackMark, ForwardMark, SpeakerMark } from './marks';
 import { track } from '../net/analytics';
@@ -920,6 +921,10 @@ export function RollingScreen(props: {
     setSoundFinished(null);
     setTakeStartedAt(null);
     setPostCut({ take, falseStart: durationMs < FALSE_START_MS });
+    // The take (and its moments, just above) is on disk now - the checkpoint
+    // that protected it in flight would otherwise sit in localStorage
+    // offering to re-log an already-saved take on a future crash.
+    clearCheckpoint();
     await refreshMeta();
   }
 
@@ -939,6 +944,9 @@ export function RollingScreen(props: {
     setRangeLabelTarget(null);
     setResumeOffsetMs(0);
     resumeRef.current = null;
+    // Nothing was written and never will be for this pending take - the
+    // checkpoint describing it would otherwise dangle.
+    clearCheckpoint();
   }
 
   /** Tap ONE camera's own CUT. Closes the take only if it was the last thing
@@ -1101,6 +1109,47 @@ export function RollingScreen(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slate.id, shot?.id]);
 
+  /**
+   * THE "STILL ROLLING" DOOR LANDS HERE. RollRecovery.tsx (mounted at the app
+   * shell) hands a checkpoint to `setPendingResume` and navigates to this
+   * exact slate/shot before this component exists - cold launch always lands
+   * on Home (see ui/nav.ts), so there is no 'rolling' route to push a resume
+   * payload through directly. `takePendingResume` is a self-clearing mailbox:
+   * it returns the checkpoint at most once, and returns null (a cheap no-op)
+   * on every ordinary navigation that is not a recovery, including every
+   * later shot/scene change on THIS same mounted instance.
+   *
+   * Restoring exactly mirrors doResume()'s own two branches (the mis-cut
+   * undo) - same state, same "fold the resumed clock back via resumeOffsetMs"
+   * trick for the plain timer path - because a recovered take and a
+   * mis-cut-undone take are the same situation: a take that is still actually
+   * running and needs its original wall-clock start honoured, not restarted.
+   */
+  useEffect(() => {
+    const cp = takePendingResume(slate.id, shot?.id);
+    if (!cp) return;
+    haptics.thump(); // the same one heavy hit a take starts (and RESUME) with
+    setBuffered(cp.buffered);
+    setMarkInMs(cp.markInMs);
+    setFlashes(cp.flashes);
+    if (useEngine) {
+      setTakeStartedAt(cp.takeStartedAt);
+      setCamRolls(cp.camRolls);
+      setFinishedRolls(cp.finishedRolls);
+      setSoundStartedAt(cp.soundStartedAt);
+      setSoundFinished(cp.soundFinished);
+      setNowTick(Date.now());
+    } else {
+      setResumeOffsetMs(Math.max(0, Date.now() - cp.takeStartedAt));
+      timer.start();
+    }
+    // Refresh `savedAt` right away so a SECOND crash immediately after
+    // recovering does not judge staleness off a timestamp from before the
+    // FIRST one (see STALE_MS's own comment in rollCheckpoint.ts).
+    writeCheckpoint({ ...cp, savedAt: Date.now() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slate.id, shot?.id]);
+
   useEffect(() => {
     // The Rolling screen's scene pager flips through scenes in the same
     // on-set (shooting) order as the scene list — sortForDisplay is a no-op
@@ -1252,6 +1301,10 @@ export function RollingScreen(props: {
     }
     setBuffered([]);
     setPostCut({ take, falseStart: durationMs < FALSE_START_MS });
+    // Same reasoning as closeMultiTake's own copy of this call: the take and
+    // its moments are on disk now, so the checkpoint that protected them in
+    // flight is done.
+    clearCheckpoint();
     await refreshMeta();
   }
 
@@ -1316,6 +1369,97 @@ export function RollingScreen(props: {
   doRollRef.current = useEngine ? bigRollMulti : doRoll;
   doCutRef.current = useEngine ? () => void bigCutMulti() : doCut;
 
+  // ---- crash recovery checkpoint (src/engine/rollCheckpoint.ts) ----------
+  //
+  // Writes a localStorage snapshot of the OPEN take so a killed tab can offer
+  // it back on next launch (see RollRecovery.tsx, mounted at the app shell).
+  // Never touches IndexedDB and never awaits anything, so it cannot slow CUT
+  // or any other path — see the file header there for why localStorage
+  // specifically. `writeCheckpoint` is itself try/catch-wrapped and never
+  // throws, so a failure here (private mode, quota) is silently today's
+  // behaviour: no checkpoint, exactly as before this file existed.
+  //
+  // `overrides` exists because tapTag/markInOut call this in the SAME event
+  // as their own setBuffered/setMarkInMs — React state updates are not
+  // visible synchronously, so without this the checkpoint would lag one tap
+  // behind the state it is supposed to be protecting.
+  function checkpointNow(overrides?: { buffered?: Buffered[]; markInMs?: number | null }) {
+    if (!rolling) return;
+    const nextBuffered = overrides?.buffered ?? buffered;
+    const nextMarkInMs = overrides && overrides.markInMs !== undefined ? overrides.markInMs : markInMs;
+    // The take's TRUE wall-clock start. useEngine's own takeStartedAt already
+    // is one; the plain timer keeps its own internal startedAt and folds a
+    // resumed take's earlier start back in via resumeOffsetMs at CUT (see
+    // doCut) - the same fold applies here so a resumed take checkpoints its
+    // ORIGINAL start, not the moment RESUME re-armed the timer.
+    const trueStartedAt = useEngine
+      ? (takeStartedAt ?? Date.now())
+      : timer.startedAt !== null
+        ? timer.startedAt - resumeOffsetMs
+        : Date.now();
+    const clips: { unit: CameraUnitLetter; clipName: string }[] = useEngine
+      ? clipUnits(project)
+          .filter((u) => camRolls[u.letter] !== undefined || finishedRolls.some((r) => r.unit === u.letter))
+          .map((u) => ({ unit: u.letter, clipName: renderUnitClip(liveUnit(u)) }))
+      : [{ unit: 'A', clipName: clipName(project) }];
+    const soundFile =
+      hasSoundUnit && project.sound && (soundStartedAt !== null || soundFinished !== null)
+        ? renderSoundFile(project.sound)
+        : undefined;
+    const cp: RollCheckpoint = {
+      v: 1,
+      projectId: project.id,
+      slateId: slate.id,
+      ...(shot ? { shotId: shot.id } : {}),
+      takeNumber: nextTakeNumber,
+      takeStartedAt: trueStartedAt,
+      savedAt: Date.now(),
+      camRolls: useEngine ? camRolls : {},
+      finishedRolls: useEngine ? finishedRolls : [],
+      soundStartedAt: useEngine ? soundStartedAt : null,
+      soundFinished: useEngine ? soundFinished : null,
+      buffered: nextBuffered,
+      markInMs: nextMarkInMs,
+      flashes,
+      clips,
+      ...(soundFile ? { soundFile } : {}),
+    };
+    writeCheckpoint(cp);
+  }
+
+  // Always points at THIS render's checkpointNow, the same "ref reassigned
+  // every render" idiom as doRollRef/doCutRef just above - the visibilitychange
+  // listener below is registered once (mount only) and must never read a
+  // stale closure's buffered/markInMs/camRolls.
+  const checkpointNowRef = useRef<() => void>(() => {});
+  checkpointNowRef.current = () => checkpointNow();
+
+  // DEBOUNCED CHECKPOINT is declared further down, right after `rolling`
+  // itself is derived (useEngine ? anyRolling : timer.rolling) — a
+  // dependency ARRAY, unlike a callback body, is evaluated eagerly during
+  // render, so it cannot reference a const declared later in the same
+  // function (the exact reason padsBudgetPx's own observer effect is also
+  // declared after `rolling`, see that effect's comment below).
+
+  // SYNCHRONOUS CHECKPOINT ON BACKGROUNDING. visibilitychange -> hidden is
+  // the last reliable hook before iOS reclaims the tab - src/net/analytics.ts
+  // already listens for the same transition (see its shouldFireSessionEnd);
+  // this follows its exact defensive shape: guarded existence check, try/catch
+  // around the handler body, registered once at mount so it never re-fires the
+  // whole listener setup on every keystroke of a take.
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return;
+    const onVisibilityChange = () => {
+      try {
+        if (document.visibilityState === 'hidden') checkpointNowRef.current();
+      } catch {
+        /* best-effort; a backgrounding tab must never throw out of this screen */
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
   function tapTag(tag: string) {
     if (!rolling) return;
     haptics.tap();
@@ -1325,7 +1469,8 @@ export function RollingScreen(props: {
     // "was this the one tag with its own brass button", not a value that
     // could ever carry a name or a note.
     track('tag_used', { gold: tag === 'GOLD' });
-    setBuffered((prev) => [...prev, { kind: 'point', atMs: elapsedMs, label: '', tag }]);
+    const nextBuffered: Buffered[] = [...buffered, { kind: 'point', atMs: elapsedMs, label: '', tag }];
+    setBuffered(nextBuffered);
     // NO TOAST. It used to say "WIDE marked" over the deck for a couple of
     // seconds; the owner: "tapping a button makes a message of it pressed,
     // dont have it, we have the count x shower of that button press." The line
@@ -1335,6 +1480,10 @@ export function RollingScreen(props: {
     // already answers the thumb. The clip-fix toast stays: "N later takes
     // moved too" reports something no count on a key can.
     setFlashes((prev) => ({ ...prev, [tag]: (prev[tag] ?? 0) + 1 }));
+    // One of the two irreplaceable triggers (see checkpointNow's comment) -
+    // written with the array just computed above, never the stale `buffered`
+    // closure setBuffered just scheduled a re-render for.
+    checkpointNow({ buffered: nextBuffered });
   }
 
   function markInOut() {
@@ -1342,16 +1491,16 @@ export function RollingScreen(props: {
     haptics.tap();
     if (markInMs === null) {
       setMarkInMs(elapsedMs);
+      checkpointNow({ markInMs: elapsedMs });
     } else {
       const start = markInMs;
       const end = elapsedMs;
+      const nextBuffered: Buffered[] = [...buffered, { kind: 'range', atMs: start, endMs: end, label: '' }];
       setMarkInMs(null);
       track('moment_marked');
-      setBuffered((prev) => {
-        const next: Buffered[] = [...prev, { kind: 'range', atMs: start, endMs: end, label: '' }];
-        setRangeLabelTarget(next.length - 1);
-        return next;
-      });
+      setBuffered(nextBuffered);
+      setRangeLabelTarget(nextBuffered.length - 1);
+      checkpointNow({ buffered: nextBuffered, markInMs: null });
     }
   }
 
@@ -1392,6 +1541,21 @@ export function RollingScreen(props: {
   // going, and the clock runs from whichever one started first to now, the
   // same number moments get timestamped against.
   const rolling = useEngine ? anyRolling : timer.rolling;
+
+  // DEBOUNCED CHECKPOINT. Covers every trigger tapTag/markInOut do not call
+  // explicitly - ROLL itself, a solo camera joining or cutting mid-take,
+  // sound starting or finishing - by watching the same state those actions
+  // write to and writing a checkpoint ~300ms after the last change while
+  // rolling. Bounds worst-case loss to one debounce window; the explicit
+  // calls in tapTag/markInOut (see checkpointNow above) exist so the two
+  // triggers the task calls out as irreplaceable (a tag, a mark) never wait
+  // even that long.
+  useEffect(() => {
+    if (!rolling) return;
+    const id = window.setTimeout(() => checkpointNow(), 300);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolling, camRolls, finishedRolls, soundStartedAt, soundFinished, takeStartedAt, buffered, markInMs, flashes]);
 
   /**
    * THE TAG PAD'S OWN BUDGET, MEASURED, NOT GUESSED.
