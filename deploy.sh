@@ -51,13 +51,22 @@ if [ -d landing/relink ]; then
   cp -R landing/relink/. "$STAGE/relink/"
 fi
 
-# Admin: password-gated (server-side, by Postgres) analytics dashboard at
-# /admin/. Self-contained, no build step, same pattern as relink above. The
-# gate is public.admins + admin_analytics_summary() in Supabase, not
-# anything in this file - see supabase/migrations/20260824090000_admin_analytics.sql.
-# No numbers are baked in here; the page ships only the code that asks for
-# data, and robots.txt/meta noindex keep it out of search, but the real gate
-# is server-side and holds even if this path is guessed or crawled.
+# Mission control: passphrase-gated analytics dashboard at /dashboard/.
+# Self-contained, no build step, same pattern as relink/admin. The gate is
+# supabase/functions/dashboard-api (constant-time passphrase compare,
+# escalating cooldown, HS256 session token) - nothing in this file is a
+# secret, and no service-role key or passphrase ever reaches this bundle.
+# robots.txt/meta noindex keep it out of search, but the real gate is
+# server-side and holds even if this path is guessed or crawled.
+if [ -d landing/dashboard ]; then
+  mkdir -p "$STAGE/dashboard"
+  cp -R landing/dashboard/. "$STAGE/dashboard/"
+fi
+
+# Admin: now just a redirect to /dashboard/ (see landing/admin/index.html).
+# /admin/ was a half-built dashboard (Google OAuth + public.admins, a
+# migration that was never applied) - everything worth keeping from it moved
+# to /dashboard/ above, so this stays only so the old path doesn't 404.
 if [ -d landing/admin ]; then
   mkdir -p "$STAGE/admin"
   cp -R landing/admin/. "$STAGE/admin/"
@@ -109,17 +118,20 @@ fi
 #      deploy from a shell that had not exported it. Analytics that quietly
 #      is not running is worse than no analytics, because you trust the zero.
 #
-# THREE PATHS ARE DELIBERATELY EXCLUDED:
-#   /app/     the PWA has its own first-party analytics (src/net/analytics.ts)
-#             writing to Supabase. GA here would double-count every session
-#             and add a third-party request to an app whose whole point is
-#             working offline on a set with bad wifi.
-#   /admin/   the private dashboard. It is gated by Postgres, not obscurity,
-#             but there is no reason to send its page views to Google.
-#   /relink/  READ THE COMMENT ON THE relink COPY STEP ABOVE BEFORE CHANGING
-#             THIS. That page promises editors that a client's shot log never
-#             leaves their machine. A tracking tag would make that sentence a
-#             lie. This exclusion is a promise, not a preference.
+# FOUR PATHS ARE DELIBERATELY EXCLUDED:
+#   /app/       the PWA has its own first-party analytics (src/net/analytics.ts)
+#               writing to Supabase. GA here would double-count every session
+#               and add a third-party request to an app whose whole point is
+#               working offline on a set with bad wifi.
+#   /dashboard/ the private mission-control dashboard. It is gated server-side
+#               by dashboard-api, not by obscurity, but a private dashboard
+#               must not report its own page views - see the copy step above.
+#   /admin/     now just a redirect into /dashboard/ - excluded for the same
+#               reason, and because a redirect has nothing worth measuring.
+#   /relink/    READ THE COMMENT ON THE relink COPY STEP ABOVE BEFORE CHANGING
+#               THIS. That page promises editors that a client's shot log never
+#               leaves their machine. A tracking tag would make that sentence a
+#               lie. This exclusion is a promise, not a preference.
 GA4_ID="G-RMLDR8GENF"
 cat > "$STAGE/.ga-snippet.html" <<GAEOF
 <!-- Google tag (gtag.js) -->
@@ -135,7 +147,7 @@ GAEOF
 GA_INJECTED=0
 while IFS= read -r page; do
   case "$page" in
-    "$STAGE"/app/*|"$STAGE"/admin/*|"$STAGE"/relink/*) continue ;;
+    "$STAGE"/app/*|"$STAGE"/dashboard/*|"$STAGE"/admin/*|"$STAGE"/relink/*) continue ;;
   esac
   # Insert before the FIRST </head>. Skip a page that somehow already carries
   # the tag, so a re-run cannot double-fire every pageview.
@@ -146,7 +158,7 @@ while IFS= read -r page; do
   ' "$page" && GA_INJECTED=$((GA_INJECTED + 1))
 done < <(find "$STAGE" -type f -name '*.html')
 rm -f "$STAGE/.ga-snippet.html"
-echo "GA4 $GA4_ID: injected into $GA_INJECTED page(s) (app/, admin/, relink/ excluded by design)"
+echo "GA4 $GA4_ID: injected into $GA_INJECTED page(s) (app/, dashboard/, admin/, relink/ excluded by design)"
 
 # Fail loudly rather than shipping a site with no analytics and no warning.
 if [ "$GA_INJECTED" -eq 0 ]; then
@@ -170,16 +182,17 @@ fi
 # One file, injected everywhere, and a page added next month is covered on the
 # day it ships rather than whenever somebody notices.
 #
-# SAME THREE EXCLUSIONS AS GA4, and /relink/ is the one that matters: that page
+# SAME FOUR EXCLUSIONS AS GA4, and /relink/ is the one that matters: that page
 # promises editors a client's shot log never leaves their machine. Any beacon
 # on it makes that sentence a lie. This exclusion is a promise, not a
 # preference. /app/ has its own first-party analytics (src/net/analytics.ts)
-# and would double-count; /admin/ is the private dashboard.
+# and would double-count; /dashboard/ (and the /admin/ redirect into it) is
+# the private mission-control dashboard - it must not report its own views.
 BEACON_MARK="clapper-landing-beacon-v2"
 BEACON_INJECTED=0
 while IFS= read -r page; do
   case "$page" in
-    "$STAGE"/app/*|"$STAGE"/admin/*|"$STAGE"/relink/*) continue ;;
+    "$STAGE"/app/*|"$STAGE"/dashboard/*|"$STAGE"/admin/*|"$STAGE"/relink/*) continue ;;
   esac
   # Skip a page that somehow already carries it, so a re-run cannot double-fire
   # every pageview - the same guard GA4 uses.
@@ -189,7 +202,7 @@ while IFS= read -r page; do
     s{</body>}{$main::snip</body>}i unless $done++;
   ' "$page" && BEACON_INJECTED=$((BEACON_INJECTED + 1))
 done < <(find "$STAGE" -type f -name '*.html')
-echo "landing beacon: injected into $BEACON_INJECTED page(s) (app/, admin/, relink/ excluded by design)"
+echo "landing beacon: injected into $BEACON_INJECTED page(s) (app/, dashboard/, admin/, relink/ excluded by design)"
 
 # Fail loudly rather than shipping a site that silently measures nothing. A
 # zero here reads as "quiet week" forever after, which is worse than an error.
