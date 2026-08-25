@@ -99,6 +99,12 @@ const MAX_DIALOGUE = 200;
 // view through glass" (27) would otherwise be sliced mid-word.
 const MAX_MOMENTS_PER_SHOT = 3;
 const MAX_MOMENT = 28;
+// The model, named once. It was previously written inline at the single call
+// site, which was fine until the dashboard started reporting cost per model:
+// a number attributed to the wrong model name is worse than no number, and a
+// second call site added later would have silently drifted.
+const GROQ_MODEL = "llama-3.3-70b-versatile";
+
 const MAX_OUTPUT_TOKENS_CALLSHEET = 3000;
 
 // Shots-mode batching. Groq's free tier counts RESERVED output tokens against
@@ -439,16 +445,79 @@ Deno.serve(async (req: Request) => {
   // Failure is per-batch, so one bad batch costs its own shots' chips and
   // nothing else, and a whole run that overruns the time budget returns the
   // chips it did earn rather than nothing.
+  // LLM COST METER. `script_use` already existed but could not answer "how many
+  // model requests are we making", and that is the number with a bill attached.
+  // Two reasons it could not:
+  //   1. Shots mode BATCHES. One script_use can be a single call or a dozen,
+  //      depending on the length of the script, and retries below fire more.
+  //      Counting script_use rows undercounts real requests by a wide and
+  //      variable margin.
+  //   2. FAILED CALLS COST TOO. A 429 or a 502 is a request that was made, may
+  //      have burned input tokens, and counts against the rate limit - and the
+  //      old failure paths returned early without logging anything at all, so
+  //      the worst days looked like the quietest ones.
+  //
+  // Counted HERE, inside the one function that actually talks to Groq, rather
+  // than at the call sites: every path including each retry passes through this
+  // line, so a new caller added later is metered without anyone remembering to.
+  // Server-side by necessity - a client-reported number can be spoofed by
+  // anyone with a browser console, and would miss every failure.
+  const meter = {
+    calls: 0,
+    ok: 0,
+    failed: 0,
+    rateLimited: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+  };
+
+  /* The meter, flattened for `events.props`. Prefixed `llm_` so a dashboard
+     query can pull cost out of any event that carries it without knowing
+     which event it is looking at, and so these can never collide with the
+     mode-specific keys (`shots`, `moments`, `today`) alongside them.
+     `llm_model` travels WITH the counts because price is per-model: a token
+     total with no model attached cannot be turned into money later, and this
+     project has already switched models once. */
+  const llmProps = () => ({
+    llm_model: GROQ_MODEL,
+    llm_calls: meter.calls,
+    llm_ok: meter.ok,
+    llm_failed: meter.failed,
+    llm_rate_limited: meter.rateLimited,
+    llm_prompt_tokens: meter.promptTokens,
+    llm_completion_tokens: meter.completionTokens,
+  });
+
+  /* Log a run that produced NOTHING. Without this the meter would still be a
+     lie by omission: an outage day makes the most requests, burns the most
+     input tokens and returns the fewest results, and the old code returned
+     502 without writing a row - so the most expensive days were invisible and
+     the dashboard's "requests" line would fall exactly when spend spiked.
+     `script_fail` rather than `script_use` because the user was refunded and
+     it must never be counted as a use. Best-effort: never blocks the error
+     response the caller is waiting on. */
+  const logLlmFailure = async (mode: string, status: number | null) => {
+    try {
+      await admin.from("events").insert({
+        user_id: userId,
+        name: "script_fail",
+        props: { mode, status: status ?? null, ...llmProps() },
+        ip_hash: ipHash,
+      });
+    } catch (_) { /* analytics is non-fatal */ }
+  };
+
   async function groqJson(
     system: string,
     user: string,
     maxTokens: number,
   ): Promise<{ ok: true; parsed: any } | { ok: false; status: number; detail: string }> {
+    meter.calls++;
     const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: GROQ_MODEL,
         temperature: 0.2,
         max_tokens: maxTokens,
         response_format: { type: "json_object" },
@@ -458,8 +527,19 @@ Deno.serve(async (req: Request) => {
         ],
       }),
     });
-    if (!gr.ok) return { ok: false, status: gr.status, detail: (await gr.text()).slice(0, 300) };
+    if (!gr.ok) {
+      meter.failed++;
+      if (gr.status === 429) meter.rateLimited++;
+      return { ok: false, status: gr.status, detail: (await gr.text()).slice(0, 300) };
+    }
     const gjson = await gr.json();
+    // Groq returns OpenAI-shaped `usage`. Read it BEFORE the JSON.parse below,
+    // because a reply whose content fails to parse is still a reply that was
+    // generated and billed - counting only parseable replies would quietly
+    // under-report spend on exactly the days the model misbehaves most.
+    meter.ok++;
+    meter.promptTokens += Number(gjson?.usage?.prompt_tokens) || 0;
+    meter.completionTokens += Number(gjson?.usage?.completion_tokens) || 0;
     try {
       return { ok: true, parsed: JSON.parse(gjson.choices?.[0]?.message?.content ?? "{}") };
     } catch (e) {
@@ -477,6 +557,7 @@ Deno.serve(async (req: Request) => {
     if (!r.ok) {
       // Groq outage must not burn the user's lifetime slot — refund it.
       await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
+      await logLlmFailure(mode, r.status);
       return new Response(
         JSON.stringify({ error: "Breakdown service error", detail: r.detail }),
         { status: 502, headers },
@@ -519,6 +600,7 @@ Deno.serve(async (req: Request) => {
     // so say so and refund rather than passing off silence as "no key moments".
     if (!shotMoments.length && attempted > 0 && lastStatus) {
       await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
+      await logLlmFailure(mode, lastStatus);
       return new Response(
         JSON.stringify({ error: "Breakdown service error", detail: lastDetail }),
         { status: 502, headers },
@@ -541,7 +623,7 @@ Deno.serve(async (req: Request) => {
       await admin.from("events").insert({
         user_id: userId,
         name: "script_use",
-        props: { mode, today: validToday.length, doc: docName || null },
+        props: { mode, today: validToday.length, doc: docName || null, ...llmProps() },
         ip_hash: ipHash,
       });
     } catch (_) { /* analytics is non-fatal */ }
@@ -598,6 +680,7 @@ Deno.serve(async (req: Request) => {
         enriched: validShots.length,
         moments: momentCount,
         doc: docName || null,
+        ...llmProps(),
       },
       ip_hash: ipHash,
     });
