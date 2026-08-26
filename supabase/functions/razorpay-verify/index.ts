@@ -3,6 +3,43 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
 import { getPlan } from "../_shared/plans.ts";
 
+// PARKED 2026-08-26. NOT DEPLOYED, NOT WIRED, DO NOT INVEST FURTHER.
+//
+// See the header of ../razorpay-order/index.ts for why Razorpay is parked and
+// where the live design lives (supabase/functions/paddle-webhook).
+//
+// AUDIT, 2026-08-26. This function has never executed in production. Read
+// with money in mind, since none of it was ever exercised:
+//
+//   GOOD  The HMAC is over the documented message (`order_id|payment_id`),
+//         with the key secret, compared in CONSTANT TIME. A mismatch grants
+//         nothing.
+//   GOOD  The order is checked to belong to the CALLER (`row.user_id !==
+//         user.id`), so a valid signature for somebody else's payment cannot
+//         be replayed to attach their money to your account.
+//   GOOD  A second purchase EXTENDS from the existing expiry rather than from
+//         today (`base = existing > now ? existing : now`), so buying a second
+//         month in week three does not throw away the weeks already paid for.
+//   BUG   IDEMPOTENCY IS READ THEN WRITE. The status is read at step 3,
+//         checked at step 5 and the grant happens at step 6. Two callbacks
+//         arriving together both read `created`, both pass the check and both
+//         extend Pro: one payment, two months. The guard has to be IN THE
+//         WHERE CLAUSE of a single conditional update, which is what
+//         _shared/entitlements.ts does now.
+//   BUG   The `signature_failed` update is UNCONDITIONAL. The owner of an
+//         already-paid order can POST their own order id with a garbage
+//         signature and flip that row from `paid` to `signature_failed`. It
+//         grants nothing, but it corrupts the ledger and makes reconciliation
+//         lie about which payments landed. It needs a status guard.
+//   BUG   Falling back to 31 grant days when a plan key is no longer in PLANS
+//         silently under-grants a yearly purchase by eleven months. The price
+//         list is append-only for exactly this reason; that rule is now
+//         written down in _shared/products.ts and was not written down here.
+//   GAP   THE REASON FOR THE REBUILD. This is the only path that granted
+//         anything, and it runs in the buyer's browser. Phone dies, tab
+//         closes, signal drops on set: the payment succeeds, nothing is
+//         granted, the row sits at `created` and nobody finds out.
+
 // Razorpay: verify a payment. Step two of two, and the only step that decides
 // whether anybody actually gets anything.
 //

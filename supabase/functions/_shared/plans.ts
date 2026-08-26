@@ -1,3 +1,9 @@
+// PARKED 2026-08-26 along with razorpay-order and razorpay-verify, the only
+// two files that import it. The live price list is _shared/products.ts: US
+// dollars, per-project credits, sold through a merchant of record. Read the
+// header of razorpay-order/index.ts for why. Nothing below is wrong; it is
+// simply pricing a product that is no longer the product.
+//
 // The price list, server-side and nowhere else.
 //
 // THE ONE RULE IN THIS FILE: the amount NEVER comes from the client. The

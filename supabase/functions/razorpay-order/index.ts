@@ -3,6 +3,36 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
 import { getPlan, MIN_AMOUNT_PAISE } from "../_shared/plans.ts";
 
+// PARKED 2026-08-26. NOT DEPLOYED, NOT WIRED, DO NOT INVEST FURTHER.
+//
+// Clapper is not selling through Razorpay. The product being sold is a
+// permanent per-project unlock priced in US dollars (5 USD for the first five
+// projects, then 3 USD each) to an audience that is mostly not in India, and
+// that needs a merchant of record who handles foreign tax: Paddle. Razorpay
+// settles INR and would need international payments activated to charge USD at
+// all. See supabase/functions/paddle-webhook/index.ts for the live design and
+// supabase/migrations/20260826170000_entitlements.sql for the model.
+//
+// This file stays on disk because it is correct work that a future India-only
+// pricing tier could use, and deleting it would only mean writing it again.
+//
+// AUDIT, 2026-08-26. This function has never executed in production. What a
+// read of it found, so nobody revives it believing it was reviewed:
+//
+//   GOOD  The amount is never read from the request. The client sends a plan
+//         key and the price is looked up server-side (_shared/plans.ts), which
+//         is the one thing most payment integrations get wrong.
+//   GOOD  Identity comes from the JWT, never from the body.
+//   GOOD  A plan priced below the gateway floor fails loudly instead of
+//         quietly selling a month for pennies.
+//   BUG   The `payments` insert failure at the bottom is swallowed with only a
+//         console line. An order then exists at Razorpay with no row here, and
+//         razorpay-verify refuses it ("That payment does not belong to this
+//         account") because it looks the order up in exactly that table. The
+//         money would be taken and unrecoverable without reading the notes
+//         field back off the gateway by hand. A webhook is the fix, which is
+//         what the Paddle design has and this pair never had.
+
 // Razorpay: create an order. Step one of two — the browser cannot do this,
 // because it needs the key SECRET, which never leaves this function.
 //

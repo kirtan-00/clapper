@@ -1,3 +1,18 @@
+// PARKED 2026-08-26. Razorpay checkout, client side, with no caller and no
+// server behind it any more: supabase/functions/razorpay-order and
+// razorpay-verify are parked too (read their headers).
+//
+// WHAT REPLACES IT. Selling is now a permanent per-project unlock in US
+// dollars through Paddle, whose checkout is a different SDK with a different
+// shape, so this file cannot be adapted by changing a URL. The server half is
+// built and committed (supabase/functions/paddle-webhook plus the entitlement
+// migration); THIS half, the browser opening a Paddle checkout with the
+// signed-in user's id in custom_data, is NOT built and is the next piece of
+// work. It is deliberately not stubbed here: a half-written checkout that
+// looks callable is worse than an honest absence.
+//
+// The note below about the paused willingness-to-pay probe still stands.
+//
 // Razorpay Standard Checkout, client side.
 //
 // PAUSED, NOT REMOVED, 2026-08-24. `startCheckout` has no caller right now.
