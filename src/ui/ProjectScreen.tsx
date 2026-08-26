@@ -845,7 +845,14 @@ export function ProjectScreen(props: {
       }
       if (err instanceof Error && err.message === 'CAP') {
         track('cap_hit', { which: 'callsheet' });
-        setCsError('Free limit reached. More coming soon.');
+        // Say WHICH limit and WHAT it was. This wall used to be the shotlist
+        // import's counter wearing a call sheet's error message - both features
+        // spent `usage.script_uses` until 2026-08-26 - so somebody who had
+        // never once opened a shot list could be told a call sheet was out of
+        // uses. It has its own counter now, and the number comes off
+        // FREE_LIMITS.callsheet rather than being typed in here, so it cannot
+        // quietly stop matching the server the next time the tier is repriced.
+        setCsError(`That's your ${FREE_LIMITS.callsheet} free call sheets. More coming soon.`);
         return;
       }
       setCsError(err instanceof Error ? err.message : 'Could not process that PDF.');
@@ -2096,8 +2103,15 @@ const EXPORT_OFFLINE_MSG =
 // Display name per gated format, for error/note copy. Keyed by GatedFormat so
 // a format added to net/quota.ts without a matching entry here is a compile
 // error, not a silent "undefined" in the UI.
+//
+// NO 'script' ROW ANY MORE, and nothing lost with it. GatedFormat is now only
+// what the export-gate function will actually accept (its VALID_FORMATS), and
+// Script Mode was never in that list — `gateExport('script')` compiled and
+// would have been answered HTTP 400 Invalid format. The two Script Mode
+// counters are spent by the `breakdown` function instead, and their copy lives
+// where they are hit: ShotlistSheet for the shot list, onPickCallSheet above
+// for the call sheet.
 const FORMAT_LABEL: Record<GatedFormat, string> = {
-  script: 'Script Mode',
   premiere: 'Premiere/Resolve',
   pdf: 'PDF',
   csv: 'CSV',

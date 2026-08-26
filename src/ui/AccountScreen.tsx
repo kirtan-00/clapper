@@ -25,13 +25,23 @@ import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
 import * as haptics from './haptics';
 
 /**
- * The three free-tier counters, in the order someone meets them. They are
+ * The five free-tier counters, in the order someone meets them. They are
  * SEPARATE buckets on the server: burning shotlist imports does not cost you an
  * export. Premiere and Resolve deliberately share one, because they are the
  * same handoff in two dialects — see exportGated in ProjectScreen.
+ *
+ * "Shotlist import" and "Today's call sheet" were ONE counter until 2026-08-26,
+ * and that was wrong twice over: the shot list is the expensive Groq call the
+ * whole app already prices at 1, while reading a call sheet is something a
+ * first AD does every morning of a shoot. Two features, two buckets.
+ *
+ * The labels have to stay distinguishable from "PDF call sheet" further down,
+ * which is the EXPORT counter — the call sheet Clapper writes for you, not the
+ * one production emailed you at 11pm.
  */
 const COUNTERS: { key: keyof Usage; label: string }[] = [
   { key: 'script', label: 'Shotlist import' },
+  { key: 'callsheet', label: "Today's call sheet" },
   { key: 'premiere', label: 'Premiere and Resolve XML' },
   { key: 'pdf', label: 'PDF call sheet' },
   { key: 'csv', label: 'CSV export' },

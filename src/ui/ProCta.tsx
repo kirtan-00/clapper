@@ -44,7 +44,11 @@ import { SparkMark } from './marks';
 // standing CTA on the Account tab, which is interest with no wall behind it
 // and is worth counting separately rather than mislabelling as a cap. This is
 // an ANALYTICS label only — it gates nothing and the server never sees it.
-export type ProGate = 'script' | 'premiere' | 'csv' | 'account';
+// 'callsheet' is its own label as of 2026-08-26, when the call-sheet parse got
+// its own counter instead of spending the shotlist import's. Folding the two
+// cap-hits back together in the analytics would hide the one thing this split
+// was made to find out: which of the two walls people actually hit.
+export type ProGate = 'script' | 'callsheet' | 'premiere' | 'csv' | 'account';
 
 /** Same check ShotDeck.tsx uses: the OS preference OR the app's own forced
  *  override (see ui/reduceMotion.ts), because either one on its own misses a
