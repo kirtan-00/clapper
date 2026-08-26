@@ -79,6 +79,19 @@ describe('studio.ts', () => {
     expect(hasStudio()).toBe(false);
   });
 
+  // THE DISMISS RULE, which is where the data loss was. StudioSheet writes
+  // blanks on a dismiss ONLY when nothing has been asked yet. The same sheet
+  // reopens from Settings, and there a dismiss is a cancel - the stored studio
+  // has to survive it. This pins the predicate that decision hangs on.
+  it('reports asked=true once a real value is stored, so a later cancel is not a skip', () => {
+    setStudio({ name: 'Kirtan', studio: 'Fourside' });
+    expect(studioAsked()).toBe(true);
+    // Which is what StudioSheet's `if (!studioAsked())` reads. Simulating that
+    // branch: the blank write never happens, so the value stands.
+    if (!studioAsked()) setStudio({ name: '', studio: '' });
+    expect(getStudio().studio).toBe('Fourside');
+  });
+
   it('treats unreadable storage as already asked, rather than asking every load', () => {
     (globalThis as unknown as { localStorage: unknown }).localStorage = {
       getItem() {

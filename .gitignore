@@ -35,6 +35,7 @@ _archive/
 .shots/
 .shots-onboarding/
 .shots-newproject/
+.shots-studio/
 
 # CDP harness scratch profiles
 .chrome-recovery-profile/

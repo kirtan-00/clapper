@@ -99,8 +99,43 @@ const STAGE_TITLE: Record<Stage, string> = {
   install: 'Add to Home Screen',
 };
 
-/** Exported so a LATER one-time prompt can wait its turn rather than stack a
- *  second sheet on top of this one. See StudioPrompt in StudioSheet.tsx. */
+/**
+ * Is this flow going to put a sheet on screen right now?
+ *
+ * Exported so a LATER one-time prompt can wait its turn rather than stack a
+ * second sheet on top of this one. See StudioPrompt in StudioSheet.tsx.
+ *
+ * IT ASKS THE QUESTION THAT WAY ROUND ON PURPOSE, and the obvious alternative
+ * is a bug. `isDone()` looks like the natural gate and is not one: markDone()
+ * runs when the FLOW finishes, and the flow only mounts when pickStages
+ * returns something - the `list.length === 0` early return below never writes
+ * the key. So for every account that had nothing to be asked (already signed
+ * in, already installed or already dismissed the install), ONBOARDING_KEY is
+ * never written and never will be. A later prompt gated on "onboarding is
+ * done" would be silent forever for exactly those people, who are the
+ * majority and, for the studio prompt, the entire point.
+ *
+ * Same reads, same pure rule function, so the two prompts cannot drift apart
+ * in their idea of what "busy" means.
+ */
+export function onboardingShowing(signedIn: boolean, rolling: boolean): boolean {
+  try {
+    return (
+      pickStages({
+        signedIn,
+        standalone: isStandalone(),
+        installDismissed: isInstallDismissed(),
+        done: isDone(),
+        rolling,
+      }).length > 0
+    );
+  } catch {
+    // Unreadable world: assume busy. A prompt that does not appear is a
+    // smaller failure than two sheets on top of each other.
+    return true;
+  }
+}
+
 export function isOnboardingDone(): boolean {
   try {
     return localStorage.getItem(ONBOARDING_KEY) === '1';

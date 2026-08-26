@@ -2659,6 +2659,20 @@ select.field {
   color: var(--text-dim);
 }
 
+/* ------------------------------------------------------- studio sheet --- */
+/* Five rules, because .camnote carries no bottom margin (it is normally the
+   LAST thing in a sheet) and .btn does not stack itself. Without these the
+   lede sat directly on top of the YOUR NAME label and the two buttons shared
+   an edge - both visible in the first render of this sheet, neither visible
+   from the markup. */
+.studio__lede { margin-bottom: var(--sp-5); }
+.studio__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
 /* --------------------------------------------------------------- chips --- */
 
 .chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
