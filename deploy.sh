@@ -42,6 +42,16 @@ if [ -d landing/articles ]; then
   cp -R landing/articles/. "$STAGE/articles/"
 fi
 
+# Answer pages at /answers/<slug>/. Same shape as articles/templates above:
+# self-contained HTML, no build step. AEO-targeted pages, reachable and
+# crawlable but deliberately not linked from the main nav - see the AEO
+# concept doc for why. Not excluded from GA4/beacon injection below; they
+# should get the same instrumentation as every other landing page.
+if [ -d landing/answers ]; then
+  mkdir -p "$STAGE/answers"
+  cp -R landing/answers/. "$STAGE/answers/"
+fi
+
 # Relink: the standalone XML path-rewriter at /relink/. Self-contained, no build
 # step, and deliberately no analytics beacon - it is handed to editors who load a
 # client's shot log into it, and the page's own promise is that nothing leaves the
