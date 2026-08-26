@@ -19,6 +19,7 @@ import {
   readInvoiceEvent,
   readSubscriptionStatusEvent,
   SUBSCRIPTION_STATUS_EVENTS,
+  subscriptionStatusPatch,
 } from "../_shared/stripe.ts";
 
 // Stripe webhook. The only path that turns money into credits.
@@ -406,13 +407,7 @@ Deno.serve(async (req: Request) => {
 
     const { error: updErr } = await admin
       .from("profiles")
-      .update({
-        subscription_status: read.status,
-        subscription_id: read.subscriptionId,
-        subscription_current_period_end: read.currentPeriodEnd
-          ? new Date(read.currentPeriodEnd * 1000).toISOString()
-          : null,
-      })
+      .update(subscriptionStatusPatch(read))
       .eq("user_id", read.userId);
 
     if (updErr) {

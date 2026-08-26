@@ -467,3 +467,26 @@ export function readSubscriptionStatusEvent(payload: unknown): SubscriptionStatu
     currentPeriodEnd,
   };
 }
+
+/** The exact patch stripe-webhook writes to `profiles` for a subscription
+ *  status event. Pulled out as its own pure function for one reason: a test
+ *  can assert, without a database or an edge runtime, that this patch can
+ *  never contain an entitlement field. Cancellation must never look like it
+ *  revoked anything - project_credits, credits_purchased_total and
+ *  project_entitlements are written ONLY by grant_project_credits,
+ *  grant_subscription_invoice_credits and unlock_project, none of which this
+ *  function calls or could call, because it never receives a database
+ *  handle in the first place. */
+export function subscriptionStatusPatch(read: SubscriptionStatusRead): {
+  subscription_status: string | null;
+  subscription_id: string | null;
+  subscription_current_period_end: string | null;
+} {
+  return {
+    subscription_status: read.status,
+    subscription_id: read.subscriptionId,
+    subscription_current_period_end: read.currentPeriodEnd
+      ? new Date(read.currentPeriodEnd * 1000).toISOString()
+      : null,
+  };
+}

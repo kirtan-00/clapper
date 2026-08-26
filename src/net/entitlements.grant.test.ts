@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyCreditPurchase,
+  applySubscriptionCredit,
   NEEDS_ATTENTION_STATUSES,
   type CreditPurchase,
   type EntitlementStore,
+  type SubscriptionInvoiceGrant,
 } from '../../supabase/functions/_shared/entitlements.ts';
 
 // Idempotency, tested against a fake that implements the SAME conditional
@@ -297,5 +299,193 @@ describe('applyCreditPurchase: money that cannot be applied', () => {
     expect(out.status).toBe('store_error');
     expect(f.calls.record).toBe(0);
     expect(f.balances.size).toBe(0);
+  });
+});
+
+// =============================================================================
+// applySubscriptionCredit: renewal granting, and the first-month bonus being
+// unrepeatable. See the header of entitlements.ts for why this is a separate
+// function rather than a branch of applyCreditPurchase.
+
+const USER2 = '22222222-2222-4222-8222-222222222222';
+
+function subGrant(over?: Partial<SubscriptionInvoiceGrant>): SubscriptionInvoiceGrant {
+  return {
+    provider: 'stripe',
+    eventId: 'evt_inv_01',
+    userId: USER,
+    productKey: 'pro_monthly',
+    billingReason: 'subscription_cycle',
+    introCredits: 5,
+    renewalCredits: 2,
+    amountCents: 500,
+    currency: 'USD',
+    providerTxnId: 'in_01',
+    occurredAt: '2026-08-26T04:00:00.000Z',
+    ...over,
+  };
+}
+
+describe('applySubscriptionCredit: renewal granting', () => {
+  it('grants the standard renewal amount on billing_reason subscription_cycle', async () => {
+    const f = fakeStore();
+    const out = await applySubscriptionCredit(f.store, subGrant());
+
+    expect(out).toEqual({ status: 'granted', credits: 2, balance: 2 });
+    expect(f.balances.get(USER)).toBe(2);
+  });
+
+  it('a subscription that only granted on signup would silently stop delivering in month two - this is the fix: three renewal invoices grant three times', async () => {
+    const f = fakeStore();
+    const first = await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_create', billingReason: 'subscription_create', providerTxnId: 'in_create' }),
+    );
+    const second = await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_cycle_1', providerTxnId: 'in_cycle_1' }),
+    );
+    const third = await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_cycle_2', providerTxnId: 'in_cycle_2' }),
+    );
+
+    expect(first).toEqual({ status: 'granted', credits: 5, balance: 5 }); // the bonus
+    expect(second).toEqual({ status: 'granted', credits: 2, balance: 7 }); // renewal 1
+    expect(third).toEqual({ status: 'granted', credits: 2, balance: 9 }); // renewal 2
+    expect(f.balances.get(USER)).toBe(9);
+  });
+
+  it('does not grant twice when the same invoice event is delivered twice', async () => {
+    const f = fakeStore();
+    const first = await applySubscriptionCredit(f.store, subGrant());
+    const second = await applySubscriptionCredit(f.store, subGrant());
+
+    expect(first).toEqual({ status: 'granted', credits: 2, balance: 2 });
+    expect(second).toEqual({ status: 'duplicate' });
+    expect(f.balances.get(USER)).toBe(2);
+    expect(f.calls.grantSubscription).toBe(1);
+  });
+
+  it('corrects the purchase row credits from the placeholder 0 to what was actually granted', async () => {
+    const f = fakeStore();
+    await applySubscriptionCredit(f.store, subGrant({ billingReason: 'subscription_create' }));
+    expect([...f.rows.values()][0].credits).toBe(5);
+    expect([...f.rows.values()][0].status).toBe('granted');
+  });
+
+  it('logs one revenue row carrying which credit count applied and whether it was the bonus', async () => {
+    const f = fakeStore();
+    await applySubscriptionCredit(f.store, subGrant({ billingReason: 'subscription_create' }));
+
+    const revenue = f.events.filter((e) => e.name === 'credits_purchased');
+    expect(revenue).toHaveLength(1);
+    expect(revenue[0].props).toMatchObject({
+      credits: 5,
+      bonus_applied: true,
+      billing_reason: 'subscription_create',
+    });
+  });
+});
+
+describe('applySubscriptionCredit: the first-month bonus is unrepeatable', () => {
+  it('grants the bonus once, and the standard renewal amount on a SECOND, later subscription for the same account', async () => {
+    // Simulates cancel-and-resubscribe: a different subscription id, a
+    // different invoice, a different event - the only thing that stayed the
+    // same is the ACCOUNT, which is exactly what the guard is keyed on.
+    const f = fakeStore();
+    const firstSub = await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_sub_a_create', billingReason: 'subscription_create', providerTxnId: 'in_sub_a_1' }),
+    );
+    const secondSub = await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_sub_b_create', billingReason: 'subscription_create', providerTxnId: 'in_sub_b_1' }),
+    );
+
+    expect(firstSub).toEqual({ status: 'granted', credits: 5, balance: 5 });
+    // NOT refused, NOT another 5 - the renewal amount, because the account
+    // already spent its one bonus. The payment is real and still grants
+    // something; it just does not grant the bonus twice.
+    expect(secondSub).toEqual({ status: 'granted', credits: 2, balance: 7 });
+    expect(f.balances.get(USER)).toBe(7);
+    expect(f.introBonusGranted.size).toBe(1);
+  });
+
+  it('never resets on cancellation: a subscription_cycle after the bonus was spent still grants the renewal amount, not the bonus', async () => {
+    const f = fakeStore();
+    await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_create', billingReason: 'subscription_create', providerTxnId: 'in_1' }),
+    );
+    const laterCycle = await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_cycle', billingReason: 'subscription_cycle', providerTxnId: 'in_2' }),
+    );
+    expect(laterCycle).toEqual({ status: 'granted', credits: 2, balance: 7 });
+  });
+
+  it('is scoped to the ACCOUNT, not the event or the subscription: two different accounts each get their own bonus', async () => {
+    const f = fakeStore();
+    const forUser1 = await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_u1', billingReason: 'subscription_create', providerTxnId: 'in_u1', userId: USER }),
+    );
+    const forUser2 = await applySubscriptionCredit(
+      f.store,
+      subGrant({ eventId: 'evt_u2', billingReason: 'subscription_create', providerTxnId: 'in_u2', userId: USER2 }),
+    );
+    expect(forUser1).toEqual({ status: 'granted', credits: 5, balance: 5 });
+    expect(forUser2).toEqual({ status: 'granted', credits: 5, balance: 5 });
+    expect(f.introBonusGranted.size).toBe(2);
+  });
+});
+
+describe('applySubscriptionCredit: money that cannot be applied', () => {
+  it('records an unrecognised billing_reason as needs-attention and grants nothing', async () => {
+    // A paid invoice for a product this app sells, but not a first invoice or
+    // a renewal of it - a plan change, a threshold invoice. Money moved and
+    // nothing was granted, refused rather than guessed at.
+    const f = fakeStore();
+    const out = await applySubscriptionCredit(f.store, subGrant({ billingReason: 'subscription_update' }));
+
+    expect(out).toEqual({ status: 'unknown_product' });
+    expect(f.calls.grantSubscription).toBe(0);
+    const row = [...f.rows.values()][0];
+    expect(row.status).toBe('unknown_product');
+    expect(NEEDS_ATTENTION_STATUSES).toContain(row.status);
+    expect(f.events.some((e) => e.name === 'purchase_needs_attention')).toBe(true);
+  });
+
+  it('records a purchase with no resolvable account and grants nothing', async () => {
+    const f = fakeStore();
+    const out = await applySubscriptionCredit(f.store, subGrant({ userId: null }));
+
+    expect(out).toEqual({ status: 'no_user' });
+    expect(f.calls.grantSubscription).toBe(0);
+    expect([...f.rows.values()][0].status).toBe('user_unknown');
+  });
+
+  it('records a purchase whose price matched no product and grants nothing', async () => {
+    const f = fakeStore();
+    const out = await applySubscriptionCredit(f.store, subGrant({ productKey: null }));
+
+    expect(out).toEqual({ status: 'unknown_product' });
+    expect(f.calls.grantSubscription).toBe(0);
+  });
+
+  it('marks the row grant_failed when the credit write fails, and does not spend the bonus', async () => {
+    const f = fakeStore({ addCreditsFails: 'no profile row for that account' });
+    const out = await applySubscriptionCredit(
+      f.store,
+      subGrant({ billingReason: 'subscription_create' }),
+    );
+
+    expect(out.status).toBe('grant_failed');
+    expect([...f.rows.values()][0].status).toBe('grant_failed');
+    // The bonus flag is only set INSIDE the same statement that grants -
+    // a failed grant must not have burned the one-time bonus for nothing.
+    expect(f.introBonusGranted.size).toBe(0);
+    expect(f.events.some((e) => e.name === 'purchase_needs_attention')).toBe(true);
   });
 });

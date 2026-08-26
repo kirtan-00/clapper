@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { verifyStripeWebhook, parseStripeSignature } from '../../supabase/functions/_shared/webhook.ts';
 import {
   CHECKOUT_GRANT_EVENTS,
+  INVOICE_GRANT_EVENTS,
   readCheckoutEvent,
+  readInvoiceEvent,
+  readSubscriptionStatusEvent,
+  SUBSCRIPTION_STATUS_EVENTS,
+  subscriptionStatusPatch,
 } from '../../supabase/functions/_shared/stripe.ts';
 
 // The signature check is the ONLY authentication on the Stripe webhook: that
@@ -211,5 +216,234 @@ describe('readCheckoutEvent', () => {
       'checkout.session.completed',
       'checkout.session.async_payment_succeeded',
     ]);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// invoice.paid: the subscription grant event. See _shared/stripe.ts for why
+// this is the only one subscribed to for money, and why billing_reason (not
+// the event name) is what tells a first invoice from a renewal.
+// -----------------------------------------------------------------------------
+
+const USER_A = '11111111-1111-4111-8111-111111111111';
+const USER_B = '22222222-2222-4222-8222-222222222222';
+
+/** An invoice payload, basil-shape by default: metadata lives at
+ *  `parent.subscription_details.metadata`, which is what Stripe copies onto
+ *  every invoice from the subscription that generated it. */
+function invoiceEnvelope(over: Record<string, unknown> = {}, objOver: Record<string, unknown> = {}) {
+  return {
+    id: 'evt_inv_1',
+    type: 'invoice.paid',
+    data: {
+      object: {
+        id: 'in_1',
+        object: 'invoice',
+        paid: true,
+        status: 'paid',
+        billing_reason: 'subscription_cycle',
+        amount_paid: 500,
+        currency: 'usd',
+        parent: {
+          type: 'subscription_details',
+          subscription_details: {
+            subscription: 'sub_1',
+            metadata: { user_id: USER_A, product_key: 'pro_monthly' },
+          },
+        },
+        ...objOver,
+      },
+    },
+    ...over,
+  };
+}
+
+describe('readInvoiceEvent', () => {
+  it('reads the account, the product and the money off the basil shape', () => {
+    const r = readInvoiceEvent(invoiceEnvelope())!;
+    expect(r.eventId).toBe('evt_inv_1');
+    expect(r.eventType).toBe('invoice.paid');
+    expect(r.invoiceId).toBe('in_1');
+    expect(r.subscriptionId).toBe('sub_1');
+    expect(r.billingReason).toBe('subscription_cycle');
+    expect(r.paid).toBe(true);
+    expect(r.userId).toBe(USER_A);
+    expect(r.productKey).toBe('pro_monthly');
+    expect(r.amountPaid).toBe(500);
+    expect(r.currency).toBe('usd');
+  });
+
+  it('falls back to the pre-basil top-level subscription_details shape', () => {
+    const env = invoiceEnvelope({}, {
+      parent: undefined,
+      subscription_details: { subscription: 'sub_2', metadata: { user_id: USER_B, product_key: 'pro_monthly' } },
+    });
+    const r = readInvoiceEvent(env)!;
+    expect(r.subscriptionId).toBe('sub_2');
+    expect(r.userId).toBe(USER_B);
+  });
+
+  it('falls back to invoice.metadata directly when neither subscription shape is present', () => {
+    const env = invoiceEnvelope({}, {
+      parent: undefined,
+      metadata: { user_id: USER_B, product_key: 'pro_monthly' },
+    });
+    const r = readInvoiceEvent(env)!;
+    expect(r.userId).toBe(USER_B);
+    expect(r.productKey).toBe('pro_monthly');
+  });
+
+  it('reads a junk account id as ABSENT rather than as an account', () => {
+    for (const junk of ['not-a-uuid', '', 42, null, {}]) {
+      const env = invoiceEnvelope({}, {
+        parent: { subscription_details: { subscription: 'sub_x', metadata: { user_id: junk } } },
+      });
+      expect(readInvoiceEvent(env)!.userId).toBeNull();
+    }
+  });
+
+  it('checks both paid and status, not the event name alone', () => {
+    expect(readInvoiceEvent(invoiceEnvelope({}, { paid: true, status: 'paid' }))!.paid).toBe(true);
+    expect(readInvoiceEvent(invoiceEnvelope({}, { paid: false, status: 'open' }))!.paid).toBe(false);
+    // Either field alone is enough - belt and braces, not an AND.
+    expect(readInvoiceEvent(invoiceEnvelope({}, { paid: undefined, status: 'paid' }))!.paid).toBe(true);
+    expect(readInvoiceEvent(invoiceEnvelope({}, { paid: true, status: undefined }))!.paid).toBe(true);
+  });
+
+  it('reads a line item price id off both known shapes - the webhook decides whether to use it', () => {
+    const withPriceObj = invoiceEnvelope({}, {
+      parent: undefined,
+      metadata: {},
+      lines: { data: [{ price: { id: 'price_abc' } }] },
+    });
+    expect(readInvoiceEvent(withPriceObj)!.linePriceId).toBe('price_abc');
+
+    const withPricingShape = invoiceEnvelope({}, {
+      parent: undefined,
+      metadata: {},
+      lines: { data: [{ pricing: { price_details: { price: 'price_def' } } }] },
+    });
+    expect(readInvoiceEvent(withPricingShape)!.linePriceId).toBe('price_def');
+  });
+
+  it('never puts a credit count anywhere on the read - the catalogue is the only source', () => {
+    const env = invoiceEnvelope({}, { metadata: { credits: 500 } });
+    expect('credits' in readInvoiceEvent(env)!).toBe(false);
+  });
+
+  it('returns eventId/eventType even when data.object is missing, everything else null', () => {
+    const r = readInvoiceEvent({ id: 'evt_x', type: 'invoice.paid' })!;
+    expect(r.eventId).toBe('evt_x');
+    expect(r.invoiceId).toBeNull();
+    expect(r.userId).toBeNull();
+    expect(r.paid).toBe(false);
+  });
+
+  it('returns null for anything that is not an event envelope', () => {
+    expect(readInvoiceEvent(null)).toBeNull();
+    expect(readInvoiceEvent({ id: 'evt_x' })).toBeNull();
+  });
+
+  it('subscribes to invoice.paid and nothing else for granting', () => {
+    expect(INVOICE_GRANT_EVENTS).toEqual(['invoice.paid']);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// customer.subscription.*: a status mirror, never a grant.
+// -----------------------------------------------------------------------------
+
+function subscriptionEnvelope(over: Record<string, unknown> = {}, objOver: Record<string, unknown> = {}) {
+  return {
+    id: 'evt_sub_1',
+    type: 'customer.subscription.updated',
+    data: {
+      object: {
+        id: 'sub_1',
+        object: 'subscription',
+        status: 'active',
+        current_period_end: 1767225600,
+        metadata: { user_id: USER_A, product_key: 'pro_monthly' },
+        ...objOver,
+      },
+    },
+    ...over,
+  };
+}
+
+describe('readSubscriptionStatusEvent', () => {
+  it('reads status, account and product off the subscription object directly', () => {
+    const r = readSubscriptionStatusEvent(subscriptionEnvelope())!;
+    expect(r.subscriptionId).toBe('sub_1');
+    expect(r.status).toBe('active');
+    expect(r.userId).toBe(USER_A);
+    expect(r.productKey).toBe('pro_monthly');
+    expect(r.currentPeriodEnd).toBe(1767225600);
+  });
+
+  it('falls back to the per-item current_period_end shape', () => {
+    const env = subscriptionEnvelope({}, {
+      current_period_end: undefined,
+      items: { data: [{ current_period_end: 1767312000 }] },
+    });
+    expect(readSubscriptionStatusEvent(env)!.currentPeriodEnd).toBe(1767312000);
+  });
+
+  it('mirrors any status verbatim, including cancellation and payment failure states', () => {
+    for (const status of ['active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete_expired', 'paused']) {
+      expect(readSubscriptionStatusEvent(subscriptionEnvelope({}, { status }))!.status).toBe(status);
+    }
+  });
+
+  it('reads a junk account id as ABSENT rather than as an account', () => {
+    const env = subscriptionEnvelope({}, { metadata: { user_id: 'not-a-uuid' } });
+    expect(readSubscriptionStatusEvent(env)!.userId).toBeNull();
+  });
+
+  it('subscribes to created, updated and deleted, and no more', () => {
+    // .created matters as much as the other two: a brand new subscriber that
+    // nothing else ever changes about would otherwise show as
+    // "never subscribed" until its first renewal - a month of a paying
+    // customer looking unpaid in the dashboard.
+    expect(SUBSCRIPTION_STATUS_EVENTS).toEqual([
+      'customer.subscription.created',
+      'customer.subscription.updated',
+      'customer.subscription.deleted',
+    ]);
+  });
+});
+
+describe('subscriptionStatusPatch: cancellation must never look like a revoke', () => {
+  it('writes only the three mirror columns, nothing that names a credit or an entitlement', () => {
+    const read = readSubscriptionStatusEvent(subscriptionEnvelope({}, { status: 'canceled' }))!;
+    const patch = subscriptionStatusPatch(read);
+
+    expect(Object.keys(patch).sort()).toEqual([
+      'subscription_current_period_end',
+      'subscription_id',
+      'subscription_status',
+    ]);
+    for (const key of Object.keys(patch)) {
+      expect(key).not.toMatch(/credit/i);
+      expect(key).not.toMatch(/entitlement/i);
+      expect(key).not.toMatch(/unlock/i);
+      expect(key).not.toMatch(/breakdown/i);
+    }
+  });
+
+  it('carries the cancelled status through unchanged', () => {
+    const read = readSubscriptionStatusEvent(subscriptionEnvelope({}, { status: 'canceled' }))!;
+    expect(subscriptionStatusPatch(read).subscription_status).toBe('canceled');
+  });
+
+  it('converts the epoch-seconds renewal date to an ISO string, or null when absent', () => {
+    const withDate = readSubscriptionStatusEvent(subscriptionEnvelope())!;
+    expect(subscriptionStatusPatch(withDate).subscription_current_period_end).toBe(
+      new Date(1767225600 * 1000).toISOString(),
+    );
+    const noDate = readSubscriptionStatusEvent(
+      subscriptionEnvelope({}, { current_period_end: undefined }),
+    )!;
+    expect(subscriptionStatusPatch(noDate).subscription_current_period_end).toBeNull();
   });
 });
