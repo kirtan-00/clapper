@@ -980,10 +980,14 @@ Deno.serve(async (req: Request) => {
     let before: Record<string, unknown> = {};
     if (needsTarget) {
       if (!targetId) return bad("Which account? user_id is required.");
-      // Postgres will reject a non-uuid with a type error rather than an
-      // empty result, so the shape is checked here to keep the message
-      // readable.
-      if (!/^[0-9a-fA-F-]{36}$/.test(targetId)) return bad("That is not a user id.");
+      // Checked as a real uuid, in full, not just "36 characters of hex and
+      // dashes". Postgres answers a malformed uuid with a 22P02 type error,
+      // not an empty result, so a loose check here would turn a typo into
+      // "Could not read that account" at HTTP 500 - which reads as the
+      // database being broken rather than the id being wrong.
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId)) {
+        return bad("That is not a user id.");
+      }
 
       // Typed `string`, not left to inference. supabase-js parses a select
       // list at the TYPE level to shape the result, and it cannot parse a
