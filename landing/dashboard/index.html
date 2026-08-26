@@ -1185,7 +1185,9 @@ function panelPurchases(p) {
     // wrong. The transaction id had its own column and pushed the table wider
     // than the card.
     var why = r.note || STATUS_SAY[r.status] || '';
-    var ref = (r.txn_id || r.event_id || '') + (why ? ' \u00b7 ' + why : '');
+    // The gateway is named because the ledger holds more than one: the owner
+    // has changed provider twice, and `purchases` is keyed on (provider, event).
+    var ref = (r.provider ? r.provider + ' \u00b7 ' : '') + (r.txn_id || r.event_id || '') + (why ? ' \u00b7 ' + why : '');
     return '<tr>' +
       '<td class="who">' + esc(r.email || r.user_id || 'unknown') +
         (ref ? '<span class="sub">' + esc(ref) + '</span>' : '') + '</td>' +
@@ -1238,7 +1240,8 @@ function panelPurchases(p) {
     '</div>' +
     '<h3 class="sub-h">Taken, by currency</h3>' + curBlock +
     '<h3 class="sub-h">Last ten grants</h3>' + recentBlock +
-    '<p class="foot-note"><strong>Totals are never summed across currencies.</strong> The gateway is a merchant of record and charges each buyer in their own money, so an INR row and a USD row sit side by side. One combined number would have no unit.</p>' +
+    '<p class="foot-note"><strong>Totals are never summed across currencies.</strong> Each row holds what was actually charged, in the currency it was charged in, so an INR row and a USD row can sit side by side. One combined number would have no unit.</p>' +
+    '<p class="foot-note"><strong>These are gross, not yours.</strong> Stripe is not a merchant of record: on a Stripe sale you are the seller, so the figures above include any sales tax collected and that tax is your liability, not the gateway\u2019s. Paddle, which this replaced, took that on. Stripe fees are not deducted here either.</p>' +
     (credits.available
       ? '<p class="foot-note"><strong>' + fmtN(credits.outstanding) + '</strong> credit(s) bought and not yet spent, held by <strong>' + fmtN(credits.holders) + '</strong> account(s). A credit unlocks one project permanently.</p>'
       : '<p class="foot-note"><strong>Credit balances are not readable yet.</strong> profiles.project_credits arrives with supabase/migrations/20260826170000_entitlements.sql.</p>') +

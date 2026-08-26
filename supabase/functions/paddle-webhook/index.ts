@@ -2,11 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { verifyPaddleWebhook } from "../_shared/webhook.ts";
 import { productForPriceId } from "../_shared/products.ts";
-import {
-  applyCreditPurchase,
-  type CreditPurchase,
-  type EntitlementStore,
-} from "../_shared/entitlements.ts";
+import { applyCreditPurchase, type CreditPurchase } from "../_shared/entitlements.ts";
+import { supabaseEntitlementStore } from "../_shared/store.ts";
 // PARKED 2026-08-26. NOT DEPLOYED, NOT WIRED, DO NOT INVEST FURTHER.
 //
 // The owner moved to Stripe. See supabase/functions/stripe-webhook/index.ts
@@ -263,75 +260,11 @@ Deno.serve(async (req: Request) => {
   // 6. The store. This is the ONLY Paddle-shaped code that touches the
   // database, and it is deliberately thin: the decisions live in
   // _shared/entitlements.ts so that a second gateway makes the same ones.
-  const store: EntitlementStore = {
-    async recordPurchase(p, status) {
-      // ON CONFLICT DO NOTHING with NO TARGET COLUMNS, which is the whole
-      // point: an untargeted DO NOTHING covers EVERY unique constraint on the
-      // table, so the primary key catches a retry of the same event AND
-      // purchases_txn_idx catches a second event for the same transaction.
-      // Naming a conflict target here would make the second case a raised
-      // 23505 instead, which would answer 500 and be retried sixty times.
-      // Neither conflict is an error; both mean "already known", and the claim
-      // below is what decides whether this delivery does the work.
-      const { error } = await admin.from("purchases").upsert({
-        provider: p.provider,
-        provider_event_id: p.eventId,
-        user_id: p.userId,
-        provider_txn_id: p.providerTxnId,
-        product_key: p.productKey,
-        credits: p.credits,
-        amount_cents: p.amountCents,
-        currency: p.currency,
-        status,
-        occurred_at: p.occurredAt,
-      }, { ignoreDuplicates: true });
-      // 23505 belt and braces: if a PostgREST version ever does target the
-      // primary key anyway, a unique violation still means "already known".
-      if (error && (error as { code?: string }).code === "23505") return {};
-      return { error: error ? String(error.message ?? error) : undefined };
-    },
-
-    async claimPurchase(provider, eventId) {
-      // THE GUARD IS IN THE WHERE CLAUSE. One statement, no read first. Two
-      // concurrent deliveries of the same event both run this; exactly one
-      // gets a row back and exactly one grants.
-      const { data: rows, error } = await admin
-        .from("purchases")
-        .update({ status: "granting", updated_at: new Date().toISOString() })
-        .eq("provider", provider)
-        .eq("provider_event_id", eventId)
-        .eq("status", "received")
-        .select("user_id, credits");
-      if (error) return { claimed: null, error: String(error.message ?? error) };
-      const row = (rows ?? [])[0] as { user_id: string | null; credits: number } | undefined;
-      return { claimed: row ? { userId: row.user_id, credits: row.credits } : null };
-    },
-
-    async addCredits(userId, credits) {
-      const { data: balance, error } = await admin.rpc("grant_project_credits", {
-        p_user: userId,
-        p_credits: credits,
-      });
-      if (error) return { balance: null, error: String(error.message ?? error) };
-      // -1 is the RPC's "no such profile". Null balance is what
-      // applyCreditPurchase reads as a failed grant.
-      return { balance: typeof balance === "number" && balance >= 0 ? balance : null };
-    },
-
-    async finishPurchase(provider, eventId, status, note) {
-      const now = new Date().toISOString();
-      const patch: Record<string, unknown> = { status, updated_at: now, note: note ?? null };
-      if (status === "granted") patch.granted_at = now;
-      const { error } = await admin
-        .from("purchases")
-        .update(patch)
-        .eq("provider", provider)
-        .eq("provider_event_id", eventId);
-      return { error: error ? String(error.message ?? error) : undefined };
-    },
-
-    logEvent: (name, uid, props) => logEvent(name, uid, props),
-  };
+  // The database half is shared with stripe-webhook (_shared/store.ts).
+  // It used to be written out inline here, and copying it into the Stripe
+  // function would have meant two hand-written copies of the conditional
+  // claim that stops a retry paying out twice.
+  const store = supabaseEntitlementStore(admin, logEvent);
 
   const outcome = await applyCreditPurchase(store, purchase);
 

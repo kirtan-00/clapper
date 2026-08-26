@@ -170,16 +170,16 @@ function fixture({ suspendAvailable, killOn = true, purchases = 'live' }) {
         available: true,
         unavailable_reason: null,
         needs_attention: purchases === 'clean' ? [] : [
-          { provider: 'paddle', event_id: 'evt_01j9x2', txn_id: 'txn_01j9x2', user_id: '22222222-2222-4222-8222-222222222222', email: 'manthan@example.com', product_key: 'credits_intro_5', credits: 5, amount_cents: 500, currency: 'USD', status: 'grant_failed', note: 'no profile row for that account', created_at: '2026-08-26T03:12:00.000Z' },
-          { provider: 'paddle', event_id: 'evt_01j9x7', txn_id: 'txn_01j9x7', user_id: null, email: null, product_key: 'credits_1', credits: 1, amount_cents: 24900, currency: 'INR', status: 'user_unknown', note: null, created_at: '2026-08-26T02:40:00.000Z' },
+          { provider: 'stripe', event_id: 'evt_1QaX2', txn_id: 'cs_test_a1x2', user_id: '22222222-2222-4222-8222-222222222222', email: 'manthan@example.com', product_key: 'credits_intro_5', credits: 5, amount_cents: 500, currency: 'USD', status: 'grant_failed', note: 'no profile row for that account', created_at: '2026-08-26T03:12:00.000Z' },
+          { provider: 'stripe', event_id: 'evt_1QaX7', txn_id: 'cs_test_a1x7', user_id: null, email: null, product_key: 'credits_1', credits: 1, amount_cents: 24900, currency: 'INR', status: 'user_unknown', note: null, created_at: '2026-08-26T02:40:00.000Z' },
         ],
         granted: {
           count: 6, credits: 14,
           by_currency: [{ currency: 'USD', minor_units: 2100, count: 4 }, { currency: 'INR', minor_units: 49800, count: 2 }],
         },
         recent: [
-          { provider: 'paddle', event_id: 'evt_01j9w1', user_id: '11111111-1111-4111-8111-111111111111', email: 'chirag@example.com', product_key: 'credits_intro_5', credits: 5, amount_cents: 500, currency: 'USD', granted_at: '2026-08-25T18:20:00.000Z' },
-          { provider: 'paddle', event_id: 'evt_01j9v8', user_id: '33333333-3333-4333-8333-333333333333', email: 'ohm@example.com', product_key: 'credits_1', credits: 1, amount_cents: 300, currency: 'USD', granted_at: '2026-08-25T11:05:00.000Z' },
+          { provider: 'stripe', event_id: 'evt_1QaW1', user_id: '11111111-1111-4111-8111-111111111111', email: 'chirag@example.com', product_key: 'credits_intro_5', credits: 5, amount_cents: 500, currency: 'USD', granted_at: '2026-08-25T18:20:00.000Z' },
+          { provider: 'stripe', event_id: 'evt_1QaV8', user_id: '33333333-3333-4333-8333-333333333333', email: 'ohm@example.com', product_key: 'credits_1', credits: 1, amount_cents: 300, currency: 'USD', granted_at: '2026-08-25T11:05:00.000Z' },
         ],
         credits: { available: true, outstanding: 9, holders: 3 },
       },
