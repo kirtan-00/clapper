@@ -24,6 +24,16 @@ for f in favicon.svg favicon-32.png apple-touch-icon.png icon-192.png icon-512.p
   cp "public/$f" "$STAGE/"
 done
 
+# The footer mark's closing-clap sound, at the domain root so the landing
+# page's /clap.mp3 <audio src> resolves - copied ONLY if present. Unlike the
+# assets above this one is optional and the page already treats a missing
+# file as a silent no-op (see the closing-clap comment in landing/fragment.
+# html), so the deploy must too: an unconditional cp here would abort every
+# build with `set -euo pipefail` until the owner supplies the file.
+if [ -f public/clap.mp3 ]; then
+  cp public/clap.mp3 "$STAGE/"
+fi
+
 # Landing page: head wrapper + body fragment + closing tags
 cat landing/head.html landing/fragment.html landing/tail.html > "$STAGE/index.html"
 

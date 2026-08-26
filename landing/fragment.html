@@ -423,6 +423,36 @@ a{color:inherit}
 .rm .vig [data-at],.rm .chap li[data-at]{opacity:1;transform:none}
 .rm .vig [data-draw]{stroke-dashoffset:0}
 .rm .clap-stick{transform:none}
+
+/* ---------- closing clap: the footer mark performs one real clap ----------
+   The mark is inlined fresh at the footer instead of reused via <use
+   href="#clapper-mark-light">: a <use> instantiates the referenced <symbol>
+   as a closed shadow tree, and CSS from the light DOM cannot reach in to
+   animate just the stick sub-part of it. This is the only place on the page
+   the mark moves, so it gets its own markup here rather than reworking the
+   shared symbol, which still has to render static and correct in the
+   topbar and the splash. */
+.clapmark-stick{transform-box:fill-box;transform-origin:0% 100%}
+/* Rest angle is the mark's own drawn pose (already "open" - the same idea
+   as the drawn -20deg on .clap-stick above). The clap rotates it CLOSED:
+   the hinge sits at the stick's own bottom-left corner, which is where the
+   slate's top-left corner already is, so a positive rotation swings the
+   far/right end DOWN onto the slate - the same hinge convention as
+   .clap-stick above.
+   Real timing: ~120ms accelerating strike (0 -> 67%, impact - a clap that
+   eases in the whole way down reads as a yawn, not a clap), a quick
+   decelerating micro-bounce OFF the slate (67% -> 82%), then a soft ~33ms
+   settle back to the closed rest angle (82% -> 100%). The bounce swings
+   BACK OPEN, not further shut - rotating past the impact angle would draw
+   the stick straight through the slate it just hit. */
+@keyframes clapDown{
+  0%{transform:rotate(0deg);animation-timing-function:cubic-bezier(.6,0,1,.4)}
+  67%{transform:rotate(20deg);animation-timing-function:cubic-bezier(0,0,.3,1)}
+  82%{transform:rotate(17.5deg);animation-timing-function:cubic-bezier(.4,0,.6,1)}
+  100%{transform:rotate(20deg)}
+}
+.clapmark.clap-now .clapmark-stick{animation:clapDown 180ms both}
+@media(prefers-reduced-motion:reduce){ .clapmark.clap-now .clapmark-stick{animation:none} }
 </style>
 
 <div class="clapper-page">
@@ -830,7 +860,7 @@ a{color:inherit}
       <a href="https://www.producthunt.com/products/clapper-3?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-clapper-3" target="_blank" rel="noopener noreferrer"><img alt="Clapper - Free take logger for film sets, exports to Premiere | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1201503&amp;theme=light&amp;t=1784554674055" loading="lazy"></a>
     </div>
     <div class="wrap">
-      <span class="fm"><svg width="22" height="22" viewBox="0 0 1024 1024" aria-hidden="true"><use href="#clapper-mark-light"/></svg>Clapper</span>
+      <span class="fm"><svg id="closingMark" class="clapmark" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="2" y="9" width="20" height="13" rx="2.5" fill="#FDFFF8" opacity="0.32"/><g class="clapmark-stick"><path d="M2.6 3.9 21 2l.5 4.4L3.1 8.3z" fill="#FDFFF8"/><path d="M7.4 3.4 5.9 7.9M12.6 2.9l-1.5 4.5M17.8 2.4l-1.5 4.5" stroke="#151414" stroke-width="1.5"/></g></svg>Clapper</span>
       <span class="flinks"><a href="https://clapper.in/app/?ref=landing" target="_blank" rel="noopener">App</a><a href="/articles/">Guides</a><a href="/templates/continuity-sheet-template/">Continuity sheet</a><a href="/templates/camera-log-sheet/">Camera log</a><a href="/templates/script-supervisor-daily-report/">Daily report</a><a href="/templates/sound-report-template/">Sound report</a><a href="/templates/shot-list-template/">Shot list</a><a href="/relink/">Relink</a><a href="/legal/#privacy">Privacy</a><a href="/legal/#terms">Terms</a><a href="mailto:purohit.krick@gmail.com">Contact</a></span>
       <span class="made">made for set</span>
     </div>
@@ -866,6 +896,80 @@ a{color:inherit}
       function go(){ if(done) return; done=true; setTimeout(hide, Math.max(400, 1000-(Date.now()-t0))); }
       if(document.fonts && document.fonts.ready){ document.fonts.ready.then(go); }
       setTimeout(go, 1600);
+    }
+  }
+
+  /* ---------- closing clap: the footer mark performs one real clap ----------
+     Placement: the footer is the literal last element on the page. The mark
+     that has sat static in the topbar and the splash for the whole visit
+     gets to move exactly once, as the page's closing beat - not the big
+     scroll-scrubbed .clap-stick above the CTA (built below, in the how-it-
+     works block). That one is a continuous, REVERSIBLE scene-transition
+     device: it swings back open if you scroll back up, it is a striped bar
+     with no mark geometry, and tying a sound to it would refire every time
+     someone crossed the threshold in either direction - exactly the
+     loop/repeat this is built to avoid.
+
+     Autoplay gap, on purpose: the ANIMATION runs the moment the mark
+     scrolls into view - a CSS transform is not gated by any browser
+     policy. The SOUND is: every major browser blocks audio a user did not
+     ask for, and a page that tries to make noise unprompted is a page
+     people close. So the clip only plays if the visitor has already
+     clicked or pressed a key on the page BEFORE the mark comes into view -
+     real user activation, the kind browsers actually honour for a later
+     programmatic play(). Deliberately not pointerdown/touchstart: those
+     also fire for a scroll-by-touch, which is not activation, and would
+     leave "interacted" true for a visitor whose play() call the browser
+     still silently rejects - the gate would lie. If someone scrolls
+     straight down without clicking or typing anything, the mark still
+     claps - it just does it quietly, rather than firing the sound later on
+     some unrelated tap with no visual clap left to go with it. */
+  if(!reduce && "IntersectionObserver" in window){
+    var closingMark=document.getElementById("closingMark");
+    if(closingMark){
+      var interacted=false;
+      function markInteracted(){
+        interacted=true;
+        window.removeEventListener("click",markInteracted);
+        window.removeEventListener("keydown",markInteracted);
+      }
+      window.addEventListener("click",markInteracted,{passive:true});
+      window.addEventListener("keydown",markInteracted,{passive:true});
+
+      /* Built lazily right here, not up front in the markup: an <audio src>
+         in the HTML fetches on parse even without autoplay, and this page
+         is measured for load speed, so nothing is requested until a clap
+         is actually about to play. clap.mp3 does not exist yet - that
+         request will 404, and every failure path below (the element's own
+         "error" event, and the play() promise's rejection) is caught and
+         swallowed so it stays a JS no-op: no exception, no unhandled
+         rejection, no broken animation. A visitor never sees any of this;
+         the one trace of it is a standard "failed to load resource" line
+         in the browser's own network log, which is not a script error and
+         is not something JS can suppress for ANY missing asset - it goes
+         away the day clap.mp3 ships. <audio>, not the Web Audio API: on
+         iOS, AudioContext ignores the hardware silent switch, but an
+         <audio> element respects it - someone who has silenced their phone
+         has told us they do not want noise, and this is the API that
+         honours that. */
+      function playClap(){
+        try{
+          var a=new Audio("/clap.mp3");
+          a.volume=0.5; /* a punctuation mark, not a jump-scare */
+          a.addEventListener("error",function(){ /* not shipped yet - silent no-op */ });
+          var p=a.play();
+          if(p && p.catch) p.catch(function(){ /* blocked or missing - silent no-op */ });
+        }catch(e){ /* silent no-op */ }
+      }
+
+      new IntersectionObserver(function(ents,obs){
+        ents.forEach(function(e){
+          if(!e.isIntersecting) return;
+          closingMark.classList.add("clap-now");
+          if(interacted) playClap();
+          obs.disconnect(); /* one clap - never repeats on scroll back up/down */
+        });
+      },{threshold:0.5}).observe(closingMark);
     }
   }
 
