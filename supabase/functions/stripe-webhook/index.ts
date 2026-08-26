@@ -212,7 +212,19 @@ Deno.serve(async (req: Request) => {
     resolveNote = "no metadata.product_key and STRIPE_SECRET_KEY is not set";
   }
 
-  if (resolveNote) console.error(`stripe-webhook: ${resolveNote} (${read.sessionId})`);
+  if (resolveNote) {
+    // Logged as an EVENT, not only to the console. The parked Paddle webhook
+    // already did this and the Stripe one did not, which is exactly the kind
+    // of drift the shared seam exists to prevent: a console line is invisible
+    // in the dashboard, and an unmapped price is a purchase somebody made.
+    console.error(`stripe-webhook: ${resolveNote} (${read.sessionId})`);
+    await logEvent("purchase_unmapped_price", read.userId, {
+      provider: PROVIDER,
+      event_id: read.eventId,
+      session_id: read.sessionId,
+      detail: resolveNote,
+    });
+  }
 
   const purchase: CreditPurchase = {
     provider: PROVIDER,
@@ -274,7 +286,7 @@ Deno.serve(async (req: Request) => {
 //    under Product catalogue:
 //      "Clapper: 5 projects"  USD 5.00   first purchase only, enforced by us
 //      "Clapper: 1 project"   USD 3.00
-//    Copy both price ids (pri... in Stripe they are `price_...`).
+//    Copy both price ids. In Stripe they look like `price_...`.
 //
 // 2. Workbench > Webhooks > Create an event destination
 //      Endpoint URL : https://<project-ref>.supabase.co/functions/v1/stripe-webhook
