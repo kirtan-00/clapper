@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
+import { isSuspended } from "../_shared/suspension.ts";
 
 // Clapper Script Mode backend. Identity comes from the caller's Supabase JWT
 // (never a client-sent email). Flow: getUser -> Turnstile -> rate limits ->
@@ -364,13 +365,26 @@ Deno.serve(async (req: Request) => {
   // check never touches a user's lifetime slot. Limit derived from is_pro.
   const { data: profile } = await admin
     .from("profiles")
-    .select("is_pro, is_suspended")
+    .select("is_pro")
     .eq("user_id", userId)
     .single();
 
   // A booted account is refused before a slot is ever consumed and before this
   // call ever reaches Groq. Script Mode is the expensive feature, and a
   // suspended user gets none of it regardless of how many free uses are left.
+  //
+  // ASKED SEPARATELY FROM is_pro ABOVE, AND FAILS OPEN. `is_suspended` used to
+  // ride along in that select, which broke it outright: the column is not in
+  // the live database yet, PostgREST refuses the whole select for one unknown
+  // column (42703), and `profile` came back null - so `profile?.is_pro` read
+  // as undefined and every Pro account quietly got free limits here. Split
+  // apart, a suspension lookup that errors decides only the suspension
+  // question, and it decides it as "not suspended" (see _shared/suspension.ts
+  // for the full reasoning). This is anti-abuse on a ten-account app, not a
+  // boundary: letting one abuser through for an hour is cheap, locking out
+  // every paying user is not. The rate limit, the auth check and the quota
+  // around it still fail CLOSED, because those ARE the boundary.
+  //
   // 423 (Locked) rather than 403: this function's breakdown.ts client already
   // hardcodes a "Bot check failed" message for any 403 (that status is
   // Turnstile's), so reusing it here would show the wrong reason for the
@@ -380,7 +394,7 @@ Deno.serve(async (req: Request) => {
   // `reason || error` when it doesn't recognize the status, so leaving `error`
   // as the human sentence is what surfaces today, before any src change wires
   // `code` in explicitly.
-  if (profile?.is_suspended === true) {
+  if (await isSuspended(admin, userId)) {
     return new Response(
       JSON.stringify({
         error: "This account has been suspended. If you think that's a mistake, email us.",

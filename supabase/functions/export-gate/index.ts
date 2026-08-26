@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
+import { isSuspended } from "../_shared/suspension.ts";
 
 // Clapper export gate. Server-authoritative counter for the editor-handoff
 // exports (Premiere FCP7 XML, Resolve FCPXML, CSV). No Groq, so no Turnstile,
@@ -154,12 +155,28 @@ Deno.serve(async (req: Request) => {
   // the worse failure.
   const { data: profile } = await admin
     .from("profiles")
-    .select("is_pro, pro_until, is_suspended")
+    .select("is_pro, pro_until")
     .eq("user_id", userId)
     .maybeSingle();
 
   // A booted account is refused before quota is even looked at. Pro or free,
-  // used or unused, none of it matters once is_suspended is true. `reason:
+  // used or unused, none of it matters once is_suspended is true.
+  //
+  // ASKED SEPARATELY FROM is_pro ABOVE, AND FAILS OPEN. `is_suspended` used to
+  // be a third column in that select, and that broke the paid tier outright:
+  // the column is not in the live database yet, PostgREST refuses an entire
+  // select for one unknown column (42703), and `profile` came back null - so
+  // `isPro` computed as false and every Pro account was answered `pro_only`
+  // on any format with no free allowance. The person who paid was the only
+  // person locked out. Split apart, a suspension lookup that errors decides
+  // only the suspension question, and it decides it as "not suspended" (see
+  // _shared/suspension.ts). That is the right default here: suspension is an
+  // anti-abuse tool on a ten-account app, not a security boundary. Letting
+  // one abuser export for an hour is cheap; silently refusing every paying
+  // user is not. Auth and quota around this still fail CLOSED - they are the
+  // boundary.
+  //
+  // `reason:
   // "suspended"` is a new value distinct from "quota_exceeded" and "auth": the
   // caller has a valid session and uses left, they are simply not allowed to
   // spend them, and the app should say that plainly rather than invent an
@@ -168,7 +185,7 @@ Deno.serve(async (req: Request) => {
   // `reason` field on a 2xx reply (see src/net/quota.ts), so a non-2xx here
   // would collapse to a generic "unreachable"/"http_error" and hide the real
   // answer from the person it happened to.
-  if (profile?.is_suspended === true) {
+  if (await isSuspended(admin, userId)) {
     return new Response(
       JSON.stringify({ allow: false, reason: "suspended" }),
       { headers },
