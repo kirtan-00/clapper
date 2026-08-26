@@ -34,7 +34,7 @@ Clapper is a free web app (PWA) that runs on the phone already in your pocket. D
 
 ## Pricing
 
-Free. No signup is needed to log takes, tag coverage, flag GOLD, work offline, or back up a project as a local file. Sign-in with Google is required for a shot-list breakdown (the key-moment chips) and for PDF, Premiere XML, or CSV export. Free accounts get 1 shot-list breakdown, 3 Premiere XML exports, 5 PDF exports, and 5 CSV exports; logging takes itself is unlimited.
+Free. No signup is needed to log takes, tag coverage, flag GOLD, work offline, or back up a project as a local file. Sign-in with Google is required for a shot-list breakdown (the key-moment chips) and for PDF, Premiere XML, or CSV export. Free accounts get 1 shot-list breakdown, 2 Premiere XML exports, 5 PDF exports, and 5 CSV exports; logging takes itself is unlimited.
 
 ## Free templates
 
