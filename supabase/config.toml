@@ -1,0 +1,19 @@
+# Per-function gateway settings, declared here rather than passed as
+# `--no-verify-jwt` on the command line: the flag is a property of the
+# function, not of whoever happened to type the deploy, and a redeploy that
+# forgets it silently 401s every event Stripe sends.
+
+project_id = "sqqdivfgdfaztfzrzkhu"
+
+# STRIPE IS NOT A SUPABASE USER. It has no anon key and no JWT, so the gateway
+# must let its POSTs through untouched. That makes the Stripe-Signature check
+# inside the function THE authentication - there is no second gate behind it.
+# See the header of stripe-webhook/index.ts.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Called by the app with a real user session, so the gateway checks the JWT
+# and the function can trust `sub` as the buyer. Deliberately the opposite of
+# the webhook above.
+[functions.stripe-checkout]
+verify_jwt = true
