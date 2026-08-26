@@ -263,7 +263,22 @@ html[data-uiscale='fine'] textarea {
   z-index: 30; /* the ladder: rows 5, sticky heads 20, nav 30, scrim 40 */
   display: flex;
   justify-content: center;
-  padding: 0 var(--sp-4) calc(var(--safe-bottom) + var(--m-nav-float));
+  /* THE TRAY IS FURNITURE AND FURNITURE DOES NOT MOVE, which is why this reads
+     a floored inset rather than the live one. `safe-area-inset-bottom` is not
+     a constant on iOS: it drops to zero while the keyboard is up and comes
+     back on its own schedule, and the owner filmed the result - the same pod
+     on the same phone a minute apart, Home sitting 44px off the bottom and
+     Projects 10px, a 34pt step that is 102 device pixels at 3x. Nothing in
+     this chain is route-dependent (measured: identical to the pixel on Home, a
+     short list, a long list, and a long list scrolled to the end, both
+     themes), and the inset is applied here exactly once. It was the inset that
+     moved, not the tray's rules. `--safe-bottom-floor` is the largest inset
+     this orientation has reported, published by trackSafeBottomFloor() in
+     main.tsx - see the note there. `max()` with the live value keeps this
+     honest if the floor is ever missing or behind: a device whose inset never
+     moves computes the identical number it always did. */
+  padding: 0 var(--sp-4)
+    calc(max(var(--safe-bottom), var(--safe-bottom-floor, 0px)) + var(--m-nav-float));
   /* The gutter beside the pod belongs to the list scrolling underneath. A
      full-width invisible bar eating taps either side of a floating control is
      the classic version of this bug. */

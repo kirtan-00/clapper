@@ -120,6 +120,105 @@ function trackViewport() {
 }
 trackViewport();
 
+/**
+ * A FLOOR UNDER `safe-area-inset-bottom`, because on iOS that inset is not a
+ * property of the device, it is a property of the moment.
+ *
+ * The owner filmed the tab tray at two different heights on the same phone in
+ * the same session a minute apart: Home floating clear of the bottom, Projects
+ * sitting roughly a hundred device pixels lower and covering a project row.
+ * The tray is ONE fixed element at the shell level with no route-dependent
+ * rule anywhere in its chain, and Chrome measures it pixel-identical on Home,
+ * on a short Projects list, on a long one, and on a long one scrolled to the
+ * end, in both themes. So it is not the route and not the page flow.
+ *
+ * It is the inset. Measured in the harness by toggling nothing else: with
+ * `--safe-bottom: 34px` the pod's top is 746 and it sits 44px off the bottom;
+ * with `0px` it is 780 and sits 10px off. That 34pt delta is 102 device pixels
+ * at 3x - "roughly a hundred", in the direction filmed - and 34pt is exactly
+ * this phone's home-indicator inset. The chain applies it once, never twice.
+ * What changed between his two screenshots was therefore the inset itself, and
+ * iOS moves it: it drops to zero while the software keyboard is up and is
+ * restored on its own schedule afterwards, which leaves a window where `--kb`
+ * has already returned to 0 (that one is driven by a visualViewport resize and
+ * lands immediately) and the tray is back on screen but 34pt too low.
+ *
+ * So the tray gets a high-water mark rather than the live reading: the largest
+ * inset this orientation has reported. A transient zero cannot move furniture,
+ * and on any device whose inset never moves this is exactly a no-op, because
+ * the maximum of a constant is that constant.
+ *
+ * THE MARK IS DROPPED WHEN THE ORIENTATION FLIPS, and it is dropped LATE, not
+ * on the flip event. Landscape's home indicator is a genuinely different inset
+ * (21pt against portrait's 34 on the same phone), so carrying the portrait
+ * number across would hold the tray up on nothing - a stuck-high tray is the
+ * same defect as a dropped one. Measured in the harness: resetting on the
+ * resize event alone does NOT work, because that event fires while the old
+ * inset is still being reported and the mark simply re-latches the stale
+ * number (the check printed "STUCK: landscape kept portrait floor 44px"). So
+ * the flip clears the mark and re-reads once the rotation has settled, and
+ * that re-read ASSIGNS rather than maximises - it has to be able to go down.
+ *
+ * Deliberately published as its own token and consumed only by the tray (see
+ * `.mnav` in skin/shell.css): every other reader of `--safe-bottom` - the
+ * rolling screen's own height among them - keeps the live value it was
+ * measured against.
+ */
+function trackSafeBottomFloor() {
+  const root = document.documentElement;
+  let floor = 0;
+  let wide = window.innerWidth > window.innerHeight;
+
+  const readInset = (): number => {
+    // `--safe-bottom` is `env(safe-area-inset-bottom, 0px)`, substituted at
+    // computed-value time, so this reads the resolved pixels. An engine that
+    // hands back the unresolved function instead yields NaN here, which floors
+    // at 0 and makes the max in the sheet a no-op - the failure mode is
+    // "behaves exactly as it did before", never a wrong number.
+    const px = parseFloat(getComputedStyle(root).getPropertyValue('--safe-bottom'));
+    return Number.isFinite(px) && px > 0 ? px : 0;
+  };
+  const publish = () => root.style.setProperty('--safe-bottom-floor', floor + 'px');
+
+  const latch = () => {
+    floor = Math.max(floor, readInset());
+    publish();
+  };
+
+  // 350ms then 900ms: iOS's rotation settles inside the first and the second
+  // is the net under it, in case the inset lands later than the geometry. Both
+  // windows take the larger of what they find, so a keyboard that opens during
+  // a rotation still cannot leave the mark at zero.
+  const resettle = () => {
+    floor = 0;
+    publish();
+    window.setTimeout(() => {
+      floor = readInset();
+      publish();
+    }, 350);
+    window.setTimeout(latch, 900);
+  };
+
+  const onResize = () => {
+    const nowWide = window.innerWidth > window.innerHeight;
+    if (nowWide !== wide) {
+      wide = nowWide;
+      resettle();
+      return;
+    }
+    latch();
+  };
+
+  latch();
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+  // The keyboard is a visual-viewport event, never a window resize on iOS, and
+  // it is the moment the inset is most likely to read zero. Latch, never
+  // resettle: the orientation has not changed.
+  window.visualViewport?.addEventListener('resize', latch);
+}
+trackSafeBottomFloor();
+
 // Account/quota + durability layer bootstrap — all non-blocking and never throw,
 // so they can't hold up first paint or break the offline core.
 initErrorTracking(); // window.onerror + unhandledrejection -> crash telemetry (first, so it catches the rest of boot)
