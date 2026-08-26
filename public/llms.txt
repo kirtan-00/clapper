@@ -8,12 +8,12 @@ Clapper is a free web app (PWA) that runs on the phone already in your pocket. D
 
 ## Features
 
-- Log takes with one tap: ROLL arms the log, chips flash as you tag coverage (WIDE, CU) and scripted beats (door slam, she laughs, glass breaks).
+- Log takes with one tap: ROLL arms the log, chips flash as you tag coverage (WIDE, CU) and beats (door slam, she laughs, glass breaks).
 - Circle / GOLD selects: star the keeper take and it carries through to every export.
 - Timecode on every tap, so each moment is stamped with when it happened.
-- Script Mode: reads your script PDF and turns every key moment of every shot into tappable buttons (sign-in required).
+- Shot list mode: upload a shot division PDF (a numbered table of setups, not a screenplay) and Clapper reads the scene/shot table on your phone, free, instant, offline, and exact, with no account and no quota used. Sign in once to add tappable key-moment chips per shot; that step sends only the already-parsed shot codes and action lines to the server, never the PDF itself, and draws on a free quota of 1.
 - Auto camera-clip numbering: matches how Sony, iPhone, RED, ARRI, or GoPro names files, so the log lines up with the cards with no drift. Clip patterns are editable.
-- Export a Premiere-ready XML with takes named (e.g. SC12_T04_CU) and brass markers placed at your taps.
+- Export a Premiere-ready XML (legacy FCP7 xmeml) with takes named (e.g. SC12_T04_CU) and brass markers placed at your taps. This is a separate log file; it never embeds anything into the camera's original footage, never touches the camera's own timecode, and never renames the footage files.
 - Export a PDF shot log with GOLD takes highlighted, and a CSV of every take, tag, and timecode.
 - Works offline on set, including locations with no network.
 - Camera-agnostic and editor-agnostic: plain files your tools already read, nothing proprietary.
@@ -30,11 +30,11 @@ Clapper is a free web app (PWA) that runs on the phone already in your pocket. D
 
 1. On set: tap ROLL, tag coverage and beats as they happen, and flag the keeper as GOLD. Clapper stamps the timecode for every tap.
 2. Clip numbers: pick your camera body and Clapper numbers each clip the way that camera does, so the log matches the cards.
-3. At wrap: export once and get three files. A Premiere XML with takes named and markers placed, a PDF shot log with GOLD highlighted, and a CSV of every take.
+3. At wrap: export a Premiere XML with takes named and markers placed, a PDF shot log with GOLD highlighted, and a CSV of every take, each pulled separately from the same shot log.
 
 ## Pricing
 
-Free. No signup is needed to log takes, tag coverage, flag GOLD, or work offline. Sign-in is only required for Script Mode and for XML / CSV export.
+Free. No signup is needed to log takes, tag coverage, flag GOLD, work offline, or back up a project as a local file. Sign-in with Google is required for a shot-list breakdown (the key-moment chips) and for PDF, Premiere XML, or CSV export. Free accounts get 1 shot-list breakdown, 3 Premiere XML exports, 5 PDF exports, and 5 CSV exports; logging takes itself is unlimited.
 
 ## Free templates
 
