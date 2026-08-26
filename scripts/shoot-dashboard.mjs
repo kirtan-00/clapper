@@ -92,7 +92,30 @@ const day = (n) => new Date(Date.UTC(2026, 7, 21 + n)).toISOString().slice(0, 10
 const GUIDES = ['camera-clip-naming-conventions','circle-takes-explained','continuity-notes-guide','how-to-log-takes-on-set','how-to-read-a-clapperboard','mos-meaning-in-film','script-supervisor-duties','shot-log-to-premiere-xml','what-is-a-tcr-sheet'];
 const TEMPLATES = ['camera-log-sheet','continuity-sheet-template','script-supervisor-daily-report','shot-list-template','sound-report-template'];
 
-function fixture({ suspendAvailable, killOn = true, purchases = 'live' }) {
+function subscriptionsFixture(mode) {
+  if (mode === 'missing') {
+    return {
+      available: false,
+      unavailable_reason: 'profiles.subscription_status does not exist yet. Apply supabase/migrations/20260826170000_entitlements.sql, then reload this page - this panel turns itself on.',
+      active: 0, past_due: 0, canceled: 0, other: 0, total: 0, needs_attention: [],
+    };
+  }
+  if (mode === 'clean') {
+    return { available: true, unavailable_reason: null, active: 3, past_due: 0, canceled: 0, other: 0, total: 3, needs_attention: [] };
+  }
+  // 'live': one of each state, so all three pills are visible in one shot.
+  return {
+    available: true,
+    unavailable_reason: null,
+    active: 2, past_due: 1, canceled: 1, other: 0, total: 4,
+    needs_attention: [
+      { user_id: '22222222-2222-4222-8222-222222222222', email: 'manthan@example.com', status: 'past_due', subscription_id: 'sub_1Qpast', current_period_end: '2026-08-24T00:00:00.000Z' },
+      { user_id: '33333333-3333-4333-8333-333333333333', email: 'ohm@example.com', status: 'canceled', subscription_id: 'sub_1Qcanc', current_period_end: '2026-08-10T00:00:00.000Z' },
+    ],
+  };
+}
+
+function fixture({ suspendAvailable, killOn = true, purchases = 'live', subscriptions = 'live' }) {
   return {
     meta: {
       generated_at: '2026-08-26T04:40:00.000Z',
@@ -159,27 +182,38 @@ function fixture({ suspendAvailable, killOn = true, purchases = 'live' }) {
     // `purchases`: 'live' = the table exists and something is stuck (the state
     // the panel is FOR), 'clean' = table exists, nothing stuck, 'missing' =
     // migration not applied, which is production today.
+    //
+    // `subscriptions`: same three-way split, but for profiles.subscription_*
+    // rather than `purchases` - the two probes land independently, so this is
+    // deliberately a second axis, not folded into the `purchases` one.
     purchases: purchases === 'missing'
       ? {
         available: false,
         unavailable_reason: 'The purchases table does not exist yet. Apply supabase/migrations/20260826170000_entitlements.sql, then reload this page - this panel turns itself on.',
+        subscriptions: subscriptionsFixture(subscriptions),
         needs_attention: [], granted: { count: 0, credits: 0, by_currency: [] }, recent: [],
         credits: { available: false, outstanding: 0, holders: 0 },
       }
       : {
         available: true,
         unavailable_reason: null,
+        subscriptions: subscriptionsFixture(subscriptions),
+        // A subscription grant_failed row is recorded with credits 0 - the
+        // true amount is only known after grant_subscription_invoice_credits
+        // runs, and that never happened for this row. A one-time bundle's
+        // credits are known up front, so its row already carries the right
+        // number even stuck.
         needs_attention: purchases === 'clean' ? [] : [
-          { provider: 'stripe', event_id: 'evt_1QaX2', txn_id: 'cs_test_a1x2', user_id: '22222222-2222-4222-8222-222222222222', email: 'manthan@example.com', product_key: 'credits_intro_5', credits: 5, amount_cents: 500, currency: 'USD', status: 'grant_failed', note: 'no profile row for that account', created_at: '2026-08-26T03:12:00.000Z' },
-          { provider: 'stripe', event_id: 'evt_1QaX7', txn_id: 'cs_test_a1x7', user_id: null, email: null, product_key: 'credits_1', credits: 1, amount_cents: 24900, currency: 'INR', status: 'user_unknown', note: null, created_at: '2026-08-26T02:40:00.000Z' },
+          { provider: 'stripe', event_id: 'evt_1QaX2', txn_id: 'in_1QaX2', user_id: '22222222-2222-4222-8222-222222222222', email: 'manthan@example.com', product_key: 'pro_monthly', credits: 0, amount_cents: 500, currency: 'USD', status: 'grant_failed', note: 'no profile row for that account', created_at: '2026-08-26T03:12:00.000Z' },
+          { provider: 'stripe', event_id: 'evt_1QaX7', txn_id: 'cs_test_a1x7', user_id: null, email: null, product_key: 'bundle_5', credits: 5, amount_cents: 2000, currency: 'USD', status: 'user_unknown', note: null, created_at: '2026-08-26T02:40:00.000Z' },
         ],
         granted: {
-          count: 6, credits: 14,
-          by_currency: [{ currency: 'USD', minor_units: 2100, count: 4 }, { currency: 'INR', minor_units: 49800, count: 2 }],
+          count: 6, credits: 21,
+          by_currency: [{ currency: 'USD', minor_units: 4500, count: 6 }],
         },
         recent: [
-          { provider: 'stripe', event_id: 'evt_1QaW1', user_id: '11111111-1111-4111-8111-111111111111', email: 'chirag@example.com', product_key: 'credits_intro_5', credits: 5, amount_cents: 500, currency: 'USD', granted_at: '2026-08-25T18:20:00.000Z' },
-          { provider: 'stripe', event_id: 'evt_1QaV8', user_id: '33333333-3333-4333-8333-333333333333', email: 'ohm@example.com', product_key: 'credits_1', credits: 1, amount_cents: 300, currency: 'USD', granted_at: '2026-08-25T11:05:00.000Z' },
+          { provider: 'stripe', event_id: 'evt_1QaW1', user_id: '11111111-1111-4111-8111-111111111111', email: 'chirag@example.com', product_key: 'pro_monthly', credits: 5, amount_cents: 500, currency: 'USD', granted_at: '2026-08-25T18:20:00.000Z' },
+          { provider: 'stripe', event_id: 'evt_1QaV8', user_id: '33333333-3333-4333-8333-333333333333', email: 'ohm@example.com', product_key: 'bundle_5', credits: 5, amount_cents: 2000, currency: 'USD', granted_at: '2026-08-25T11:05:00.000Z' },
         ],
         credits: { available: true, outstanding: 9, holders: 3 },
       },
@@ -237,6 +271,10 @@ async function main() {
     { name: 'night.killed', theme: 'night', fx: fixture({ suspendAvailable: true, killOn: false }) },
     { name: 'night.money-clean', theme: 'night', fx: fixture({ suspendAvailable: true, purchases: 'clean' }) },
     { name: 'night.money-missing', theme: 'night', fx: fixture({ suspendAvailable: true, purchases: 'missing' }) },
+    { name: 'night.subs-live', theme: 'night', fx: fixture({ suspendAvailable: true, subscriptions: 'live' }) },
+    { name: 'night.subs-clean', theme: 'night', fx: fixture({ suspendAvailable: true, subscriptions: 'clean' }) },
+    { name: 'night.subs-missing', theme: 'night', fx: fixture({ suspendAvailable: true, subscriptions: 'missing' }) },
+    { name: 'day.subs-live', theme: 'day', fx: fixture({ suspendAvailable: true, subscriptions: 'live' }) },
   ];
 
   for (const c of cases) {

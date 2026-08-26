@@ -1145,6 +1145,58 @@ function panelUsers(u) {
  * signed webhook arrives, which is after the money moved - so the list is
  * never padded with people who simply closed a tab, and it does not need to
  * be read with a pinch of salt. Zero rows is the only acceptable number. */
+/** Subscriptions, at a glance: active, past due (a failed payment that has
+ * not lapsed yet) and cancelled are three different pills, never folded into
+ * one "subscribed" number - that is the whole point Kirtan asked for. Own
+ * probe, same reasoning as the credits-outstanding foot-note below: a
+ * migration landing without the other must not blank the rest of the panel. */
+function subscriptionsBlock(s) {
+  if (!s) return '';
+
+  if (!s.available) {
+    return '<h3 class="sub-h">Subscriptions</h3>' +
+      '<p class="empty">' + esc(s.unavailable_reason || 'Subscription status is not readable yet.') + '</p>';
+  }
+
+  var STATUS_PILL = {
+    active: '<span class="pill pill--pro">ACTIVE</span>',
+    trialing: '<span class="pill pill--pro">TRIALING</span>',
+    past_due: '<span class="pill pill--sus">PAST DUE</span>',
+    unpaid: '<span class="pill pill--sus">FAILED PAYMENT</span>',
+    incomplete: '<span class="pill pill--sus">INCOMPLETE</span>',
+    incomplete_expired: '<span class="pill pill--off">EXPIRED</span>',
+    canceled: '<span class="pill pill--off">CANCELLED</span>',
+    paused: '<span class="pill pill--off">PAUSED</span>',
+  };
+  function statusPill(status) {
+    return STATUS_PILL[status] || '<span class="pill">' + esc(status || 'unknown') + '</span>';
+  }
+
+  var att = s.needs_attention || [];
+  var rows = att.slice(0, 100).map(function (r) {
+    return '<tr>' +
+      '<td class="who">' + esc(r.email || r.user_id) +
+        (r.subscription_id ? '<span class="sub">' + esc(r.subscription_id) + '</span>' : '') + '</td>' +
+      '<td>' + statusPill(r.status) + '</td>' +
+      '<td>' + esc(r.current_period_end ? fmtDT(r.current_period_end) : '-') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<h3 class="sub-h">Subscriptions</h3>' +
+    '<div class="stat-row">' +
+      '<div class="stat"><div class="num mono">' + fmtN(s.active) + '</div><div class="label">active</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(s.past_due) + '</div><div class="label">past due</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(s.canceled) + '</div><div class="label">cancelled</div></div>' +
+      (s.other ? '<div class="stat"><div class="num mono">' + fmtN(s.other) + '</div><div class="label">other</div></div>' : '') +
+    '</div>' +
+    (att.length
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+          '<th>Who</th><th>State</th><th>Renews / ended</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="empty">Nobody past due or cancelled.</p>') +
+    '<p class="foot-note">A cancelled or past-due subscription stops future credits. It never takes back a credit already spent or a project already unlocked - those stay unlocked forever, exactly like a bundle purchase.</p>';
+}
+
 function panelPurchases(p) {
   if (!p) return '';
 
@@ -1238,6 +1290,7 @@ function panelPurchases(p) {
         ? '<div class="stat"><div class="num mono">' + fmtN(credits.outstanding) + '</div><div class="label">unspent</div></div>'
         : '') +
     '</div>' +
+    subscriptionsBlock(p.subscriptions) +
     '<h3 class="sub-h">Taken, by currency</h3>' + curBlock +
     '<h3 class="sub-h">Last ten grants</h3>' + recentBlock +
     '<p class="foot-note"><strong>Totals are never summed across currencies.</strong> Each row holds what was actually charged, in the currency it was charged in, so an INR row and a USD row can sit side by side. One combined number would have no unit.</p>' +

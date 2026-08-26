@@ -952,9 +952,89 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Subscriptions: active / past due / cancelled, at a glance.
+    //
+    // ITS OWN PROBE, ITS OWN FETCH PASS - NOT FOLDED INTO THE MAIN PROFILES
+    // SELECT NEAR THE TOP OF THIS ACTION. That select is what every other
+    // panel's user attribution is built on (users, llm.by_user, the
+    // suspension pass below it), and PostgREST refuses an ENTIRE select if
+    // any named column is unknown. On the live database, where this
+    // migration is not applied, naming subscription_status there would take
+    // the whole dashboard down over one panel. Same posture as the
+    // suspension pass and the credits-outstanding block above it.
+    const SUBSCRIPTION_ACTIVE = new Set(["active", "trialing"]);
+    const SUBSCRIPTION_PAST_DUE = new Set(["past_due", "unpaid", "incomplete"]);
+    const SUBSCRIPTION_CANCELED = new Set(["canceled", "incomplete_expired"]);
+
+    const { error: subscriptionProbeErr } = await admin.from("profiles").select("subscription_status").limit(1);
+    const subscriptionAvailable = !subscriptionProbeErr;
+    const subscriptionUnavailableReason = !subscriptionProbeErr
+      ? null
+      : ((subscriptionProbeErr as { code?: string })?.code === "42703")
+      ? "profiles.subscription_status does not exist yet. Apply supabase/migrations/20260826170000_entitlements.sql, then reload this page - this panel turns itself on."
+      : "Subscription status could not be read: " +
+        String((subscriptionProbeErr as { message?: string })?.message ?? "unknown error");
+
+    interface SubscriptionRow {
+      user_id: string;
+      subscription_status: string | null;
+      subscription_id: string | null;
+      subscription_current_period_end: string | null;
+    }
+    let subActive = 0;
+    let subPastDue = 0;
+    let subCanceled = 0;
+    let subOther = 0;
+    const subAttention: SubscriptionRow[] = [];
+    if (subscriptionAvailable) {
+      const { data: subRows } = await admin
+        .from("profiles")
+        .select("user_id,subscription_status,subscription_id,subscription_current_period_end")
+        .not("subscription_status", "is", null);
+      for (const r of (subRows ?? []) as SubscriptionRow[]) {
+        const s = r.subscription_status ?? "";
+        if (SUBSCRIPTION_ACTIVE.has(s)) {
+          subActive++;
+        } else if (SUBSCRIPTION_PAST_DUE.has(s)) {
+          subPastDue++;
+          subAttention.push(r);
+        } else if (SUBSCRIPTION_CANCELED.has(s)) {
+          subCanceled++;
+          subAttention.push(r);
+        } else {
+          // `paused`, or a status Stripe adds later that this dashboard does
+          // not yet know how to bucket - counted, and still visible in the
+          // attention list, rather than silently dropped from every count.
+          subOther++;
+          subAttention.push(r);
+        }
+      }
+    }
+
+    const subscriptions = {
+      available: subscriptionAvailable,
+      unavailable_reason: subscriptionAvailable ? null : subscriptionUnavailableReason,
+      active: subActive,
+      past_due: subPastDue,
+      canceled: subCanceled,
+      other: subOther,
+      total: subActive + subPastDue + subCanceled + subOther,
+      // Everyone who is not currently active - a failed payment or a
+      // cancellation, distinguishable by `status` on each row. Capped the
+      // same way needs_attention above is.
+      needs_attention: subAttention.slice(0, 100).map((r) => ({
+        user_id: r.user_id,
+        email: emailByUser.get(r.user_id) ?? null,
+        status: r.subscription_status,
+        subscription_id: r.subscription_id,
+        current_period_end: r.subscription_current_period_end,
+      })),
+    };
+
     const purchases = {
       available: purchasesAvailable,
       unavailable_reason: purchasesAvailable ? null : purchasesUnavailableReason,
+      subscriptions,
       needs_attention: attentionRows.map((r) => ({
         provider: r.provider,
         event_id: r.provider_event_id,
