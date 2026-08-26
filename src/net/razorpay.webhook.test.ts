@@ -19,7 +19,7 @@ import {
 // runs with verify_jwt off, same as stripe-webhook), and the handshake
 // signature is what stands between a scripted browser callback and a real
 // credit grant in razorpay-verify. Both are checked here against fixtures
-// computed OUTSIDE this code, with node's own crypto — deriving "expected"
+// computed OUTSIDE this code, with node's own crypto: deriving "expected"
 // from the same crypto.subtle helper under test would be circular.
 
 const WEBHOOK_SECRET = 'whsec_test_fixture_do_not_use';
@@ -55,13 +55,13 @@ describe('verifyRazorpayWebhook', () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it('REJECTS a tampered body — one byte changed anywhere breaks the digest', async () => {
+  it('REJECTS a tampered body, one byte changed anywhere breaks the digest', async () => {
     const tampered = ORDER_PAID_BODY.replace('"amount":69900', '"amount":69901');
     const result = await verifyRazorpayWebhook(bytes(tampered), ORDER_PAID_SIGNATURE, WEBHOOK_SECRET);
     expect(result).toEqual({ ok: false, reason: 'mismatch' });
   });
 
-  it('REJECTS a tampered signature — flipping one hex character must not verify', async () => {
+  it('REJECTS a tampered signature, flipping one hex character must not verify', async () => {
     const tamperedSig = 'e' + ORDER_PAID_SIGNATURE.slice(1); // first char flipped
     const result = await verifyRazorpayWebhook(bytes(ORDER_PAID_BODY), tamperedSig, WEBHOOK_SECRET);
     expect(result).toEqual({ ok: false, reason: 'mismatch' });
@@ -81,13 +81,13 @@ describe('verifyRazorpayWebhook', () => {
       .toEqual({ ok: false, reason: 'malformed_header' });
   });
 
-  it('will not verify anything at all when the secret is missing — the clean not_configured case', async () => {
+  it('will not verify anything at all when the secret is missing, the clean not_configured case', async () => {
     const result = await verifyRazorpayWebhook(bytes(ORDER_PAID_BODY), ORDER_PAID_SIGNATURE, undefined);
     expect(result).toEqual({ ok: false, reason: 'no_secret' });
   });
 });
 
-describe('the client handshake (order_id|payment_id, KEY SECRET — a different message and a different secret from the webhook)', () => {
+describe('the client handshake (order_id|payment_id, KEY SECRET: a different message and a different secret from the webhook)', () => {
   const KEY_SECRET = 'rzp_test_secret_fixture_do_not_use';
   const orderId = 'order_fixture01';
   const paymentId = 'pay_fixture01';
@@ -106,7 +106,7 @@ describe('the client handshake (order_id|payment_id, KEY SECRET — a different 
     expect(timingSafeEqualHex(digest, EXPECTED)).toBe(true);
   });
 
-  it('REJECTS a tampered signature — this is bug #2\'s whole defence: a mismatch here must never reach a write', async () => {
+  it('REJECTS a tampered signature, this is bug #2\'s whole defence: a mismatch here must never reach a write', async () => {
     const digest = await hmacSha256Hex(handshakeMessage(orderId, paymentId), KEY_SECRET);
     const tampered = 'f' + digest.slice(1);
     expect(timingSafeEqualHex(digest, tampered)).toBe(false);
@@ -125,7 +125,7 @@ describe('the client handshake (order_id|payment_id, KEY SECRET — a different 
   });
 });
 
-describe('identityForOrder — the ONE identity both razorpay-verify and razorpay-webhook must build identically', () => {
+describe('identityForOrder: the ONE identity both razorpay-verify and razorpay-webhook must build identically', () => {
   it('uses the order id for both the primary key half and the unique-index half', () => {
     expect(identityForOrder('order_abc123')).toEqual({
       provider: 'razorpay',
@@ -135,7 +135,7 @@ describe('identityForOrder — the ONE identity both razorpay-verify and razorpa
   });
 });
 
-describe('readOrderPaidEvent — the grant path\'s payload reader', () => {
+describe('readOrderPaidEvent: the grant path\'s payload reader', () => {
   it('reads the order, the notes and the PAISE AMOUNT UNCHANGED off a real payload shape', () => {
     const read = readOrderPaidEvent(JSON.parse(ORDER_PAID_BODY));
     expect(read).not.toBeNull();
@@ -177,7 +177,7 @@ describe('readOrderPaidEvent — the grant path\'s payload reader', () => {
   });
 });
 
-describe('readInvoicePaidEvent — recorded, never granted (see razorpay-webhook\'s header)', () => {
+describe('readInvoicePaidEvent: recorded, never granted (see razorpay-webhook\'s header)', () => {
   it('reads what it can without throwing on an unfamiliar invoice shape', () => {
     const payload = {
       event: 'invoice.paid',
@@ -206,7 +206,7 @@ describe('readInvoicePaidEvent — recorded, never granted (see razorpay-webhook
     });
   });
 
-  it('is subscribed but flagged for a human, never granted against — see the file header', () => {
+  it('is subscribed but flagged for a human, never granted against: see the file header', () => {
     expect(INVOICE_NEEDS_ATTENTION_EVENTS).toEqual(['invoice.paid']);
   });
 });
