@@ -2106,7 +2106,7 @@ const EXPORT_OFFLINE_MSG =
 //
 // NO 'script' ROW ANY MORE, and nothing lost with it. GatedFormat is now only
 // what the export-gate function will actually accept (its VALID_FORMATS), and
-// Script Mode was never in that list — `gateExport('script')` compiled and
+// Script Mode was never in that list, so `gateExport('script')` compiled and
 // would have been answered HTTP 400 Invalid format. The two Script Mode
 // counters are spent by the `breakdown` function instead, and their copy lives
 // where they are hit: ShotlistSheet for the shot list, onPickCallSheet above

@@ -36,7 +36,7 @@ import * as haptics from './haptics';
  * first AD does every morning of a shoot. Two features, two buckets.
  *
  * The labels have to stay distinguishable from "PDF call sheet" further down,
- * which is the EXPORT counter — the call sheet Clapper writes for you, not the
+ * which is the EXPORT counter: the call sheet Clapper writes for you, not the
  * one production emailed you at 11pm.
  */
 const COUNTERS: { key: keyof Usage; label: string }[] = [

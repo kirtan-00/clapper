@@ -301,7 +301,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // Which counter this request spends, and what the free tier allows on it.
-  // Resolved ONCE, here, from the mode that was just validated — so the
+  // Resolved ONCE, here, from the mode that was just validated, so the
   // consume below and all four refunds further down cannot disagree about
   // which of the two counters this request touched. See MODE_QUOTA.
   const quota = MODE_QUOTA[mode];

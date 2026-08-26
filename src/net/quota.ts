@@ -6,7 +6,7 @@ import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@s
 import { supabase } from './supabase';
 
 /**
- * The free tier, per counter. DISPLAY ONLY — the server derives its own copy
+ * The free tier, per counter. DISPLAY ONLY. The server derives its own copy
  * and is the only thing that enforces anything.
  *
  * MUST match the servers, which now price in TWO files:
@@ -19,9 +19,9 @@ import { supabase } from './supabase';
  *                  is for. The server used to enforce 5 here while this file
  *                  said 1, so a counter could read "4 of 1"; fixed 2026-08-26.
  *   callsheet  5   working out which scenes shoot today. SPLIT OUT of `script`
- *                  on 2026-08-26 — it used to spend the breakdown's counter.
- *                  It is a per-shoot-day action, so a lifetime cap of 1 would
- *                  read as broken on day two of a shoot.
+ *                  on 2026-08-26, because it used to spend the breakdown's
+ *                  counter. It is a per-shoot-day action, so a lifetime cap
+ *                  of 1 would read as broken on day two of a shoot.
  *   premiere   2   XML, POOLED across Premiere and Resolve, same handoff, same
  *                  editor, one counter. Cut from 3 to 2 on 2026-08-26.
  *   pdf        5   gated as of 2026-08-20; it was free and uncounted before
@@ -39,8 +39,9 @@ export const FREE_LIMITS = {
 export type QuotaKey = keyof typeof FREE_LIMITS;
 
 /**
- * The subset `gateExport` may be called with — the export-gate function's
- * VALID_FORMATS, spelled out rather than derived from FREE_LIMITS.
+ * The subset `gateExport` may be called with, which is the export-gate
+ * function's own VALID_FORMATS, spelled out rather than derived from
+ * FREE_LIMITS.
  *
  * This used to be `keyof typeof FREE_LIMITS`, which let `gateExport('script')`
  * typecheck even though export-gate answers that with HTTP 400 Invalid format.
@@ -92,7 +93,7 @@ function counter(used: number, limit: number = FREE_LIMIT): QuotaCounter {
  * instead of the four it can still read perfectly well.
  *
  * So it is a second query, and any failure resolves to 0 used. Zero is the
- * right default because these numbers are DISPLAY ONLY — the server is the only
+ * right default because these numbers are DISPLAY ONLY. The server is the only
  * thing that enforces anything, and it will refuse a call sheet whether or not
  * this read worked. The worst case is a screen that says 5 left to somebody
  * with 2 left, which they discover on the next parse. The alternative, a read
