@@ -20,9 +20,6 @@ const PRO_LIMIT = 1000000;
 // The free tier, per format. This replaces the flat 5-across-the-board the
 // "for now" above was waiting on.
 //
-//   script    1   the expensive one — it calls Groq, and it is the feature Pro
-//                 exists to sell. One is enough to prove it works on your own
-//                 shot list, which is the only demo that convinces anybody.
 //   premiere  2   XML, POOLED across Premiere and DaVinci Resolve. They share
 //                 one counter deliberately: same handoff, same editor, and
 //                 charging twice for choosing a different NLE is arbitrary.
@@ -31,8 +28,17 @@ const PRO_LIMIT = 1000000;
 //                 actually prints and hands round a unit was the only one
 //                 nobody paid for.
 //   csv       5   unchanged.
+//
+// NO `script` ENTRY, AND THAT IS THE FIX, NOT AN OMISSION. There was one here,
+// reading `script: 1`, and it never ran once: `script` is not in VALID_FORMATS
+// below, so this function rejects the format at HTTP 400 long before it ever
+// reaches this table. Meanwhile the real Script Mode limit lived in
+// supabase/functions/breakdown/index.ts and said 5. A number sitting in a
+// limits table, looking authoritative, that nothing reads and that disagreed
+// with the code that actually enforced it, is exactly the bug this pass
+// exists to remove. The two Script Mode limits are priced in ONE place now:
+// MODE_QUOTA in supabase/functions/breakdown/index.ts (shots 1, callsheet 5).
 const FREE_LIMITS: Record<string, number> = {
-  script: 1,
   premiere: 2,
   pdf: 5,
   csv: 5,

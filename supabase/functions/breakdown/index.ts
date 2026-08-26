@@ -77,7 +77,39 @@ const SYSTEM_CALLSHEET = [
   "- If nothing matches, return {\"today\":[]}.",
 ].join("\n");
 
-const FREE_LIMIT = 5;
+// THE FREE TIER, PER MODE. There is deliberately no single FREE_LIMIT here any
+// more. There used to be, at 5, and both modes spent it out of the same
+// `script_uses` column - which meant one number priced two features that have
+// nothing in common, and it was the wrong number for each of them.
+//
+//   shots      1 free, counted in `usage.script_uses`. The shot-list
+//              breakdown: the expensive Groq call, and the feature Pro exists
+//              to sell. One is enough to prove it works on your own shot list,
+//              which is the only demo that convinces anybody. The app, the
+//              Account screen and the entire public site have said 1 for
+//              weeks; the server was the only thing saying 5, so a user could
+//              be shown "4 of 1".
+//   callsheet  5 free, counted in `usage.callsheet_uses` (added by
+//              supabase/migrations/20260826150000_callsheet_quota.sql).
+//              Working out which scenes shoot today is a PER SHOOT DAY action
+//              - a first AD does it every morning - so a lifetime cap of 1
+//              would read as broken on day two of a shoot.
+//
+// Kind and limit are looked up TOGETHER, off the narrowed `mode`, so the wrong
+// counter cannot be paired with the wrong limit by accident. Every consume and
+// every refund in this file reads `quota.kind` from here; none of them names a
+// column or a kind string of its own. That is the whole point of the shape:
+// there were four hardcoded `p_kind: "script"` refunds before this, and
+// missing one would have silently credited the breakdown counter for a failed
+// call-sheet parse.
+//
+// MUST agree with FREE_LIMITS in src/net/quota.ts, which is display only. If
+// the two drift the server wins and the user was shown a number that lied.
+const MODE_QUOTA = {
+  shots: { kind: "script", free: 1 },
+  callsheet: { kind: "callsheet", free: 5 },
+} as const;
+
 const PRO_LIMIT = 1000000;
 
 // A call sheet is one page of text; 12k has always been ample.
@@ -268,6 +300,12 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // Which counter this request spends, and what the free tier allows on it.
+  // Resolved ONCE, here, from the mode that was just validated — so the
+  // consume below and all four refunds further down cannot disagree about
+  // which of the two counters this request touched. See MODE_QUOTA.
+  const quota = MODE_QUOTA[mode];
+
   // Shots mode: sanitize the parsed shot list the client sent. Same posture as
   // the callsheet scene list below — require a real code, clamp every field,
   // drop duplicates, and keep the surviving codes as the set the model's reply
@@ -404,10 +442,15 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const limit = profile?.is_pro ? PRO_LIMIT : FREE_LIMIT;
+  // Per-mode counter and per-mode limit, both off `quota`. `p_kind` is the
+  // column selector inside consume_quota; 'callsheet' only exists there once
+  // 20260826150000_callsheet_quota.sql has been applied, and until then the
+  // RPC raises and the fail-closed branch below answers 500. That is the
+  // right failure for a counter, and it is why the migration ships first.
+  const limit = profile?.is_pro ? PRO_LIMIT : quota.free;
   const { data: newCount, error: quotaErr } = await admin.rpc("consume_quota", {
     p_user: userId,
-    p_kind: "script",
+    p_kind: quota.kind,
     p_limit: limit,
   });
   if (quotaErr || newCount == null) {
@@ -428,7 +471,7 @@ Deno.serve(async (req: Request) => {
   // we just consumed so a paused service does not burn a user's lifetime quota.
   const { data: gate, error: gateErr } = await admin.rpc("script_mode_gate");
   if (gateErr || !gate || !gate.allow) {
-    await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
+    await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
     return new Response(
       JSON.stringify({ error: "Script Mode is taking a breather — try again later." }),
       { status: 503, headers },
@@ -570,7 +613,7 @@ Deno.serve(async (req: Request) => {
     const r = await groqJson(SYSTEM_CALLSHEET, userContent, MAX_OUTPUT_TOKENS_CALLSHEET);
     if (!r.ok) {
       // Groq outage must not burn the user's lifetime slot — refund it.
-      await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
+      await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
       await logLlmFailure(mode, r.status);
       return new Response(
         JSON.stringify({ error: "Breakdown service error", detail: r.detail }),
@@ -613,7 +656,7 @@ Deno.serve(async (req: Request) => {
     // Every batch we tried failed — that is a real outage, not model restraint,
     // so say so and refund rather than passing off silence as "no key moments".
     if (!shotMoments.length && attempted > 0 && lastStatus) {
-      await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
+      await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
       await logLlmFailure(mode, lastStatus);
       return new Response(
         JSON.stringify({ error: "Breakdown service error", detail: lastDetail }),
@@ -679,7 +722,7 @@ Deno.serve(async (req: Request) => {
   // slot. Still a 200: the client keeps its correctly-parsed shotlist, chipless.
   let used = newCount;
   if (!validShots.length) {
-    await admin.rpc("refund_quota", { p_user: userId, p_kind: "script" });
+    await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
     used = Math.max(0, Number(newCount) - 1);
   }
 
