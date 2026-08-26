@@ -12,6 +12,7 @@ Clapper is a free web app (PWA) that runs on the phone already in your pocket. D
 - Circle / GOLD selects: star the keeper take and it carries through to every export.
 - Timecode on every tap, so each moment is stamped with when it happened.
 - Shot list mode: upload a shot division PDF (a numbered table of setups, not a screenplay) and Clapper reads the scene/shot table on your phone, free, instant, offline, and exact, with no account and no quota used. Sign in once to add tappable key-moment chips per shot; that step sends only the already-parsed shot codes and action lines to the server, never the PDF itself, and draws on a free quota of 1.
+- Call-sheet load: hand Clapper today's call sheet and it works out which of the project's known scenes are shooting, so the shoot order matches the day. Sign in to use it; free accounts get 5.
 - Auto camera-clip numbering: matches how Sony, iPhone, RED, ARRI, or GoPro names files, so the log lines up with the cards with no drift. Clip patterns are editable.
 - Export a Premiere-ready XML (legacy FCP7 xmeml) with takes named (e.g. SC12_T04_CU) and brass markers placed at your taps. This is a separate log file; it never embeds anything into the camera's original footage, never touches the camera's own timecode, and never renames the footage files.
 - Export a PDF shot log with GOLD takes highlighted, and a CSV of every take, tag, and timecode.
@@ -34,7 +35,7 @@ Clapper is a free web app (PWA) that runs on the phone already in your pocket. D
 
 ## Pricing
 
-Free. No signup is needed to log takes, tag coverage, flag GOLD, work offline, or back up a project as a local file. Sign-in with Google is required for a shot-list breakdown (the key-moment chips) and for PDF, Premiere XML, or CSV export. Free accounts get 1 shot-list breakdown, 2 Premiere XML exports, 5 PDF exports, and 5 CSV exports; logging takes itself is unlimited.
+Free. No signup is needed to log takes, tag coverage, flag GOLD, work offline, or back up a project as a local file. Sign-in with Google is required for a shot-list breakdown (the key-moment chips), a call-sheet load, and for PDF, Premiere XML, or CSV export. Free accounts get 1 shot-list breakdown, 5 call-sheet loads, 2 Premiere XML exports, 5 PDF exports, and 5 CSV exports; logging takes itself is unlimited.
 
 ## Free templates
 
