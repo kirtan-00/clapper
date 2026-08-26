@@ -243,3 +243,69 @@ export async function verifyStripeWebhook(
   }
   return { ok: false, reason: "mismatch" };
 }
+
+// ---------------------------------------------------------------------------
+// Razorpay
+//
+// Documented shape (razorpay.com/docs/webhooks/validate-test/, read
+// 2026-08-27, not written from memory):
+//
+//   X-Razorpay-Signature: <64 lowercase hex chars>
+//
+//   signed message = the RAW webhook request body, byte for byte -
+//                     "Do not parse or cast the webhook request body"
+//   signature      = HMAC-SHA256(message, webhook secret)
+//   compare        = timing safe, against the header value
+//
+// THE SECRET IS NOT THE API KEY SECRET. It is created when the webhook
+// destination is added in the dashboard (Settings > Webhooks), shown once,
+// and is a completely different value from RAZORPAY_KEY_SECRET, which signs
+// a completely different message (`order_id|payment_id`, see
+// _shared/razorpay.ts's handshakeMessage) for the CLIENT handshake in
+// razorpay-verify. Mixing the two up is documented, in the task that asked
+// for this file, as "the classic Razorpay bug" - one secret, one message,
+// one header, matched to the wrong pair, verifies nothing and rejects
+// everything, or worse, verifies against a secret an attacker could also
+// have (the key secret leaves this codebase's server the moment it is used
+// to Basic-auth a REST call, which the webhook secret never does).
+//
+// NO TIMESTAMP IN THE HEADER, UNLIKE STRIPE AND PADDLE ABOVE. Their signed
+// messages are prefixed `${t}.` / `${ts}:` and this file gives both a
+// staleness window to check. Razorpay's header is the bare digest and
+// nothing else, so there is no timestamp to read and no window to enforce -
+// that is not a gap this function is missing, it is a fence the OTHER two
+// gateways happen to have and this one does not. The real defence against a
+// replayed delivery is the same for all three: the (provider, eventId) claim
+// in _shared/entitlements.ts, which lets one payment id grant exactly once,
+// forever, no matter how many times an identical signed body arrives. The
+// timestamp windows above are a cheap OUTER fence in front of that lock, not
+// the lock itself - see verifyPaddleWebhook's own comment - and Razorpay
+// simply ships without the fence, not without the lock.
+// ---------------------------------------------------------------------------
+
+export type RazorpayVerifyResult =
+  | { ok: true }
+  | { ok: false; reason: "no_secret" | "malformed_header" | "mismatch" };
+
+/** The header is one bare hex digest, unlike Stripe/Paddle's `k=v;k=v`
+ *  shape - there is nothing to parse, only to validate looks like a SHA256
+ *  digest before it is compared at all. Anything else is rejected here
+ *  rather than handed to a comparison it could never pass anyway. */
+function isSha256Hex(s: string): boolean {
+  return /^[0-9a-f]{64}$/i.test(s);
+}
+
+export async function verifyRazorpayWebhook(
+  rawBody: Uint8Array,
+  header: string | null | undefined,
+  secret: string | null | undefined,
+): Promise<RazorpayVerifyResult> {
+  if (!secret) return { ok: false, reason: "no_secret" };
+  if (typeof header !== "string" || !isSha256Hex(header)) {
+    return { ok: false, reason: "malformed_header" };
+  }
+  const expected = await hmacSha256Hex(rawBody, secret);
+  return timingSafeEqualHex(expected, header.toLowerCase())
+    ? { ok: true }
+    : { ok: false, reason: "mismatch" };
+}

@@ -1,56 +1,82 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
-import { getPlan, MIN_AMOUNT_PAISE } from "../_shared/plans.ts";
+import { getProduct } from "../_shared/products.ts";
+import { isSuspended } from "../_shared/suspension.ts";
 
-// PARKED 2026-08-26. NOT DEPLOYED, NOT WIRED, DO NOT INVEST FURTHER.
+// UN-PARKED 2026-08-27. Razorpay is a SECOND provider, INR, alongside
+// Stripe/Paddle in USD - not a replacement for either. The file used to
+// carry a 2026-08-26 PARKED header written when the plan was Stripe/Paddle
+// only; that plan changed the next day and this file is live work again.
+// Read supabase/functions/stripe-checkout/index.ts first - this is the same
+// posture, a gateway later, and everywhere the two differ it is because
+// Razorpay's API differs, never because the posture does.
 //
-// Clapper is not selling through Razorpay. The product being sold is a
-// permanent per-project unlock priced in US dollars (5 USD for the first five
-// projects, then 3 USD each) to an audience that is mostly not in India, and
-// that needs a merchant of record who handles foreign tax: Paddle. Razorpay
-// settles INR and would need international payments activated to charge USD at
-// all. See supabase/functions/paddle-webhook/index.ts for the live design and
-// supabase/migrations/20260826170000_entitlements.sql for the model.
-//
-// This file stays on disk because it is correct work that a future India-only
-// pricing tier could use, and deleting it would only mean writing it again.
-//
-// AUDIT, 2026-08-26. This function has never executed in production. What a
-// read of it found, so nobody revives it believing it was reviewed:
-//
-//   GOOD  The amount is never read from the request. The client sends a plan
-//         key and the price is looked up server-side (_shared/plans.ts), which
-//         is the one thing most payment integrations get wrong.
-//   GOOD  Identity comes from the JWT, never from the body.
-//   GOOD  A plan priced below the gateway floor fails loudly instead of
-//         quietly selling a month for pennies.
-//   BUG   The `payments` insert failure at the bottom is swallowed with only a
-//         console line. An order then exists at Razorpay with no row here, and
-//         razorpay-verify refuses it ("That payment does not belong to this
-//         account") because it looks the order up in exactly that table. The
-//         money would be taken and unrecoverable without reading the notes
-//         field back off the gateway by hand. A webhook is the fix, which is
-//         what the Paddle design has and this pair never had.
-
-// Razorpay: create an order. Step one of two — the browser cannot do this,
+// Razorpay: create an order. Step one of two - the browser cannot do this,
 // because it needs the key SECRET, which never leaves this function.
 //
 // WHY NO npm SDK. The `razorpay` package is Node-only (it wants `crypto` and
-// `https` from Node core). Edge functions are Deno, so this calls the REST API
-// with fetch and HTTP Basic auth, which is all that SDK does for this endpoint
-// anyway. Verification (razorpay-verify) uses Web Crypto for the same reason.
+// `https` from Node core). Edge functions are Deno, so this calls the REST
+// API with fetch and HTTP Basic auth, which is all that SDK does for this
+// endpoint anyway. Verification (razorpay-verify) and the webhook
+// (razorpay-webhook) do the same for the same reason.
 //
-// SIGNED IN ONLY. There is no point taking money from a session with no account
-// attached: the thing being sold is a flag on `profiles`, and without a user id
-// there is nothing to set it on and no way for the payer to ever get it back.
-// Unlike export-gate, which deliberately serves signed-out callers, this refuses.
+// SIGNED IN ONLY. There is no point taking money from a session with no
+// account attached: what is being sold is project credits on `profiles`,
+// and without a user id there is nothing to grant them to and no way for the
+// payer to ever get them back.
 //
-// THE AMOUNT IS NOT IN THE REQUEST. See _shared/plans.ts. The client sends a
-// plan key; the price is looked up here. This is the whole security posture of
-// the endpoint and it is why the request body has no `amount` field to trust.
+// THE AMOUNT IS NOT IN THE REQUEST. The client sends a PRODUCT KEY from
+// _shared/products.ts; the price, the currency and the credit count are all
+// looked up here, server side. There is no code path that reads a number out
+// of the body. Paise, not rupees - Razorpay's orders API takes the amount in
+// the smallest unit, so 699 rupees is 69900, and product.amountCents (named
+// for the USD gateways, where a cent is the same kind of unit a paisa is -
+// both are hundredths of the display currency) is passed straight through
+// with no arithmetic anywhere in this file. An off-by-100 here is a real
+// financial bug, which is exactly why there is no multiplication to get
+// wrong: the catalogue already stores the smallest-unit integer.
+//
+// ONE ENDPOINT, ONE KIND OF PRODUCT. Razorpay's Orders API only knows how to
+// take a single payment; it cannot sell a `subscription`-kind product, which
+// needs Razorpay's separate Plans/Subscriptions API and a mandate flow this
+// pair does not implement. A subscription product reaching this function is
+// refused explicitly (step 2b) rather than silently mis-sold as a one-time
+// order for its recurring price - that would charge once and never renew,
+// which is worse than refusing.
+//
+// NO ROW IS WRITTEN HERE ANY MORE. The previous version of this file
+// inserted a row into `payments` right after creating the order, and SWALLOWED
+// the insert failure with a console line - bug #3 from the audit that
+// rebuilt this pair. The fix is not a retry, it is removing the write
+// entirely: `purchases` is keyed on (provider, provider_event_id), which for
+// Razorpay is the PAYMENT id (see _shared/razorpay.ts's identityForPayment) -
+// an id that does not exist yet at order-creation time, because no payment
+// has happened. Writing a row here would have to key on something else (the
+// order id), and `recordPurchase`'s insert is an UNTARGETED
+// `on conflict do nothing` - it has to be, so that a retried grant event and
+// a second grant EVENT for the same transaction both land safely - which
+// means a pre-existing row for the order id would make the real grant
+// path's own insert a silent no-op, and the credits would never be granted
+// at all. (This is the same reason stripe-checkout does not write to
+// `purchases` either; see its own header.) So the only record of an order
+// being STARTED is the `checkout_started` analytics event at the bottom -
+// which is not money, and is allowed to fail non-fatally - and the only
+// record of money MOVING is written by razorpay-verify or razorpay-webhook,
+// whichever gets there first, both keyed on the payment id, both routed
+// through the same claim in _shared/entitlements.ts so neither can double
+// grant against the other.
 
-const RAZORPAY_API = "https://api.razorpay.com/v1/orders";
+const RAZORPAY_ORDERS_API = "https://api.razorpay.com/v1/orders";
+
+/** Razorpay's own floor for any order, confirmed at
+ *  api.razorpay.com/v1/orders: 100 paise (rupee 1). A product priced below
+ *  it is a typo in the catalogue, not a caller mistake, and fails loudly
+ *  here rather than being handed to Razorpay to reject less clearly. This is
+ *  a GATEWAY constraint, not a catalogue one, which is why it lives here and
+ *  not in _shared/products.ts alongside BREAKDOWNS_PER_PROJECT and the like -
+ *  Stripe and Paddle have their own floors and neither needs this number. */
+const RAZORPAY_MIN_AMOUNT_PAISE = 100;
 
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("origin");
@@ -67,12 +93,14 @@ Deno.serve(async (req: Request) => {
   const KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
   const KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
 
-  // A missing key is a DEPLOY mistake, not a caller mistake. Say so distinctly
-  // rather than returning a generic 500 that looks like Razorpay was down.
+  // A missing key is a DEPLOY mistake, not a caller mistake - same code and
+  // shape stripe-checkout uses, so the client can treat "payments are not
+  // configured yet" identically for either gateway rather than special
+  // casing which provider is missing its secret.
   if (!KEY_ID || !KEY_SECRET) {
     console.error("razorpay-order: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set");
     return new Response(
-      JSON.stringify({ error: "Payments are not configured on this deployment." }),
+      JSON.stringify({ error: "Payments are not configured yet.", code: "not_configured" }),
       { status: 503, headers },
     );
   }
@@ -90,31 +118,53 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // 2. Plan -> price. The only number the client influences is WHICH plan.
-  let payload: { plan?: unknown };
+  // 2. Product -> price. The only thing the client influences is WHICH
+  // product; the amount, currency and credit count all come from the
+  // catalogue.
+  let payload: { product?: unknown };
   try {
     payload = await req.json();
   } catch {
     return new Response(JSON.stringify({ error: "Bad JSON" }), { status: 400, headers });
   }
-  const plan = getPlan(payload.plan);
-  if (!plan) {
-    return new Response(JSON.stringify({ error: "Unknown plan" }), { status: 400, headers });
-  }
-  // Belt and braces against a typo in the price list itself.
-  if (plan.amount < MIN_AMOUNT_PAISE) {
-    console.error(`razorpay-order: plan ${plan.key} is below the ${MIN_AMOUNT_PAISE} paise floor`);
+  const product = getProduct(payload.product);
+  if (!product) {
     return new Response(
-      JSON.stringify({ error: "Payments are not configured on this deployment." }),
+      JSON.stringify({ error: "Unknown product", code: "unknown_product" }),
+      { status: 400, headers },
+    );
+  }
+
+  // 2b. THE REFUSAL. See the file header: Razorpay's Orders API cannot sell
+  // a recurring product. Refusing here, loudly, is the honest answer -
+  // silently treating it as a one-time charge would take the FULL price
+  // once and then never renew, which under-delivers every month after the
+  // first without ever looking like an error to anybody.
+  if (product.kind !== "one_time") {
+    console.error(`razorpay-order: refused a ${product.kind} product (${product.key}) - Orders API is one-time only`);
+    return new Response(
+      JSON.stringify({
+        error: "This product is not available through this payment method yet.",
+        code: "not_configured",
+      }),
+      { status: 503, headers },
+    );
+  }
+
+  // Belt and braces against a typo in the catalogue itself.
+  if (product.amountCents < RAZORPAY_MIN_AMOUNT_PAISE) {
+    console.error(`razorpay-order: product ${product.key} is below the ${RAZORPAY_MIN_AMOUNT_PAISE} paise floor`);
+    return new Response(
+      JSON.stringify({ error: "Payments are not configured yet.", code: "not_configured" }),
       { status: 503, headers },
     );
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false } });
 
-  // 3. Rate limit, same helper the other functions use. Order creation is cheap
-  // for us and free for the caller, which is exactly the shape of thing that
-  // gets hammered.
+  // 3. Rate limit, same helper and namespace the other paid endpoints share.
+  // Order creation is cheap for us and free for the caller, which is exactly
+  // the shape of thing that gets hammered.
   const { data: rateOk, error: rateErr } = await admin.rpc("rate_limit_check", {
     p_key: "pay:" + user.id,
     p_window_secs: 60,
@@ -122,23 +172,18 @@ Deno.serve(async (req: Request) => {
   });
   if (rateErr || rateOk === false) {
     return new Response(
-      JSON.stringify({ error: "Too fast — give it a moment and try again." }),
+      JSON.stringify({ error: "Too fast. Give it a moment and try again." }),
       { status: 429, headers },
     );
   }
 
-  // 3b. A suspended account cannot start a new purchase. This is deliberately
-  // checked here and not in razorpay-verify: refusing at ORDER time means a
-  // suspended user never gets as far as Razorpay's checkout modal, so there is
-  // no HMAC-verified payment sitting in `payments` for a booted account that
-  // razorpay-verify would then have to decide whether to grant against. Money
-  // that was never taken never needs reconciling.
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("is_suspended")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (profile?.is_suspended === true) {
+  // 3b. A suspended account cannot start a new purchase. Checked HERE and
+  // not in razorpay-verify/razorpay-webhook, for the same reason
+  // stripe-checkout gives: refusing at order time means a suspended user
+  // never reaches Razorpay's checkout modal, so there is never a captured
+  // payment for a booted account that the grant path has to decide about.
+  // Money that was never taken never needs reconciling.
+  if (await isSuspended(admin, user.id)) {
     return new Response(
       JSON.stringify({
         error: "This account has been suspended. If you think that's a mistake, email us.",
@@ -152,27 +197,31 @@ Deno.serve(async (req: Request) => {
   //
   // `receipt` is our own reference, max 40 chars, and it is what makes a
   // payment traceable back to a person in the Razorpay dashboard without
-  // putting an email in their system. The user id is a uuid (36 chars), so it
-  // is truncated and paired with the plan; the authoritative link is the
-  // payments row written by razorpay-verify, not this string.
-  const receipt = `${plan.key.slice(0, 4)}_${user.id.replace(/-/g, "").slice(0, 24)}`;
+  // putting an email in their system. The user id is a uuid (36 chars), so
+  // it is truncated and paired with the product key; the authoritative link
+  // is `notes` below (read back by razorpay-verify and razorpay-webhook via
+  // fetchRazorpayOrder), not this string.
+  const receipt = `${product.key.slice(0, 4)}_${user.id.replace(/-/g, "").slice(0, 24)}`;
   const basic = btoa(`${KEY_ID}:${KEY_SECRET}`);
 
   let res: Response;
   try {
-    res = await fetch(RAZORPAY_API, {
+    res = await fetch(RAZORPAY_ORDERS_API, {
       method: "POST",
       headers: {
         "Authorization": `Basic ${basic}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        amount: plan.amount,
-        currency: plan.currency,
+        amount: product.amountCents,
+        currency: product.currency,
         receipt,
-        // Echoed back to us on the webhook and visible in the dashboard. Keep
-        // it to ids — notes are not a private field.
-        notes: { user_id: user.id, plan: plan.key },
+        // THE authoritative record of who bought what. Echoed back on
+        // GET /v1/orders/:id, which is how razorpay-verify and
+        // razorpay-webhook both resolve the buyer and the product - see
+        // _shared/razorpay.ts's fetchRazorpayOrder. Keep it to ids; notes
+        // are not a private field.
+        notes: { user_id: user.id, product_key: product.key },
       }),
     });
   } catch (e) {
@@ -185,7 +234,7 @@ Deno.serve(async (req: Request) => {
 
   if (res.status === 401) {
     // Their API rejecting OUR credentials. Never surface this as "your card
-    // was declined" — it is our deploy that is wrong.
+    // was declined" - it is our deploy that is wrong.
     console.error("razorpay-order: Razorpay rejected our key (401)");
     return new Response(
       JSON.stringify({ error: "Payments are misconfigured. We have been told." }),
@@ -210,34 +259,57 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // 5. Record the attempt BEFORE the modal opens, so a payment that succeeds at
-  // Razorpay but never reaches our verify endpoint (browser closed, network
-  // dropped mid-callback) is still reconcilable against the dashboard rather
-  // than being money we have no row for.
-  const { error: insErr } = await admin.from("payments").insert({
-    order_id: order.id,
-    user_id: user.id,
-    plan: plan.key,
-    amount: plan.amount,
-    currency: plan.currency,
-    status: "created",
-  });
-  if (insErr) {
-    // Do NOT fail the request. The order exists at Razorpay either way, and
-    // refusing here would leave an orphan order AND block a paying customer.
-    console.error("razorpay-order: could not record attempt", insErr);
+  // 5. Log that a checkout STARTED. Analytics only, not a ledger row - see
+  // the file header for why a `purchases` row cannot be written here.
+  // Non-fatal: the order already exists at Razorpay either way, and this is
+  // the same trade-off stripe-checkout makes for `checkout_started`.
+  try {
+    await admin.from("events").insert({
+      user_id: user.id,
+      name: "checkout_started",
+      props: {
+        provider: "razorpay",
+        order_id: order.id,
+        product: product.key,
+        credits: product.credits,
+        amount_cents: product.amountCents,
+        currency: product.currency,
+      },
+    });
+  } catch {
+    /* analytics is non-fatal */
   }
 
-  // The key id is public by design — it is what the checkout modal needs. The
-  // secret is not here and never will be.
+  // The key id is public by design - it is what the checkout modal needs.
+  // The secret is not here and never will be.
   return new Response(
     JSON.stringify({
       order_id: order.id,
-      amount: order.amount ?? plan.amount,
-      currency: order.currency ?? plan.currency,
+      amount: order.amount ?? product.amountCents,
+      currency: order.currency ?? product.currency,
       key_id: KEY_ID,
-      label: plan.label,
+      label: product.label,
     }),
     { status: 200, headers },
   );
 });
+
+// ============================================================================
+// OWNER SETUP
+//
+//   supabase secrets set RAZORPAY_KEY_ID='rzp_...'
+//   supabase secrets set RAZORPAY_KEY_SECRET='...'
+//   supabase functions deploy razorpay-order
+//
+// NO --no-verify-jwt here - this is called by the app with a real Supabase
+// session, unlike razorpay-webhook.
+//
+// See razorpay-webhook/index.ts for the webhook setup (RAZORPAY_WEBHOOK_SECRET,
+// the dashboard destination, and the events to subscribe to) and
+// _shared/products.ts for why this pair currently has nothing INR-priced to
+// sell: the live catalogue is USD-only (pro_monthly, bundle_5), and a
+// `one_time` product priced in INR needs to be added there before this
+// function can create an order anyone in India would actually be charged
+// correctly for. Everything in this file is already driven off whatever the
+// catalogue says, so no code here changes when that happens.
+// ============================================================================
