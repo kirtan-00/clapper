@@ -35,3 +35,7 @@ _archive/
 .shots/
 .shots-onboarding/
 .shots-newproject/
+
+# CDP harness scratch profiles
+.chrome-recovery-profile/
+deno.lock
