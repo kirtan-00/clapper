@@ -1,25 +1,27 @@
-// Four small "how the app behaves in the hand" rows: Haptics, Keep screen
-// awake, Left-hand mode, Reduce motion. Ported from the approved pitch
-// (clapper-ui-pitch-v2, "Fine · Standard · Glove"), which draws all four as
-// title-plus-sublabel rows rather than the icon-led `.grow` shape the rest of
-// Settings uses - so this file does not reuse `.grow`, it defines its own row
-// (`.mprow` in shell.css) rather than force a two-line label into a shape
-// built for one.
+// Small "how the app behaves in the hand" rows: Haptics, Sound, Keep screen
+// awake, Left-hand mode, Reduce motion. The first four were ported from the
+// approved pitch (clapper-ui-pitch-v2, "Fine · Standard · Glove"), which
+// draws them as title-plus-sublabel rows rather than the icon-led `.grow`
+// shape the rest of Settings uses - so this file does not reuse `.grow`, it
+// defines its own row (`.mprow` in shell.css) rather than force a two-line
+// label into a shape built for one. SoundRow was added later, next to
+// HapticsRow, and follows the exact same shape.
 //
 // MOUNTING: each component renders ONE ROW, same contract as ThemeToggleRow
 // and CutSizeRow - drop straight into a `.glist-card`:
 //
 //   <Section title="Controls">
 //     <HapticsRow />
+//     <SoundRow />
 //     <WakeLockRow />
 //     <LeftHandRow />
 //     <ReduceMotionRow />
 //   </Section>
 //
 // Every row takes no props and needs no provider - each reads and writes
-// through its own module (haptics.ts, engine/wakeLock.ts, leftHand.ts,
-// reduceMotion.ts), the same "mount anywhere, once" contract every other
-// settings row in this app already follows.
+// through its own module (haptics.ts, clapsound.ts, engine/wakeLock.ts,
+// leftHand.ts, reduceMotion.ts), the same "mount anywhere, once" contract
+// every other settings row in this app already follows.
 
 import { useSyncExternalStore } from 'react';
 import {
@@ -33,6 +35,7 @@ import {
 import { getWakeLockSetting, setWakeLockSetting, subscribeWakeLockSetting } from '../engine/wakeLock';
 import { getLeftHand, setLeftHand, subscribeLeftHand } from './leftHand';
 import { getReduceMotion, setReduceMotion, subscribeReduceMotion } from './reduceMotion';
+import { isSoundOn, setSoundOn, subscribeSound } from './clapsound';
 import * as haptics from './haptics';
 
 /** Title-plus-sublabel left half, shared by all four rows below. */
@@ -162,6 +165,32 @@ export function ReduceMotionRow() {
       }}
     >
       <Body title="Reduce motion" sub="Follows the phone; can be forced here" />
+      <Switch on={on} />
+    </button>
+  );
+}
+
+/** SOUND - off by default. See clapsound.ts's file header for the full case;
+ *  short version: a clap the first time someone opens the app on a live,
+ *  hushed set with no warning is exactly the failure this app exists to
+ *  avoid, so this stays silent until a crew member opts in here. The clap
+ *  itself is also hard-blocked from ever firing while a take is rolling,
+ *  regardless of this setting - see clapsound.ts's playClap. */
+export function SoundRow() {
+  const on = useSyncExternalStore(subscribeSound, isSoundOn, () => false);
+
+  return (
+    <button
+      type="button"
+      className="mprow"
+      role="switch"
+      aria-checked={on}
+      onClick={() => {
+        haptics.tap();
+        setSoundOn(!on);
+      }}
+    >
+      <Body title="Sound" sub="A clap on new project and finished export" />
       <Switch on={on} />
     </button>
   );

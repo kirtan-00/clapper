@@ -66,6 +66,7 @@ import { FPS_OPTIONS, FPS_WARNING } from './fps';
 import { getDefaultTags } from './tagdefaults';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
+import { playClap } from './clapsound';
 import { DocumentStage } from './ShotlistSheet';
 import { SignInSheet } from './SignInSheet';
 import { importScriptPack, type ScriptPack } from './scriptpack';
@@ -211,6 +212,10 @@ export function NewProjectSheet(props: {
         sound: draft.sound !== null,
       });
       haptics.tap();
+      // One trigger, all three flows: podcast, script-import and the plain
+      // path all converge here having actually created a project, so this is
+      // the single place that needs to call it rather than three.
+      playClap();
       props.onCreated(project, slate);
     } catch {
       setBusy(false);

@@ -18,7 +18,7 @@ import { Section, Row, LinkRow, ReadRow, ScreenHeader } from './glist';
 import { HowToScreen } from './HowToScreen';
 import { ThemeToggleRow } from './ThemeToggleRow';
 import { CutSizeRow, UiSizeRow } from './CutSizeRow';
-import { HapticsRow, WakeLockRow, LeftHandRow, ReduceMotionRow } from './PreferenceRows';
+import { HapticsRow, WakeLockRow, LeftHandRow, ReduceMotionRow, SoundRow } from './PreferenceRows';
 import { DefaultTagsRows } from './DefaultTagsRow';
 import { StudioRow } from './StudioRow';
 import type { Nav } from './nav';
@@ -108,6 +108,7 @@ export function SettingsScreen(props: { nav: Nav }) {
           under one. */}
       <Section title="Controls">
         <HapticsRow />
+        <SoundRow />
         <WakeLockRow />
         <LeftHandRow />
         <ReduceMotionRow />

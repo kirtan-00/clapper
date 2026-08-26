@@ -23,6 +23,7 @@ import { useSession } from '../net/auth';
 import { gateExport, FREE_LIMITS, type GatedFormat, type GateResult } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
+import { playClap } from './clapsound';
 import { extractPdfText } from './pdftext';
 import { breakdownCallSheet, SignInRequiredError } from './breakdown';
 import { TagEditor } from './TagEditor';
@@ -2280,6 +2281,12 @@ function ExportBar(props: { project: Project }) {
           await shareBlob(blob, `${base}-log-${dateStamp}.csv`, 'text/csv');
         }
         track('export', { format: label });
+        // exportGated is the single funnel for all four formats and each of
+        // its four call sites is its own button tap producing exactly one
+        // file, so one call here is one clap per successful export action -
+        // never zero (a throw above skips this line entirely) and never more
+        // than one per tap.
+        playClap();
         // Every account is on SOME tier's counter now (free or Pro), but Pro's
         // "limit" is 1,000,000 - telling it "999997 left" would be noise
         // pretending to be information. Only show the countdown when the
