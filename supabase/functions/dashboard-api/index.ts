@@ -95,6 +95,51 @@ const PAGE_SIZE = 1000;
 const EVENTS_ROW_CAP = 50000;
 const PROFILES_ROW_CAP = 20000;
 
+// ----------------------------------------------------------------------------
+// APP CONTROL. These are the ONLY two rows in the live `config` table
+// (verified 2026-08-26: `select key from public.config` returns exactly
+// script_mode_daily_cap = 500 and script_mode_enabled = true). They are not a
+// guess at what config could hold - they are what it holds, and the write
+// action below refuses any other key rather than quietly creating one. A
+// dashboard that can invent config keys is a dashboard that can typo a kill
+// switch into a row nothing reads.
+//
+// Both are consumed by public.script_mode_gate(), which parses them as
+//   (value #>> '{}')::boolean   and   (value #>> '{}')::int
+// so the values written back must stay JSON SCALARS - `true`, `500` - which
+// is how the seed in 20260715120000_accounts_quotas.sql wrote them.
+//
+// The gate itself is forgiving about this: `#>> '{}'` strips jsonb quoting,
+// so '"500"' would cast to 500 and '"true"' to true just as well (checked
+// against the live database rather than assumed). The reason the write path
+// below still coerces to a real boolean and a real number is the READ path,
+// not the gate - the stats action reports these values by checking
+// `typeof === "number"` / `=== true`, so a stringified value would read back
+// as malformed and the dashboard would show a blank cap over a config row
+// that is working fine. Store the shape that was seeded, and both ends agree.
+//
+// The two dashboard_* keys are read alongside them but are NOT writable here:
+// they are the "exclude my own traffic" filter, and getting them wrong hides
+// real traffic rather than stopping a runaway bill. They stay a hand-run SQL
+// statement (see this file's footer).
+const APP_CONTROL_KEYS = ["script_mode_enabled", "script_mode_daily_cap"];
+const CONFIG_READ_KEYS = [...APP_CONTROL_KEYS, "dashboard_owner_user_id", "dashboard_excluded_vids"];
+// A day cap is a spend ceiling, not a counter - 100k Groq calls in a day is
+// already far past any bill this project would survive, so anything above it
+// is a typo (an extra zero) rather than an intention.
+const DAILY_CAP_MAX = 100000;
+// Matches the profiles_suspended_reason_len constraint in
+// 20260826090000_profile_suspension.sql exactly. Enforced here too so the
+// refusal is a readable sentence instead of a Postgres constraint violation.
+const REASON_MAX = 200;
+// Per-IP ceiling on writes, same mechanism and same table as the login and
+// stats floors. A leaked token is the threat this exists for: it cannot be
+// revoked short of rotating DASHBOARD_PASSPHRASE, so the damage it can do per
+// minute is capped instead. 20/min is far more than one person clicking and
+// far less than a script is worth running.
+const WRITE_WINDOW_SECS = 60;
+const WRITE_MAX_PER_WINDOW = 20;
+
 const GUIDE_SLUGS = [
   "camera-clip-naming-conventions",
   "circle-takes-explained",
@@ -338,6 +383,13 @@ Deno.serve(async (req: Request) => {
     token?: string;
     exclude_self?: boolean;
     client_vid?: string;
+    // Write-action fields. Every one of these is validated at its own call
+    // site below; nothing typed here is trusted for being typed here.
+    user_id?: string;
+    pro_until?: string | null;
+    reason?: string;
+    key?: string;
+    value?: unknown;
   };
   try {
     body = await req.json();
@@ -494,7 +546,7 @@ Deno.serve(async (req: Request) => {
     const { data: configRows } = await admin
       .from("config")
       .select("key,value")
-      .in("key", ["dashboard_owner_user_id", "dashboard_excluded_vids"]);
+      .in("key", CONFIG_READ_KEYS);
     const configMap = new Map<string, unknown>((configRows ?? []).map((r: { key: string; value: unknown }) => [r.key, r.value]));
     const ownerUserId = typeof configMap.get("dashboard_owner_user_id") === "string"
       ? (configMap.get("dashboard_owner_user_id") as string)
@@ -676,15 +728,101 @@ Deno.serve(async (req: Request) => {
         .sort((a, b) => b.calls - a.calls),
     };
 
+    // ---- Can this database be suspended into? --------------------------
+    // Asked of the database, every load, rather than hard-coded. A file in
+    // supabase/migrations/ proves NOTHING about what is live here - this
+    // project's schema_migrations table is empty, so migration history cannot
+    // be read as applied state and two days were once lost to believing it.
+    // One select for one column is the only honest way to know.
+    //
+    // PostgREST refuses an entire select if any named column is unknown
+    // (SQLSTATE 42703), which is precisely the signal wanted: no error means
+    // the column is there.
+    const { error: suspendProbeErr } = await admin.from("profiles").select("is_suspended").limit(1);
+    const suspendAvailable = !suspendProbeErr;
+    // The reason travels to the page as text so the disabled control can say
+    // what is actually wrong instead of just being grey. Two distinct cases,
+    // because they need two different fixes: the column is missing (apply the
+    // migration) versus the lookup failed for some other reason (look at the
+    // database).
+    const suspendUnavailableReason = !suspendProbeErr
+      ? null
+      : (suspendProbeErr as { code?: string })?.code === "42703"
+      ? "profiles.is_suspended does not exist yet. Apply supabase/migrations/20260826090000_profile_suspension.sql, then reload this page - the control turns itself on."
+      : "The suspension column could not be read: " +
+        String((suspendProbeErr as { message?: string })?.message ?? "unknown error");
+
+    // ---- App control ----------------------------------------------------
+    // Reported from the same config read the exclude-my-traffic filter uses.
+    // Values are echoed back exactly as stored so the page shows what the DB
+    // says, not what the page last sent - a control that renders its own
+    // optimistic guess is how a kill switch ends up looking flipped when it
+    // is not.
+    const rawEnabled = configMap.get("script_mode_enabled");
+    const rawCap = configMap.get("script_mode_daily_cap");
+    const appControl = {
+      script_mode_enabled: rawEnabled === true,
+      script_mode_daily_cap: typeof rawCap === "number" && Number.isFinite(rawCap) ? rawCap : null,
+      // Today's spend against that cap, straight from the counter
+      // script_mode_gate() itself increments. The cap means nothing without
+      // it: "500" is not a useful number next to a blank space.
+      used_today: 0,
+      day: new Date().toISOString().slice(0, 10),
+      // A key present in config but holding something the gate cannot cast is
+      // worth saying out loud rather than rounding to a default, because
+      // script_mode_gate() coalesces a failed read to `false`/`0` and would
+      // silently switch Script Mode off for everyone.
+      malformed: [] as string[],
+    };
+    if (rawEnabled !== undefined && typeof rawEnabled !== "boolean") appControl.malformed.push("script_mode_enabled");
+    if (rawCap !== undefined && typeof rawCap !== "number") appControl.malformed.push("script_mode_daily_cap");
+    {
+      const { data: dailyRow } = await admin
+        .from("script_mode_daily")
+        .select("count")
+        .eq("day", appControl.day)
+        .maybeSingle();
+      appControl.used_today = typeof dailyRow?.count === "number" ? dailyRow.count : 0;
+    }
+
     // ---- Users -------------------------------------------------------
+    // Suspension state is fetched in its own pass, and ONLY when the probe
+    // above said the column is there. It cannot be folded into the main
+    // profiles select at the top of this action for the same reason it had to
+    // be pulled out of breakdown and export-gate: naming a column PostgREST
+    // does not know fails the whole select, and that select is what every
+    // other panel's user attribution is built on. One missing column would
+    // take the entire dashboard down rather than one button.
+    const suspendedByUser = new Map<string, { is_suspended: boolean; suspended_at: string | null; suspended_reason: string | null }>();
+    if (suspendAvailable) {
+      const { data: susRows } = await admin
+        .from("profiles")
+        .select("user_id,is_suspended,suspended_at,suspended_reason")
+        .eq("is_suspended", true);
+      for (const r of (susRows ?? []) as { user_id: string; is_suspended: boolean; suspended_at: string | null; suspended_reason: string | null }[]) {
+        suspendedByUser.set(r.user_id, {
+          is_suspended: r.is_suspended === true,
+          suspended_at: r.suspended_at,
+          suspended_reason: r.suspended_reason,
+        });
+      }
+    }
+
     const usersRows = liveProfileRows.map((p) => {
       const agg = byUser.get(p.user_id) ?? emptyAgg();
+      const sus = suspendedByUser.get(p.user_id);
       return {
         user_id: p.user_id,
         email: p.email,
         created_at: p.created_at,
         is_pro: p.is_pro,
         pro_until: p.pro_until,
+        // Absent column and "not suspended" are deliberately the same false
+        // here. The page never has to reason about a third state: whether the
+        // control is usable at all is answered once, by suspend_available.
+        is_suspended: sus?.is_suspended === true,
+        suspended_at: sus?.suspended_at ?? null,
+        suspended_reason: sus?.suspended_reason ?? null,
         llm_calls: agg.calls,
         llm_prompt_tokens: agg.prompt_tokens,
         llm_completion_tokens: agg.completion_tokens,
@@ -695,17 +833,26 @@ Deno.serve(async (req: Request) => {
       pro: usersRows.filter((u) => u.is_pro).length,
       free: usersRows.filter((u) => !u.is_pro).length,
       rows: usersRows,
-      // Suspend/upgrade controls: the app-side code already reads
-      // profiles.is_suspended (see breakdown/index.ts), but that column, the
-      // admins table, and admin_suspend_user/admin_unsuspend_user do not
-      // exist in the live schema (20260822090000_admin_suspension.sql is
-      // written and UNAPPLIED). Rather than call an RPC that would 404/500,
-      // this stays hard-coded false and the page renders the controls
-      // disabled with that reason attached.
-      suspend_available: false,
-      suspend_unavailable_reason:
-        "supabase/migrations/20260822090000_admin_suspension.sql is written but not applied - no admins table, no is_suspended column, no admin_suspend_user/admin_unsuspend_user RPC.",
+      // Suspend availability is ASKED, not asserted. This used to be a
+      // hard-coded `false` with a hand-written sentence about which migration
+      // was unapplied - which was true on the day it was written and would
+      // have gone on claiming it the day after the owner applied the file.
+      // The probe above puts the actual database in charge of the answer, so
+      // the control turns itself on the moment the column lands and nobody
+      // has to remember to come back here and flip a constant. It is one
+      // cheap select against one row.
+      suspend_available: suspendAvailable,
+      suspend_unavailable_reason: suspendAvailable ? null : suspendUnavailableReason,
+      suspended: usersRows.filter((u) => u.is_suspended).length,
     };
+
+    // Pro upgrade/downgrade needs no schema at all - is_pro and pro_until are
+    // both live and both already read above - so it is reported separately
+    // from the suspension probe rather than sharing its verdict. Wiring them
+    // to one flag would switch off the one control the owner needs most
+    // (Razorpay is not connected yet, so comping a user by hand is the only
+    // way anybody becomes Pro) over a column that has nothing to do with it.
+    const proControlsAvailable = true;
 
     return new Response(
       JSON.stringify({
@@ -728,9 +875,280 @@ Deno.serve(async (req: Request) => {
         app_usage: appUsage,
         llm,
         users,
+        app_control: { ...appControl, pro_controls_available: proControlsAvailable },
       }),
       { headers },
     );
+  }
+
+  // ==========================================================================
+  // WRITE ACTIONS
+  //
+  // Everything above this point reads. Everything below changes the live
+  // database for ten real people, so all five actions go through one gate and
+  // there is no second way in.
+  //
+  // THE GATE IS THE SAME ONE THE READ PATH USES, ON PURPOSE. Same
+  // rate_limit_check RPC, same rate_events table, same verifyToken against
+  // the same HS256 key derived from DASHBOARD_PASSPHRASE. No admins table, no
+  // Supabase session, no second secret, no "write passphrase". That is not
+  // laziness about authorization - it is the decision this whole surface was
+  // built on ("dashboard is for only my usage one passrod only"). There is
+  // exactly one person who can hold that passphrase, so an authenticated
+  // caller IS the owner, and inventing a second tier would only add a thing
+  // to lose. Rotating DASHBOARD_PASSPHRASE still invalidates every token in
+  // existence, writes included, with nothing else to remember.
+  //
+  // WHAT THE RATE LIMIT IS FOR. The token lives for two hours and cannot be
+  // revoked individually. If one leaks - copied off a screen, left in a
+  // sessionStorage dump - the ceiling on what it can do is the only control
+  // left, so the write path is capped per IP exactly like the login path is.
+  // It is not protecting against the owner clicking too fast.
+  //
+  // WHAT IS NOT HERE: delete. Nothing below removes a row of user data. Every
+  // action is a reversible flag, and its opposite is one of the other four.
+  // ==========================================================================
+  const WRITE_ACTIONS = ["set_pro", "set_free", "suspend", "unsuspend", "set_config"];
+
+  if (WRITE_ACTIONS.indexOf(body.action ?? "") !== -1) {
+    const action = body.action as string;
+
+    const { data: writeOk, error: writeErr } = await admin.rpc("rate_limit_check", {
+      p_key: "dashwrite:" + ipHash,
+      p_window_secs: WRITE_WINDOW_SECS,
+      p_max: WRITE_MAX_PER_WINDOW,
+    });
+    // Fail CLOSED. Unlike the suspension lookup in _shared/suspension.ts,
+    // which declines to spend money and so can afford to guess "allowed", a
+    // broken limiter here is the one thing standing between a leaked token
+    // and the database. Refusing the owner for a minute is the cheap error.
+    if (writeErr || writeOk === false) {
+      return new Response(
+        JSON.stringify({ error: "Too fast - give it a moment and try again." }),
+        { status: 429, headers },
+      );
+    }
+
+    const token = typeof body.token === "string" ? body.token.trim() : "";
+    if (!token || !(await verifyToken(token, PASSPHRASE))) {
+      await logEvent("dashboard_token_invalid", { ip_hash: ipHash, attempted_action: action });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
+    }
+
+    // ---- Audit -----------------------------------------------------------
+    // One row in `events` per write, name "admin_action", carrying what
+    // changed and what it changed from. The before value is the part that
+    // matters: "set someone Pro" is not a record of anything, "set someone
+    // Pro who was free until 2026-09-30" is.
+    //
+    // NOTHING NEW ABOUT ANYBODY GOES IN HERE. Every field below is a user_id,
+    // a boolean, a date or a config number that this database already stores
+    // in a column - no email, no IP, no name. An audit log is not a place to
+    // start collecting things, and props are capped at 4096 bytes by the
+    // existing events_sane constraint anyway.
+    //
+    // Unlike logEvent above, a failure is NOT swallowed. Analytics can drop a
+    // row and nobody is worse off; an audit trail that quietly stopped
+    // recording is a worse artefact than no audit trail, because it still
+    // looks complete. The write itself has already happened by then and is
+    // not rolled back - undoing a correct change because the note about it
+    // failed would be the wrong trade - so the answer carries
+    // `audit_logged: false` and the page says so out loud.
+    const audit = async (props: Record<string, unknown>): Promise<boolean> => {
+      try {
+        const { error } = await admin.from("events").insert({
+          user_id: null,
+          name: "admin_action",
+          props: { ...props, action },
+          ip_hash: ipHash,
+        });
+        return !error;
+      } catch {
+        return false;
+      }
+    };
+
+    const bad = (msg: string, status = 400) =>
+      new Response(JSON.stringify({ error: msg }), { status, headers });
+
+    // ---- Shared: resolve the target account ------------------------------
+    // Read before write, always. It supplies the before-values the audit row
+    // needs, and it turns a mistyped id into a plain "no account with that
+    // id" instead of an update that matches zero rows and reports success.
+    const targetId = typeof body.user_id === "string" ? body.user_id.trim() : "";
+    const needsTarget = action !== "set_config";
+    let before: Record<string, unknown> = {};
+    if (needsTarget) {
+      if (!targetId) return bad("Which account? user_id is required.");
+      // Postgres will reject a non-uuid with a type error rather than an
+      // empty result, so the shape is checked here to keep the message
+      // readable.
+      if (!/^[0-9a-fA-F-]{36}$/.test(targetId)) return bad("That is not a user id.");
+
+      // Typed `string`, not left to inference. supabase-js parses a select
+      // list at the TYPE level to shape the result, and it cannot parse a
+      // value that is a union of two literals - it resolves to a ParserError
+      // type and the call stops type-checking. Widening to string opts this
+      // one dynamic select out of that machinery; the shape is asserted
+      // below instead.
+      const columns: string = (action === "suspend" || action === "unsuspend")
+        ? "user_id,is_pro,pro_until,is_suspended,suspended_at,suspended_reason"
+        : "user_id,is_pro,pro_until";
+      const { data: row, error: readErr } = await admin
+        .from("profiles")
+        .select(columns)
+        .eq("user_id", targetId)
+        .maybeSingle();
+
+      if (readErr) {
+        // 42703 here means the same thing it means in the stats probe: the
+        // suspension migration has not been applied. Said plainly, with the
+        // fix in it, rather than surfaced as a generic server error.
+        if ((readErr as { code?: string })?.code === "42703") {
+          return bad(
+            "Suspension is not set up in the database yet. Apply supabase/migrations/20260826090000_profile_suspension.sql first.",
+            409,
+          );
+        }
+        return bad("Could not read that account.", 500);
+      }
+      if (!row) return bad("No account with that id.", 404);
+      // Through `unknown`: the select list above is a runtime string, so
+      // supabase-js has no column names to infer a row shape from and hands
+      // back its generic fallback type. The real shape is whatever `columns`
+      // asked for, and only the before-values are read off it.
+      before = row as unknown as Record<string, unknown>;
+    }
+
+    // ---- set_pro / set_free ----------------------------------------------
+    // The action the owner reaches for most, because Razorpay is not wired up
+    // yet: every Pro account today is one he granted by hand. is_pro and
+    // pro_until are both live columns, so this needs no migration and works
+    // the moment it is deployed.
+    if (action === "set_pro" || action === "set_free") {
+      let proUntil: string | null = null;
+      if (action === "set_pro") {
+        const raw = typeof body.pro_until === "string" ? body.pro_until.trim() : "";
+        if (raw) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return bad("Expiry must be a date, YYYY-MM-DD.");
+          // STORED AS THE START OF THE NEXT DAY, UTC. The page sends a date
+          // the owner picked meaning "Pro through this day". export-gate
+          // lapses an account when `pro_until <= now`, so storing the picked
+          // day at 00:00 would end the comp at the START of the day he wrote
+          // down - a full day early, on the last day, which is exactly when
+          // somebody would notice and be annoyed. Adding a day makes the
+          // stored instant the moment the named day is over.
+          const start = Date.parse(raw + "T00:00:00.000Z");
+          if (!Number.isFinite(start)) return bad("That date does not exist.");
+          const end = new Date(start + 24 * 60 * 60 * 1000);
+          if (end.getTime() <= Date.now()) return bad("That date has already passed.");
+          proUntil = end.toISOString();
+        }
+        // An empty date is not an error - it means "Pro with no expiry",
+        // which is what a NULL pro_until has always meant on this column
+        // (see export-gate: a NULL is treated as still valid).
+      }
+
+      const after = { is_pro: action === "set_pro", pro_until: proUntil };
+      const { error: updErr } = await admin.from("profiles").update(after).eq("user_id", targetId);
+      if (updErr) return bad("The update was refused: " + String((updErr as { message?: string })?.message ?? ""), 500);
+
+      const audited = await audit({
+        target_user_id: targetId,
+        before: { is_pro: before.is_pro, pro_until: before.pro_until },
+        after,
+      });
+      return new Response(
+        JSON.stringify({ ok: true, action, user_id: targetId, before, after, audit_logged: audited }),
+        { headers },
+      );
+    }
+
+    // ---- suspend / unsuspend ---------------------------------------------
+    // The only two actions that need schema that is not applied yet. They are
+    // reachable at all only because the read above already proved the columns
+    // exist - a caller that gets here has passed that check.
+    if (action === "suspend" || action === "unsuspend") {
+      const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, REASON_MAX) : "";
+      // Required on BOTH directions. Why somebody is being let back in is not
+      // implied by why they were booted, and a suspension nobody wrote a
+      // sentence about is one nobody can safely reverse six months later.
+      if (!reason) return bad("Say why. A reason is required.");
+
+      const after = action === "suspend"
+        ? { is_suspended: true, suspended_at: new Date().toISOString(), suspended_reason: reason }
+        : { is_suspended: false, suspended_at: null, suspended_reason: null };
+
+      const { error: updErr } = await admin.from("profiles").update(after).eq("user_id", targetId);
+      if (updErr) return bad("The update was refused: " + String((updErr as { message?: string })?.message ?? ""), 500);
+
+      const audited = await audit({
+        target_user_id: targetId,
+        before: { is_suspended: before.is_suspended, suspended_at: before.suspended_at },
+        after: { is_suspended: after.is_suspended, suspended_at: after.suspended_at },
+        // The reason is the whole point of the record, and it is text the
+        // owner typed about an account - not a new fact about the user.
+        reason,
+      });
+      return new Response(
+        JSON.stringify({ ok: true, action, user_id: targetId, before, after, audit_logged: audited }),
+        { headers },
+      );
+    }
+
+    // ---- set_config -------------------------------------------------------
+    // The global kill switch and the day cap. Only the two keys that actually
+    // exist are writable, checked against the allowlist rather than against
+    // "is it a string" - config is a key-value table with no schema of its
+    // own, so a typo'd key would insert cleanly, read back cleanly, and be
+    // read by absolutely nothing. UPDATE, never upsert, for the same reason:
+    // if the row is not there, the right answer is to say so.
+    if (action === "set_config") {
+      const key = typeof body.key === "string" ? body.key.trim() : "";
+      if (APP_CONTROL_KEYS.indexOf(key) === -1) {
+        return bad("Not a setting this dashboard can change.");
+      }
+
+      let value: boolean | number;
+      if (key === "script_mode_enabled") {
+        if (typeof body.value !== "boolean") return bad("The kill switch is on or off.");
+        value = body.value;
+      } else {
+        const n = typeof body.value === "number" ? body.value : Number.NaN;
+        if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0 || n > DAILY_CAP_MAX) {
+          return bad("The day cap is a whole number from 0 to " + DAILY_CAP_MAX + ".");
+        }
+        value = n;
+      }
+
+      const { data: beforeRows } = await admin.from("config").select("key,value").eq("key", key).maybeSingle();
+      if (!beforeRows) return bad("That setting is not in the config table.", 404);
+
+      // A real boolean / real number goes in, so jsonb stores the same scalar
+      // shape the migration seeded and both readers agree about it: the gate
+      // casts it, and the stats action recognises it. See APP_CONTROL_KEYS at
+      // the top of this file for why the shape is worth being strict about
+      // even though the gate would tolerate a quoted string.
+      const { error: cfgErr } = await admin.from("config").update({ value }).eq("key", key);
+      if (cfgErr) return bad("The setting was refused: " + String((cfgErr as { message?: string })?.message ?? ""), 500);
+
+      const audited = await audit({
+        config_key: key,
+        before: { value: (beforeRows as { value: unknown }).value },
+        after: { value },
+      });
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          action,
+          key,
+          before: (beforeRows as { value: unknown }).value,
+          after: value,
+          audit_logged: audited,
+        }),
+        { headers },
+      );
+    }
   }
 
   return new Response(JSON.stringify({ error: "Unknown action." }), { status: 400, headers });
@@ -751,4 +1169,23 @@ Deno.serve(async (req: Request) => {
 //   insert into public.config (key, value) values
 //     ('dashboard_excluded_vids', '["<vid-1>", "<vid-2>"]'::jsonb)
 //   on conflict (key) do update set value = excluded.value;
+//
+// ----------------------------------------------------------------------------
+// TO TURN ON SUSPEND / UNSUSPEND. Nothing else is needed - no admins table, no
+// second secret. Apply one migration by hand and reload the page; the control
+// stops being grey on its own, because `suspend_available` is a live probe of
+// the column rather than a constant in this file:
+//
+//   supabase/migrations/20260826090000_profile_suspension.sql
+//
+// Read it before applying it. It adds three columns to `profiles` and one
+// partial index, and nothing else. Note that the OLDER
+// 20260822090000_admin_suspension.sql covers the same ground for a different
+// caller (admin-api, which authenticates a real Supabase user) and builds an
+// admins table plus four RPCs this dashboard cannot use - see the header of
+// the new file for why they are not interchangeable.
+//
+// Pro / free and the app-control settings need NO migration. is_pro,
+// pro_until and both config keys are already live; those controls work as
+// soon as this function is deployed.
 // ============================================================================
