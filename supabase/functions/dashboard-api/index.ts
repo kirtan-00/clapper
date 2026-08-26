@@ -184,7 +184,12 @@ function b64urlEncode(bytes: Uint8Array): string {
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-function b64urlDecode(s: string): Uint8Array {
+// Annotated Uint8Array<ArrayBuffer>, not bare Uint8Array. Since TypeScript
+// 5.7 the bare form widens to Uint8Array<ArrayBufferLike>, which includes
+// SharedArrayBuffer and is therefore NOT assignable to Web Crypto's
+// BufferSource - so every crypto.subtle call below failed `deno check` on a
+// current Deno while running perfectly. Type-level only; no behaviour changes.
+function b64urlDecode(s: string): Uint8Array<ArrayBuffer> {
   const norm = s.replace(/-/g, "+").replace(/_/g, "/");
   const pad = norm.length % 4 === 0 ? "" : "=".repeat(4 - (norm.length % 4));
   const bin = atob(norm + pad);
@@ -192,7 +197,7 @@ function b64urlDecode(s: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-async function sha256Bytes(s: string): Promise<Uint8Array> {
+async function sha256Bytes(s: string): Promise<Uint8Array<ArrayBuffer>> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
 }
 async function sha256Hex(s: string): Promise<string> {
@@ -241,7 +246,7 @@ async function verifyToken(token: string, passphrase: string): Promise<boolean> 
   const parts = token.split(".");
   if (parts.length !== 3) return false;
   const [header, payload, sig] = parts;
-  let sigBytes: Uint8Array;
+  let sigBytes: Uint8Array<ArrayBuffer>;
   try {
     sigBytes = b64urlDecode(sig);
   } catch {
@@ -846,6 +851,151 @@ Deno.serve(async (req: Request) => {
       suspended: usersRows.filter((u) => u.is_suspended).length,
     };
 
+    // ---- Purchases: the reconciliation panel ----------------------------
+    // THE QUESTION THIS ANSWERS: did anybody pay us and get nothing?
+    //
+    // That failure is silent by construction. The buyer sees a receipt from
+    // the gateway, the gateway sees a completed payment, and the only party
+    // who knows the credits never landed is a row in a table nobody opens. So
+    // it gets a panel, and the panel is at the level of "money moved, nothing
+    // was granted", not at the level of "here is a log".
+    //
+    // EVERY STATUS IN THIS LIST MEANS THE MONEY MOVED. There is no
+    // "abandoned checkout" state here, unlike the old Razorpay `payments`
+    // table where a `created` row usually just meant somebody closed the
+    // modal. A row is only written when a signed webhook arrives, which is
+    // after capture. So anything the query below returns is a real person who
+    // paid and is waiting, and the panel says exactly that rather than
+    // hedging.
+    //
+    // Same probe posture as suspension above: ASK the database whether the
+    // table is there. The entitlements migration is not applied yet, and a
+    // panel that asserted its own readiness would be lying the moment that
+    // changed in either direction.
+    const NEEDS_ATTENTION = ["received", "granting", "grant_failed", "user_unknown", "unknown_product"];
+    const { error: purchasesProbeErr } = await admin.from("purchases").select("provider").limit(1);
+    const purchasesAvailable = !purchasesProbeErr;
+    const purchasesUnavailableReason = !purchasesProbeErr
+      ? null
+      : ((purchasesProbeErr as { code?: string })?.code === "42P01" ||
+          (purchasesProbeErr as { code?: string })?.code === "PGRST205" ||
+          (purchasesProbeErr as { code?: string })?.code === "42703")
+      ? "The purchases table does not exist yet. Apply supabase/migrations/20260826170000_entitlements.sql, then reload this page - this panel turns itself on."
+      : "The purchases table could not be read: " +
+        String((purchasesProbeErr as { message?: string })?.message ?? "unknown error");
+
+    interface PurchaseRow {
+      provider: string;
+      provider_event_id: string;
+      provider_txn_id: string | null;
+      user_id: string | null;
+      product_key: string | null;
+      credits: number | null;
+      amount_cents: number | null;
+      currency: string | null;
+      status: string;
+      note: string | null;
+      created_at: string;
+      granted_at: string | null;
+    }
+
+    let attentionRows: PurchaseRow[] = [];
+    let grantedRows: PurchaseRow[] = [];
+    if (purchasesAvailable) {
+      const cols =
+        "provider,provider_event_id,provider_txn_id,user_id,product_key,credits,amount_cents,currency,status,note,created_at,granted_at";
+      const [attention, granted] = await Promise.all([
+        // This is the query the purchases_attention_idx partial index exists
+        // for, and the status list is the same one _shared/entitlements.ts
+        // exports as NEEDS_ATTENTION_STATUSES. If one list grows and the other
+        // does not, the index stops covering the query and, worse, a real
+        // stuck payment stops being shown.
+        admin.from("purchases").select(cols).in("status", NEEDS_ATTENTION)
+          .order("created_at", { ascending: false }).limit(200),
+        admin.from("purchases").select(cols).eq("status", "granted")
+          .order("granted_at", { ascending: false }).limit(1000),
+      ]);
+      attentionRows = (attention.data ?? []) as unknown as PurchaseRow[];
+      grantedRows = (granted.data ?? []) as unknown as PurchaseRow[];
+    }
+
+    // Revenue is grouped BY CURRENCY and never summed across them. The
+    // gateway is a merchant of record: it charges each buyer in their own
+    // currency, so the ledger holds INR next to USD next to GBP. One "total"
+    // over that column would be a number with no unit, which is worse than no
+    // number at all.
+    const revenueByCurrency = new Map<string, { minor_units: number; count: number }>();
+    for (const r of grantedRows) {
+      const cur = (r.currency ?? "unknown").toUpperCase();
+      const agg = revenueByCurrency.get(cur) ?? { minor_units: 0, count: 0 };
+      agg.minor_units += typeof r.amount_cents === "number" ? r.amount_cents : 0;
+      agg.count += 1;
+      revenueByCurrency.set(cur, agg);
+    }
+
+    // Credits outstanding: bought and not yet spent on a project. Its own
+    // probe, because it is a different migration's column on a different
+    // table, and one of the two landing without the other must not blank the
+    // whole panel.
+    let creditsAvailable = false;
+    let creditsOutstanding = 0;
+    let creditHolders = 0;
+    {
+      const { data: creditRows, error: creditErr } = await admin
+        .from("profiles")
+        .select("user_id,project_credits");
+      creditsAvailable = !creditErr;
+      for (const r of (creditRows ?? []) as { project_credits: number | null }[]) {
+        const n = typeof r.project_credits === "number" ? r.project_credits : 0;
+        creditsOutstanding += n;
+        if (n > 0) creditHolders += 1;
+      }
+    }
+
+    const purchases = {
+      available: purchasesAvailable,
+      unavailable_reason: purchasesAvailable ? null : purchasesUnavailableReason,
+      needs_attention: attentionRows.map((r) => ({
+        provider: r.provider,
+        event_id: r.provider_event_id,
+        txn_id: r.provider_txn_id,
+        user_id: r.user_id,
+        // Attributed to a person where possible, because "who do I email" is
+        // the actual next action for every row in this list.
+        email: r.user_id ? (emailByUser.get(r.user_id) ?? null) : null,
+        product_key: r.product_key,
+        credits: r.credits ?? 0,
+        amount_cents: r.amount_cents,
+        currency: r.currency,
+        status: r.status,
+        note: r.note,
+        created_at: r.created_at,
+      })),
+      granted: {
+        count: grantedRows.length,
+        credits: grantedRows.reduce((n, r) => n + (typeof r.credits === "number" ? r.credits : 0), 0),
+        by_currency: [...revenueByCurrency.entries()]
+          .map(([currency, agg]) => ({ currency, ...agg }))
+          .sort((a, b) => b.minor_units - a.minor_units),
+      },
+      recent: grantedRows.slice(0, 10).map((r) => ({
+        provider: r.provider,
+        event_id: r.provider_event_id,
+        user_id: r.user_id,
+        email: r.user_id ? (emailByUser.get(r.user_id) ?? null) : null,
+        product_key: r.product_key,
+        credits: r.credits ?? 0,
+        amount_cents: r.amount_cents,
+        currency: r.currency,
+        granted_at: r.granted_at ?? r.created_at,
+      })),
+      credits: {
+        available: creditsAvailable,
+        outstanding: creditsOutstanding,
+        holders: creditHolders,
+      },
+    };
+
     // Pro upgrade/downgrade needs no schema at all - is_pro and pro_until are
     // both live and both already read above - so it is reported separately
     // from the suspension probe rather than sharing its verdict. Wiring them
@@ -876,6 +1026,7 @@ Deno.serve(async (req: Request) => {
         llm,
         users,
         app_control: { ...appControl, pro_controls_available: proControlsAvailable },
+        purchases,
       }),
       { headers },
     );

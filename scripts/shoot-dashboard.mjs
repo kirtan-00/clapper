@@ -92,7 +92,7 @@ const day = (n) => new Date(Date.UTC(2026, 7, 21 + n)).toISOString().slice(0, 10
 const GUIDES = ['camera-clip-naming-conventions','circle-takes-explained','continuity-notes-guide','how-to-log-takes-on-set','how-to-read-a-clapperboard','mos-meaning-in-film','script-supervisor-duties','shot-log-to-premiere-xml','what-is-a-tcr-sheet'];
 const TEMPLATES = ['camera-log-sheet','continuity-sheet-template','script-supervisor-daily-report','shot-list-template','sound-report-template'];
 
-function fixture({ suspendAvailable, killOn = true }) {
+function fixture({ suspendAvailable, killOn = true, purchases = 'live' }) {
   return {
     meta: {
       generated_at: '2026-08-26T04:40:00.000Z',
@@ -156,6 +156,33 @@ function fixture({ suspendAvailable, killOn = true }) {
         { user_id: '44444444-4444-4444-8444-444444444444', email: null, created_at: '2026-08-22T08:00:00.000Z', is_pro: false, pro_until: null, is_suspended: false, suspended_at: null, suspended_reason: null, llm_calls: 0, llm_prompt_tokens: 0, llm_completion_tokens: 0 },
       ],
     },
+    // `purchases`: 'live' = the table exists and something is stuck (the state
+    // the panel is FOR), 'clean' = table exists, nothing stuck, 'missing' =
+    // migration not applied, which is production today.
+    purchases: purchases === 'missing'
+      ? {
+        available: false,
+        unavailable_reason: 'The purchases table does not exist yet. Apply supabase/migrations/20260826170000_entitlements.sql, then reload this page - this panel turns itself on.',
+        needs_attention: [], granted: { count: 0, credits: 0, by_currency: [] }, recent: [],
+        credits: { available: false, outstanding: 0, holders: 0 },
+      }
+      : {
+        available: true,
+        unavailable_reason: null,
+        needs_attention: purchases === 'clean' ? [] : [
+          { provider: 'paddle', event_id: 'evt_01j9x2', txn_id: 'txn_01j9x2', user_id: '22222222-2222-4222-8222-222222222222', email: 'manthan@example.com', product_key: 'credits_intro_5', credits: 5, amount_cents: 500, currency: 'USD', status: 'grant_failed', note: 'no profile row for that account', created_at: '2026-08-26T03:12:00.000Z' },
+          { provider: 'paddle', event_id: 'evt_01j9x7', txn_id: 'txn_01j9x7', user_id: null, email: null, product_key: 'credits_1', credits: 1, amount_cents: 24900, currency: 'INR', status: 'user_unknown', note: null, created_at: '2026-08-26T02:40:00.000Z' },
+        ],
+        granted: {
+          count: 6, credits: 14,
+          by_currency: [{ currency: 'USD', minor_units: 2100, count: 4 }, { currency: 'INR', minor_units: 49800, count: 2 }],
+        },
+        recent: [
+          { provider: 'paddle', event_id: 'evt_01j9w1', user_id: '11111111-1111-4111-8111-111111111111', email: 'chirag@example.com', product_key: 'credits_intro_5', credits: 5, amount_cents: 500, currency: 'USD', granted_at: '2026-08-25T18:20:00.000Z' },
+          { provider: 'paddle', event_id: 'evt_01j9v8', user_id: '33333333-3333-4333-8333-333333333333', email: 'ohm@example.com', product_key: 'credits_1', credits: 1, amount_cents: 300, currency: 'USD', granted_at: '2026-08-25T11:05:00.000Z' },
+        ],
+        credits: { available: true, outstanding: 9, holders: 3 },
+      },
     app_control: {
       script_mode_enabled: killOn,
       script_mode_daily_cap: 500,
@@ -208,6 +235,8 @@ async function main() {
     { name: 'night.migrated', theme: 'night', fx: fixture({ suspendAvailable: true }) },
     { name: 'day.migrated', theme: 'day', fx: fixture({ suspendAvailable: true }) },
     { name: 'night.killed', theme: 'night', fx: fixture({ suspendAvailable: true, killOn: false }) },
+    { name: 'night.money-clean', theme: 'night', fx: fixture({ suspendAvailable: true, purchases: 'clean' }) },
+    { name: 'night.money-missing', theme: 'night', fx: fixture({ suspendAvailable: true, purchases: 'missing' }) },
   ];
 
   for (const c of cases) {

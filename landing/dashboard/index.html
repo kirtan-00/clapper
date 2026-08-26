@@ -400,6 +400,17 @@ table.dtable td.who {
    would sit permanently past the right edge and you would have to swipe to
    find the button you came for. Sticky costs nothing at laptop width, where
    the table already fits and there is no scroll for it to resist. */
+/* A second line inside a cell. `.row .k .sub` above only styles the sub in a
+   .rows list, not in a table, so without this the note runs straight on from
+   the email: "manthan@example.comno profile row for that account". Same
+   tokens, no new colour. */
+table.dtable td.who .sub {
+  display: block;
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+  font-weight: 400;
+  margin-top: 2px;
+}
 table.dtable td.ctls, table.dtable th.ctls-h {
   white-space: normal;
   position: sticky;
@@ -1116,10 +1127,121 @@ function panelUsers(u) {
       ? '<div class="table-scroll"><table class="dtable"><thead><tr><th>Email</th><th>Created</th><th>Plan</th><th>Pro until</th><th class="num">LLM calls</th><th class="num">Tokens</th><th class="ctls-h">Controls</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<p class="empty">No accounts yet.</p>') +
     (u.rows.length > 200 ? '<p class="foot-note">Showing the first 200 of ' + fmtN(u.rows.length) + '.</p>' : '') +
-    '<p class="foot-note"><strong>Pro is granted by hand.</strong> Razorpay is not wired up, so every Pro account is one you made here. An expiry date is the last day the comp runs; leave it empty and it never lapses.</p>' +
+    '<p class="foot-note"><strong>Pro is granted by hand.</strong> Nothing is being sold yet, so every Pro account is one you made here. An expiry date is the last day the comp runs; leave it empty and it never lapses. Pro and credits are separate things: Pro is the old time-based comp, a credit unlocks one project forever. See Money below.</p>' +
     (avail
       ? '<p class="foot-note"><strong>Suspend blocks, it never deletes.</strong> A suspended account keeps every project and every take. It is refused Script Mode and gated exports, and gets both back the moment you undo it.</p>'
       : '<p class="foot-note"><strong>Suspend is disabled.</strong> ' + esc(why) + '</p>') +
+  '</div>';
+}
+
+/** Money. Rendered only when dashboard-api sent a `purchases` block, same
+ * reason as App control below: this page and that edge function deploy on
+ * completely separate schedules, and a page newer than the function must show
+ * nothing rather than a panel full of undefined.
+ *
+ * THE TOP OF THIS PANEL IS THE ONLY PART THAT MATTERS. Every row in "needs
+ * attention" is a person who paid and got nothing. There is no
+ * abandoned-checkout state in that table - a row is only written once a
+ * signed webhook arrives, which is after the money moved - so the list is
+ * never padded with people who simply closed a tab, and it does not need to
+ * be read with a pinch of salt. Zero rows is the only acceptable number. */
+function panelPurchases(p) {
+  if (!p) return '';
+
+  if (!p.available) {
+    return '<div class="card">' +
+      '<h2>Money</h2>' +
+      '<p class="empty">' + esc(p.unavailable_reason || 'The purchases table could not be read.') + '</p>' +
+    '</div>';
+  }
+
+  var att = p.needs_attention || [];
+  var STATUS_SAY = {
+    received: 'Webhook arrived, credits never applied.',
+    granting: 'Grant started and did not finish.',
+    grant_failed: 'Credit write failed. Money taken.',
+    user_unknown: 'Paid, but no account on the transaction.',
+    unknown_product: 'Paid for a price id this deploy does not know.',
+  };
+
+  // Money is formatted here and never handed to renderRows: that helper runs
+  // fmtN() over the value, which turns "5.00 USD" into NaN and "21.00" into
+  // "21". Amounts are strings with a unit, so they get their own rows built
+  // from the same .row markup.
+  function money(minor, currency) {
+    if (minor === null || minor === undefined) return '-';
+    return (minor / 100).toFixed(2) + (currency ? ' ' + currency : '');
+  }
+  function moneyRow(k, v, vsub) {
+    return '<div class="row"><div class="k">' + esc(k) + '</div>' +
+      '<div class="v mono">' + esc(v) + (vsub ? '<span class="sub">' + esc(vsub) + '</span>' : '') + '</div></div>';
+  }
+
+  var attRows = att.slice(0, 100).map(function (r) {
+    // The note goes UNDER the person, not in a second list below the table.
+    // One row per stuck payment, carrying everything needed to act on it.
+    // Everything needed to act on this row lives in the one cell: who to
+    // email, which transaction to look up at the gateway, and what went
+    // wrong. The transaction id had its own column and pushed the table wider
+    // than the card.
+    var why = r.note || STATUS_SAY[r.status] || '';
+    var ref = (r.txn_id || r.event_id || '') + (why ? ' \u00b7 ' + why : '');
+    return '<tr>' +
+      '<td class="who">' + esc(r.email || r.user_id || 'unknown') +
+        (ref ? '<span class="sub">' + esc(ref) + '</span>' : '') + '</td>' +
+      '<td>' + esc(fmtDT(r.created_at)) + '</td>' +
+      '<td><span class="pill pill--off">' + esc(r.status) + '</span></td>' +
+      '<td>' + esc(r.product_key || '-') + '</td>' +
+      '<td class="num">' + fmtN(r.credits) + '</td>' +
+      '<td class="num">' + esc(money(r.amount_cents, r.currency)) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var attBlock = att.length
+    ? '<div class="banner"><strong class="n">' + fmtN(att.length) + '</strong> payment(s) took money and granted nothing. ' +
+        'Every row below is somebody waiting. Look the transaction up at the gateway, then fix the account by hand.</div>' +
+      '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+        '<th>Who</th><th>Seen</th><th>State</th><th>Product</th><th class="num">Credits</th><th class="num">Paid</th>' +
+      '</tr></thead><tbody>' + attRows + '</tbody></table></div>'
+    : '<p class="empty">Nothing stuck. Every payment that arrived was granted.</p>';
+
+  var byCur = (p.granted && p.granted.by_currency ? p.granted.by_currency : []);
+  var curBlock = byCur.length
+    ? '<div class="rows">' + byCur.map(function (c) {
+        return moneyRow(c.currency, money(c.minor_units, ''), fmtN(c.count) + ' payment(s)');
+      }).join('') + '</div>'
+    : '<p class="empty">Nothing sold yet.</p>';
+
+  var recent = p.recent || [];
+  var recentBlock = recent.length
+    ? '<div class="rows">' + recent.map(function (r) {
+        return moneyRow(
+          r.email || r.user_id || 'unknown',
+          fmtN(r.credits) + ' credit(s)',
+          money(r.amount_cents, r.currency) + ' \u00b7 ' + fmtDT(r.granted_at),
+        );
+      }).join('') + '</div>'
+    : '<p class="empty">No grants yet.</p>';
+
+  var credits = p.credits || {};
+
+  return '<div class="card">' +
+    '<h2>Money</h2>' +
+    attBlock +
+    '<div class="stat-row" style="margin-top: var(--sp-5);">' +
+      '<div class="stat"><div class="num mono">' + fmtN(att.length) + '</div><div class="label">stuck</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(p.granted ? p.granted.count : 0) + '</div><div class="label">granted</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(p.granted ? p.granted.credits : 0) + '</div><div class="label">credits sold</div></div>' +
+      (credits.available
+        ? '<div class="stat"><div class="num mono">' + fmtN(credits.outstanding) + '</div><div class="label">unspent</div></div>'
+        : '') +
+    '</div>' +
+    '<h3 class="sub-h">Taken, by currency</h3>' + curBlock +
+    '<h3 class="sub-h">Last ten grants</h3>' + recentBlock +
+    '<p class="foot-note"><strong>Totals are never summed across currencies.</strong> The gateway is a merchant of record and charges each buyer in their own money, so an INR row and a USD row sit side by side. One combined number would have no unit.</p>' +
+    (credits.available
+      ? '<p class="foot-note"><strong>' + fmtN(credits.outstanding) + '</strong> credit(s) bought and not yet spent, held by <strong>' + fmtN(credits.holders) + '</strong> account(s). A credit unlocks one project permanently.</p>'
+      : '<p class="foot-note"><strong>Credit balances are not readable yet.</strong> profiles.project_credits arrives with supabase/migrations/20260826170000_entitlements.sql.</p>') +
   '</div>';
 }
 
@@ -1213,6 +1335,7 @@ function renderDashboard(data) {
     panelAppUsage(data.app_usage) +
     panelLlm(data.llm) +
     panelUsers(data.users) +
+    panelPurchases(data.purchases) +
     panelAppControl(data.app_control);
 
   el.generatedAt.textContent = 'Updated ' + fmtDT(meta.generated_at);
