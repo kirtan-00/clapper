@@ -7,7 +7,7 @@
 // isSoleRollingUnit's own comment in RollingScreen.tsx).
 
 import { describe, expect, it } from 'vitest';
-import { fitTagGroup, isSoleRollingUnit, moreTileCopy, rollHeadForm } from './RollingScreen';
+import { fitTagGroup, isSoleRollingUnit, momentlogBandPx, moreTileCopy, rollHeadForm } from './RollingScreen';
 import type { CameraUnitLetter } from '../types';
 
 describe('isSoleRollingUnit', () => {
@@ -183,5 +183,41 @@ describe('moreTileCopy (the moments log MORE tile, in words)', () => {
       text: '+1 more',
       ariaLabel: '1 earlier moment logged this take, not shown here',
     });
+  });
+});
+
+// THE MOMENTS BAND'S CEILING. The dead strip the owner filmed between the
+// take bar and the clip cards WAS this band, written as a `1fr` share of
+// whatever the phone had spare: 90.3px at his own 390x844, 131.7px at
+// 430x932, for a box whose contents are whole 36px rows. These pin the two
+// properties the CSS leans on - that the number is one whole row plus its
+// separation (never a fraction of a second row, which is what made the strip
+// unspendable), and that it tracks the row rather than a literal, because the
+// interface-size setting scales `--t-secondary` and the row with it.
+describe('momentlogBandPx (the live stage bottom row ceiling)', () => {
+  it('is one whole row plus its separation, with rounding slack', () => {
+    // 36px measured row at the default type scale: 36 + 2 slack + 12 gap.
+    expect(momentlogBandPx(36)).toBe(50);
+  });
+
+  it('never rounds a fractional row DOWN, which would crop the row it holds', () => {
+    // A real getBoundingClientRect() height is fractional. Rounding down here
+    // is a budget one hundredth of a pixel short of a row, and `rowsThatFit`
+    // answers 0 to that - a band reserved to hold exactly nothing.
+    expect(momentlogBandPx(35.42)).toBe(50);
+    expect(momentlogBandPx(36.01)).toBe(51);
+  });
+
+  it('grows with the row, so a bumped type scale is never cropped', () => {
+    expect(momentlogBandPx(48)).toBe(62);
+    expect(momentlogBandPx(48) - momentlogBandPx(36)).toBe(12);
+  });
+
+  it('leaves room for exactly one row and never two', () => {
+    const rowH = 36;
+    const gap = 8; // TAG_ROW_GAP, the gap between two moment rows
+    const box = momentlogBandPx(rowH) - 12; // the track less .momentlog's margin-top
+    expect(box).toBeGreaterThanOrEqual(rowH);
+    expect(box).toBeLessThan(rowH * 2 + gap);
   });
 });

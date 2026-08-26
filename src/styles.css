@@ -3396,11 +3396,14 @@ html:has(.roll) {
 }
 
 /* ------------------------------------------------- THE MIDDLE ZONE, LIVE ---
-   Three rows: an empty one, the readout block, an empty one. The clock, the
-   state line and the take bar sit in the middle row, which is `auto`, so they
-   are centred in whatever height the zone has and their own height is never
-   negotiable. The two `minmax(0, 1fr)` rows are the give: they collapse to
-   nothing on a short phone and the clock does not move a pixel while they do.
+   Three rows: an empty one, the readout block, the moments list. The clock,
+   the state line and the take bar sit in the middle row, which is `auto`, so
+   their own height is never negotiable. Both outer rows are the give: they
+   collapse to nothing on a short phone and the clock does not move a pixel
+   while they do. Only the TOP one is `1fr`, i.e. open-ended; the bottom one
+   is capped at what its contents can actually draw (see the band note below),
+   so spare height lands above the readout rather than as bare ground between
+   the take bar and the first control.
 
    THE MOMENTS LIST GOES IN THE BOTTOM ROW, and that is the fix for the second
    half of what the owner filmed. It used to be a flex sibling under a
@@ -3417,6 +3420,35 @@ html:has(.roll) {
    against the space this rule gives it and clamp to whole rows before
    render, so what "falls off the bottom" is a whole row short of a "+N
    more" line, never a mid-glyph crop of a partial one.
+
+   THE BOTTOM ROW IS CAPPED AT ONE MOMENT ROW, and that is the dead band the
+   owner filmed next: a two-unit day-theme take, three seconds in, no tag
+   tapped yet, a strip of bare ground between the take bar and the clip cards.
+   That strip WAS this row. Written as `minmax(0, 1fr)` it took HALF of
+   whatever the phone had spare, which is a leftover-pixel quantity, while the
+   only thing it can ever draw is a WHOLE NUMBER OF ROWS. Measured on the
+   sweep, zero moments tapped, band read from the take bar's bottom edge to
+   the clip cards' top: 390x844 (his own phone) 90.3px, 393x852 94.1px,
+   430x932 131.7px, and 390x667 34.3px - and at 390x844 the 66px box it
+   reserved rendered exactly ONE 36px tile ("4 moments"), so nearly half of it
+   could not be spent even with four marks logged. `minmax(0, var(...))` keeps
+   the collapse (base 0, so the zone's own intrinsic height is still just the
+   readout and the deck below never loses a pixel to this row on a short
+   phone) and adds the ceiling: the track grows into spare room only as far as
+   one measured row plus its 12px separation, and everything past that goes to
+   the `1fr` row ABOVE the readout, where no control lives. Same sweep after,
+   same measurement: 62px at every height from 740 up and 58px at 667, in both
+   themes, one camera and two - and `.roll__deck`'s own box identical to the
+   pixel at every one of them, which is the point. The band stopped scaling
+   with the glass; what scales now is the air above the clock, where nothing
+   is reached for.
+   THE CEILING IS MEASURED, NEVER TYPED. `--momentlog-band` is set from
+   RollingScreen.tsx's live `momentRowH` probe (see `momentlogBandPx` there),
+   because a `.momentrow` is as tall as `--t-secondary` makes it and the
+   interface-size setting scales that mid-take. A hardcoded ceiling would
+   silently crop the row it exists to hold the moment somebody bumps the type
+   scale. The literal in the fallback is one row at the default scale and is
+   only ever used for the frame before the probe's first measurement lands.
 
    `container-type: normal` deliberately turns size containment OFF here. The
    contained form gives the box a zero intrinsic height, which is what let the
@@ -3437,7 +3469,7 @@ html:has(.roll) {
      and the tracks are left to fill the box; the block below centres its own
      children, which is where centring belongs. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, var(--momentlog-band, 45px));
   justify-content: normal;
   justify-items: stretch;
   gap: 0;

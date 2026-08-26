@@ -383,6 +383,44 @@ const LIST_ROW_H = 44; // var(--tap) - unchanged at every height
 const TAG_ROW_GAP = 8; // var(--sp-2)
 const TAG_GROUP_GAP = 12; // var(--sp-3) - gap between the two .keypad groups
 
+/** `.momentlog`'s own `margin-top: var(--sp-3)`, which sits INSIDE the grid
+ *  track the band below sizes - so the track has to pay for it. */
+const MOMENTLOG_BAND_GAP = 12;
+/** One pixel of rounding plus one to spare. `momentlogBudgetPx` is read back
+ *  off a real `getBoundingClientRect()` and `rowsThatFit` refuses a budget
+ *  that is even a hundredth of a pixel under one row, so a band sized to
+ *  EXACTLY one row can round its way to holding none. */
+const MOMENTLOG_BAND_SLACK = 2;
+
+/**
+ * THE MOMENTS BAND'S CEILING: how tall the live stage's bottom grid row is
+ * allowed to grow, given one real `.momentrow`'s measured height.
+ *
+ * The band is what the owner filmed as "a fat strip of nothing" between the
+ * take bar and the clip cards. The row used to be `minmax(0, 1fr)`: half of
+ * whatever the phone had spare, which is a LEFTOVER-PIXEL quantity, while the
+ * only thing the box can draw is a WHOLE NUMBER OF ROWS. Measured with zero
+ * moments tapped it read 90.3px at 390x844, 131.7px at 430x932 - and at
+ * 390x844 the 66px box that share bought rendered exactly ONE 36px tile even
+ * with four marks logged, because `rowsThatFit` had room for one row and
+ * `fitTagGroup` spends that row on the count tile. So a third of it could not
+ * be spent in ANY state, empty or full, and on a taller phone far more.
+ *
+ * One row is therefore the honest ceiling, and it is deliberately not two:
+ * a two-row band measures TALLER than the strip being complained about
+ * (2 x 36 + 8 for the row gap + 12 + 12 = 116 against 90.3), which would make
+ * the screen worse to buy a line the owner's own phone never showed anyway.
+ *
+ * Computed, never typed, because a `.momentrow` is as tall as `--t-secondary`
+ * makes it and the interface-size setting scales that at any point, mid-take
+ * included - the same reason `momentRowH` is observed rather than read once.
+ * A hardcoded ceiling would crop the row it exists to hold the moment
+ * somebody bumps the type scale; this one grows with it.
+ */
+export function momentlogBandPx(rowH: number): number {
+  return Math.ceil(rowH) + MOMENTLOG_BAND_SLACK + MOMENTLOG_BAND_GAP;
+}
+
 /**
  * Would cutting `letter` right now leave nothing else rolling? Same question
  * soloCut already asks itself to decide whether to close the take - lifted
@@ -2050,6 +2088,18 @@ export function RollingScreen(props: {
       <div
         className={`roll__stage${stageClipped ? ' roll__stage--clipped' : ''}`}
         ref={stageRef}
+        /* THE MOMENTS BAND'S CEILING, handed to the sheet as a measured
+           number (see `momentlogBandPx` above for what it is and why it is
+           not a literal in styles.css). Set on the stage rather than on
+           `.momentlog` because it sizes the GRID TRACK, and the track is the
+           stage's business. Left off entirely until the probe has measured -
+           the sheet's own fallback covers that one frame - so this can never
+           publish a band computed from a null. */
+        style={
+          momentRowH !== null
+            ? ({ '--momentlog-band': `${momentlogBandPx(momentRowH)}px` } as CSSProperties)
+            : undefined
+        }
       >
         {/* The clock is the LIVE readout. Idle it always read 00:00, which is
             the least informative thing this screen could put at its largest
