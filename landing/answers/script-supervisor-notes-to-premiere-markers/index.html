@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#FDFFF8" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>Getting Script Supervisor Notes Into Premiere as Markers | Clapper</title>
+<meta name="description" content="Premiere has no built-in reader for a paper or PDF continuity log. Here is what has to happen before notes become clip markers, and how to skip the retyping." />
+<meta name="keywords" content="script supervisor notes to premiere markers, import continuity log premiere, continuity notes to markers, shot log markers premiere pro" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/answers/script-supervisor-notes-to-premiere-markers/" />
+<link rel="alternate" hreflang="en-us" href="https://clapper.in/answers/script-supervisor-notes-to-premiere-markers/" />
+<link rel="alternate" hreflang="x-default" href="https://clapper.in/answers/script-supervisor-notes-to-premiere-markers/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="Getting Script Supervisor Notes Into Premiere as Markers" />
+<meta property="og:description" content="Premiere has no built-in reader for a paper or PDF continuity log. What has to happen before notes become clip markers, and how to skip the retyping." />
+<meta property="og:url" content="https://clapper.in/answers/script-supervisor-notes-to-premiere-markers/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Getting Script Supervisor Notes Into Premiere as Markers" />
+<meta name="twitter:description" content="Premiere has no built-in reader for a paper or PDF continuity log. What has to happen before notes become clip markers, and how to skip the retyping." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Getting Script Supervisor Notes Into Premiere as Markers",
+  "description": "Premiere has no built-in reader for a paper or PDF continuity log. What has to happen before notes become clip markers, and how to skip the retyping.",
+  "datePublished": "2026-08-26",
+  "dateModified": "2026-08-26",
+  "author": { "@type": "Organization", "name": "Clapper", "url": "https://clapper.in/" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Clapper",
+    "url": "https://clapper.in/",
+    "logo": { "@type": "ImageObject", "url": "https://clapper.in/og.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://clapper.in/answers/script-supervisor-notes-to-premiere-markers/" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to get a script supervisor's notes into Premiere as markers",
+  "description": "There is no built-in Premiere feature that reads a paper or PDF continuity log. The notes have to exist in a structured, timecoded file first, matched to the right clip, before they can become markers.",
+  "totalTime": "PT10M",
+  "supply": [
+    { "@type": "HowToSupply", "name": "A logged shoot with timecoded notes per take" },
+    { "@type": "HowToSupply", "name": "The camera footage on a drive Premiere can see" }
+  ],
+  "step": [
+    { "@type": "HowToStep", "name": "Log notes at the moment of the take", "text": "Tag coverage, beats, and the keeper as they happen, with a timecode stamped on each tap, rather than writing free-text notes to be matched up later." },
+    { "@type": "HowToStep", "name": "Flag the keeper as you go", "text": "Mark the circle or GOLD take at the moment the director calls it, so the flag does not depend on anyone's memory by the time the log reaches the editor." },
+    { "@type": "HowToStep", "name": "Export a structured file at wrap", "text": "Export a Premiere XML built from the logged takes. Markers are already placed at the exact frame each note happened, named from the shot, tag, and label." },
+    { "@type": "HowToStep", "name": "Import the XML into Premiere", "text": "Drag the exported .xml into a project bin, or use File > Import. It lands as a new sequence with markers already on the clips." },
+    { "@type": "HowToStep", "name": "Relink the footage", "text": "Locate one clip and choose relink others automatically by file name to bring the rest of the shoot online in one pass." }
+  ]
+}
+</script>
+
+<style>
+:root{
+  --paper:#FDFFF8; --paper-raised:#F7F4E9; --paper-sunk:#EFEBDB;
+  --ink:#151414; --ink-dim:#5A5A5A; --rule:#E6E7DF;
+  --accent:#d8b23c; --accent-press:#c29f2f; --accent-ink:#151414;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#000000; --paper-raised:#161616; --paper-sunk:#0e0e0e;
+    --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#d8b23c; --accent-press:#e0bd54; --accent-ink:#000000;
+  }
+}
+html{color-scheme:light dark}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{width:100%;max-width:1000px;margin:0 auto;padding:0 22px}
+a{color:inherit}
+.kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 12px;display:flex;align-items:center;gap:10px}
+.kicker::before{content:"";display:inline-block;width:26px;height:2px;background:var(--accent)}
+h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.14;color:var(--ink)}
+h1{font-size:clamp(27px,4.4vw,42px);margin:0 0 18px}
+h2{font-size:clamp(21px,3vw,27px);margin:44px 0 14px}
+h3{font-size:18px;margin:22px 0 8px}
+p{margin:0 0 16px}
+.lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch}
+.prose p{max-width:70ch;color:var(--ink-dim)}
+.prose li{color:var(--ink-dim);margin-bottom:6px}
+.prose strong{color:var(--ink)}
+.mono{font-family:var(--font-mono)}
+
+.topbar{border-bottom:1px solid var(--rule)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brandmark{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;text-decoration:none;color:var(--ink)}
+.brandmark svg{border-radius:6px}
+.topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+.topnav:hover{color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;gap:.55em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+.btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+.btn-lg{padding:15px 24px;font-size:16px}
+
+section{padding:0}
+.hero{padding:50px 0 8px}
+
+.codeblock{font-family:var(--font-mono);font-size:13.5px;line-height:1.7;background:var(--paper-sunk);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;overflow-x:auto;color:var(--ink);white-space:pre}
+.codeblock .dim{color:var(--ink-dim)}
+
+.note{border-left:3px solid var(--accent);background:var(--paper-raised);padding:14px 20px;border-radius:0 10px 10px 0;margin:22px 0}
+.note p{margin:0;color:var(--ink-dim);font-size:15px;max-width:none}
+.note p strong{color:var(--ink)}
+
+ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+ol.steps li{position:relative;padding:0 0 20px 50px;counter-increment:s}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:32px;height:32px;border-radius:50%;border:1px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;color:var(--ink)}
+ol.steps li h3{margin:0 0 4px}
+ol.steps li p{margin:0;color:var(--ink-dim);font-size:15.5px}
+
+.cta{background:var(--ink);color:var(--paper);border-radius:18px;padding:clamp(30px,5vw,50px);margin:36px 0}
+.cta .kicker{color:var(--paper);opacity:.6}
+.cta .kicker::before{background:var(--accent)}
+.cta h2{color:inherit;margin-top:0}
+.cta p{color:inherit;opacity:.86;max-width:58ch}
+.cta .btn{background:var(--accent);color:#151414;border-color:var(--accent);margin-top:8px}
+
+.more{border-top:1px solid var(--rule);padding:44px 0}
+.more h2{font-size:21px;margin-top:0}
+.more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+@media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+.more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:18px 20px;color:var(--ink)}
+.more-card:hover{border-color:var(--accent)}
+.more-card .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+.more-card .n{font-weight:800;font-size:18px;margin-top:6px}
+
+footer.foot{border-top:1px solid var(--rule);padding:26px 0}
+footer.foot .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+footer.foot .fm{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;color:var(--ink)}
+footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:18px}
+footer.foot .flinks a:first-child{margin-left:0}
+footer.foot .flinks a:hover{color:var(--ink)}
+footer.foot .made{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <a class="topnav" href="https://clapper.in/">Open the app &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Set notes to editor</p>
+        <h1>How do you get script supervisor notes into Premiere as markers?</h1>
+        <p class="lede">There is no built-in Premiere feature that reads a PDF or paper continuity log and creates markers from it. The notes have to exist in a structured, timecoded file first, matched to the right clip, before Premiere can turn them into anything. Doing that by hand means retyping every note against a clip name after the fact. Doing it with a phone-first take log means the structured file already exists the moment you call wrap, because every note was captured at the moment it happened.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Why "just import the report" does not work</h2>
+        <p>A script supervisor's daily report is built to be read on a page: scene, take, camera roll, a remarks column. That shape is for a human eye, not a marker schema, and Premiere has no reader for it. Third-party CSV marker importers do exist for Premiere, built by people who ran into exactly this gap, but they still expect a structured row per marker with a timecode and a target clip, which a report was never built to provide on its own.</p>
+        <p>So the real work is upstream of Premiere entirely: getting the notes into a structured, timecoded, per-clip shape in the first place. That is either a manual transcription pass after wrap, or a log that was already structured the moment each note was taken.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <ol class="steps">
+          <li><h3>Log notes at the moment of the take</h3><p>Tag coverage, beats, and the keeper as they happen, with a timecode stamped on each tap, instead of writing free-text notes to reconcile with a clip later.</p></li>
+          <li><h3>Flag the keeper as you go</h3><p>Mark the circle or GOLD take when the director calls it, not after the fact from memory. A flag that survives to the edit has to be recorded at the moment it is made.</p></li>
+          <li><h3>Export a structured file at wrap</h3><p>A Premiere XML built from the logged takes carries markers already placed at the exact frame each note happened, named from the shot code, the tag, and the label.</p></li>
+          <li><h3>Import the XML into Premiere</h3><p>Drag the exported file into a project bin, or use File &gt; Import. It lands as a new sequence, markers already on the clips.</p></li>
+          <li><h3>Relink the footage</h3><p>Locate one clip by hand, then choose relink others automatically by file name, which brings the rest of the shoot online in one pass.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <div class="note"><p><strong>What this replaces:</strong> an assistant editor with the paper report on one monitor and the timeline on the other, scrubbing to a take number and typing a marker by hand, one clip at a time. It works. It also does not scale past a short day's footage without someone losing an hour to it.</p></div>
+        <p>The mechanics of what actually rides on each marker, how a multi-camera sequence gets built, and why a good take does not duplicate the media bin are covered in depth on the <a href="../../articles/shot-log-to-premiere-xml/">shot log to Premiere XML</a> page. This page is about the step before that: getting from notes to a file Premiere can read at all.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cta">
+          <p class="kicker">Same taps, no retyping</p>
+          <h2>Log it once on set, export it once at wrap</h2>
+          <p>Clapper logs the take with a timecode on every tap, carries the GOLD flag through, and builds the Premiere XML, PDF, and CSV from the same log. No separate notes file, no matching pass.</p>
+          <a class="btn btn-lg" href="https://clapper.in/app/">Open Clapper <span>&rarr;</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Keep reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="../free-alternative-to-shot-notes-x/">
+            <div class="l">Comparison</div>
+            <div class="n">Is there a free alternative to Shot Notes X?</div>
+          </a>
+          <a class="more-card" href="../../articles/shot-log-to-premiere-xml/">
+            <div class="l">Reference</div>
+            <div class="n">Shot log to Premiere XML: how the export works</div>
+          </a>
+          <a class="more-card" href="../does-editor-need-special-software-for-shot-log-xml/">
+            <div class="l">FAQ</div>
+            <div class="n">Does the editor need special software to open it?</div>
+          </a>
+          <a class="more-card" href="../../templates/script-supervisor-daily-report/">
+            <div class="l">Free template</div>
+            <div class="n">Script supervisor daily report</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
+        <a href="../../articles/shot-log-to-premiere-xml/">Premiere export</a>
+        <a href="../../templates/script-supervisor-daily-report/">Daily report template</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+      <span class="made">made for set</span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#FDFFF8" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>Two Cameras, Same Clip Number: How the Editor Tells Them Apart | Clapper</title>
+<meta name="description" content="Two camera bodies of the same model will write identical file names on the same day. That is not a bug. Here is what actually disambiguates them, and what not to do about it." />
+<meta name="keywords" content="two cameras same clip number, duplicate file name multicam, camera A camera B clip number, multicam same filename premiere" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/answers/two-cameras-same-clip-number/" />
+<link rel="alternate" hreflang="en-us" href="https://clapper.in/answers/two-cameras-same-clip-number/" />
+<link rel="alternate" hreflang="x-default" href="https://clapper.in/answers/two-cameras-same-clip-number/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="Two Cameras, Same Clip Number: How the Editor Tells Them Apart" />
+<meta property="og:description" content="Two camera bodies of the same model will write identical file names on the same day. What actually disambiguates them, and what not to do about it." />
+<meta property="og:url" content="https://clapper.in/answers/two-cameras-same-clip-number/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Two Cameras, Same Clip Number: How the Editor Tells Them Apart" />
+<meta name="twitter:description" content="Two camera bodies of the same model will write identical file names on the same day. What actually disambiguates them, and what not to do about it." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Two Cameras, Same Clip Number: How the Editor Tells Them Apart",
+  "description": "Two camera bodies of the same model will write identical file names on the same day. What actually disambiguates them, and what not to do about it.",
+  "datePublished": "2026-08-26",
+  "dateModified": "2026-08-26",
+  "author": { "@type": "Organization", "name": "Clapper", "url": "https://clapper.in/" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Clapper",
+    "url": "https://clapper.in/",
+    "logo": { "@type": "ImageObject", "url": "https://clapper.in/og.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://clapper.in/answers/two-cameras-same-clip-number/" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [{
+    "@type": "Question",
+    "name": "If two cameras write the same clip number on the same day, how does the editor tell the files apart?",
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Two camera bodies of the same model, running the same firmware naming scheme, will write identical file names on the same shoot day. It is not a bug, it is how each camera numbers its own files independently. The fix is not renaming the footage. It is carrying each camera's unit letter, A, B, C, as the clip's reel name in the edit, so the editor's software can tell camera A's clip 0047 apart from camera B's clip 0047 without either file ever being touched."
+    }
+  }]
+}
+</script>
+
+<style>
+:root{
+  --paper:#FDFFF8; --paper-raised:#F7F4E9; --paper-sunk:#EFEBDB;
+  --ink:#151414; --ink-dim:#5A5A5A; --rule:#E6E7DF;
+  --accent:#d8b23c; --accent-press:#c29f2f; --accent-ink:#151414;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#000000; --paper-raised:#161616; --paper-sunk:#0e0e0e;
+    --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#d8b23c; --accent-press:#e0bd54; --accent-ink:#000000;
+  }
+}
+html{color-scheme:light dark}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{width:100%;max-width:1000px;margin:0 auto;padding:0 22px}
+a{color:inherit}
+.kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 12px;display:flex;align-items:center;gap:10px}
+.kicker::before{content:"";display:inline-block;width:26px;height:2px;background:var(--accent)}
+h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.14;color:var(--ink)}
+h1{font-size:clamp(27px,4.4vw,42px);margin:0 0 18px}
+h2{font-size:clamp(21px,3vw,27px);margin:44px 0 14px}
+h3{font-size:18px;margin:22px 0 8px}
+p{margin:0 0 16px}
+.lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch}
+.prose p{max-width:70ch;color:var(--ink-dim)}
+.prose li{color:var(--ink-dim);margin-bottom:6px}
+.prose strong{color:var(--ink)}
+.mono{font-family:var(--font-mono)}
+
+.topbar{border-bottom:1px solid var(--rule)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brandmark{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;text-decoration:none;color:var(--ink)}
+.brandmark svg{border-radius:6px}
+.topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+.topnav:hover{color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;gap:.55em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+.btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+.btn-lg{padding:15px 24px;font-size:16px}
+
+section{padding:0}
+.hero{padding:50px 0 8px}
+
+.note{border-left:3px solid var(--accent);background:var(--paper-raised);padding:14px 20px;border-radius:0 10px 10px 0;margin:22px 0}
+.note p{margin:0;color:var(--ink-dim);font-size:15px;max-width:none}
+.note p strong{color:var(--ink)}
+
+.cta{background:var(--ink);color:var(--paper);border-radius:18px;padding:clamp(30px,5vw,50px);margin:36px 0}
+.cta .kicker{color:var(--paper);opacity:.6}
+.cta .kicker::before{background:var(--accent)}
+.cta h2{color:inherit;margin-top:0}
+.cta p{color:inherit;opacity:.86;max-width:58ch}
+.cta .btn{background:var(--accent);color:#151414;border-color:var(--accent);margin-top:8px}
+
+.more{border-top:1px solid var(--rule);padding:44px 0}
+.more h2{font-size:21px;margin-top:0}
+.more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+@media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+.more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:18px 20px;color:var(--ink)}
+.more-card:hover{border-color:var(--accent)}
+.more-card .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+.more-card .n{font-weight:800;font-size:18px;margin-top:6px}
+
+footer.foot{border-top:1px solid var(--rule);padding:26px 0}
+footer.foot .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+footer.foot .fm{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;color:var(--ink)}
+footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:18px}
+footer.foot .flinks a:first-child{margin-left:0}
+footer.foot .flinks a:hover{color:var(--ink)}
+footer.foot .made{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <a class="topnav" href="https://clapper.in/">Open the app &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Multi-camera</p>
+        <h1>Two cameras wrote the same clip number. How does the editor tell them apart?</h1>
+        <p class="lede">Two camera bodies of the same model, running the same naming scheme, will write identical file names on the same shoot day. It is not a bug, it is how each camera numbers its own files independently, with no idea the other one exists. The fix is not renaming footage. It is carrying each camera's unit letter, A, B, C, as the clip's reel name in the edit, so the editor can tell camera A's clip 0047 apart from camera B's clip 0047 without either file being touched.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Why this happens on ordinary gear, not just exotic rigs</h2>
+        <p>This is not a rare edge case. Editors running two identical camera bodies on a multicam rig report this exact problem: both cameras reset to clip 0001 for the day, both count up from there, and the media lands in one project with no built-in way to separate them until each camera's clips are pulled apart by hand. Two units of the same model writing the same filename is expected behavior, not a malfunction to troubleshoot.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>What actually disambiguates them</h2>
+        <p>Not the filename. A camera's own file name field is not built to be globally unique across two bodies, and trying to force it to be, by bulk-renaming a card, breaks the link back to the camera's own metadata and checksums, which is a worse problem than the one you started with.</p>
+        <p>The field that is built for exactly this is the reel name. Every clip on an edit timeline carries a reel name independent of its filename, and giving each camera unit a distinct reel, A, B, C, D, means the editing software can group and multicam-sync by reel even when two files share an identical name. A shot log that tracks up to four camera units this way carries the unit letter through to the export as the FCP7 reel name automatically, so the disambiguation exists before the editor ever opens the project.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>What not to do about it</h2>
+        <ul style="max-width:70ch;color:var(--ink-dim);padding-left:20px">
+          <li>Do not bulk-rename either card to force uniqueness. It breaks the tie back to the camera's own file record and any checksum you took at wrap.</li>
+          <li>Do not assume the later-ingested camera's files are the ones with the conflict. Both cameras are equally "right"; the collision is structural, not a mistake either operator made.</li>
+          <li>Do not merge both cameras into one bin before separating them by reel or folder. Untangling it after the fact costs far more time than keeping them apart from ingest.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>The related but different problem</h2>
+        <p>This is a same-day collision between two different physical cameras. A different, also real problem is the same camera's own filename repeating across two different shoot days, which is a card-reuse issue rather than a multi-camera one. That case, and how an export handles it with a dated reel folder instead of a blind filename match, is covered on the <a href="../../articles/camera-clip-naming-conventions/">camera clip naming conventions</a> page.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cta">
+          <p class="kicker">One to four camera units</p>
+          <h2>Each camera keeps its own counter and its own reel</h2>
+          <p>Clapper numbers each camera unit independently and carries the unit letter through as the reel name on export, so two cameras with identical filenames still land in the edit correctly separated.</p>
+          <a class="btn btn-lg" href="https://clapper.in/app/">Open Clapper <span>&rarr;</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Keep reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="../../articles/camera-clip-naming-conventions/">
+            <div class="l">Reference</div>
+            <div class="n">Camera clip naming conventions, camera by camera</div>
+          </a>
+          <a class="more-card" href="../camera-rolled-without-a-log/">
+            <div class="l">FAQ</div>
+            <div class="n">Camera rolled without a log: what happens to the numbers?</div>
+          </a>
+          <a class="more-card" href="../does-editor-need-special-software-for-shot-log-xml/">
+            <div class="l">FAQ</div>
+            <div class="n">Does the editor need special software to open it?</div>
+          </a>
+          <a class="more-card" href="../../templates/camera-log-sheet/">
+            <div class="l">Free template</div>
+            <div class="n">Camera log sheet (PDF)</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
+        <a href="../../articles/camera-clip-naming-conventions/">Clip naming</a>
+        <a href="../../templates/camera-log-sheet/">Camera log sheet</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+      <span class="made">made for set</span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+</body>
+</html>
