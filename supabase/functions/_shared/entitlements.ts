@@ -169,6 +169,14 @@ export async function applyCreditPurchase(
   const userId = claimed.userId ?? purchase.userId!;
   const credits = claimed.credits > 0 ? claimed.credits : purchase.credits;
 
+  // WHY grant_failed IS NOT RETRIED AUTOMATICALLY. The credit write is not
+  // idempotent (it is `balance = balance + n`), so a delivery that failed
+  // AFTER the credits landed is indistinguishable from one that failed before.
+  // Re-claiming a grant_failed row would therefore risk paying out twice to
+  // fix a case that might already be fine. The row stays out of the claimable
+  // set, the reconciliation panel shows it, and a human repairs it. That costs
+  // one manual fix in a rare case; the alternative costs money in a rare case
+  // and nobody notices.
   const { balance, error: addErr } = await store.addCredits(userId, credits);
   if (addErr || balance === null) {
     const error = addErr ?? "no profile row for that account";
