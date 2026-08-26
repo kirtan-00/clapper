@@ -23,16 +23,17 @@ const PRO_LIMIT = 1000000;
 //   script    1   the expensive one — it calls Groq, and it is the feature Pro
 //                 exists to sell. One is enough to prove it works on your own
 //                 shot list, which is the only demo that convinces anybody.
-//   premiere  3   XML, POOLED across Premiere and DaVinci Resolve. They share
+//   premiere  2   XML, POOLED across Premiere and DaVinci Resolve. They share
 //                 one counter deliberately: same handoff, same editor, and
 //                 charging twice for choosing a different NLE is arbitrary.
+//                 Cut from 3 to 2 on 2026-08-26.
 //   pdf       5   NEW. PDF was ungated entirely — the one export a producer
 //                 actually prints and hands round a unit was the only one
 //                 nobody paid for.
 //   csv       5   unchanged.
 const FREE_LIMITS: Record<string, number> = {
   script: 1,
-  premiere: 3,
+  premiere: 2,
   pdf: 5,
   csv: 5,
 };

@@ -14,14 +14,14 @@ import { supabase } from './supabase';
  * server wins, and the user was shown a number that lied to them.
  *
  *   script    1   it calls Groq, and it is what Pro is for
- *   premiere  3   XML, POOLED across Premiere and Resolve — same handoff, same
- *                 editor, one counter
+ *   premiere  2   XML, POOLED across Premiere and Resolve, same handoff, same
+ *                 editor, one counter. Cut from 3 to 2 on 2026-08-26.
  *   pdf       5   gated as of 2026-08-20; it was free and uncounted before
  *   csv       5
  */
 export const FREE_LIMITS = {
   script: 1,
-  premiere: 3,
+  premiere: 2,
   pdf: 5,
   csv: 5,
 } as const;
