@@ -103,6 +103,17 @@ function int(v: unknown): number | null {
  * `credits: 500` would be ignored, because metadata is a string bag and the
  * price list is the only thing allowed to answer that question.
  */
+/** The event's own `type` field, read before deciding which specific reader
+ *  (readCheckoutEvent / readInvoiceEvent / readSubscriptionStatusEvent)
+ *  applies to it. NOT a substitute for those readers' own validation - each
+ *  one re-checks id and type from scratch and returns null on anything
+ *  malformed. This is a dispatch key only, so the webhook can route to the
+ *  right shape reader without three readers racing to parse the same body. */
+export function peekEventType(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  return str((payload as Record<string, unknown>).type, 120);
+}
+
 export function readCheckoutEvent(payload: unknown): CheckoutRead | null {
   if (!payload || typeof payload !== "object") return null;
   const evt = payload as Record<string, unknown>;

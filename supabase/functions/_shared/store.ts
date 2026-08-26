@@ -73,16 +73,50 @@ export function supabaseEntitlementStore(
       return { balance: typeof balance === "number" && balance >= 0 ? balance : null };
     },
 
-    async finishPurchase(provider: string, eventId: string, status: string, note?: string | null) {
+    async finishPurchase(
+      provider: string,
+      eventId: string,
+      status: string,
+      note?: string | null,
+      credits?: number,
+    ) {
       const now = new Date().toISOString();
       const patch: Record<string, unknown> = { status, updated_at: now, note: note ?? null };
       if (status === "granted") patch.granted_at = now;
+      // Only for the subscription path: the row was recorded with credits 0
+      // because the true amount was not known yet. A one-time purchase never
+      // passes this - its credits were already correct at record time.
+      if (typeof credits === "number") patch.credits = credits;
       const { error } = await admin
         .from("purchases")
         .update(patch)
         .eq("provider", provider)
         .eq("provider_event_id", eventId);
       return { error: error ? String(error.message ?? error) : undefined };
+    },
+
+    async grantSubscriptionCredits(userId: string, isFirstInvoice: boolean, introCredits: number, renewalCredits: number) {
+      const { data, error } = await admin.rpc("grant_subscription_invoice_credits", {
+        p_user: userId,
+        p_is_first_invoice: isFirstInvoice,
+        p_intro_credits: introCredits,
+        p_renewal_credits: renewalCredits,
+      });
+      if (error) {
+        return { credits: 0, bonusApplied: false, balance: null, error: String(error.message ?? error) };
+      }
+      // A table-returning function comes back through PostgREST as an array
+      // of rows; this RPC always returns exactly one.
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { granted_credits?: unknown; bonus_applied?: unknown; balance?: unknown }
+        | undefined;
+      if (!row) return { credits: 0, bonusApplied: false, balance: null, error: "no row returned" };
+      const balance = typeof row.balance === "number" && row.balance >= 0 ? row.balance : null;
+      return {
+        credits: typeof row.granted_credits === "number" ? row.granted_credits : 0,
+        bonusApplied: row.bonus_applied === true,
+        balance,
+      };
     },
 
     logEvent,

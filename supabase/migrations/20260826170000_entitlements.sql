@@ -307,12 +307,138 @@ revoke execute on function public.refund_project_breakdown(uuid, text) from publ
 grant  execute on function public.refund_project_breakdown(uuid, text) to service_role;
 
 -- ---------------------------------------------------------------------------
+-- 4b. Subscriptions
+-- ---------------------------------------------------------------------------
+-- ADDED 2026-08-26, WHEN THE MODEL CHANGED FROM ONE-TIME CREDITS TO A
+-- SUBSCRIPTION PLUS A BUNDLE. Nothing above this section is touched: a
+-- credit still unlocks one project, permanently, whether it came from a
+-- monthly grant or a bundle. What is new is HOW a credit gets granted every
+-- month, and the one new failure mode a subscription creates that a one-time
+-- purchase never could: the same account collecting the first-month bonus
+-- more than once by cancelling and resubscribing.
+--
+-- subscription_intro_bonus_granted IS THE WHOLE MECHANISM THAT PREVENTS
+-- THAT. It is a flag on the ACCOUNT, not on a subscription id, it is set
+-- exactly once, and it is never reset - not on cancellation, not on a new
+-- subscription starting later. grant_subscription_invoice_credits flips it
+-- atomically in the same statement that decides which credit amount to
+-- grant, so two first invoices for one account (should never happen - one
+-- checkout creates one subscription - but "should never happen" is not
+-- something a WHERE clause gets to assume) cannot both win it.
+alter table public.profiles
+  add column if not exists subscription_intro_bonus_granted boolean not null default false;
+comment on column public.profiles.subscription_intro_bonus_granted is
+  'True once this account has ever received the 5-credit first-month bonus, on any subscription, ever. Set exactly once, inside grant_subscription_invoice_credits, guard in the WHERE clause. Never reset by cancellation or by starting a second subscription - that is what stops the bonus being collected twice.';
+
+-- subscription_status / subscription_id / subscription_current_period_end
+-- are a MIRROR, written by customer.subscription.created/.updated/.deleted,
+-- for the dashboard to show at a glance. NOTHING READS THESE THREE COLUMNS
+-- TO GATE A FEATURE. project_credits, credits_purchased_total and
+-- project_entitlements are the only things export-gate, breakdown and the
+-- unlock path ever look at, and none of the three subscription columns
+-- appears in any of those checks - a cancelled or unpaid subscription stops
+-- FUTURE grants (invoice.paid simply stops arriving) without touching a
+-- single credit already spent or a single project already unlocked. That
+-- project stays unlocked forever, exactly as a bundle-bought one does.
+alter table public.profiles
+  add column if not exists subscription_status text;
+alter table public.profiles
+  add column if not exists subscription_id text;
+alter table public.profiles
+  add column if not exists subscription_current_period_end timestamptz;
+comment on column public.profiles.subscription_status is
+  'Mirror of the Stripe Subscription.status field (active, trialing, past_due, canceled, unpaid, incomplete, incomplete_expired, paused), written by customer.subscription.created/.updated/.deleted. Null means never subscribed. Display only for the dashboard Money panel - see the note above about what does and does not gate on it.';
+comment on column public.profiles.subscription_id is
+  'The Stripe subscription id (sub_...) this account last had. Overwritten if the account starts a second subscription later; the purchase ledger, not this column, is the permanent record.';
+comment on column public.profiles.subscription_current_period_end is
+  'Best-effort renewal date off the Stripe subscription object, for display. Nothing gates on it.';
+
+-- grant_subscription_invoice_credits: called once per invoice.paid, AFTER
+-- the (provider, event_id) claim in `purchases` has already made this the
+-- single winning delivery for THAT EVENT (see applySubscriptionCredit in
+-- _shared/entitlements.ts). What THIS function guards against is a
+-- different, longer-lived problem: whether the ACCOUNT has ever had its
+-- first-month bonus before, which the caller cannot safely read and then
+-- act on without a race.
+--
+--   p_is_first_invoice   true only for billing_reason = 'subscription_create'
+--   p_intro_credits      5, from products.ts - granted the first time ever
+--   p_renewal_credits    2, from products.ts - granted every other time,
+--                        INCLUDING a first invoice when the bonus is
+--                        already spent. A second subscription still grants
+--                        something; it never grants the bonus twice.
+--
+-- Returns the credits actually granted, whether the bonus was the one
+-- applied, and the new balance (-1 if there is no such profile, same
+-- sentinel grant_project_credits already uses).
+create or replace function public.grant_subscription_invoice_credits(
+  p_user uuid,
+  p_is_first_invoice boolean,
+  p_intro_credits int,
+  p_renewal_credits int
+)
+returns table(granted_credits int, bonus_applied boolean, balance int)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_hit     int;
+  v_bonus   boolean := false;
+  v_credits int;
+  v_balance int;
+begin
+  if p_user is null then
+    raise exception 'grant_subscription_invoice_credits: user is required';
+  end if;
+  if p_intro_credits is null or p_intro_credits <= 0
+     or p_renewal_credits is null or p_renewal_credits <= 0 then
+    raise exception 'grant_subscription_invoice_credits: credits must be positive';
+  end if;
+
+  if p_is_first_invoice then
+    -- THE GUARD. One conditional UPDATE, guard in the WHERE clause, no read
+    -- first - the unlock_project shape. Exactly one caller can ever flip
+    -- this false to true for a given account.
+    update public.profiles
+       set subscription_intro_bonus_granted = true
+     where user_id = p_user
+       and subscription_intro_bonus_granted = false;
+    get diagnostics v_hit = row_count;
+    v_bonus := v_hit > 0;
+  end if;
+
+  v_credits := case when v_bonus then p_intro_credits else p_renewal_credits end;
+
+  update public.profiles
+     set project_credits         = project_credits + v_credits,
+         credits_purchased_total = credits_purchased_total + v_credits
+   where user_id = p_user
+  returning project_credits into v_balance;
+
+  if v_balance is null then
+    v_balance := -1;
+  end if;
+
+  return query select v_credits, v_bonus, v_balance;
+end;
+$$;
+
+revoke execute on function public.grant_subscription_invoice_credits(uuid, boolean, int, int) from public, anon, authenticated;
+grant  execute on function public.grant_subscription_invoice_credits(uuid, boolean, int, int) to service_role;
+
+-- ---------------------------------------------------------------------------
 -- 5. What is deliberately NOT here
 -- ---------------------------------------------------------------------------
 -- No trigger that grants credits. No policy that lets a client read or write
 -- any of this. No drop of is_pro or pro_until. No projects table: the app's
 -- projects live on the device, and inventing a server-side copy of them to
 -- hang an entitlement on would be a sync problem far bigger than the feature.
+-- No RPC that touches subscription_status/subscription_id/
+-- subscription_current_period_end: those three are written with a plain
+-- UPDATE from stripe-webhook (service role, same posture dashboard-api
+-- already uses for is_pro/is_suspended), because setting a mirror to the
+-- value Stripe just sent is idempotent by construction and needs no claim.
 
 -- ---------------------------------------------------------------------------
 -- 6. One more unique index, for a mistake that is easy to make in the Paddle

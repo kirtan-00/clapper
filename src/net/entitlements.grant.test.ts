@@ -35,7 +35,13 @@ function fakeStore(opts?: { addCreditsFails?: string; startingBalance?: number }
   const txnSeen = new Set<string>();
   const balances = new Map<string, number>();
   const events: { name: string; userId: string | null; props: Record<string, unknown> }[] = [];
-  const calls = { record: 0, claim: 0, addCredits: 0, finish: 0 };
+  const calls = { record: 0, claim: 0, addCredits: 0, finish: 0, grantSubscription: 0 };
+  // Stands in for profiles.subscription_intro_bonus_granted: a flag on the
+  // ACCOUNT, set once, never cleared. This is the thing under test in the
+  // "bonus is unrepeatable" suite below - a fake that just returned the
+  // bonus every time would make those tests pass while proving nothing,
+  // exactly like the note on claimPurchase above.
+  const introBonusGranted = new Set<string>();
 
   const key = (provider: string, eventId: string) => `${provider}::${eventId}`;
 
@@ -86,14 +92,31 @@ function fakeStore(opts?: { addCreditsFails?: string; startingBalance?: number }
       return { balance: next };
     },
 
-    async finishPurchase(provider, eventId, status, note) {
+    async finishPurchase(provider, eventId, status, note, credits) {
       calls.finish++;
       const row = rows.get(key(provider, eventId));
       if (row) {
         row.status = status;
         row.note = note ?? null;
+        if (typeof credits === 'number') row.credits = credits;
       }
       return {};
+    },
+
+    async grantSubscriptionCredits(userId, isFirstInvoice, introCredits, renewalCredits) {
+      calls.grantSubscription++;
+      if (opts?.addCreditsFails) {
+        return { credits: 0, bonusApplied: false, balance: null, error: opts.addCreditsFails };
+      }
+      // THE GUARD, mirroring grant_subscription_invoice_credits' WHERE
+      // clause: the bonus can be claimed by this account exactly once, ever,
+      // no matter how many first invoices arrive for it.
+      const bonusApplied = isFirstInvoice && !introBonusGranted.has(userId);
+      if (bonusApplied) introBonusGranted.add(userId);
+      const credits = bonusApplied ? introCredits : renewalCredits;
+      const next = (balances.get(userId) ?? opts?.startingBalance ?? 0) + credits;
+      balances.set(userId, next);
+      return { credits, bonusApplied, balance: next };
     },
 
     async logEvent(name, userId, props) {
@@ -101,7 +124,7 @@ function fakeStore(opts?: { addCreditsFails?: string; startingBalance?: number }
     },
   };
 
-  return { store, rows, balances, events, calls };
+  return { store, rows, balances, events, calls, introBonusGranted };
 }
 
 const USER = '11111111-1111-4111-8111-111111111111';
