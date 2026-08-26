@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#FDFFF8" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<title>What Does the Editor Actually Receive at Wrap? | Clapper</title>
+<meta name="description" content="A separate file, not a modified one. Why a shot log should never touch the camera's own media, and what actually ships at wrap: a Premiere XML, a PDF, and a CSV." />
+<meta name="keywords" content="what does editor receive at wrap, shot log deliverables, premiere xml pdf csv export, separate synced log vs embedded markers" />
+<meta name="author" content="Clapper" />
+<link rel="canonical" href="https://clapper.in/answers/what-editor-actually-receives-at-wrap/" />
+<link rel="alternate" hreflang="en-us" href="https://clapper.in/answers/what-editor-actually-receives-at-wrap/" />
+<link rel="alternate" hreflang="x-default" href="https://clapper.in/answers/what-editor-actually-receives-at-wrap/" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="Clapper" />
+<meta property="og:title" content="What Does the Editor Actually Receive at Wrap?" />
+<meta property="og:description" content="A separate file, not a modified one. Why a shot log should never touch the camera's own media, and what ships at wrap: a Premiere XML, a PDF, and a CSV." />
+<meta property="og:url" content="https://clapper.in/answers/what-editor-actually-receives-at-wrap/" />
+<meta property="og:image" content="https://clapper.in/og.png" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="What Does the Editor Actually Receive at Wrap?" />
+<meta name="twitter:description" content="A separate file, not a modified one. Why a shot log should never touch the camera's own media, and what ships at wrap: a Premiere XML, a PDF, and a CSV." />
+<meta name="twitter:image" content="https://clapper.in/og.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "What Does the Editor Actually Receive at Wrap?",
+  "description": "A separate file, not a modified one. Why a shot log should never touch the camera's own media, and what actually ships at wrap: a Premiere XML, a PDF, and a CSV.",
+  "datePublished": "2026-08-26",
+  "dateModified": "2026-08-26",
+  "author": { "@type": "Organization", "name": "Clapper", "url": "https://clapper.in/" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Clapper",
+    "url": "https://clapper.in/",
+    "logo": { "@type": "ImageObject", "url": "https://clapper.in/og.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://clapper.in/answers/what-editor-actually-receives-at-wrap/" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [{
+    "@type": "Question",
+    "name": "What does the editor actually receive at wrap: a Premiere project, or something else?",
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "A separate file, not a modified one. A shot log builds a timestamp-synced record from the taps made on set: a Premiere-ready XML, a PDF, and a CSV. It never opens the camera's own media files to write into them, never touches camera timecode, and never renames a single clip on the card. The editor gets a new sequence or document that points at the footage; the footage itself arrives exactly as the camera wrote it."
+    }
+  }]
+}
+</script>
+
+<style>
+:root{
+  --paper:#FDFFF8; --paper-raised:#F7F4E9; --paper-sunk:#EFEBDB;
+  --ink:#151414; --ink-dim:#5A5A5A; --rule:#E6E7DF;
+  --accent:#d8b23c; --accent-press:#c29f2f; --accent-ink:#151414;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#000000; --paper-raised:#161616; --paper-sunk:#0e0e0e;
+    --ink:#ece9e1; --ink-dim:#999793; --rule:#262626;
+    --accent:#d8b23c; --accent-press:#e0bd54; --accent-ink:#000000;
+  }
+}
+html{color-scheme:light dark}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{width:100%;max-width:1000px;margin:0 auto;padding:0 22px}
+a{color:inherit}
+.kicker{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 12px;display:flex;align-items:center;gap:10px}
+.kicker::before{content:"";display:inline-block;width:26px;height:2px;background:var(--accent)}
+h1,h2,h3{font-family:var(--font-ui);font-weight:800;letter-spacing:-.01em;line-height:1.14;color:var(--ink)}
+h1{font-size:clamp(27px,4.4vw,42px);margin:0 0 18px}
+h2{font-size:clamp(21px,3vw,27px);margin:44px 0 14px}
+h3{font-size:18px;margin:22px 0 8px}
+p{margin:0 0 16px}
+.lede{font-size:clamp(17px,1.8vw,20px);color:var(--ink-dim);max-width:66ch}
+.prose p{max-width:70ch;color:var(--ink-dim)}
+.prose li{color:var(--ink-dim);margin-bottom:6px}
+.prose strong{color:var(--ink)}
+.mono{font-family:var(--font-mono)}
+
+.topbar{border-bottom:1px solid var(--rule)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brandmark{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;text-decoration:none;color:var(--ink)}
+.brandmark svg{border-radius:6px}
+.topnav{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none}
+.topnav:hover{color:var(--ink)}
+
+.btn{display:inline-flex;align-items:center;gap:.55em;background:var(--accent);color:var(--accent-ink);font-family:var(--font-ui);font-size:15px;font-weight:700;text-decoration:none;border:1px solid var(--accent);cursor:pointer;padding:13px 20px;border-radius:10px}
+.btn:hover{background:var(--accent-press);border-color:var(--accent-press)}
+.btn-lg{padding:15px 24px;font-size:16px}
+
+section{padding:0}
+.hero{padding:50px 0 8px}
+
+.compare{border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin:8px 0 20px}
+.compare-row{display:flex;align-items:flex-start;gap:14px;padding:16px 18px}
+.compare-row + .compare-row{border-top:1px solid var(--rule)}
+.compare-row .tag{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);flex:0 0 110px;font-weight:700}
+.compare-row .desc{color:var(--ink-dim);font-size:15px}
+.compare-row .desc strong{color:var(--ink)}
+
+.note{border-left:3px solid var(--accent);background:var(--paper-raised);padding:14px 20px;border-radius:0 10px 10px 0;margin:22px 0}
+.note p{margin:0;color:var(--ink-dim);font-size:15px;max-width:none}
+.note p strong{color:var(--ink)}
+
+.cta{background:var(--ink);color:var(--paper);border-radius:18px;padding:clamp(30px,5vw,50px);margin:36px 0}
+.cta .kicker{color:var(--paper);opacity:.6}
+.cta .kicker::before{background:var(--accent)}
+.cta h2{color:inherit;margin-top:0}
+.cta p{color:inherit;opacity:.86;max-width:58ch}
+.cta .btn{background:var(--accent);color:#151414;border-color:var(--accent);margin-top:8px}
+
+.more{border-top:1px solid var(--rule);padding:44px 0}
+.more h2{font-size:21px;margin-top:0}
+.more-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+@media(max-width:720px){.more-grid{grid-template-columns:1fr}}
+.more-card{display:block;text-decoration:none;border:1px solid var(--rule);border-radius:14px;padding:18px 20px;color:var(--ink)}
+.more-card:hover{border-color:var(--accent)}
+.more-card .l{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+.more-card .n{font-weight:800;font-size:18px;margin-top:6px}
+
+footer.foot{border-top:1px solid var(--rule);padding:26px 0}
+footer.foot .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+footer.foot .fm{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;color:var(--ink)}
+footer.foot .flinks a{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);text-decoration:none;margin-left:18px}
+footer.foot .flinks a:first-child{margin-left:0}
+footer.foot .flinks a:hover{color:var(--ink)}
+footer.foot .made{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border-top:1px solid var(--rule);font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brandmark" href="https://clapper.in/">
+        <svg width="24" height="24" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </a>
+      <a class="topnav" href="https://clapper.in/">Open the app &rarr;</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Wrap deliverables</p>
+        <h1>What does the editor actually receive at wrap?</h1>
+        <p class="lede">A separate file, not a modified one. A shot log builds a timestamp-synced record from the taps made on set: a Premiere-ready XML, a PDF, and a CSV. It never opens the camera's own media files to write into them, never touches camera timecode, and never renames a single clip on the card. The editor gets a new sequence or document that points at the footage; the footage itself arrives exactly as the camera wrote it.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>Why that is the honest design, not a missing feature</h2>
+        <p>Some tools in this space do more invasive things: burning markers directly into camera-native media, or managing a rename pass on the card. That trade-off is real. Touching the original media is also a category of risk that a tool which only ever produces new, separate files simply does not have. One bad write into a camera file and you have put a corrupted card in front of an assistant editor who now has to figure out whether the footage or the tool broke it. Never opening those files at all means that failure mode cannot happen, by construction, not by careful handling.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="compare">
+          <div class="compare-row"><span class="tag">Premiere XML</span><span class="desc"><strong>A new sequence.</strong> Markers at the exact frame every take was tagged, built as a two-band structure: good takes in story order, then every take again as a selects pool.</span></div>
+          <div class="compare-row"><span class="tag">PDF</span><span class="desc"><strong>A document for production and the director.</strong> Scenes, shots, clip numbers, durations, a GOLD summary up front, discarded takes struck through at the back.</span></div>
+          <div class="compare-row"><span class="tag">CSV</span><span class="desc"><strong>One row per tagged moment.</strong> Every field an assistant editor might want: scene, shot, take, camera, timecode in and out, status, note.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap prose">
+        <h2>What it does not do</h2>
+        <ul style="max-width:70ch;color:var(--ink-dim);padding-left:20px">
+          <li>Does not write into the camera's own media files or embed anything inside them.</li>
+          <li>Does not touch camera timecode. Every export carries its own wall-clock and camera timecode fields side by side, but nothing on the card itself changes.</li>
+          <li>Does not rename footage on the card. Clip numbers in the log are matched to what the camera already named its files, never the other way around.</li>
+        </ul>
+        <p>The deep mechanics of what actually rides on each marker, how a multi-camera sequence syncs, and why a good take does not duplicate the media bin are on the <a href="../../articles/shot-log-to-premiere-xml/">shot log to Premiere XML</a> page.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="cta">
+          <p class="kicker">Three files, one log</p>
+          <h2>Nothing on the card changes, ever</h2>
+          <p>Log takes on your phone as you shoot. At wrap, export a Premiere XML, a PDF shot log, and a CSV, all built from the same taps, none of them touching the footage itself.</p>
+          <a class="btn btn-lg" href="https://clapper.in/app/">Open Clapper <span>&rarr;</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="more">
+      <div class="wrap">
+        <h2>Keep reading</h2>
+        <div class="more-grid">
+          <a class="more-card" href="../../articles/shot-log-to-premiere-xml/">
+            <div class="l">Reference</div>
+            <div class="n">Shot log to Premiere XML: how the export works</div>
+          </a>
+          <a class="more-card" href="../does-editor-need-special-software-for-shot-log-xml/">
+            <div class="l">FAQ</div>
+            <div class="n">Does the editor need special software to open it?</div>
+          </a>
+          <a class="more-card" href="../camera-report-vs-script-supervisor-log-disagree/">
+            <div class="l">FAQ</div>
+            <div class="n">The camera report and the log disagree. Now what?</div>
+          </a>
+          <a class="more-card" href="../../templates/camera-log-sheet/">
+            <div class="l">Free template</div>
+            <div class="n">Camera log sheet (PDF)</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span class="fm">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="230" fill="#111214"/><rect x="150" y="470" width="724" height="372" rx="34" fill="#1b1d20"/><circle cx="792" cy="748" r="52" fill="#57C282"/><g transform="rotate(-16 214 432)"><rect x="150" y="330" width="772" height="176" rx="26" fill="#EFE9DB"/></g><circle cx="214" cy="432" r="30" fill="#57C282"/></svg>
+        Clapper
+      </span>
+      <span class="flinks">
+        <a href="https://clapper.in/app/" target="_blank" rel="noopener">App</a>
+        <a href="../../articles/shot-log-to-premiere-xml/">Premiere export</a>
+        <a href="../../templates/camera-log-sheet/">Camera log sheet</a>
+        <a href="mailto:purohit.krick@gmail.com">Contact</a>
+      </span>
+      <span class="made">made for set</span>
+    </div>
+    <p class="copy">&copy; 2026 Clapper. All rights reserved.</p>
+  </footer>
+</body>
+</html>
