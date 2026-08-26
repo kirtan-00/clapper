@@ -207,7 +207,7 @@ Deno.serve(async (req: Request) => {
     // claim), and grants nothing, exactly like an unrecognised product key
     // from any other event.
     if (read?.invoiceId) {
-      await applyCreditPurchase(store, {
+      const recorded = await applyCreditPurchase(store, {
         provider: PROVIDER,
         eventId: read.invoiceId,
         userId,
@@ -218,6 +218,19 @@ Deno.serve(async (req: Request) => {
         providerTxnId: read.invoiceId,
         occurredAt: null,
       });
+      // THE LEDGER WRITE ITSELF CAN FAIL, and this is the exact invariant
+      // bug #3 was about: money with no record must never happen silently.
+      // recordPurchase's own error - a transient DB error, not a duplicate,
+      // those are already handled - comes back as `store_error` here. Answer
+      // 500 so Razorpay retries, the same choice grantOutcomeResponse below
+      // makes for the grant path. A retry is safe: recordPurchase tolerates
+      // being called again for the same invoice id (ON CONFLICT DO NOTHING),
+      // and an unactionable purchase (productKey null) always resolves to
+      // `unknown_product`, never a second write.
+      if (recorded.status === "store_error") {
+        console.error(`razorpay-webhook: could not record invoice.paid ${read.invoiceId}: ${recorded.error}`);
+        return json({ error: "could not record purchase" }, 500);
+      }
     }
     // No invoiceId: there is no idempotency key to record against, the same
     // rule applyCreditPurchase itself enforces (`store_error` for a purchase
