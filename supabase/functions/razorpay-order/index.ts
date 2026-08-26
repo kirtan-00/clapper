@@ -49,23 +49,28 @@ import { isSuspended } from "../_shared/suspension.ts";
 // inserted a row into `payments` right after creating the order, and SWALLOWED
 // the insert failure with a console line - bug #3 from the audit that
 // rebuilt this pair. The fix is not a retry, it is removing the write
-// entirely: `purchases` is keyed on (provider, provider_event_id), which for
-// Razorpay is the PAYMENT id (see _shared/razorpay.ts's identityForPayment) -
-// an id that does not exist yet at order-creation time, because no payment
-// has happened. Writing a row here would have to key on something else (the
-// order id), and `recordPurchase`'s insert is an UNTARGETED
-// `on conflict do nothing` - it has to be, so that a retried grant event and
-// a second grant EVENT for the same transaction both land safely - which
-// means a pre-existing row for the order id would make the real grant
-// path's own insert a silent no-op, and the credits would never be granted
-// at all. (This is the same reason stripe-checkout does not write to
-// `purchases` either; see its own header.) So the only record of an order
-// being STARTED is the `checkout_started` analytics event at the bottom -
-// which is not money, and is allowed to fail non-fatally - and the only
-// record of money MOVING is written by razorpay-verify or razorpay-webhook,
-// whichever gets there first, both keyed on the payment id, both routed
-// through the same claim in _shared/entitlements.ts so neither can double
-// grant against the other.
+// entirely, and the reason is not that the id does not exist yet - the
+// Razorpay ORDER id (which is the idempotency key both grant paths use, see
+// _shared/razorpay.ts's identityForOrder) is right here, created a few lines
+// below. The reason is what `recordPurchase` does with it: its insert is an
+// UNTARGETED `on conflict do nothing`, so a row written here would silently
+// survive being inserted "again" by the real grant path, unchanged - still
+// whatever status THIS function gave it. `claimPurchase`'s conditional
+// UPDATE only ever matches a row sitting at status `received`, which is the
+// status `recordPurchase` writes for a NEW row, never one written early by
+// something else. So a pre-existing row at any other status would make the
+// claim match zero rows, the grant path would read that as "duplicate", and
+// the payment would be recorded, verified, and never once actually grant
+// anything - a payment nobody would think to look for, because the row is
+// right there looking exactly like a normal purchase. (This is the same
+// trap stripe-checkout's own header describes for the same reason; see it
+// for the fuller version.) So the only record of an order being STARTED is
+// the `checkout_started` analytics event at the bottom - which is not
+// money, and is allowed to fail non-fatally - and the only record of money
+// MOVING is written by razorpay-verify or razorpay-webhook, whichever gets
+// there first, both keyed on the order id, both routed through the same
+// claim in _shared/entitlements.ts so neither can double grant against the
+// other.
 
 const RAZORPAY_ORDERS_API = "https://api.razorpay.com/v1/orders";
 
@@ -305,11 +310,12 @@ Deno.serve(async (req: Request) => {
 // session, unlike razorpay-webhook.
 //
 // See razorpay-webhook/index.ts for the webhook setup (RAZORPAY_WEBHOOK_SECRET,
-// the dashboard destination, and the events to subscribe to) and
-// _shared/products.ts for why this pair currently has nothing INR-priced to
-// sell: the live catalogue is USD-only (pro_monthly, bundle_5), and a
-// `one_time` product priced in INR needs to be added there before this
-// function can create an order anyone in India would actually be charged
-// correctly for. Everything in this file is already driven off whatever the
-// catalogue says, so no code here changes when that happens.
+// the dashboard destination, and the events to subscribe to). As of the
+// 2026-08-27 repricing, _shared/products.ts carries two `one_time` products
+// this pair CAN sell as-is: `credit_1` (INR 699) and `bundle_5` (INR 2,399).
+// `pro_monthly` and `studio_plus` are `subscription` kind and stay refused by
+// step 2b above until Razorpay's separate Plans/Subscriptions API is wired
+// up - see razorpay-webhook/index.ts's invoice.paid section for the current
+// state of that. Nothing in this file changed to pick up the new INR
+// products; it was already driven entirely off whatever the catalogue says.
 // ============================================================================

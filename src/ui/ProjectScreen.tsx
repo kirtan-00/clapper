@@ -20,7 +20,7 @@ import { SignInSheet } from './SignInSheet';
 import { getStudio } from './studio';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
-import { gateExport, FREE_LIMITS, type GatedFormat, type GateResult } from '../net/quota';
+import { gateExport, type GatedFormat, type GateResult } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 import { playClap } from './clapsound';
@@ -813,7 +813,7 @@ export function ProjectScreen(props: {
       setCsPhase('thinking');
       const currentSlates = slates.map((s) => s.slate);
       const scenes = currentSlates.map((s) => ({ ref: s.scriptRef || s.id, name: s.name }));
-      const { today } = await breakdownCallSheet(text, file.name, scenes);
+      const { today } = await breakdownCallSheet(text, file.name, scenes, project.id);
 
       // Match each call-sheet entry back to a slate (scriptRef, else id), then
       // sort the matches into the call sheet's own order.
@@ -847,14 +847,14 @@ export function ProjectScreen(props: {
       }
       if (err instanceof Error && err.message === 'CAP') {
         track('cap_hit', { which: 'callsheet' });
-        // Say WHICH limit and WHAT it was. This wall used to be the shotlist
-        // import's counter wearing a call sheet's error message - both features
-        // spent `usage.script_uses` until 2026-08-26 - so somebody who had
-        // never once opened a shot list could be told a call sheet was out of
-        // uses. It has its own counter now, and the number comes off
-        // FREE_LIMITS.callsheet rather than being typed in here, so it cannot
-        // quietly stop matching the server the next time the tier is repriced.
-        setCsError(`That's your ${FREE_LIMITS.callsheet} free call sheets. More coming soon.`);
+        // REWORKED 2026-08-27: this used to be a lifetime 5-call-sheets-per-
+        // ACCOUNT counter, unrelated to which project you were in. Script
+        // Mode (both call sheets and shot-list imports) is gated per PROJECT
+        // now - a free account gets it on its first two projects, ever, no
+        // refill - so the honest answer is about THIS project, not a number
+        // that used to count down. No "more coming soon": there is nothing
+        // coming, only a project to unlock.
+        setCsError("This project doesn't have Script Mode access. Free accounts get it on their first two projects - unlock this one to read call sheets here.");
         return;
       }
       setCsError(err instanceof Error ? err.message : 'Could not process that PDF.');
@@ -2087,12 +2087,15 @@ function TcCalculator(props: { project: Project }) {
 // Only Backup is free, offline, and never gated. PDF, Premiere (FCP7 XML),
 // Resolve (FCPXML) and CSV are all editor/print handoffs now and all go
 // through `export-gate`, which is the ONLY thing that enforces any limit - the
-// client just builds the blob after it says allow. PDF joined the other three
-// on 2026-08-20: it used to skip the gate entirely, which meant the one export
-// a producer actually prints and hands round a unit was the only one nobody
-// paid for. Resolve shares Premiere's server-side counter (same "editor
-// timeline handoff" allowance, no separate counter to add); CSV and PDF each
-// have their own.
+// client just builds the blob after it says allow.
+//
+// REWORKED 2026-08-27: this used to be four per-format lifetime COUNTERS
+// (Resolve pooled with Premiere, PDF and CSV each their own). Now it is one
+// project-shaped yes/no: CSV is free for any signed-in account, forever, no
+// counter - see net/quota.ts's header for why CSV specifically is the free
+// one. PDF and Premiere/Resolve need the CURRENT PROJECT unlocked (a credit
+// spent via unlock_project); once unlocked, a project gets every format,
+// uncapped, permanently - there is no countdown to show any more.
 //
 // The app requires an account for every one of these now — the anonymous XML
 // allowance that used to live server-side is gone (see net/quota.ts), so a
@@ -2234,14 +2237,20 @@ function ExportBar(props: { project: Project }) {
       // with an `error` field rather than rejecting, and gateExport turns
       // every shape of that into a GateResult. So this is the only branch
       // point for "the gate said no," and it is a real answer per reason:
-      // quota and auth are unchanged; everything else gets a sentence keyed
-      // to what actually happened, with "offline" reserved for when the
-      // browser itself says there's no connection.
-      const gate = await gateExport(format);
+      // auth is unchanged; everything else gets a sentence keyed to what
+      // actually happened, with "offline" reserved for when the browser
+      // itself says there's no connection. `projectId` matters only for
+      // pdf/premiere - csv never comes back locked.
+      const gate = await gateExport(format, props.project.id);
       if (!gate.allow) {
-        if (gate.reason === 'quota_exceeded') {
+        if (gate.reason === 'project_locked') {
+          // REWORKED 2026-08-27: this used to say "that's your N free
+          // exports for this plan" - a countdown. There is no countdown any
+          // more, only a project that either has been unlocked or has not,
+          // so the message names THAT reason and nothing else. Never implies
+          // a counter refilling, because none exists to refill.
           track('cap_hit', { which: label });
-          setError(`That's your ${FREE_LIMITS[format]} free ${FORMAT_LABEL[format]} exports for this plan.`);
+          setError(`This project isn't unlocked, so ${FORMAT_LABEL[format]} export isn't available yet. Unlock this project to turn it on - permanently.`);
           setCapped(format);
         } else if (gate.reason === 'auth') {
           // Session missing/expired. Same handling as signed-out.
@@ -2287,14 +2296,12 @@ function ExportBar(props: { project: Project }) {
         // never zero (a throw above skips this line entirely) and never more
         // than one per tap.
         playClap();
-        // Every account is on SOME tier's counter now (free or Pro), but Pro's
-        // "limit" is 1,000,000 - telling it "999997 left" would be noise
-        // pretending to be information. Only show the countdown when the
-        // remaining count is within the free-tier ceiling for this format, which
-        // a Pro account's remaining value never is.
-        if (typeof gate.remaining === 'number' && gate.remaining <= FREE_LIMITS[format]) {
-          setNote(`${gate.remaining} of ${FREE_LIMITS[format]} ${FORMAT_LABEL[format]} exports left.`);
-        }
+        // No countdown note any more. REWORKED 2026-08-27: this used to show
+        // "N of 5 left" off gate.remaining, which does not exist any more -
+        // export-gate no longer consumes anything, so there is nothing to
+        // count down. csv was always free (and now says so plainly on the
+        // Account screen); pdf/premiere either work forever once the project
+        // is unlocked, or do not work at all, with no state in between.
       } catch (err) {
         console.error(`export (${kind}): gate allowed it but building/sharing the file failed`, err);
         setError(exportBuildFailureMessage(kind));

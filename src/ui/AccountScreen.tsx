@@ -1,67 +1,84 @@
-// ACCOUNT — who you are signed in as, what the free tier has left, and Pro.
+// ACCOUNT - who you are signed in as, what the free tier has left, and Pro.
 //
-// This is a MOVE and a re-dress of AccountRow out of the bottom of the projects
-// list. NO AUTH OR QUOTA LOGIC CHANGED, deliberately:
+// REWORKED 2026-08-27. This screen used to list five export counters
+// (shotlist import, call sheet, Premiere/Resolve, PDF, CSV) - a direct
+// reflection of the old per-format quota model. That model is gone; the
+// meter is PROJECTS now, and exports split into "CSV: always free" and
+// "PDF/Premiere: need this project unlocked" (never shown as a counter at
+// all, since export access is a per-project yes/no, not a number that counts
+// down). See src/net/quota.ts's own header for the full story.
 //
-//   - `getUsage()` reads the caller's own `usage` row and nothing else. The
-//     numbers on this screen are DISPLAY ONLY. Every limit is enforced
-//     server-side in the edge functions, `is_pro` is writable by service_role
-//     alone, and none of that may ever move into the client. A counter that
-//     read as "0 left" and gated the button here would be a lock on the front
-//     door of a building with no walls.
-//   - signInWithGoogle() redirects, so nothing after the await runs on success;
-//     the busy flag is only ever cleared when the redirect never started. That
-//     asymmetry is load-bearing and is copied across as-is.
-//   - Signed out there is no usage row to read, and no client path to the anon
-//     counter, so the free-tier line stays the same static sentence it has
-//     always been rather than a number this screen would have to invent.
+// NO AUTH OR ENTITLEMENT LOGIC CHANGED IN KIND, only in shape:
+//   - `getEntitlements()` reads the caller's own `profiles` row and nothing
+//     else. The numbers on this screen are DISPLAY ONLY. Every limit is
+//     enforced server-side in the edge functions, and none of that may ever
+//     move into the client. A counter that read "0 left" and gated the
+//     button here would be a lock on the front door of a building with no
+//     walls.
+//   - signInWithGoogle() redirects, so nothing after the await runs on
+//     success; the busy flag is only ever cleared when the redirect never
+//     started. That asymmetry is copied across as-is.
+//   - Signed out there is no profile row to read, so the free-tier line
+//     stays a static sentence rather than a number this screen would have to
+//     invent.
 
 import { useEffect, useState } from 'react';
 import { Section, Row, ReadRow, ScreenHeader } from './glist';
 import { ProCta } from './ProCta';
 import type { Nav } from './nav';
 import { useSession, signInWithGoogle, signOut } from '../net/auth';
-import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
+import { getEntitlements, FREE_PROJECT_LIMIT, FREE_PROJECT_RESET_DAYS, type Entitlements } from '../net/quota';
 import * as haptics from './haptics';
 
 /**
- * The five free-tier counters, in the order someone meets them. They are
- * SEPARATE buckets on the server: burning shotlist imports does not cost you an
- * export. Premiere and Resolve deliberately share one, because they are the
- * same handoff in two dialects — see exportGated in ProjectScreen.
- *
- * "Shotlist import" and "Today's call sheet" were ONE counter until 2026-08-26,
- * and that was wrong twice over: the shot list is the expensive Groq call the
- * whole app already prices at 1, while reading a call sheet is something a
- * first AD does every morning of a shoot. Two features, two buckets.
- *
- * The labels have to stay distinguishable from "PDF call sheet" further down,
- * which is the EXPORT counter: the call sheet Clapper writes for you, not the
- * one production emailed you at 11pm.
+ * "Ever" when FREE_PROJECT_RESET_DAYS is 0 (today's setting - the owner's
+ * explicit one-time grant), or "a month" for any positive value. Read off
+ * the same constant the entitlements read uses, so flipping that one number
+ * in quota.ts/products.ts to switch to a monthly refill updates this screen's
+ * copy for free - see products.ts's FREE_PROJECT_RESET_DAYS for the full
+ * reasoning on why that is a single number rather than a rewrite.
  */
-const COUNTERS: { key: keyof Usage; label: string }[] = [
-  { key: 'script', label: 'Shotlist import' },
-  { key: 'callsheet', label: "Today's call sheet" },
-  { key: 'premiere', label: 'Premiere and Resolve XML' },
-  { key: 'pdf', label: 'PDF call sheet' },
-  { key: 'csv', label: 'CSV export' },
-];
+function freeProjectPeriodLabel(): string {
+  return FREE_PROJECT_RESET_DAYS > 0 ? `every ${FREE_PROJECT_RESET_DAYS} days` : 'ever';
+}
+
+/**
+ * The honest, final line for a free account that has spent its grant. NEVER
+ * "resets soon" or anything implying a refill while FREE_PROJECT_RESET_DAYS
+ * is 0 - the owner was explicit that this grant does not come back, and a
+ * screen that hints otherwise is a screen that lies to someone about to pay
+ * to find out. Written as its own function, not inlined, so the one place
+ * this promise is made is the one place it has to stay true if the flip
+ * above is ever thrown.
+ */
+function projectsLeftCopy(used: number, limit: number): string {
+  const left = Math.max(0, limit - used);
+  if (left > 0) return `${left} of ${limit} free projects left`;
+  if (FREE_PROJECT_RESET_DAYS > 0) return `0 of ${limit} free projects left this period`;
+  return `Free projects used up. This grant does not come back - unlock a project to continue.`;
+}
+
+function podcastCopy(ent: Entitlements): string {
+  const left = Math.max(0, ent.podcastMinutesLimit - ent.podcastMinutesUsed);
+  const hours = (n: number) => (n % 60 === 0 ? `${n / 60}h` : `${Math.floor(n / 60)}h ${n % 60}m`);
+  return `${hours(left)} of ${hours(ent.podcastMinutesLimit)} left this month`;
+}
 
 export function AccountScreen(_props: { nav: Nav }) {
   const { session, loading } = useSession();
   const [busy, setBusy] = useState(false);
-  const [usage, setUsage] = useState<Usage | null>(null);
+  const [ent, setEnt] = useState<Entitlements | null>(null);
 
   const signedIn = !!session;
 
   useEffect(() => {
     if (!signedIn) {
-      setUsage(null);
+      setEnt(null);
       return;
     }
     let active = true;
-    void getUsage().then((u) => {
-      if (active) setUsage(u);
+    void getEntitlements().then((e) => {
+      if (active) setEnt(e);
     });
     return () => {
       active = false;
@@ -76,6 +93,13 @@ export function AccountScreen(_props: { nav: Nav }) {
       setBusy(false); // only reached if the redirect never started
     }
   }
+
+  // Full bypass - is_pro must keep working exactly as it did under the old
+  // model: unlimited everything, every project already unlocked. Lapse is
+  // decided the same way export-gate/breakdown decide it (see proBypass in
+  // _shared/gate.ts): a pro_until in the past demotes to ordinary free-tier
+  // display, it does not stay Pro because the flag is still true.
+  const proActive = !!ent?.isPro && (ent.proUntil == null || new Date(ent.proUntil).getTime() > Date.now());
 
   return (
     <div className="app mscreen">
@@ -95,25 +119,46 @@ export function AccountScreen(_props: { nav: Nav }) {
             <ReadRow label="Google" value={session.user.email ?? 'your account'} />
           </Section>
 
-          <Section
-            title="Free uses left"
-            note={usage ? 'Each counter is its own.' : 'Needs a connection to read.'}
-          >
-            {COUNTERS.map(({ key, label }) => (
+          {proActive ? (
+            <Section title="Pro" note="Legacy grant. Every project unlocked, no limits.">
+              <ReadRow label="Projects" value="Unlimited" />
+              <ReadRow label="Podcast roll time" value="Unlimited" />
+              <ReadRow label="PDF / Premiere / Resolve export" value="Unlimited" />
+            </Section>
+          ) : (
+            <Section
+              title="Director mode"
+              note={ent ? `Free grant is a one-time thing - ${freeProjectPeriodLabel()}.` : 'Needs a connection to read.'}
+            >
               <ReadRow
-                key={key}
-                label={label}
-                value={usage ? `${usage[key].left} of ${FREE_LIMITS[key]}` : '—'}
+                label="Projects"
+                value={ent ? projectsLeftCopy(ent.freeProjectsUsed, ent.freeProjectsLimit) : '—'}
               />
-            ))}
-          </Section>
+              <ReadRow
+                label="Project credits"
+                value={ent ? `${ent.projectCredits} available` : '—'}
+              />
+              <ReadRow
+                label="PDF / Premiere / Resolve export"
+                value={ent && ent.projectCredits > 0
+                  ? 'Included with every unlocked project'
+                  : 'Unlock a project to export'}
+              />
+            </Section>
+          )}
 
-          {/* The paragraph that used to sit under this group said, at length,
-              exactly what the three rows already say: Unlimited, Unlimited,
-              Unlimited. */}
+          {!proActive && (
+            <Section title="Podcast mode" note="Roll time, not project count.">
+              <ReadRow label="This month" value={ent ? podcastCopy(ent) : '—'} />
+            </Section>
+          )}
+
+          {/* CSV is the one export that never needs a project unlocked - see
+              the header of net/quota.ts for why CSV specifically is the free
+              one. */}
           <Section title="Always free">
             <ReadRow label="Take logging" value="Unlimited" />
-            <ReadRow label="PDF shot log" value="Unlimited" />
+            <ReadRow label="CSV export" value="Unlimited" />
             <ReadRow label="Backup and restore" value="Unlimited" />
           </Section>
 
@@ -161,11 +206,9 @@ export function AccountScreen(_props: { nav: Nav }) {
 
           <Section title="Without an account">
             <ReadRow label="Take logging" value="Free" />
-            <ReadRow label="PDF shot log" value="Free" />
             <ReadRow label="Backup and restore" value="Free" />
-            <ReadRow label="Premiere and Resolve XML" value={`${FREE_LIMITS.premiere} times`} />
-            <ReadRow label="Shotlist import" value="Sign in" />
-            <ReadRow label="CSV export" value="Sign in" />
+            <ReadRow label="Shotlist import, call sheets, CSV/PDF/Premiere export" value="Sign in" />
+            <ReadRow label="Free projects on sign-in" value={`${FREE_PROJECT_LIMIT}`} />
           </Section>
         </>
       )}

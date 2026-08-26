@@ -141,11 +141,18 @@ export async function enrichShotMoments(
  * extracted call-sheet text plus the project's current scene refs, gets back
  * which of those scenes are shooting today and in what order. Mirrors
  * the same auth/error handling as above — same server, same rules.
+ *
+ * `projectId` is REQUIRED here, unlike enrichShotMoments' optional one above:
+ * a call sheet is always loaded against a project that already exists (the
+ * import already happened), so there is never a "no id yet" case to accept.
+ * The server (`breakdown`, mode 'callsheet') uses it to decide whether this
+ * project has free Script Mode access - see claim_project_access.
  */
 export async function breakdownCallSheet(
   text: string,
   docName: string,
   scenes: { ref: string; name: string }[],
+  projectId: string,
 ): Promise<{ today: { ref: string; order: number }[] }> {
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session) throw new SignInRequiredError();
@@ -159,7 +166,7 @@ export async function breakdownCallSheet(
 
   const { data, error } = await supabase.functions.invoke<{ callSheet: 1; today: { ref: string; order: number }[] }>(
     'breakdown',
-    { body: { text, docName, turnstileToken, mode: 'callsheet', scenes } },
+    { body: { text, docName, turnstileToken, mode: 'callsheet', scenes, projectId } },
   );
 
   if (error) {

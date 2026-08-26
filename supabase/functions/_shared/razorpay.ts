@@ -1,8 +1,13 @@
+import { getProduct, type Product } from "./products.ts";
+
 // Razorpay payload readers, the client-handshake message, and the ONE
 // identity builder both grant paths key off. Gateway specific on purpose,
 // unlike _shared/entitlements.ts: everything here is Razorpay's own field
 // names and Razorpay's own HTTP API, read from docs 2026-08-27 (see the
-// function headers for which page), never from memory.
+// function headers for which page), never from memory - AND corrected once
+// already the same day against the owner's own live dashboard, which is why
+// the grant event below is order.paid and not the payment.captured most
+// Razorpay tutorials reach for first. See the note above ORDER_GRANT_EVENTS.
 //
 // NO DENO API, NO jsr IMPORTS. `fetch`, `AbortController` and `setTimeout`
 // are all Web platform globals, present in Deno and in the vitest/node
@@ -17,36 +22,27 @@
 // money in two different requests, and _shared/entitlements.ts only refuses
 // a double grant if both requests build the IDENTICAL (provider, eventId)
 // pair. If verify built its own string here and the webhook built a
-// different one there, the purchases claim would never collide and the
-// bug this whole file exists to fix - two deliveries, one payment, two
-// grants - would come back through the side door. So there is exactly one
-// function that turns a payment id into an identity, and both edge
-// functions call it instead of composing the fields themselves.
-//
-// WHY THE IDENTITY IS THE PAYMENT ID AND NOTHING ELSE. Razorpay's webhook
-// payload carries no delivery-scoped event id the way Stripe's does
-// (evt_...) - confirmed against razorpay.com/docs/webhooks/payloads/payments/
-// 2026-08-27, whose payment.captured example payload's only top-level
-// fields are entity, account_id, event, contains, payload, created_at. A
-// retried delivery of the SAME event carries the SAME payment id, which is
-// itself globally unique and immutable once captured, so it is a perfectly
-// good idempotency key on its own: no event-type prefix is needed because
-// this app only ever grants on ONE event (payment.captured - see
-// PAYMENT_GRANT_EVENTS below), so a payment id can never collide across two
-// DIFFERENT grant-eligible events the way it could if order.paid were also
-// wired to grant.
+// different one there, the purchases claim would never collide and the bug
+// this whole file exists to fix - two deliveries, one payment, two grants -
+// would come back through the side door. So there is exactly one function
+// that turns an order id into an identity, and both edge functions call it
+// instead of composing the fields themselves.
 
 export interface RazorpayIdentity {
   provider: "razorpay";
-  /** Half the primary key in `purchases`. The Razorpay payment id (pay_...). */
+  /** Half the primary key in `purchases`. The Razorpay ORDER id (order_...),
+   *  not the payment id - see the note above ORDER_GRANT_EVENTS for why an
+   *  order is the unit of idempotency for this gateway. */
   eventId: string;
-  /** The unique index half. Same value as eventId here - see the file header
-   *  for why one id can honestly serve both roles for this gateway. */
+  /** The unique index half. Same value as eventId here - one order, one
+   *  grant, so nothing else needs to be able to catch a second description
+   *  of the same money the way it would if two different event types both
+   *  granted (see purchases_txn_idx's own comment in the migration). */
   providerTxnId: string;
 }
 
-export function identityForPayment(paymentId: string): RazorpayIdentity {
-  return { provider: "razorpay", eventId: paymentId, providerTxnId: paymentId };
+export function identityForOrder(orderId: string): RazorpayIdentity {
+  return { provider: "razorpay", eventId: orderId, providerTxnId: orderId };
 }
 
 // ---------------------------------------------------------------------------
@@ -66,61 +62,12 @@ export function handshakeMessage(orderId: string, paymentId: string): string {
   return `${orderId}|${paymentId}`;
 }
 
-// ---------------------------------------------------------------------------
-// Webhook payload readers.
-//
-// Shape confirmed against razorpay.com/docs/webhooks/payloads/payments/,
-// read 2026-08-27:
-//
-//   { entity: "event", account_id, event: "payment.captured",
-//     contains: ["payment"],
-//     payload: { payment: { entity: { id, order_id, status, amount,
-//                                      currency, notes, ... } } },
-//     created_at }
-// ---------------------------------------------------------------------------
-
 function str(v: unknown, max = 200): string | null {
   return typeof v === "string" && v.length > 0 && v.length <= max ? v : null;
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-}
-
-export function peekRazorpayEvent(payload: unknown): string | null {
-  const obj = asRecord(payload);
-  return obj ? str(obj.event, 100) : null;
-}
-
-/** Grants a credit. Everything else that could plausibly arrive on this
- *  endpoint is a status update or a failure, never a second way to describe
- *  the same money - see PAYMENT_NOTED_EVENTS. */
-export const PAYMENT_GRANT_EVENTS = ["payment.captured"];
-
-/** Recorded as analytics, never as a `purchases` row: neither of these is
- *  money that landed. `order.paid` in particular fires for the SAME money as
- *  `payment.captured` on a single-payment order - subscribing to both and
- *  granting on both would be exactly the dual-event double grant Paddle's
- *  transaction.paid/transaction.completed pair already taught this codebase
- *  to refuse (see purchases_txn_idx in the entitlements migration). Granting
- *  on payment.captured only sidesteps it entirely rather than relying on the
- *  unique index to catch a second grant path after the fact. */
-export const PAYMENT_NOTED_EVENTS = ["payment.failed", "order.paid"];
-
-export interface PaymentEventRead {
-  eventType: string;
-  paymentId: string;
-  orderId: string;
-  status: string | null;
-  /** Paise, straight off Razorpay - never used as a gate, ledger only. */
-  amountPaise: number | null;
-  currency: string | null;
-  /** Whatever notes the payment entity itself carries. Often empty even when
-   *  the ORDER has notes - Razorpay does not document that order notes are
-   *  copied onto the payment, so this is read defensively and the caller
-   *  falls back to fetching the order (fetchRazorpayOrder) rather than
-   *  assuming either way. */
-  notes: Record<string, string>;
 }
 
 /** Razorpay represents an empty notes object as `[]` and a populated one as
@@ -138,67 +85,187 @@ export function normalizeNotes(raw: unknown): Record<string, string> {
   return out;
 }
 
-export function readPaymentEvent(payload: unknown): PaymentEventRead | null {
+/**
+ * Resolve notes.product_key to a product this pair is actually allowed to
+ * sell - one call, used identically by razorpay-verify and
+ * razorpay-webhook, so the guard cannot drift between the two the way a
+ * copy-pasted `if` could.
+ *
+ * THE kind CHECK IS NOT OPTIONAL. razorpay-order refuses to CREATE an order
+ * for a `subscription`-kind product (Razorpay's Orders API cannot sell one),
+ * but nothing stops an order being created by hand in the Razorpay
+ * dashboard, or by a future code path, with notes.product_key set to
+ * `pro_monthly` - and if this function returned that product anyway, a
+ * one-time payment would grant six SUBSCRIPTION credits, the wrong number
+ * for money that was never going to recur. Same posture stripe-webhook
+ * takes on its checkout.session.completed path (`fromMetadata.kind ===
+ * "one_time"`) - mirrored here rather than re-derived, because the failure
+ * mode is identical: a product key that resolves but belongs to the wrong
+ * kind of sale is not "close enough", it is `unknown_product` grants zero,
+ * exactly as if the key had not resolved at all.
+ */
+export function resolveOneTimeProduct(productKey: unknown): Product | null {
+  const product = getProduct(productKey);
+  return product && product.kind === "one_time" ? product : null;
+}
+
+export function peekRazorpayEvent(payload: unknown): string | null {
+  const obj = asRecord(payload);
+  return obj ? str(obj.event, 100) : null;
+}
+
+// ---------------------------------------------------------------------------
+// order.paid - the one-off grant event.
+//
+// NOT payment.captured, which is what the task's own brief and most
+// Razorpay tutorials reach for first. The owner's live dashboard subscribes
+// order.paid instead, and confirmed why against the Stripe file already in
+// this repo: payment.captured can fire MORE THAN ONCE for a single order
+// under partial or multiple payment attempts, which is exactly the
+// double-grant hazard checkout.session.completed vs invoice.paid was already
+// solved for on the Stripe side (see stripe-webhook/index.ts's file header,
+// "1. CHECKOUT SESSIONS"). order.paid fires exactly once, when the order's
+// amount_due reaches zero, which is a strictly better idempotency anchor for
+// a single-payment order than a payment event that isn't 1:1 with it.
+//
+// Shape confirmed against razorpay.com/docs/webhooks/payloads/orders/, read
+// 2026-08-27:
+//
+//   { event: "order.paid", contains: ["payment", "order"],
+//     payload: { payment: { entity: {...} }, order: { entity: {
+//       id, amount, amount_paid, amount_due, currency, receipt, status,
+//       notes, created_at } } },
+//     created_at }
+//
+// notes IS the order's own notes here, in the payload, no extra API call
+// needed - unlike razorpay-verify, which only ever receives an order id from
+// the browser and has to fetch the order back (see fetchRazorpayOrder).
+// ---------------------------------------------------------------------------
+
+export const ORDER_GRANT_EVENTS = ["order.paid"];
+
+/** Subscribed on the dashboard and describes real money, so it must never
+ *  fall through to a silent 200-ignore - but see razorpay-webhook/index.ts
+ *  for why this is recorded as needs-attention rather than granted: this
+ *  pair has no subscription checkout (razorpay-order refuses `subscription`
+ *  kind products outright) and Razorpay's own docs give no verified,
+ *  documented way to tell a subscription's FIRST invoice from a renewal the
+ *  way Stripe's billing_reason does - guessing that distinction would risk
+ *  exactly the under-grant bug #4 was about, on the one field this pair
+ *  cannot verify. */
+export const INVOICE_NEEDS_ATTENTION_EVENTS = ["invoice.paid"];
+
+export interface OrderEntity {
+  id: string;
+  status: string;
+  /** Paise, straight off Razorpay - never used as a gate, ledger only. */
+  amount: number;
+  currency: string;
+  notes: Record<string, string>;
+}
+
+/** Shared by the webhook (reading payload.order.entity straight off the
+ *  delivery) and fetchRazorpayOrder (reading the same shape back off
+ *  GET /v1/orders/:id) - one parser, so the two cannot drift on which
+ *  fields are required. */
+function readOrderEntity(raw: unknown): OrderEntity | null {
+  const obj = asRecord(raw);
+  if (!obj) return null;
+  const id = str(obj.id, 64);
+  const status = str(obj.status, 40);
+  const amount = typeof obj.amount === "number" && Number.isFinite(obj.amount) ? obj.amount : null;
+  const currency = str(obj.currency, 8);
+  if (!id || !status || amount === null || !currency) return null;
+  return { id, status, amount, currency, notes: normalizeNotes(obj.notes) };
+}
+
+export interface OrderPaidRead {
+  eventType: string;
+  order: OrderEntity;
+  /** The settling payment's id, when present, for the ledger's
+   *  provider metadata only - never part of the idempotency key (see
+   *  identityForOrder's comment for why the ORDER id is that key here). */
+  paymentId: string | null;
+}
+
+export function readOrderPaidEvent(payload: unknown): OrderPaidRead | null {
   const top = asRecord(payload);
   const eventType = top ? str(top.event, 100) : null;
   if (!top || !eventType) return null;
 
-  const payment = asRecord(asRecord(top.payload)?.payment);
-  const entity = asRecord(payment?.entity);
-  if (!entity) return null;
+  const orderEntity = asRecord(asRecord(top.payload)?.order)?.entity;
+  const order = readOrderEntity(orderEntity);
+  if (!order) return null;
 
-  const paymentId = str(entity.id, 64);
-  const orderId = str(entity.order_id, 64);
-  if (!paymentId || !orderId) return null;
+  const paymentEntity = asRecord(asRecord(asRecord(top.payload)?.payment)?.entity);
+  const paymentId = paymentEntity ? str(paymentEntity.id, 64) : null;
 
-  const amountPaise = typeof entity.amount === "number" && Number.isFinite(entity.amount)
-    ? entity.amount
-    : null;
+  return { eventType, order, paymentId };
+}
+
+// ---------------------------------------------------------------------------
+// invoice.paid - read only far enough to log it. See
+// INVOICE_NEEDS_ATTENTION_EVENTS above for why this pair does not grant
+// against it. Fields are read defensively: razorpay.com's own Invoices
+// webhook page (read 2026-08-27) gives an example payload for a STANDALONE
+// invoice (type "invoice", no subscription_id), not a subscription billing
+// cycle, so which fields a subscription's invoice.paid actually carries is
+// not confirmed. Nothing below is trusted for anything but a log line.
+// ---------------------------------------------------------------------------
+
+export interface InvoicePaidRead {
+  eventType: string;
+  invoiceId: string | null;
+  status: string | null;
+  subscriptionId: string | null;
+  amountPaid: number | null;
+  currency: string | null;
+  notes: Record<string, string>;
+}
+
+export function readInvoicePaidEvent(payload: unknown): InvoicePaidRead | null {
+  const top = asRecord(payload);
+  const eventType = top ? str(top.event, 100) : null;
+  if (!top || !eventType) return null;
+
+  const entity = asRecord(asRecord(top.payload)?.invoice)?.entity;
+  const obj = asRecord(entity) ?? {};
 
   return {
     eventType,
-    paymentId,
-    orderId,
-    status: str(entity.status, 40),
-    amountPaise,
-    currency: str(entity.currency, 8),
-    notes: normalizeNotes(entity.notes),
+    invoiceId: str(obj.id, 64),
+    status: str(obj.status, 40),
+    subscriptionId: str(obj.subscription_id, 64),
+    amountPaid: typeof obj.amount_paid === "number" ? obj.amount_paid : null,
+    currency: str(obj.currency, 8),
+    notes: normalizeNotes(obj.notes),
   };
 }
 
 // ---------------------------------------------------------------------------
 // Fetching an order back off Razorpay.
 //
-// WHY THIS EXISTS. Neither razorpay-order nor this pair writes a `purchases`
-// row at ORDER-creation time (see razorpay-order/index.ts's header for why -
-// the short version is the same reason stripe-checkout does not: a row
-// keyed to the transaction id before the grant path's own insert would let
-// that insert's untargeted ON CONFLICT DO NOTHING silently swallow every
-// real grant). So neither razorpay-verify nor razorpay-webhook has a local
-// row to read the buyer and the product back off. Razorpay itself is the
-// only place left holding that information - in the `notes` the order was
-// created with - and GET /v1/orders/:id is how both paths read it back,
-// under a bounded timeout so a slow or hanging call cannot itself become the
-// failure (same posture as stripe-webhook's LINE_ITEM_TIMEOUT_MS).
+// WHY THIS EXISTS. razorpay-verify only ever receives an order id, a payment
+// id and a signature from the browser - never the order's own notes, which
+// is where the buyer and the product live (see razorpay-order/index.ts's
+// header for why no local row is written at order-creation time to read
+// those back from instead). GET /v1/orders/:id is how the buyer and the
+// product get read back, under a bounded timeout so a slow or hanging call
+// cannot itself become the failure (same posture as stripe-webhook's
+// LINE_ITEM_TIMEOUT_MS). The webhook does NOT need this - order.paid already
+// carries payload.order.entity.notes directly, see readOrderPaidEvent above.
 //
 // status "paid" IS THE SETTLEMENT CHECK, confirmed against
 // razorpay.com/docs/api/orders/fetch-with-id/ 2026-08-27: "paid" means "the
 // successful capture of the payment" and an order KEEPS that status "even if
 // the payment associated with the order is refunded" - so this is a durable
 // settlement fact, not a live balance, exactly the property a grant decision
-// needs.
+// needs, and it is the same field and the same value order.paid's own
+// payload carries (see the order.paid example: `"status": "paid"`).
 // ---------------------------------------------------------------------------
 
-export interface RazorpayOrder {
-  id: string;
-  status: string;
-  amount: number;
-  currency: string;
-  notes: Record<string, string>;
-}
-
 export type FetchOrderResult =
-  | { ok: true; order: RazorpayOrder }
+  | { ok: true; order: OrderEntity }
   | { ok: false; reason: "http_error" | "network_error" | "bad_response"; detail: string };
 
 export async function fetchRazorpayOrder(
@@ -233,16 +300,7 @@ export async function fetchRazorpayOrder(
   } catch {
     return { ok: false, reason: "bad_response", detail: "not JSON" };
   }
-  const obj = asRecord(json);
-  const id = obj ? str(obj.id, 64) : null;
-  const status = obj ? str(obj.status, 40) : null;
-  const amount = obj && typeof obj.amount === "number" ? obj.amount : null;
-  const currency = obj ? str(obj.currency, 8) : null;
-  if (!id || !status || amount === null || !currency) {
-    return { ok: false, reason: "bad_response", detail: "missing id/status/amount/currency" };
-  }
-  return {
-    ok: true,
-    order: { id, status, amount, currency, notes: normalizeNotes(obj?.notes) },
-  };
+  const order = readOrderEntity(json);
+  if (!order) return { ok: false, reason: "bad_response", detail: "missing id/status/amount/currency" };
+  return { ok: true, order };
 }

@@ -21,6 +21,7 @@ import { CutSizeRow, UiSizeRow } from './CutSizeRow';
 import { HapticsRow, WakeLockRow, LeftHandRow, ReduceMotionRow, SoundRow } from './PreferenceRows';
 import { DefaultTagsRows } from './DefaultTagsRow';
 import { StudioRow } from './StudioRow';
+import { RazorpayBuyRow } from './RazorpayBuyRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
@@ -128,6 +129,10 @@ export function SettingsScreen(props: { nav: Nav }) {
       <Section title="Exports" note="Printed on every PDF and CSV.">
         <StudioRow />
       </Section>
+
+      {/* Razorpay, wired end to end 2026-08-27 - see RazorpayBuyRow.tsx's own
+          header for why this lives here and not on ProCta's paywall gates. */}
+      <RazorpayBuyRow />
 
       <Section title="Help">
         <Row label="How to use" value="9 sections" push onClick={openGuide} />

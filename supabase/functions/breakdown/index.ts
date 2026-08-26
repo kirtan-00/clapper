@@ -2,22 +2,39 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
 import { isSuspended } from "../_shared/suspension.ts";
-import { BREAKDOWNS_PER_PROJECT } from "../_shared/products.ts";
+import { BREAKDOWNS_PER_PROJECT, FREE_PROJECT_LIMIT, FREE_PROJECT_RESET_DAYS } from "../_shared/products.ts";
+import { decideProjectAccess, proBypass } from "../_shared/gate.ts";
 
 // Clapper Script Mode backend. Identity comes from the caller's Supabase JWT
 // (never a client-sent email). Flow: getUser -> Turnstile -> rate limits ->
-// global Groq gate -> atomic quota consume -> Groq (Llama 3.3 70B) -> analytics
-// event -> answer. The service-role key is used only server-side and never
-// leaves this function.
+// PROJECT ACCESS gate -> global Groq gate -> per-project upload cap (shots
+// only) -> Groq (Llama 3.3 70B) -> analytics event -> answer. The service-role
+// key is used only server-side and never leaves this function.
 //
 // Two modes, both judgement-only. The app no longer asks a model to READ a
 // document: `src/ui/shotlist.ts` parses the shotlist deterministically
 // on-device, so the model never sees the script and never transcribes a table.
-//   'shots'     — given the already-parsed shot division, write the tappable
+//   'shots'     - given the already-parsed shot division, write the tappable
 //                 key-moment chips for each shot.
-//   'callsheet' — given the project's known scenes, say which shoot today.
+//   'callsheet' - given the project's known scenes, say which shoot today.
 // The old 'script' mode (whole screenplay -> scenes) is retired: the device
 // parser replaced it, and nothing calls it.
+//
+// REWORKED 2026-08-27: this used to spend two INDEPENDENT ACCOUNT-LEVEL
+// counters - script_uses (1 free, lifetime) and callsheet_uses (5 free,
+// lifetime) - regardless of which project a call was for. The meter is now
+// PROJECTS: an account gets free Script Mode (both modes) on its first
+// FREE_PROJECT_LIMIT projects, ever, via claim_project_access
+// (supabase/migrations/20260827120000_project_metering.sql); every project
+// beyond that needs a credit spent through unlock_project. Folding callsheet
+// into the same gate as shots is a deliberate simplification: the old 5-
+// lifetime-call-sheets-across-the-WHOLE-ACCOUNT cap was already an odd fit for
+// "a first AD reads a call sheet every morning of a shoot" - a project that
+// has earned Script Mode access now gets unlimited call sheets, which matches
+// that reasoning better than an account-wide lifetime number ever did.
+// script_uses / callsheet_uses in public.usage are left in place (deployed
+// clients still read them for display) but nothing here writes to them any
+// more.
 
 // Cloudflare testing keys so local dev works without a real secret configured.
 const DEV_TURNSTILE_SECRET = "1x0000000000000000000000000000000AA";
@@ -38,9 +55,9 @@ const SYSTEM_SHOTS = [
   "For each shot, write its KEY MOMENTS: the beats an operator would tap on a phone the instant they happen while that shot is rolling.",
   "Return ONLY valid JSON, no prose, shape:",
   '{"shots":[{"code":"5.31","keyMoments":["hurls mug","mug shatters"]}]}',
-  "HOW MANY — the count rule is the one people get wrong, so read it twice:",
+  "HOW MANY - the count rule is the one people get wrong, so read it twice:",
   "- Aim for 1 to 3 moments per shot. ONE GOOD CHIP IS THE NORMAL ANSWER.",
-  "- Every shot is doing something — a camera move, a person's action, a specific beat. Pulling one tag out of it should not be hard.",
+  "- Every shot is doing something - a camera move, a person's action, a specific beat. Pulling one tag out of it should not be hard.",
   "- If the row has an action line, it HAS a beat. Name the beat; do not skip the shot.",
   "- Reach for [] ONLY when the row genuinely has no filmable beat inside it: a title card, a superimposition, a fade, a slug with no action.",
   "- Still never pad to three. One precise chip beats three vague ones, and 137 shots x three invented chips is unusable on a phone.",
@@ -51,17 +68,17 @@ const SYSTEM_SHOTS = [
   "- Use only what that shot's own action and dialogue say. Never borrow action from a neighbouring shot.",
   "HOW TO WRITE IT:",
   "- NO ABBREVIATIONS IN CHIP TEXT. Chips get tapped at 5am under a work light, where 'ECU' and 'MCU' are one character apart.",
-  "- Never emit CU, MCU, ECU, WS, XWS, MWS, MS, OTS, POV — or any other trade shorthand — as chip text.",
+  "- Never emit CU, MCU, ECU, WS, XWS, MWS, MS, OTS, POV - or any other trade shorthand - as chip text.",
   "- When a size or framing really does belong in a chip, SPELL IT: closeup, medium closeup, extreme closeup, wide, extreme wide, medium wide, medium, over shoulder, point of view.",
   "- The same goes for every other abbreviation: write 'push in', not 'PI'; 'handheld', not 'HH'.",
-  "- Do not restate the shot's own size or move as a chip — the slate already carries them, so a shot marked MCU / PUSH IN needs no chip saying so. The spelling rule above is the backstop for when a framing legitimately belongs inside a chip anyway.",
+  "- Do not restate the shot's own size or move as a chip - the slate already carries them, so a shot marked MCU / PUSH IN needs no chip saying so. The spelling rule above is the backstop for when a framing legitimately belongs inside a chip anyway.",
   "- Keep each chip short (under 22 chars), and order them as they happen within the shot.",
   "- Return every code you were given, in the order given, with \"keyMoments\":[] where there is nothing to tap. Never invent a code.",
-  "WORKED EXAMPLES, from a shipped shotlist — match this target:",
-  '4.14 MS High / from balcony — "She sets the coffee down hard enough that it slops over, storms back inside without a word." -> ["coffee slops","storms inside"]',
-  '1.1 XWS STATIC, low — "Terrace at night, string lights, a ring light glowing on its stand." -> ["ring light glow"]   (an establisher still has one thing to mark)',
-  "1.21 — Superimpose — \"Title Card: KEEP THE TAKE\" -> []   (genuinely nothing to tap)",
-  '3.6 CU STATIC — Maya, not having it. "Dev." -> ["\\"Dev.\\""]',
+  "WORKED EXAMPLES, from a shipped shotlist - match this target:",
+  '4.14 MS High / from balcony - "She sets the coffee down hard enough that it slops over, storms back inside without a word." -> ["coffee slops","storms inside"]',
+  '1.1 XWS STATIC, low - "Terrace at night, string lights, a ring light glowing on its stand." -> ["ring light glow"]   (an establisher still has one thing to mark)',
+  "1.21 - Superimpose - \"Title Card: KEEP THE TAKE\" -> []   (genuinely nothing to tap)",
+  '3.6 CU STATIC - Maya, not having it. "Dev." -> ["\\"Dev.\\""]',
   "Note those inputs carry XWS / MS / CU, and not one chip repeats them.",
 ].join("\n");
 
@@ -72,51 +89,16 @@ const SYSTEM_CALLSHEET = [
   "Return ONLY valid JSON, no prose, shape:",
   '{"today":[{"ref":"S14","order":1},{"ref":"S22","order":2}]}',
   "RULES:",
-  "- Every returned ref MUST be one of the provided refs — match by scene number / slugline between the call sheet and the known scene names.",
+  "- Every returned ref MUST be one of the provided refs - match by scene number / slugline between the call sheet and the known scene names.",
   "- Put them in the call sheet's shooting order (order starts at 1).",
   "- If a scene on the call sheet isn't in the known list, skip it.",
   "- If nothing matches, return {\"today\":[]}.",
 ].join("\n");
 
-// THE FREE TIER, PER MODE. There is deliberately no single FREE_LIMIT here any
-// more. There used to be, at 5, and both modes spent it out of the same
-// `script_uses` column - which meant one number priced two features that have
-// nothing in common, and it was the wrong number for each of them.
-//
-//   shots      1 free, counted in `usage.script_uses`. The shot-list
-//              breakdown: the expensive Groq call, and the feature Pro exists
-//              to sell. One is enough to prove it works on your own shot list,
-//              which is the only demo that convinces anybody. The app, the
-//              Account screen and the entire public site have said 1 for
-//              weeks; the server was the only thing saying 5, so a user could
-//              be shown "4 of 1".
-//   callsheet  5 free, counted in `usage.callsheet_uses` (added by
-//              supabase/migrations/20260826150000_callsheet_quota.sql).
-//              Working out which scenes shoot today is a PER SHOOT DAY action
-//              - a first AD does it every morning - so a lifetime cap of 1
-//              would read as broken on day two of a shoot.
-//
-// Kind and limit are looked up TOGETHER, off the narrowed `mode`, so the wrong
-// counter cannot be paired with the wrong limit by accident. Every consume and
-// every refund in this file reads `quota.kind` from here; none of them names a
-// column or a kind string of its own. That is the whole point of the shape:
-// there were four hardcoded `p_kind: "script"` refunds before this, and
-// missing one would have silently credited the breakdown counter for a failed
-// call-sheet parse.
-//
-// MUST agree with FREE_LIMITS in src/net/quota.ts, which is display only. If
-// the two drift the server wins and the user was shown a number that lied.
-const MODE_QUOTA = {
-  shots: { kind: "script", free: 1 },
-  callsheet: { kind: "callsheet", free: 5 },
-} as const;
-
-const PRO_LIMIT = 1000000;
-
 // A call sheet is one page of text; 12k has always been ample.
 const CALLSHEET_INPUT_CAP = 12000;
 // Shots mode sends structured JSON, not extracted text, so it is capped by
-// entry count and by serialised size — and an oversized payload is REFUSED, not
+// entry count and by serialised size - and an oversized payload is REFUSED, not
 // truncated: cutting a JSON array mid-element is worse than saying no.
 const MAX_BRIEFS = 400;
 const MAX_BRIEF_PAYLOAD = 60000;
@@ -128,7 +110,7 @@ const MAX_ACTION = 160;
 const MAX_DIALOGUE = 200;
 // The on-phone contract: at most 3 short chips a shot. The prompt asks for
 // under 22 chars, and the clamp sits at 28 so it stays a backstop rather than a
-// routine editor — chips must spell sizes out ("extreme closeup", 15, not
+// routine editor - chips must spell sizes out ("extreme closeup on eyes", not
 // "ECU"), and composed ones like "extreme closeup on eyes" (23) or "point of
 // view through glass" (27) would otherwise be sliced mid-word.
 const MAX_MOMENTS_PER_SHOT = 3;
@@ -147,7 +129,7 @@ const MAX_OUTPUT_TOKENS_CALLSHEET = 3000;
 //
 // 40 shots a batch amortises the system prompt (~1k tokens, paid once per call)
 // over enough rows to be worth sending, while keeping any one request near 5k
-// tokens — comfortably inside even the free tier's 12k ceiling.
+// tokens - comfortably inside even the free tier's 12k ceiling.
 const SHOT_BATCH = 40;
 // Three chips of under 28 characters, plus the JSON around them, is ~20 tokens.
 // 30 is headroom, not a target, and it is what we RESERVE per shot.
@@ -163,7 +145,7 @@ const SHOT_TIME_BUDGET_MS = 100000;
 
 /**
  * A model- or client-supplied string, or undefined. Anything that isn't a
- * string (number, null, object, array) is dropped rather than stringified — a
+ * string (number, null, object, array) is dropped rather than stringified - a
  * `{}` in the size cell must not reach the operator as "[object Object]".
  */
 function cleanStr(v: any, max: number): string | undefined {
@@ -176,7 +158,7 @@ function cleanStr(v: any, max: number): string | undefined {
  * A chip, trimmed to fit. The prompt asks for under 22 characters, but a model
  * handed a long line of dialogue will hand it straight back, and a hard slice
  * turns `"Thodi der mein woh aayegi, tension mat lo."` into
- * `"Thodi der mein woh aayegi..` — cut mid-word, quote left hanging open. On a
+ * `"Thodi der mein woh aayegi..` - cut mid-word, quote left hanging open. On a
  * chip at arm's length that reads as a rendering fault.
  *
  * So: cut at a word boundary, drop the trailing punctuation the cut exposed,
@@ -289,7 +271,7 @@ Deno.serve(async (req: Request) => {
   const docName = (payload.docName ?? "").slice(0, 200);
   const turnstileToken = (payload.turnstileToken ?? "").trim();
   // Explicit mode only. A missing or unknown mode is the retired 'script' path
-  // (or a typo) — say so plainly instead of silently falling through.
+  // (or a typo) - say so plainly instead of silently falling through.
   const mode: "shots" | "callsheet" | null = payload.mode === "shots"
     ? "shots"
     : payload.mode === "callsheet"
@@ -297,36 +279,39 @@ Deno.serve(async (req: Request) => {
     : null;
   if (!mode) {
     return new Response(
-      JSON.stringify({ error: "Unknown mode — expected 'shots' or 'callsheet'." }),
+      JSON.stringify({ error: "Unknown mode - expected 'shots' or 'callsheet'." }),
       { status: 400, headers },
     );
   }
 
-  // Which counter this request spends, and what the free tier allows on it.
-  // Resolved ONCE, here, from the mode that was just validated, so the
-  // consume below and all four refunds further down cannot disagree about
-  // which of the two counters this request touched. See MODE_QUOTA.
-  const quota = MODE_QUOTA[mode];
-
-  // WHICH PROJECT this upload belongs to. Sent by the client, and deliberately
-  // not trusted for anything except being a name: the row it keys is
-  // (user_id, project_id) with the user id taken from the verified JWT above,
-  // so a caller can only ever name one of ITS OWN projects. The worst a made
-  // up id can do is spend that caller's own allowance on a project that does
-  // not exist.
+  // WHICH PROJECT this call belongs to. Sent by the client, and deliberately
+  // not trusted for anything except being a name: claim_project_access pairs
+  // it with the user id taken from the verified JWT above, so a caller can
+  // only ever name one of ITS OWN projects.
   //
-  // Projects live in IndexedDB on the phone, so there is no server-side
-  // projects table to check this against, and inventing one would be a sync
-  // problem far larger than the feature it protects.
+  // OFTEN EMPTY FOR SHOTS MODE, AND THAT IS A KNOWN, ACCEPTED GAP - not a
+  // bug introduced here. Shots mode's one caller (src/ui/ShotlistSheet.tsx)
+  // runs BEFORE the project it is importing into exists: `importScriptPack`,
+  // which mints the project id, only runs later once the user confirms fps/
+  // camera/name. Minting the id early and threading it through scriptpack.ts,
+  // ShotlistSheet.tsx AND NewProjectSheet.tsx (which reuses the same picker)
+  // was judged too large a change for this pass. The consequence: a free
+  // user's SECOND shots upload to the SAME project (legal under
+  // BREAKDOWNS_PER_PROJECT, which allows two) can burn a SECOND free project
+  // slot, because claim_project_access has no id to recognise it by - see
+  // that function's own comment in the migration for the full accounting.
+  // Callsheet mode does not have this problem: it runs against an
+  // already-imported project, so its one caller (ProjectScreen.tsx) always
+  // has a real id to send.
   const projectId = typeof payload.projectId === "string"
     ? payload.projectId.trim().slice(0, 64)
     : "";
 
   // Shots mode: sanitize the parsed shot list the client sent. Same posture as
-  // the callsheet scene list below — require a real code, clamp every field,
+  // the callsheet scene list below - require a real code, clamp every field,
   // drop duplicates, and keep the surviving codes as the set the model's reply
-  // is checked against. All of this runs BEFORE the quota is consumed, so a
-  // malformed payload never costs the user a slot.
+  // is checked against. All of this runs BEFORE any project slot is claimed,
+  // so a malformed payload never costs the user one.
   const briefSeen = new Set<string>();
   const briefs: { code: string; size?: string; move?: string; action?: string; dialogue?: string }[] = [];
   if (mode === "shots") {
@@ -350,7 +335,7 @@ Deno.serve(async (req: Request) => {
     }
     if (!briefs.length) {
       return new Response(
-        JSON.stringify({ error: "No shots to enrich — send a parsed shotlist." }),
+        JSON.stringify({ error: "No shots to enrich - send a parsed shotlist." }),
         { status: 400, headers },
       );
     }
@@ -395,11 +380,11 @@ Deno.serve(async (req: Request) => {
   // Service-role client: sole writer of counters + analytics. Never exposed.
   const admin = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false } });
 
-  // 4. Rate limits: per-IP and per-user sliding windows. Fail CLOSED — an rpc
+  // 4. Rate limits: per-IP and per-user sliding windows. Fail CLOSED - an rpc
   // error OR a false result is treated as rate-limited.
   const ipHash = await sha256Hex(ip + (Deno.env.get("IP_PEPPER") ?? "clapper"));
   const rateLimited = new Response(
-    JSON.stringify({ error: "Too fast — give it a moment and try again." }),
+    JSON.stringify({ error: "Too fast - give it a moment and try again." }),
     { status: 429, headers },
   );
   const { data: ipOk, error: ipErr } = await admin.rpc("rate_limit_check", {
@@ -415,39 +400,16 @@ Deno.serve(async (req: Request) => {
   });
   if (userErr || userOk === false) return rateLimited;
 
-  // 5. Server-authoritative quota — consumed BEFORE the global gate so the gate
-  // check never touches a user's lifetime slot. Limit derived from is_pro.
+  // 5. PROJECT ACCESS. Read is_pro/pro_until + suspension separately from
+  // each other (see export-gate's matching comment: one unknown column in a
+  // select 42703s the WHOLE select, and this app has been bitten by exactly
+  // that locking out the people who paid).
   const { data: profile } = await admin
     .from("profiles")
-    .select("is_pro")
+    .select("is_pro, pro_until")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
-  // A booted account is refused before a slot is ever consumed and before this
-  // call ever reaches Groq. Script Mode is the expensive feature, and a
-  // suspended user gets none of it regardless of how many free uses are left.
-  //
-  // ASKED SEPARATELY FROM is_pro ABOVE, AND FAILS OPEN. `is_suspended` used to
-  // ride along in that select, which broke it outright: the column is not in
-  // the live database yet, PostgREST refuses the whole select for one unknown
-  // column (42703), and `profile` came back null - so `profile?.is_pro` read
-  // as undefined and every Pro account quietly got free limits here. Split
-  // apart, a suspension lookup that errors decides only the suspension
-  // question, and it decides it as "not suspended" (see _shared/suspension.ts
-  // for the full reasoning). This is anti-abuse on a ten-account app, not a
-  // boundary: letting one abuser through for an hour is cheap, locking out
-  // every paying user is not. The rate limit, the auth check and the quota
-  // around it still fail CLOSED, because those ARE the boundary.
-  //
-  // 423 (Locked) rather than 403: this function's breakdown.ts client already
-  // hardcodes a "Bot check failed" message for any 403 (that status is
-  // Turnstile's), so reusing it here would show the wrong reason for the
-  // right refusal. `code: "suspended"` (not `reason`) matches the existing
-  // `code: "SIGNIN_REQUIRED"` convention in this file's 401 responses, and
-  // `error` carries copy a user can actually read. breakdown.ts falls back to
-  // `reason || error` when it doesn't recognize the status, so leaving `error`
-  // as the human sentence is what surfaces today, before any src change wires
-  // `code` in explicitly.
   if (await isSuspended(admin, userId)) {
     return new Response(
       JSON.stringify({
@@ -458,64 +420,80 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Per-mode counter and per-mode limit, both off `quota`. `p_kind` is the
-  // column selector inside consume_quota; 'callsheet' only exists there once
-  // 20260826150000_callsheet_quota.sql has been applied, and until then the
-  // RPC raises and the fail-closed branch below answers 500. That is the
-  // right failure for a counter, and it is why the migration ships first.
-  const limit = profile?.is_pro ? PRO_LIMIT : quota.free;
-  const { data: newCount, error: quotaErr } = await admin.rpc("consume_quota", {
-    p_user: userId,
-    p_kind: quota.kind,
-    p_limit: limit,
-  });
-  if (quotaErr || newCount == null) {
-    // Fail CLOSED: never let a broken counter hand out free breakdowns.
-    return new Response(
-      JSON.stringify({ error: "Server error — try again in a moment." }),
-      { status: 500, headers },
-    );
-  }
-  if (newCount === -1) {
-    return new Response(
-      JSON.stringify({ error: "quota_exceeded" }),
-      { status: 402, headers },
-    );
+  const pro = { isPro: profile?.is_pro === true, proUntil: (profile?.pro_until as string | null) ?? null };
+
+  // Pro bypasses claim_project_access entirely - an is_pro account has never
+  // spent a free slot and never will; treating it as unlimited without
+  // touching the counter keeps the free grant's accounting honest for
+  // everyone else. proBypass is the SAME helper export-gate uses, so a
+  // lapsed pro_until demotes identically in both places - before 2026-08-27
+  // this file ignored pro_until altogether and export-gate did not, which
+  // meant a lapsed Pro account kept uncapped Script Mode past its expiry
+  // while its exports correctly demoted. Fixed by sharing one function.
+  let freeSlotConsumed = false;
+  if (!proBypass(pro)) {
+    const { data: verdict, error: claimErr } = await admin.rpc("claim_project_access", {
+      p_user: userId,
+      p_project: projectId || null,
+      p_free_limit: FREE_PROJECT_LIMIT,
+      p_period_days: FREE_PROJECT_RESET_DAYS,
+    });
+    if (claimErr) {
+      // Fail CLOSED: never let a broken counter hand out free Script Mode.
+      return new Response(
+        JSON.stringify({ error: "Server error - try again in a moment." }),
+        { status: 500, headers },
+      );
+    }
+    if (verdict === "blocked") {
+      return new Response(
+        JSON.stringify({
+          error:
+            `You've used Script Mode's free access on ${FREE_PROJECT_LIMIT} projects. Unlock this one to continue.`,
+          code: "project_locked",
+        }),
+        { status: 402, headers },
+      );
+    }
+    freeSlotConsumed = verdict === "free_new";
   }
 
-  // 6. Global Groq gate (kill-switch + daily cap). If it denies, refund the slot
-  // we just consumed so a paused service does not burn a user's lifetime quota.
+  // Give the free slot back if anything below this point fails before Groq
+  // is ever charged for real work. Named separately from the project-
+  // breakdown refund (6b) because they are two different grants: this one is
+  // "does this project get Script Mode at all", that one is "how many shot
+  // divisions has it uploaded".
+  const refundProjectAccess = async () => {
+    if (!freeSlotConsumed) return;
+    await admin.rpc("refund_project_access", { p_user: userId, p_project: projectId || null });
+  };
+
+  // 6. Global Groq gate (kill-switch + daily cap). If it denies, refund the
+  // slot we just claimed so a paused service does not permanently spend a
+  // user's free grant.
   const { data: gate, error: gateErr } = await admin.rpc("script_mode_gate");
   if (gateErr || !gate || !gate.allow) {
-    await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
+    await refundProjectAccess();
     return new Response(
-      JSON.stringify({ error: "Script Mode is taking a breather — try again later." }),
+      JSON.stringify({ error: "Script Mode is taking a breather - try again later." }),
       { status: 503, headers },
     );
   }
 
   // 6b. THE PER-PROJECT SHOT DIVISION CAP. At most two uploads per project,
-  // forever, free or paid.
+  // forever, free or paid - this is UNCHANGED by the 2026-08-27 rework: it is
+  // orthogonal to whether the project has Script Mode access at all (5,
+  // above), and exists so a single unlocked or free-granted project cannot
+  // become an unlimited Script Mode subscription of its own.
   //
-  // WHY IT EXISTS. A credit unlocks one project permanently. Without this cap
-  // that single unlock is a lifetime subscription: keep one project, upload a
-  // new shot division for every shoot, never pay again. The account-level
-  // counter above cannot express it, because it counts per ACCOUNT and resets
-  // nothing when a project is bought.
-  //
-  // The guard is in the WHERE clause of consume_project_breakdown, exactly
-  // like consume_quota, so two uploads racing cannot both take the last slot.
-  //
-  // IT FAILS OPEN, AND ONLY THIS ONE DOES. Everything else in this function
-  // that touches a counter fails closed. The reason is the deploy order: the
-  // entitlements migration is NOT applied yet, so today this RPC does not
-  // exist. Failing closed would mean that deploying this function before
-  // running that migration turns Script Mode off for ten live users, to
-  // enforce a cap on a paid unlock that cannot be bought yet. The account
-  // quota above still fails closed and still bounds every free user, so the
-  // window this leaves open is "an unlocked project could upload a third shot
-  // division", and nothing is unlocked until the migration lands. Once it
-  // lands, the RPC answers and the cap is live with no code change here.
+  // FAILS CLOSED NOW, not open. Before 2026-08-27 this comment explained that
+  // it failed open because the entitlements migration (20260826170000) had
+  // not been applied yet in production, and failing closed would have turned
+  // off Script Mode entirely ahead of that deploy. That migration is applied
+  // now (project_entitlements exists live), so the reason to fail open is
+  // gone, and failing open on a real RPC error would silently let a project
+  // upload unlimited shot divisions - the exact failure mode every other
+  // consume in this file avoids.
   let projectSlotTaken = false;
   if (mode === "shots" && projectId) {
     const { data: projCount, error: projErr } = await admin.rpc("consume_project_breakdown", {
@@ -524,11 +502,13 @@ Deno.serve(async (req: Request) => {
       p_limit: BREAKDOWNS_PER_PROJECT,
     });
     if (projErr) {
-      console.error("breakdown: consume_project_breakdown unavailable, cap not enforced", projErr);
+      await refundProjectAccess();
+      return new Response(
+        JSON.stringify({ error: "Server error - try again in a moment." }),
+        { status: 500, headers },
+      );
     } else if (projCount === -1) {
-      // Give the account slot back: this upload is being refused, so it must
-      // not also cost a lifetime use.
-      await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
+      await refundProjectAccess();
       return new Response(
         JSON.stringify({
           error: "This project has used both of its shot division uploads. Start a new project for a new shoot.",
@@ -541,8 +521,8 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // Refunding the project slot travels WITH the account-quota refund from here
-  // on: every path below that hands a lifetime use back must hand this back
+  // Refunding the upload slot travels WITH the project-access refund from
+  // here on: every path below that hands access back must hand this back
   // too, or a Groq outage would permanently eat one of the project's two.
   const refundProjectSlot = async () => {
     if (!projectSlotTaken) return;
@@ -561,8 +541,8 @@ Deno.serve(async (req: Request) => {
   // transcription of the document itself.
   //
   // Shots mode goes in BATCHES, and the reason is a rate limit rather than a
-  // context limit. Groq's free tier counts `max_tokens` — what you RESERVE for
-  // the reply, not what you use — against tokens-per-minute. So one call over a
+  // context limit. Groq's free tier counts `max_tokens` - what you RESERVE for
+  // the reply, not what you use - against tokens-per-minute. So one call over a
   // 137-shot film asked for 18,505 against a 12,000 TPM ceiling and was refused
   // outright, mostly on reserved output nobody was going to spend. Small
   // batches, each reserving only what its own shots could possibly need, stay
@@ -573,23 +553,12 @@ Deno.serve(async (req: Request) => {
   // Failure is per-batch, so one bad batch costs its own shots' chips and
   // nothing else, and a whole run that overruns the time budget returns the
   // chips it did earn rather than nothing.
-  // LLM COST METER. `script_use` already existed but could not answer "how many
-  // model requests are we making", and that is the number with a bill attached.
-  // Two reasons it could not:
-  //   1. Shots mode BATCHES. One script_use can be a single call or a dozen,
-  //      depending on the length of the script, and retries below fire more.
-  //      Counting script_use rows undercounts real requests by a wide and
-  //      variable margin.
-  //   2. FAILED CALLS COST TOO. A 429 or a 502 is a request that was made, may
-  //      have burned input tokens, and counts against the rate limit - and the
-  //      old failure paths returned early without logging anything at all, so
-  //      the worst days looked like the quietest ones.
-  //
-  // Counted HERE, inside the one function that actually talks to Groq, rather
-  // than at the call sites: every path including each retry passes through this
-  // line, so a new caller added later is metered without anyone remembering to.
-  // Server-side by necessity - a client-reported number can be spoofed by
-  // anyone with a browser console, and would miss every failure.
+  // LLM COST METER. Server-side by necessity - a client-reported number can
+  // be spoofed by anyone with a browser console, and would miss every
+  // failure. Counted HERE, inside the one function that actually talks to
+  // Groq, rather than at the call sites: every path including each retry
+  // passes through this line, so a new caller added later is metered without
+  // anyone remembering to.
   const meter = {
     calls: 0,
     ok: 0,
@@ -601,11 +570,8 @@ Deno.serve(async (req: Request) => {
 
   /* The meter, flattened for `events.props`. Prefixed `llm_` so a dashboard
      query can pull cost out of any event that carries it without knowing
-     which event it is looking at, and so these can never collide with the
-     mode-specific keys (`shots`, `moments`, `today`) alongside them.
-     `llm_model` travels WITH the counts because price is per-model: a token
-     total with no model attached cannot be turned into money later, and this
-     project has already switched models once. */
+     which event it is looking at. `llm_model` travels WITH the counts
+     because price is per-model. */
   const llmProps = () => ({
     llm_model: GROQ_MODEL,
     llm_calls: meter.calls,
@@ -616,11 +582,10 @@ Deno.serve(async (req: Request) => {
     llm_completion_tokens: meter.completionTokens,
   });
 
-  /* Log a run that produced NOTHING. Without this the meter would still be a
-     lie by omission: an outage day makes the most requests, burns the most
-     input tokens and returns the fewest results, and the old code returned
-     502 without writing a row - so the most expensive days were invisible and
-     the dashboard's "requests" line would fall exactly when spend spiked.
+  /* Log a run that produced NOTHING. Without this the meter would be a lie
+     by omission: an outage day makes the most requests, burns the most input
+     tokens and returns the fewest results, and returning an error without
+     writing a row would make the most expensive days invisible.
      `script_fail` rather than `script_use` because the user was refunded and
      it must never be counted as a use. Best-effort: never blocks the error
      response the caller is waiting on. */
@@ -683,9 +648,9 @@ Deno.serve(async (req: Request) => {
       "\n\nCALL SHEET:\n" + text.slice(0, CALLSHEET_INPUT_CAP);
     const r = await groqJson(SYSTEM_CALLSHEET, userContent, MAX_OUTPUT_TOKENS_CALLSHEET);
     if (!r.ok) {
-      // Groq outage must not burn the user's lifetime slot — refund it.
-      await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
-    await refundProjectSlot();
+      // Groq outage must not burn access this project earned - refund both.
+      await refundProjectAccess();
+      await refundProjectSlot();
       await logLlmFailure(mode, r.status);
       return new Response(
         JSON.stringify({ error: "Breakdown service error", detail: r.detail }),
@@ -708,7 +673,7 @@ Deno.serve(async (req: Request) => {
       const reserve = batch.length * OUTPUT_TOKENS_PER_SHOT;
       attempted++;
 
-      // 429 is the rate limiter asking us to wait, not a failure — on the free
+      // 429 is the rate limiter asking us to wait, not a failure - on the free
       // tier it is the EXPECTED reply once a minute's budget is spent. Waiting
       // it out is the whole throttling strategy, so retry rather than give up.
       let r = await groqJson(SYSTEM_SHOTS, userContent, reserve);
@@ -725,11 +690,11 @@ Deno.serve(async (req: Request) => {
       if (Array.isArray(r.parsed.shots)) shotMoments = shotMoments.concat(r.parsed.shots);
     }
 
-    // Every batch we tried failed — that is a real outage, not model restraint,
+    // Every batch we tried failed - that is a real outage, not model restraint,
     // so say so and refund rather than passing off silence as "no key moments".
     if (!shotMoments.length && attempted > 0 && lastStatus) {
-      await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
-    await refundProjectSlot();
+      await refundProjectAccess();
+      await refundProjectSlot();
       await logLlmFailure(mode, lastStatus);
       return new Response(
         JSON.stringify({ error: "Breakdown service error", detail: lastDetail }),
@@ -759,7 +724,7 @@ Deno.serve(async (req: Request) => {
     } catch (_) { /* analytics is non-fatal */ }
 
     return new Response(
-      JSON.stringify({ callSheet: 1, today: validToday, used: newCount, limit }),
+      JSON.stringify({ callSheet: 1, today: validToday }),
       { headers },
     );
   }
@@ -768,7 +733,7 @@ Deno.serve(async (req: Request) => {
   // build a map of the moments it returned, then walk the ORIGINAL briefs to
   // emit the answer. Driving off the briefs rather than the reply means an
   // invented code cannot get in, a duplicated code collapses, and the order is
-  // the order the client asked in — for free.
+  // the order the client asked in - for free.
   const momentsByCode = new Map<string, string[]>();
   for (const s of shotMoments) {
     if (!s || typeof s !== "object" || Array.isArray(s)) continue;
@@ -790,14 +755,12 @@ Deno.serve(async (req: Request) => {
     .filter((s) => s.keyMoments.length > 0);
   const momentCount = validShots.reduce((n, s) => n + s.keyMoments.length, 0);
 
-  // Nothing usable came back for ANY shot — the model ignored the schema rather
-  // than exercised restraint. The call bought the user nothing, so refund the
-  // slot. Still a 200: the client keeps its correctly-parsed shotlist, chipless.
-  let used = newCount;
+  // Nothing usable came back for ANY shot - the model ignored the schema rather
+  // than exercised restraint. The call bought the user nothing, so refund
+  // access. Still a 200: the client keeps its correctly-parsed shotlist, chipless.
   if (!validShots.length) {
-    await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
+    await refundProjectAccess();
     await refundProjectSlot();
-    used = Math.max(0, Number(newCount) - 1);
   }
 
   // 8. Analytics event (service role). Best-effort, never blocks the response.
@@ -817,5 +780,5 @@ Deno.serve(async (req: Request) => {
     });
   } catch (_) { /* analytics is non-fatal */ }
 
-  return new Response(JSON.stringify({ shots: validShots, used, limit }), { headers });
+  return new Response(JSON.stringify({ shots: validShots }), { headers });
 });

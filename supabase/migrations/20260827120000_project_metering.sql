@@ -2,12 +2,12 @@
 --
 -- THE MODEL THIS BUILDS, IN ONE PARAGRAPH. Clapper used to meter EXPORTS: 2
 -- Premiere XML, 5 PDF, 5 CSV, 1 shot-list import, 5 call sheets, all counted
--- per account, forever. That gates the lightest user first — a film student
+-- per account, forever. That gates the lightest user first - a film student
 -- on one short hits the 2-XML cap on their only project, while a production
 -- house running twenty shoots pays the same nothing. The meter is now
 -- PROJECTS, not exports. CSV export is free and uncounted for every signed-in
 -- account, always. PDF and Premiere/Resolve XML require the PROJECT to be
--- unlocked (a credit spent via unlock_project, in 20260826170000) — the free
+-- unlocked (a credit spent via unlock_project, in 20260826170000) - the free
 -- grant below does not turn them on. Script Mode (shots + call sheet) is
 -- what the free grant DOES gate: an account gets free Script Mode access on
 -- its first two projects, ever, and every project beyond that needs a
@@ -17,7 +17,7 @@
 -- WHY THE FREE GRANT IS NOT MORE project_credits. unlock_project spends a
 -- credit and sets project_entitlements.unlocked_at, which is what turns on
 -- PDF/XML forever. Seeding two free credits into project_credits would give
--- a free project the exact same paid export access a purchase buys — which
+-- a free project the exact same paid export access a purchase buys - which
 -- is the one thing the owner explicitly ruled out. So the free grant is a
 -- SEPARATE counter (`free_projects_used`) that only ever unlocks Script Mode,
 -- through a separate function (`claim_project_access`), and never touches
@@ -28,13 +28,13 @@
 -- pricing passes argued for a monthly refill instead, on the grounds that a
 -- permanent dead end lands the paywall exactly when a returning user is
 -- busiest, and he has not overruled his own instruction in so many words.
--- Rather than guess, this migration builds the one-time grant — his explicit
--- word stands — but the reset is driven by ONE NUMBER,
+-- Rather than guess, this migration builds the one-time grant - his explicit
+-- word stands - but the reset is driven by ONE NUMBER,
 -- FREE_PROJECT_RESET_DAYS in supabase/functions/_shared/products.ts, passed
 -- into claim_project_access as p_period_days. It is 0 today, which this
 -- function reads as "never reset". Changing it to 30 turns the same grant
 -- into a monthly refill with no other code change, in either the database or
--- the edge function — see claim_project_access below for exactly where that
+-- the edge function - see claim_project_access below for exactly where that
 -- number is read. A project that already claimed a free slot (its
 -- project_entitlements.free_at is set) is unaffected either way: a period
 -- reset only refills the ACCOUNT counter that gates a NEW project's first
@@ -50,7 +50,7 @@
 --
 -- WHAT THIS DOES NOT DO. Nothing here writes free_projects_used,
 -- project_entitlements.free_at, subscription_product or podcast_seconds_used
--- until the edge functions that call these new RPCs are deployed — same
+-- until the edge functions that call these new RPCs are deployed - same
 -- posture as 20260826170000, additive and inert until read. And nothing
 -- calls consume_podcast_seconds at all yet: podcast roll time is not tracked
 -- anywhere in this codebase today (RollingScreen.tsx has no timer that
@@ -62,7 +62,7 @@
 -- is_pro AND pro_until STAY, exactly as 20260826170000 said. Nothing below
 -- drops or rewrites either one, and both new gates (project access and
 -- export access) treat is_pro (undemoted by a lapsed pro_until) as a full
--- bypass — every project this account touches behaves as already unlocked.
+-- bypass - every project this account touches behaves as already unlocked.
 -- That is the same guarantee is_pro has always carried; the mechanics under
 -- it changed, the promise to the one legacy account did not.
 

@@ -59,7 +59,7 @@ import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
 import { ProCta } from './ProCta';
 import { useSession, signInWithGoogle } from '../net/auth';
-import { getUsage, FREE_LIMITS, type Usage } from '../net/quota';
+import { getEntitlements, FREE_PROJECT_LIMIT, type Entitlements } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 
@@ -258,8 +258,8 @@ export function DocumentStage(props: {
   const [phase, setPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
-  const [usage, setUsage] = useState<Usage | null>(null);
-  // True once the breakdown is refused for being out of free uses.
+  const [ent, setEnt] = useState<Entitlements | null>(null);
+  // True once the breakdown is refused for being out of free project slots.
   const [capped, setCapped] = useState(dev?.capped ?? false);
   const [over, setOver] = useState(false);
   // What has actually been found so far. Nulls are "not known yet" and render
@@ -270,17 +270,24 @@ export function DocumentStage(props: {
 
   const busy = phase !== 'idle';
   const signedIn = dev?.signedIn ?? !!session;
-  const left = dev?.left ?? usage?.script.left;
+  // REWORKED 2026-08-27: this used to read `usage.script.left`, a per-account
+  // lifetime counter of shot-list breakdowns (1 free, ever). Script Mode is
+  // gated per PROJECT now (see claim_project_access): a free account gets it
+  // on its first FREE_PROJECT_LIMIT projects, and a shots-mode upload spends
+  // one of those slots in the common case (see breakdown/index.ts's comment
+  // on the id-less path - this upload is what creates the project, so
+  // "breakdowns left" and "free projects left" are the same number here).
+  const left = dev?.left ?? (ent ? Math.max(0, ent.freeProjectsLimit - ent.freeProjectsUsed) : undefined);
   const showCap = dev?.capped ?? capped;
 
   useEffect(() => {
     if (!signedIn) {
-      setUsage(null);
+      setEnt(null);
       return;
     }
     let active = true;
-    void getUsage().then((u) => {
-      if (active) setUsage(u);
+    void getEntitlements().then((e) => {
+      if (active) setEnt(e);
     });
     return () => {
       active = false;
@@ -332,7 +339,10 @@ export function DocumentStage(props: {
       }
       if (err instanceof Error && err.message === 'CAP') {
         track('cap_hit', { which: 'script' });
-        setError('Free limit reached. More coming soon.');
+        // Honest and final: this grant does not refill (see
+        // FREE_PROJECT_RESET_DAYS in net/quota.ts). No "more coming soon" -
+        // there is nothing coming, only a project to unlock.
+        setError(`That's Script Mode's free access on ${FREE_PROJECT_LIMIT} projects, used up. Unlock this project to continue.`);
         setCapped(true);
         return;
       }
@@ -394,8 +404,8 @@ export function DocumentStage(props: {
           </label>
           {typeof left === 'number' && (
             <p className="camnote sl-quota">
-              <span className="tnum">{left}</span> of <span className="tnum">{FREE_LIMITS.script}</span>{' '}
-              breakdowns left
+              <span className="tnum">{left}</span> of <span className="tnum">{FREE_PROJECT_LIMIT}</span>{' '}
+              free projects left
             </p>
           )}
         </>
