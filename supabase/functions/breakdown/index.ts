@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
 import { isSuspended } from "../_shared/suspension.ts";
+import { BREAKDOWNS_PER_PROJECT } from "../_shared/products.ts";
 
 // Clapper Script Mode backend. Identity comes from the caller's Supabase JWT
 // (never a client-sent email). Flow: getUser -> Turnstile -> rate limits ->
@@ -275,6 +276,7 @@ Deno.serve(async (req: Request) => {
     docName?: string;
     turnstileToken?: string;
     mode?: string;
+    projectId?: string;
     scenes?: { ref?: string; name?: string }[];
     shots?: { code?: string; size?: string; move?: string; action?: string; dialogue?: string }[];
   };
@@ -305,6 +307,20 @@ Deno.serve(async (req: Request) => {
   // consume below and all four refunds further down cannot disagree about
   // which of the two counters this request touched. See MODE_QUOTA.
   const quota = MODE_QUOTA[mode];
+
+  // WHICH PROJECT this upload belongs to. Sent by the client, and deliberately
+  // not trusted for anything except being a name: the row it keys is
+  // (user_id, project_id) with the user id taken from the verified JWT above,
+  // so a caller can only ever name one of ITS OWN projects. The worst a made
+  // up id can do is spend that caller's own allowance on a project that does
+  // not exist.
+  //
+  // Projects live in IndexedDB on the phone, so there is no server-side
+  // projects table to check this against, and inventing one would be a sync
+  // problem far larger than the feature it protects.
+  const projectId = typeof payload.projectId === "string"
+    ? payload.projectId.trim().slice(0, 64)
+    : "";
 
   // Shots mode: sanitize the parsed shot list the client sent. Same posture as
   // the callsheet scene list below — require a real code, clamp every field,
@@ -478,6 +494,61 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // 6b. THE PER-PROJECT SHOT DIVISION CAP. At most two uploads per project,
+  // forever, free or paid.
+  //
+  // WHY IT EXISTS. A credit unlocks one project permanently. Without this cap
+  // that single unlock is a lifetime subscription: keep one project, upload a
+  // new shot division for every shoot, never pay again. The account-level
+  // counter above cannot express it, because it counts per ACCOUNT and resets
+  // nothing when a project is bought.
+  //
+  // The guard is in the WHERE clause of consume_project_breakdown, exactly
+  // like consume_quota, so two uploads racing cannot both take the last slot.
+  //
+  // IT FAILS OPEN, AND ONLY THIS ONE DOES. Everything else in this function
+  // that touches a counter fails closed. The reason is the deploy order: the
+  // entitlements migration is NOT applied yet, so today this RPC does not
+  // exist. Failing closed would mean that deploying this function before
+  // running that migration turns Script Mode off for ten live users, to
+  // enforce a cap on a paid unlock that cannot be bought yet. The account
+  // quota above still fails closed and still bounds every free user, so the
+  // window this leaves open is "an unlocked project could upload a third shot
+  // division", and nothing is unlocked until the migration lands. Once it
+  // lands, the RPC answers and the cap is live with no code change here.
+  let projectSlotTaken = false;
+  if (mode === "shots" && projectId) {
+    const { data: projCount, error: projErr } = await admin.rpc("consume_project_breakdown", {
+      p_user: userId,
+      p_project: projectId,
+      p_limit: BREAKDOWNS_PER_PROJECT,
+    });
+    if (projErr) {
+      console.error("breakdown: consume_project_breakdown unavailable, cap not enforced", projErr);
+    } else if (projCount === -1) {
+      // Give the account slot back: this upload is being refused, so it must
+      // not also cost a lifetime use.
+      await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
+      return new Response(
+        JSON.stringify({
+          error: "This project has used both of its shot division uploads. Start a new project for a new shoot.",
+          code: "project_breakdown_cap",
+        }),
+        { status: 402, headers },
+      );
+    } else {
+      projectSlotTaken = true;
+    }
+  }
+
+  // Refunding the project slot travels WITH the account-quota refund from here
+  // on: every path below that hands a lifetime use back must hand this back
+  // too, or a Groq outage would permanently eat one of the project's two.
+  const refundProjectSlot = async () => {
+    if (!projectSlotTaken) return;
+    await admin.rpc("refund_project_breakdown", { p_user: userId, p_project: projectId });
+  };
+
   // Callsheet mode: sanitize the known-scenes list the client sent (project's
   // already-known scenes), used both in the Groq prompt and for validation.
   const knownScenes = (Array.isArray(payload.scenes) ? payload.scenes : [])
@@ -614,6 +685,7 @@ Deno.serve(async (req: Request) => {
     if (!r.ok) {
       // Groq outage must not burn the user's lifetime slot — refund it.
       await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
+    await refundProjectSlot();
       await logLlmFailure(mode, r.status);
       return new Response(
         JSON.stringify({ error: "Breakdown service error", detail: r.detail }),
@@ -657,6 +729,7 @@ Deno.serve(async (req: Request) => {
     // so say so and refund rather than passing off silence as "no key moments".
     if (!shotMoments.length && attempted > 0 && lastStatus) {
       await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
+    await refundProjectSlot();
       await logLlmFailure(mode, lastStatus);
       return new Response(
         JSON.stringify({ error: "Breakdown service error", detail: lastDetail }),
@@ -723,6 +796,7 @@ Deno.serve(async (req: Request) => {
   let used = newCount;
   if (!validShots.length) {
     await admin.rpc("refund_quota", { p_user: userId, p_kind: quota.kind });
+    await refundProjectSlot();
     used = Math.max(0, Number(newCount) - 1);
   }
 

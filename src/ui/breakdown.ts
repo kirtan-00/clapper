@@ -52,7 +52,29 @@ interface ShotBrief {
  * than "sign in" or "out of uses", the caller still gets its shotlist back with
  * no chips rather than losing a correct parse to a flaky network.
  */
-export async function enrichShotMoments(pack: ScriptPack, docName: string): Promise<ScriptPack> {
+export async function enrichShotMoments(
+  pack: ScriptPack,
+  docName: string,
+  /**
+   * Which project this upload belongs to. OPTIONAL, and currently never
+   * passed by any caller.
+   *
+   * The server caps shot division uploads at two PER PROJECT, forever, and
+   * that cap only binds when it knows which project a upload is for
+   * (supabase/functions/breakdown, `consume_project_breakdown`). Wiring it up
+   * is not a one-liner at the call site, which is why it is not done here: the
+   * only caller is the import sheet, and in that flow THE UPLOAD IS WHAT
+   * CREATES THE PROJECT, so there is no id yet when this runs. The client has
+   * to mint the project id before calling this and hand the same id to the
+   * project it then creates.
+   *
+   * This parameter is the wire format for that, agreed in advance so the
+   * server side can ship first. It is a hint, never an entitlement: the server
+   * pairs it with the user id off the verified JWT and a caller can only ever
+   * name one of its own projects.
+   */
+  projectId?: string,
+): Promise<ScriptPack> {
   const briefs: ShotBrief[] = [];
   for (const scene of pack.scenes) {
     for (const s of scene.shots ?? []) {
@@ -74,7 +96,7 @@ export async function enrichShotMoments(pack: ScriptPack, docName: string): Prom
   const { data, error } = await supabase.functions.invoke<{
     shots: { code: string; keyMoments: string[] }[];
   }>('breakdown', {
-    body: { mode: 'shots', shots: briefs, docName, turnstileToken },
+    body: { mode: 'shots', shots: briefs, docName, turnstileToken, projectId },
   });
 
   if (error) {
