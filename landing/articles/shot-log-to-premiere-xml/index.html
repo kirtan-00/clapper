@@ -11,8 +11,8 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
 <title>Shot Log to Premiere XML: How the Export Actually Works | Clapper</title>
-<meta name="description" content="How a shot log becomes an importable Premiere or Resolve timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and how media relinking actually works." />
-<meta name="keywords" content="shot log to premiere xml, export shot log to premiere, continuity sheet to editor, FCP7 xmeml import premiere, davinci resolve fcpxml import, camera log to timeline" />
+<meta name="description" content="How a shot log becomes an importable Premiere timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and how media relinking actually works." />
+<meta name="keywords" content="shot log to premiere xml, export shot log to premiere, continuity sheet to editor, FCP7 xmeml import premiere, camera log to timeline" />
 <meta name="author" content="Clapper" />
 <link rel="canonical" href="https://clapper.in/articles/shot-log-to-premiere-xml/" />
 <link rel="alternate" hreflang="en-us" href="https://clapper.in/articles/shot-log-to-premiere-xml/" />
@@ -21,30 +21,29 @@
 <meta property="og:type" content="article" />
 <meta property="og:site_name" content="Clapper" />
 <meta property="og:title" content="Shot Log to Premiere XML: How the Export Actually Works" />
-<meta property="og:description" content="How a shot log becomes an importable Premiere or Resolve timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and media relinking." />
+<meta property="og:description" content="How a shot log becomes an importable Premiere timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and media relinking." />
 <meta property="og:url" content="https://clapper.in/articles/shot-log-to-premiere-xml/" />
 <meta property="og:image" content="https://clapper.in/og.png" />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Shot Log to Premiere XML: How the Export Actually Works" />
-<meta name="twitter:description" content="How a shot log becomes an importable Premiere or Resolve timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and media relinking." />
+<meta name="twitter:description" content="How a shot log becomes an importable Premiere timeline: the two-band story-cut-plus-selects structure, markers, multicam sync, and media relinking." />
 <meta name="twitter:image" content="https://clapper.in/og.png" />
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "HowTo",
-  "name": "How to turn a shot log into a Premiere or Resolve timeline",
-  "description": "How to export a shot log as a Premiere-ready XML or a DaVinci Resolve FCPXML, and get the footage relinked and playing on a timeline.",
+  "name": "How to turn a shot log into a Premiere timeline",
+  "description": "How to export a shot log as a Premiere-ready XML and get the footage relinked and playing on a timeline.",
   "totalTime": "PT10M",
   "supply": [
     { "@type": "HowToSupply", "name": "A logged shoot (scene, shot, take, GOLD selects)" },
     { "@type": "HowToSupply", "name": "The camera footage copied to a drive" }
   ],
   "step": [
-    { "@type": "HowToStep", "name": "Pick the right export", "text": "Export as Premiere (legacy FCP7 xmeml) for Premiere Pro, or as Resolve (FCPXML) for DaVinci Resolve. They are two different files built for two different apps, sharing one free-export allowance." },
     { "@type": "HowToStep", "name": "Set a footage root if you know it", "text": "Point the export at the folder the footage actually lives in so the import lands online immediately instead of offline." },
-    { "@type": "HowToStep", "name": "Import the XML", "text": "Drag the file into a Premiere project panel, or use Resolve's File > Import > Timeline dialog. It lands as a new sequence." },
+    { "@type": "HowToStep", "name": "Import the XML", "text": "Drag the file into a Premiere project panel, or use File > Import. It lands as a new sequence." },
     { "@type": "HowToStep", "name": "Relink the media", "text": "Locate one clip and choose relink others automatically by file name to bring the rest of the shoot online in one pass." },
     { "@type": "HowToStep", "name": "Read the two bands", "text": "The good takes in story order sit first as a rough assembly. Past the gap, every take, good and bad, sits again as a selects pool for alternates." }
   ]
@@ -163,23 +162,23 @@ footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border
     <section class="hero">
       <div class="wrap">
         <p class="kicker">Post-production handoff</p>
-        <h1>From shot log to a Premiere (or Resolve) timeline</h1>
+        <h1>From shot log to a Premiere timeline</h1>
         <p class="lede">An XML export is not a copy of your footage. It is a small text file that describes a timeline, in the standard your editing app already reads, and points at files that already exist on a drive. This is what that file actually contains, why the export builds two passes instead of one, and what happens when you open it.</p>
       </div>
     </section>
 
     <section>
       <div class="wrap prose">
-        <h2>Two formats, one shared allowance</h2>
-        <p>&ldquo;Export to Premiere&rdquo; and &ldquo;export to Resolve&rdquo; are not the same file with a different label. They are two different generators writing two different XML dialects: the Premiere export is legacy FCP7 <span class="mono">xmeml</span> (version 5), the format Premiere Pro has always read natively. The Resolve export is FCPXML, the Final Cut Pro X interchange format, because that is the dialect DaVinci Resolve's own import tooling is built around. Feed Resolve the Premiere-shaped file, or Premiere the Resolve-shaped one, and you will get an import that only partly works, if it opens at all.</p>
-        <p>Clapper treats them as one handoff for the purpose of the free tier: exporting a Premiere XML and a Resolve XML both draw from the same pooled allowance, because it is the same underlying shot log going to the same editor either way, just shaped for a different app. Pick the one that matches the editor's software, not both by default.</p>
+        <h2>One file, built for how Premiere already reads</h2>
+        <p>The export is legacy FCP7 <span class="mono">xmeml</span> (version 5), the format Premiere Pro has read natively since long before Adobe owned it. That choice is deliberate: xmeml is old enough that every version of Premiere still in use opens it without a plugin or a conversion step, so the file you get at wrap is the file you drag in, nothing else to install.</p>
+        <p>Free accounts get 3 Premiere XML exports; the PDF and CSV handoffs described further down are separate allowances. Logging takes itself stays unlimited either way.</p>
       </div>
     </section>
 
     <section>
       <div class="wrap prose">
         <h2>The timeline structure, in both formats</h2>
-        <p>Every export, single-camera or multi-camera, Premiere or Resolve, lays the same two-pass structure onto the sequence:</p>
+        <p>Every export, single-camera or multi-camera, lays the same two-pass structure onto the sequence:</p>
       </div>
       <div class="wrap">
         <div class="band">
@@ -203,7 +202,7 @@ footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border
     <section>
       <div class="wrap prose">
         <h2>Multi-camera: synced tracks, not a flattened cut</h2>
-        <p>On a multi-camera project (two to four units), every camera gets its own picture-and-audio track pair, unit A on V1/A1, unit B on V2/A2, and so on. Every take places each camera's clip at the exact same timeline position across those tracks, so the angles stack vertically in sync and the sequence is ready for Premiere's or Resolve's own multicam tools the moment it opens, rather than needing to be synced by hand from scratch.</p>
+        <p>On a multi-camera project (two to four units), every camera gets its own picture-and-audio track pair, unit A on V1/A1, unit B on V2/A2, and so on. Every take places each camera's clip at the exact same timeline position across those tracks, so the angles stack vertically in sync and the sequence is ready for Premiere's own multicam tools the moment it opens, rather than needing to be synced by hand from scratch.</p>
         <p>Production sound, if the project uses a separate recorder, rides its own additional audio track underneath the camera tracks, placed at the take's start plus whatever offset that take's sound clip actually started at. The editor relinks the recorder's file once and it already sits in sync under the picture.</p>
       </div>
     </section>
@@ -220,7 +219,7 @@ footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border
       <div class="wrap prose">
         <h2>Why a good take does not duplicate your bin</h2>
         <p>A take that made GOLD appears twice on the timeline, once in the story cut, once again in the selects pool. Writing that naively, one new imported clip per appearance, is a real and common failure mode: an editor bringing in a 232-clip shoot without this safeguard has watched an import land 351 separate items in the bin for those 232 physical files, each duplicate needing to be relinked and consolidated by hand.</p>
-        <p>Both formats avoid it the same way: every clip reference on the timeline is keyed back to the physical file, not to the clip's appearance, so a take that shows up in both bands still resolves to a single item in the project panel or media pool. You get one clip, referenced twice on the timeline, which is what actually happened on set.</p>
+        <p>The export avoids it by keying every clip reference on the timeline back to the physical file, not to the clip's appearance, so a take that shows up in both bands still resolves to a single item in the project panel. You get one clip, referenced twice on the timeline, which is what actually happened on set.</p>
       </div>
     </section>
 
@@ -228,9 +227,9 @@ footer.foot .copy{max-width:1000px;margin:14px auto 0;padding:14px 22px 0;border
       <div class="wrap">
         <h2>Importing it</h2>
         <ol class="steps">
-          <li><h3>Premiere</h3><p>Drag the exported <span class="mono">.xml</span> straight into a project panel bin, or use File &gt; Import. It lands as a new sequence carrying the project's name, with every clip referencing the card's native file name.</p></li>
-          <li><h3>DaVinci Resolve</h3><p>Use Resolve's File &gt; Import &gt; Timeline dialog and point it at the exported FCPXML. It builds a new timeline in the current project, sourcing whichever media it can already see in the Media Pool and leaving the rest offline until relinked.</p></li>
+          <li><h3>Import</h3><p>Drag the exported <span class="mono">.xml</span> straight into a project panel bin, or use File &gt; Import. It lands as a new sequence carrying the project's name, with every clip referencing the card's native file name.</p></li>
           <li><h3>Relink</h3><p>Locate one clip by hand, then choose the option to relink the rest automatically by file name. With no footage root set, this is the step that brings the whole card online in one pass.</p></li>
+          <li><h3>Check the two bands</h3><p>Scrub past the gap and confirm the selects pool is there, then trim it out of the delivery cut once the editor has pulled what they need from it.</p></li>
         </ol>
       </div>
     </section>
@@ -253,7 +252,7 @@ file_path, file_status, file_alternatives</div>
         <ul style="max-width:70ch;color:var(--ink-dim);padding-left:20px">
           <li>Set the footage root once you know where the drive will actually sit on the edit machine, if you know it before wrap.</li>
           <li>Get the project's frame rate right before you shoot, not after: changing it later reshapes the frame math for every export from that point on, but does not rewrite anything already exported.</li>
-          <li>Pick Premiere or Resolve to match the editor's app. They read different files, even though they share one free allowance.</li>
+          <li>Confirm with the editor that Premiere is what they are cutting in. The export is built for Premiere's own xmeml reader, not a general-purpose interchange file.</li>
         </ul>
       </div>
     </section>
@@ -261,9 +260,9 @@ file_path, file_status, file_alternatives</div>
     <section>
       <div class="wrap">
         <div class="cta">
-          <p class="kicker">Same log, four formats</p>
+          <p class="kicker">Same log, three formats</p>
           <h2>Clapper builds this from the shot log you already kept</h2>
-          <p>Log takes on your phone as you shoot, mark GOLD and circle selects with a tap, and Clapper numbers your camera clips to match the card automatically. At wrap, export a Premiere or Resolve timeline built exactly the way this page describes, plus a PDF shot log and a CSV of every take.</p>
+          <p>Log takes on your phone as you shoot, mark GOLD and circle selects with a tap, and Clapper numbers your camera clips to match the card automatically. At wrap, export a Premiere timeline built exactly the way this page describes, plus a PDF shot log and a CSV of every take.</p>
           <a class="btn btn-lg" href="https://clapper.in/app/">Open Clapper <span>&rarr;</span></a>
         </div>
       </div>

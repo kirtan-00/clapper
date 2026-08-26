@@ -116,11 +116,13 @@
   <div class="lede">
     <b>The short version.</b> Your shot lists, takes, clip numbers, scenes, camera notes and exports
     are stored <b>on your own device</b>. They never reach our servers.
-    Logging takes, printing a PDF shot log and backing up work with no account at all. Sign in
-    and we receive your email address, plus a small export counter and anonymous usage events. We don't sell any of it. We <b>do</b> run one
-    advertising tracker, the Meta (Facebook) Pixel, so we can tell whether our Instagram ads are
-    working. It sees that you visited and that you hit a milestone like creating a project or
-    exporting a file. It never sees your script, your shot list or your takes.
+    Logging takes and backing up work need no account at all. Printing a PDF shot log, running a
+    shot-list breakdown, or exporting a Premiere timeline or CSV all need a free Google sign-in.
+    Sign in and we receive your email address, plus a small export counter and anonymous usage
+    events. We don't sell any of it. We <b>do</b> run one advertising tracker, the Meta (Facebook)
+    Pixel, so we can tell whether our Instagram ads are working. It sees that you visited and that
+    you hit a milestone like creating a project or exporting a file. It never sees your shot list
+    or your takes.
     <a href="#ads">Full detail, and how to turn it off.</a>
   </div>
 
@@ -142,7 +144,7 @@
 
     <h3>2. The most important point: your production data stays on your device</h3>
     <p>Clapper is offline-first. Your projects, scenes, shot lists, takes, clip numbers, camera setup
-    notes, imported script PDFs and generated exports (PDF, Premiere XML, Resolve XML, CSV) are saved
+    notes, imported shot list PDFs and generated exports (PDF, Premiere XML, CSV) are saved
     <b>locally in your browser</b>, in IndexedDB or local storage, on the phone or computer you are
     working on. That content is <b>not uploaded to us</b>. We cannot see it. That cuts both ways.
     Clear your browser storage or uninstall the app and the data is gone. Keep your own exports.</p>
@@ -154,12 +156,12 @@
       <tbody>
         <tr>
           <td>Your email address and a Google account identifier</td>
-          <td>Only if you sign in with Google (required for Script Mode and Premiere/CSV export)</td>
+          <td>Only if you sign in with Google (required for a shot-list breakdown and for PDF, Premiere, and CSV export)</td>
           <td>To create your free account and attach your export quota to it</td>
           <td>Performance of the service you requested / consent</td>
         </tr>
         <tr>
-          <td>Export &amp; feature counters (script, Premiere, CSV usage)</td>
+          <td>Export &amp; feature counters (shot-list breakdown, PDF, Premiere, CSV usage)</td>
           <td>When you use a gated feature while signed in</td>
           <td>To enforce free-tier limits and prevent abuse</td>
           <td>Legitimate interest / performance of service</td>
@@ -171,9 +173,9 @@
           <td>Legitimate interest</td>
         </tr>
         <tr>
-          <td>Screenplay text from a PDF you import in <b>Script Mode</b></td>
-          <td>Only when you actively use Script Mode</td>
-          <td>Sent for automated scene extraction, then returned to your device</td>
+          <td>The shot division already parsed from your shot list on-device (shot codes, sizes, moves, action and dialogue lines). The PDF itself is never sent.</td>
+          <td>Only when you run a shot-list breakdown</td>
+          <td>Sent to generate tappable key-moment chips, then returned to your device</td>
           <td>Consent (you choose to run it)</td>
         </tr>
         <tr>
@@ -219,7 +221,7 @@
 
     <h4>What is never sent to Meta</h4>
     <ul>
-      <li>Nothing from your script or shot list. Not a scene, not a line of dialogue, not a slugline.</li>
+      <li>Nothing from your shot list. Not a scene, not a line of dialogue, not a slugline.</li>
       <li>No project names, no file names, no clip numbers, no take data, no tags, no notes.</li>
       <li>No email address, no name, and no Google account identifier. We do not use Meta's Advanced
         Matching, so we do not hand Meta hashed contact details either.</li>
@@ -242,8 +244,8 @@
     </div>
 
     <h4>How to switch it off</h4>
-    <p>All of these work, and none of them break Clapper. Logging takes, Script Mode, and every export
-    keep working with the Pixel fully blocked. It does nothing except report to Meta.</p>
+    <p>All of these work, and none of them break Clapper. Logging takes, a shot-list breakdown, and
+    every export keep working with the Pixel fully blocked. It does nothing except report to Meta.</p>
     <ul>
       <li><b>Use a browser that already blocks it.</b> Safari (Intelligent Tracking Prevention) and
         Firefox (Enhanced Tracking Protection, on by default) restrict or bin these cookies without you
@@ -276,8 +278,9 @@
         and anonymous usage events.</li>
       <li><b>Cloudflare (Turnstile)</b> runs a privacy-friendly bot check when a gated action starts,
         to stop automated abuse. It is not an advertising cookie.</li>
-      <li><b>Groq</b> is an AI inference provider we use <b>only in Script Mode</b>, to extract scenes
-        from the screenplay text you import. It processes that text to return the result and does not
+      <li><b>Groq</b> is an AI inference provider we use <b>only for a shot-list breakdown</b>, to
+        generate key-moment chips from the shot division already parsed on your device. It never
+        receives the PDF itself, processes the parsed data to return the result, and does not
         receive your account details.</li>
     </ul>
     <p class="fine">We share the minimum necessary with each and do not sell personal data to anyone.
@@ -345,8 +348,8 @@
 
     <h3>1. What Clapper is</h3>
     <p>A free, phone-first tool for logging takes, numbering camera clips, and exporting shot logs and
-    editing timelines. Some features, namely Script Mode and Premiere and CSV export, require a free
-    Google sign-in. Logging takes and PDF export do not.</p>
+    editing timelines. Some features, namely a shot-list breakdown and PDF, Premiere, and CSV export,
+    require a free Google sign-in. Logging takes and backing up work do not.</p>
 
     <h3>2. Your licence to use it</h3>
     <p>We grant you a personal, non-exclusive, non-transferable, revocable licence to use Clapper for
@@ -354,23 +357,23 @@
     sublicense, reverse-engineer for a competing product, or use Clapper to break the law.</p>
 
     <h3>3. Your content is yours</h3>
-    <p>You keep every right to the data you create in Clapper: your shot logs, notes, scripts, and
+    <p>You keep every right to the data you create in Clapper: your shot logs, notes, shot lists, and
     exports. Because that content lives on your device, backing it up is your job. We claim no
     ownership over it.</p>
 
     <h3>4. Acceptable use</h3>
     <ul>
       <li>Don't attempt to overload, probe, or circumvent the service's rate limits or quotas;</li>
-      <li>Don't upload content in Script Mode that you don't have the right to process;</li>
+      <li>Don't upload a shot list you don't have the right to process;</li>
       <li>Don't use Clapper for anything unlawful.</li>
     </ul>
 
     <h3>5. Free service, availability, and changes</h3>
     <p>Clapper is provided free of charge. We may change, limit, suspend, or discontinue any feature
-    (including the free tiers, Script Mode, or exports) at any time, and we don't guarantee uninterrupted
-    availability. Beta and AI-assisted features, such as Script Mode scene extraction, may produce
-    imperfect results. <b>Always verify clip numbers and exports against your actual media before you
-    rely on them.</b></p>
+    (including the free tiers, the shot-list breakdown, or exports) at any time, and we don't guarantee
+    uninterrupted availability. Beta and AI-assisted features, such as shot-list key-moment extraction,
+    may produce imperfect results. <b>Always verify clip numbers and exports against your actual media
+    before you rely on them.</b></p>
 
     <div class="callout">
       <b>No warranty.</b> Clapper is provided "as is" and "as available," without warranties of any kind,
