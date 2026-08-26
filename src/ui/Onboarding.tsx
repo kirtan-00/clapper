@@ -99,13 +99,17 @@ const STAGE_TITLE: Record<Stage, string> = {
   install: 'Add to Home Screen',
 };
 
-function isDone(): boolean {
+/** Exported so a LATER one-time prompt can wait its turn rather than stack a
+ *  second sheet on top of this one. See StudioPrompt in StudioSheet.tsx. */
+export function isOnboardingDone(): boolean {
   try {
     return localStorage.getItem(ONBOARDING_KEY) === '1';
   } catch {
     return false;
   }
 }
+
+const isDone = isOnboardingDone;
 
 function markDone(): void {
   try {

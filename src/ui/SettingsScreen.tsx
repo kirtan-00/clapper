@@ -20,6 +20,7 @@ import { ThemeToggleRow } from './ThemeToggleRow';
 import { CutSizeRow, UiSizeRow } from './CutSizeRow';
 import { HapticsRow, WakeLockRow, LeftHandRow, ReduceMotionRow } from './PreferenceRows';
 import { DefaultTagsRows } from './DefaultTagsRow';
+import { StudioRow } from './StudioRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
@@ -118,6 +119,13 @@ export function SettingsScreen(props: { nav: Nav }) {
           rows about how things look. */}
       <Section title="Quick tags">
         <DefaultTagsRows />
+      </Section>
+
+      {/* Above Help, below the day-of controls: this is set once and then
+          forgotten, but it is the only row on this screen that changes what
+          leaves the app, so it does not belong under documentation either. */}
+      <Section title="Exports" note="Printed on every PDF and CSV.">
+        <StudioRow />
       </Section>
 
       <Section title="Help">

@@ -11,7 +11,7 @@
 // repeat one sentence down every take of the setup.
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
-import type { Fps, Moment, Project, ProjectBundle, Shot, Take } from '../types';
+import type { ExportIdentity, Fps, Moment, Project, ProjectBundle, Shot, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
 import { buildShotIndex, compareTakesInStoryOrder, displayShootDay, shortDateLabel, shotCodeOf } from './order';
 
@@ -477,7 +477,7 @@ function clipLabel(take: Take, project: Project): string {
   return clipLabelParts(take, project).join('  ·  ');
 }
 
-export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
+export async function toPdf(bundle: ProjectBundle, identity?: ExportIdentity): Promise<Blob> {
   const { project, slates, takes, moments } = bundle;
   const fps = project.fps;
 
@@ -686,8 +686,38 @@ export async function toPdf(bundle: ProjectBundle): Promise<Blob> {
   // does rather than with a logo parked in a corner.
   y -= 18;
   const MARK = 46;
-  drawMark(page, MARGIN, y - 13, MARK);
   const titleX = MARGIN + MARK + 14;
+
+  // The production house sits ABOVE the project name as an eyebrow: whose
+  // document this is, then which shoot. Through sanitize() like every other
+  // user string on this cover - pdf-lib's standard Helvetica is WinAnsi only,
+  // so a Devanagari or emoji company name would throw at draw time rather
+  // than render badly. Uppercased because at 8pt beside a 26pt title it has
+  // to read as a label, not as a smaller heading.
+  //
+  // THE EYEBROW MOVES THE MASTHEAD DOWN, it does not squeeze in above it.
+  // Helvetica-Bold's cap height is 0.717em, so the 26pt title already owns
+  // ~18.6pt of space above its own baseline; anything drawn less than that
+  // clear of `y` collides with the letterforms rather than sitting over them.
+  // Reserving 20pt when the line exists - and nothing at all when it does not
+  // - is what keeps the no-studio cover byte-identical to the one this file
+  // has always produced.
+  const studioLine = sanitize(identity?.studio?.trim() ?? '');
+  if (studioLine) {
+    page.drawText(studioLine.toUpperCase(), {
+      x: titleX,
+      y,
+      size: 8,
+      font: bold,
+      color: GRAY,
+    });
+    y -= 20;
+  }
+
+  // FUTURE (enterprise): a studio that has uploaded a logo gets it embedded
+  // here in place of drawMark - same box, same baseline, so nothing below
+  // moves. See ui/studio.ts.
+  drawMark(page, MARGIN, y - 13, MARK);
   page.drawText(sanitize(project.name), { x: titleX, y, size: 26, font: bold, color: INK });
   y -= 16;
   page.drawText(formatDate(Date.now()), { x: MARGIN, y, size: 9.5, font: helv, color: GRAY });

@@ -1,7 +1,7 @@
 // Flat CSV export. One row per moment, plus one "take" row per take so takes
 // with zero moments still appear. RFC 4180 quoting, CRLF line endings.
 
-import type { Moment, ProjectBundle, Take } from '../types';
+import type { ExportIdentity, Moment, ProjectBundle, Take } from '../types';
 import { tc, wallClockTC } from './timecode';
 import { buildShotIndex, compareTakesInStoryOrder, displayShootDay, shotCodeOf } from './order';
 import { matchClip, type MediaIndex, type MediaMatch } from './medialink';
@@ -52,6 +52,13 @@ const HEADER = [
   'file_path',
   'file_status',
   'file_alternatives',
+  // The production house, repeated on every row. A CSV has no header block to
+  // put it in - the first line is column names and anything else above the
+  // data breaks every parser that will ever open this file - so a constant
+  // column is the only place it can go and still survive a round trip through
+  // Excel. Appended at the END for the same reason the three media columns
+  // were: a project with no studio set just gains one more empty cell.
+  'studio',
 ];
 
 /** The three trailing cells for one clip name. `unindexed` writes three
@@ -85,8 +92,15 @@ function row(fields: string[]): string {
  * caller that has not picked a folder passes nothing and gets the export it
  * always got.
  */
-export function toCsv(bundle: ProjectBundle, mediaIndex?: MediaIndex): Blob {
+export function toCsv(
+  bundle: ProjectBundle,
+  mediaIndex?: MediaIndex,
+  identity?: ExportIdentity,
+): Blob {
   const { project, slates, takes, moments } = bundle;
+  // Resolved once. `csvField` quotes it if it contains a comma, which company
+  // names routinely do ("Fourside Studio, LLP").
+  const studio = identity?.studio?.trim() ?? '';
   const fps = project.fps;
   const mediaRoot = project.mediaRoot?.trim();
 
@@ -176,6 +190,7 @@ export function toCsv(bundle: ProjectBundle, mediaIndex?: MediaIndex): Blob {
             String(take.durationMs),
             take.note ?? '',
             ...mediaCells(matchClip(mediaIndex, c.clipName, mediaRoot)),
+            studio,
           ]),
         );
       }
@@ -211,6 +226,7 @@ export function toCsv(bundle: ProjectBundle, mediaIndex?: MediaIndex): Blob {
             // is unit A's file — so a moment row points at the same file its
             // own `clip` column names, not at whichever camera row precedes it.
             ...mediaCells(matchClip(mediaIndex, take.clipName, mediaRoot)),
+            studio,
           ]),
         );
       }

@@ -511,7 +511,7 @@ export interface SpeechListener {
 
 export interface Exporter {
   /** Editor-facing PDF. */
-  toPdf(bundle: ProjectBundle): Promise<Blob>;
+  toPdf(bundle: ProjectBundle, identity?: ExportIdentity): Promise<Blob>;
   /** FCP7 xmeml Premiere imports natively; markers per moment. */
   toFcpXml(bundle: ProjectBundle): Blob;
   /** FCPXML (Final Cut Pro X format) DaVinci Resolve imports natively. */
@@ -521,7 +521,22 @@ export interface Exporter {
    *  location of the file that take actually wrote. Typed loosely here so
    *  types.ts stays free of an export/ import; the real shape is
    *  export/medialink.ts's MediaIndex. */
-  toCsv(bundle: ProjectBundle, mediaIndex?: unknown): Blob;
+  toCsv(bundle: ProjectBundle, mediaIndex?: unknown, identity?: ExportIdentity): Blob;
+}
+
+/**
+ * WHO THE EXPORT BELONGS TO. Threaded in by the caller rather than read from
+ * storage inside the writers, deliberately: pdf.ts and csv.ts are pure data
+ * modules, their tests run in a DOM-less vitest with no `localStorage` at all,
+ * and a writer that reached for a browser API would take the whole suite down
+ * with it. See ui/studio.ts for where the value actually lives.
+ *
+ * `studio` is the PRODUCTION HOUSE and it is the only field the exports print.
+ * The person's own name is captured in the same sheet and stays out of the
+ * file - an export is a document from a company, not a signature.
+ */
+export interface ExportIdentity {
+  studio?: string;
 }
 
 // timecode.ts contract

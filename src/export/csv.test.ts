@@ -43,7 +43,7 @@ describe('csv.ts — DATE column', () => {
       'scene', 'shot', 'take', 'date', 'clip', 'camera', 'operator', 'sound_file', 'status',
       'kind', 'tag', 'label', 'in_clock', 'out_clock', 'in_tc', 'out_tc', 'camera_in_tc',
       'camera_out_tc', 'wall_in', 'wall_out', 'duration_ms', 'note',
-      'file_path', 'file_status', 'file_alternatives',
+      'file_path', 'file_status', 'file_alternatives', 'studio',
     ]);
   });
 
@@ -165,7 +165,10 @@ describe('csv.ts — FILE columns', () => {
     // Every export that ever ran before this feature, unchanged: three empty
     // trailing cells, not a row full of "missing".
     const csv = await csvOf([take('t1', 'C0012')]);
-    expect(cells(csv, 1).slice(PATH)).toEqual(['', '', '']);
+    // Bounded to the THREE media columns on purpose. `studio` was appended
+    // after them, so an open-ended slice would sweep it in and make this
+    // assertion about a different feature every time a column is added.
+    expect(cells(csv, 1).slice(PATH, ALTS + 1)).toEqual(['', '', '']);
   });
 
   it('gives each camera row its OWN file, not unit A\'s', async () => {
@@ -213,5 +216,59 @@ describe('csv.ts — FILE columns', () => {
     const csv = await csvWith([take('t1', 'C0012')], ['day 1, pickups/C0012.MP4'], '/Volumes/SSD');
     expect(csv).toContain('"/Volumes/SSD/day 1, pickups/C0012.MP4"');
     expect(cells(csv, 1)[PATH]).toBe('/Volumes/SSD/day 1, pickups/C0012.MP4');
+  });
+});
+
+// THE STUDIO COLUMN — the production house, repeated on every row because a
+// CSV has nowhere else to put it. See the header comment in csv.ts.
+describe('csv.ts — studio column', () => {
+  const take: Take = {
+    id: 't1', slateId: 's1', projectId: 'p1', number: 1, clipName: 'C0001',
+    status: 'good', startedAt: 0, durationMs: 1000, createdAt: 0, updatedAt: 0,
+  };
+
+  async function csvWith(identity?: { studio?: string }): Promise<string> {
+    const bundle: ProjectBundle = {
+      project: project(), slates: [slate()], takes: [take], moments: [],
+    };
+    return toCsv(bundle, undefined, identity).text();
+  }
+
+  it('writes the studio on the take row', async () => {
+    const csv = await csvWith({ studio: 'Fourside Studio' });
+    const cells = row(csv, 1);
+    expect(cells[cells.length - 1]).toBe('Fourside Studio');
+  });
+
+  it('leaves the cell empty when no identity is passed at all', async () => {
+    const csv = await csvWith();
+    const cells = row(csv, 1);
+    expect(cells[cells.length - 1]).toBe('');
+    // And the row still has exactly as many cells as the header has columns —
+    // an off-by-one here would silently shift `file_alternatives` into
+    // `studio` for every consumer reading by position.
+    expect(cells.length).toBe(row(csv, 0).length);
+  });
+
+  it('quotes a company name containing a comma, so the row still parses', async () => {
+    const csv = await csvWith({ studio: 'Fourside Studio, LLP' });
+    // Deliberately NOT using the comma-splitting `row` helper: the whole point
+    // is that a naive split is wrong here, which is why csvField quotes it.
+    expect(csv.trim().split('\r\n')[1].endsWith('"Fourside Studio, LLP"')).toBe(true);
+  });
+
+  it('carries the studio onto moment rows too, not just take rows', async () => {
+    const bundle: ProjectBundle = {
+      project: project(),
+      slates: [slate()],
+      takes: [take],
+      moments: [{
+        id: 'm1', takeId: 't1', kind: 'point', atMs: 500,
+        label: 'gold', createdAt: 0, updatedAt: 0,
+      }],
+    };
+    const csv = await toCsv(bundle, undefined, { studio: 'Fourside' }).text();
+    const moment = row(csv, 2);
+    expect(moment[moment.length - 1]).toBe('Fourside');
   });
 });

@@ -383,3 +383,49 @@ describe('pdf.ts — a long shot description wraps instead of overflowing', () =
     );
   });
 });
+
+// THE STUDIO EYEBROW on the cover. Read back off the rendered page rather
+// than smoke-tested: the whole risk in this feature is placement, and a
+// smoke test would pass just as happily with the line drawn on top of the
+// project title.
+describe('pdf.ts — studio eyebrow', () => {
+  const bundle = (): ProjectBundle => ({
+    project: project(),
+    slates: [slate()],
+    takes: [{
+      id: 't1', slateId: 's1', projectId: 'p1', number: 1, clipName: 'C0001',
+      status: 'good', startedAt: 0, durationMs: 1000, createdAt: 0, updatedAt: 0,
+    }],
+    moments: [],
+  });
+
+  async function textOf(identity?: { studio?: string }): Promise<string[]> {
+    const bytes = new Uint8Array(await (await toPdf(bundle(), identity)).arrayBuffer());
+    return (await drawnTextByPage(await PDFDocument.load(bytes))).flat();
+  }
+
+  it('prints the production house, uppercased, above the project name', async () => {
+    const lines = await textOf({ studio: 'Fourside Studio' });
+    expect(lines).toContain('FOURSIDE STUDIO');
+    expect(lines.indexOf('FOURSIDE STUDIO')).toBeLessThan(lines.indexOf('Bhoot'));
+  });
+
+  it('draws nothing at all when no studio is set', async () => {
+    const without = await textOf();
+    const withStudio = await textOf({ studio: 'Fourside Studio' });
+    // Exactly one more drawn string, and the cover is otherwise identical.
+    expect(withStudio.length).toBe(without.length + 1);
+    expect(withStudio.filter((l) => l !== 'FOURSIDE STUDIO')).toEqual(without);
+  });
+
+  it('treats whitespace as unset rather than printing a blank line', async () => {
+    const blank = await textOf({ studio: '   ' });
+    expect(blank).toEqual(await textOf());
+  });
+
+  it('survives a name outside WinAnsi instead of throwing at draw time', async () => {
+    // pdf-lib's standard Helvetica cannot encode Devanagari. sanitize() is what
+    // stops this from being an unhandled throw in the middle of an export.
+    await expect(textOf({ studio: 'फोरसाइड' })).resolves.toBeDefined();
+  });
+});

@@ -17,6 +17,7 @@ import { Sheet, SheetClose, Confirm, Rail } from './common';
 import { useScrolled } from './glist';
 import { BackButton, ForwardMark, DownMark, CheckMark, ExportMark, CloudMark, StopMark } from './marks';
 import { SignInSheet } from './SignInSheet';
+import { getStudio } from './studio';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
 import { gateExport, FREE_LIMITS, type GatedFormat, type GateResult } from '../net/quota';
@@ -2256,8 +2257,12 @@ function ExportBar(props: { project: Project }) {
         const bundle = await store.getBundle(props.project.id);
         const base = slug(props.project.name);
         const dateStamp = exportDateStamp(bundle.project);
+        // Read at export time, not at mount: someone can set their studio in
+        // Settings and export in the same session without a remount, and the
+        // export writers deliberately cannot reach localStorage themselves.
+        const identity = { studio: getStudio().studio };
         if (kind === 'pdf') {
-          const blob = await exporter.toPdf(bundle);
+          const blob = await exporter.toPdf(bundle, identity);
           await shareBlob(blob, `${base}-log-${dateStamp}.pdf`, 'application/pdf');
         } else if (kind === 'xml') {
           const blob = exporter.toFcpXml(bundle);
@@ -2271,7 +2276,7 @@ function ExportBar(props: { project: Project }) {
           // a folder on this device — and the CSV is exactly what it always was,
           // with three empty trailing columns.
           const mediaIndex = await loadMediaIndex(props.project.id);
-          const blob = exporter.toCsv(bundle, mediaIndex);
+          const blob = exporter.toCsv(bundle, mediaIndex, identity);
           await shareBlob(blob, `${base}-log-${dateStamp}.csv`, 'text/csv');
         }
         track('export', { format: label });

@@ -22,6 +22,7 @@ import { useNavState, type Nav, type Route } from './nav';
 import { TabTray } from './TabTray';
 import { Onboarding } from './Onboarding';
 import { RollRecovery } from './RollRecovery';
+import { StudioPrompt } from './StudioSheet';
 import { trackScreenView } from '../net/analytics';
 
 // ------------------------------------------------- full-screen claims -----
@@ -98,6 +99,14 @@ export function AppShell(props: { render: (route: Route, nav: Nav) => ReactNode 
           prompt cannot live inside RollingScreen itself. It renders nothing
           when there is no checkpoint to offer back. */}
       <RollRecovery nav={nav} />
+      {/* WHO IS SHOOTING - name and production house, asked once, after
+          onboarding has finished and never mid-roll. Same self-deciding shape
+          as the two above: it renders nothing unless it has something to ask.
+          Ordering with RollRecovery is deliberate and settled by that sheet
+          winning: recovering a take somebody is mid-way through matters more
+          than a form, and StudioPrompt's own `rolling` check keeps it away
+          from the screen the recovery lands on. */}
+      <StudioPrompt rolling={route.name === 'rolling'} />
     </div>
   );
 }
