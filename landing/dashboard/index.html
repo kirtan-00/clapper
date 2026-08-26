@@ -330,6 +330,156 @@ footer.foot {
 }
 footer.foot .gen { font-size: var(--t-caption); color: var(--ink-faint); }
 
+/* ============================================================================
+   ADMIN CONTROLS. Every value below is an existing token - not one new hex
+   enters the file. The palette here has exactly two accents (--accent, the
+   acid the tally lamp burns, and --danger, its red) and this page already
+   uses both: .btn--primary and .pill--pro on one, .err-banner on the other.
+   A consequential control is drawn from the red family and an ordinary one
+   from the raised-paper family, so nothing needed inventing.
+
+   Same flatness rule as src/styles.css's .btn, which .btn above already
+   follows: a solid fill or a 1.5px inset rule, and nothing else. No bevel,
+   no gradient, no shadow that implies height, no transform on press - a
+   button on this page changes its background colour and that is the whole
+   affordance. ======================================================== */
+.btn--danger {
+  background: var(--danger-tint);
+  color: var(--danger-text);
+  box-shadow: inset 0 0 0 1.5px var(--danger-text);
+}
+.btn--danger:active { background: var(--paper-sunk); }
+
+/* Left-aligned, small variant of .field. The login .field is centred and
+   letter-spaced because it holds one passphrase; a reason or a date is
+   ordinary text and reads wrong treated like a code. */
+.field--inline {
+  max-width: 230px; min-height: 36px; padding: 0 var(--sp-3);
+  text-align: left; letter-spacing: 0;
+  font: 600 var(--t-secondary)/1 var(--font-ui);
+}
+.field--num { max-width: 120px; font-family: var(--font-mono); }
+
+/* The armed half of every two-step control: a strip that appears in place,
+   says in a sentence what is about to happen, and carries the button that
+   does it. Nothing on this page commits on one tap. */
+/* The Users table is the only one on this page with buttons in it, and
+   table.dtable sets `white-space: nowrap` on every cell so numeric columns
+   never wrap mid-figure. That is right for numbers and wrong for an email
+   address next to a control: with nowrap on an 80-character uuid the table
+   grew past its own scroll container and the Controls column sat off the
+   right edge, reachable only by scrolling sideways to find it. The one
+   column the owner came here to press was the one hidden.
+
+   So the identity column - and only that column - is allowed to wrap and
+   break, with a ceiling on how much width it can claim. Everything else
+   keeps nowrap. The table then fits without a horizontal scroll at this
+   page's own max width, which is what makes the confirm strip below usable
+   too: it spans the full row, and a full row you cannot see the end of is
+   not a confirmation. */
+table.dtable td.who {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  /* Both bounds are load-bearing. `overflow-wrap: anywhere` tells the table
+     this column's minimum width is one character, so without a floor the
+     layout squeezes it and starts breaking ordinary addresses mid-word
+     ("manthan@example.c / om"), which reads like a rendering fault. The
+     floor fits an email on one line; the ceiling stops a raw uuid, which
+     genuinely has to break somewhere, from eating the row. */
+  min-width: 185px;
+  max-width: 215px;
+}
+
+/* Stacked on purpose, not wrapped by accident. Two buttons of different
+   widths left to wrap land ragged and centred, which looks like a bug; a
+   column with stretch makes them one block the eye reads as a single
+   control set belonging to that row.
+
+   PINNED TO THE RIGHT EDGE. Controls is the last column, so on any screen
+   narrow enough for .table-scroll to actually scroll - a phone, mostly - it
+   would sit permanently past the right edge and you would have to swipe to
+   find the button you came for. Sticky costs nothing at laptop width, where
+   the table already fits and there is no scroll for it to resist. */
+table.dtable td.ctls, table.dtable th.ctls-h {
+  white-space: normal;
+  position: sticky;
+  right: 0;
+  background: var(--paper-raised);
+  box-shadow: inset 1.5px 0 0 var(--rule);
+}
+.ctls-stack { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
+.ctls-stack .btn { width: 100%; }
+
+tr.confirm-row > td { background: var(--paper-sunk); white-space: normal; }
+/* Pinned to the LEFT edge, for the mirror of the reason the Controls column
+   is pinned to the right. This cell spans all seven columns, so on a
+   scrolling table it is as wide as the table and its buttons sit off-screen
+   - a confirmation you cannot see the buttons of is not a confirmation. The
+   width is the smaller of "the cell" and "what the viewport can show inside
+   this card", so at laptop width it is simply the full row and sticky never
+   engages. */
+.confirm {
+  position: sticky; left: 0;
+  width: min(100%, calc(100vw - 5rem));
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0;
+}
+.confirm .say { flex: 1 1 240px; font-size: var(--t-secondary); color: var(--ink); }
+.confirm .say strong { color: var(--ink); font-weight: 700; }
+
+/* App-control rows: same rhythm as .row, but the right-hand side holds
+   controls rather than a number. */
+.ctl {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-3) 0;
+  border-top: 1.5px solid var(--rule);
+}
+.ctl:first-of-type { border-top: 0; }
+.ctl .ctl-k { flex: 1 1 240px; font-size: var(--t-row); color: var(--ink); }
+.ctl .ctl-k .sub { display: block; font-size: var(--t-caption); color: var(--ink-dim); font-weight: 400; }
+.ctl .ctl-do { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); }
+/* A button label is never a paragraph. Without this the flex row shrinks
+   "Save cap" to two stacked words the moment the description beside it gets
+   long, and a two-line button reads as broken. */
+.ctl .ctl-do .btn, .confirm .btn { flex: 0 0 auto; white-space: nowrap; }
+.ctl-confirm { padding: var(--sp-3); border-radius: var(--radius-sm); background: var(--paper-sunk); margin-top: var(--sp-2); }
+
+.pill--off { background: var(--danger-tint); color: var(--danger-text); }
+.pill--sus { background: var(--danger-tint); color: var(--danger-text); }
+
+/* One line, bottom centre, gone in a few seconds. It says the same word the
+   button said, in past tense, and nothing else. */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + var(--sp-5));
+  max-width: min(92vw, 440px);
+  background: var(--paper-raised); color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  border-radius: var(--radius-sm); padding: var(--sp-3) var(--sp-4);
+  font-size: var(--t-secondary); font-weight: 600; z-index: 10;
+}
+.toast[hidden] { display: none; }
+.toast--bad { color: var(--danger-text); box-shadow: inset 0 0 0 1.5px var(--danger-text); }
+
+/* Narrow screens: let the Users table WRAP instead of scroll.
+   .table-scroll is the right answer for a wide table of numbers you only
+   read - you swipe it sideways and nothing is lost. It is the wrong answer
+   for a table you press: the Controls column is the last one, so on a phone
+   it sits permanently off the right edge and the confirm strip that opens
+   under a row is wider than the screen it opens on. Below this width every
+   cell is allowed to wrap, the table fits, and both stay reachable.
+   Figures survive it - "116,100" has no space in it to break at. */
+@media (max-width: 620px) {
+  table.dtable th, table.dtable td { white-space: normal; }
+  /* Lower than the desktop floor, but not zero. At zero the table squeezes
+     this column to about eighty pixels and shreds an ordinary address across
+     four lines ("chirag / @exa / mple. / com"), which reads as broken type.
+     The table is scrolling at this width regardless, so buying the column
+     enough room to hold a name costs a little more sideways scroll through
+     the middle number columns and nothing else - and the two things you
+     press, the identity and the controls, are both pinned in view. */
+  table.dtable td.who { min-width: 130px; }
+}
+
 .skeleton { opacity: 0.5; }
 @media (max-width: 520px) {
   .stat-row { gap: var(--sp-4); }
@@ -391,6 +541,8 @@ footer.foot .gen { font-size: var(--t-caption); color: var(--ink-faint); }
 
 </div>
 
+<div class="toast" id="toast" hidden></div>
+
 <script>
 'use strict';
 // No supabase-js, no CDN, no external script of any kind - CSP on this site
@@ -432,6 +584,7 @@ var el = {
   loginNote: document.getElementById('loginNote'),
   loginErr: document.getElementById('loginErr'),
   retryBtn: document.getElementById('retryBtn'),
+  toast: document.getElementById('toast'),
 };
 
 function showOnly(node) {
@@ -560,6 +713,11 @@ el.excludeToggle.addEventListener('change', function () {
 function loadDashboard() {
   var session = readSession();
   if (!session) { showOnly(el.login); return; }
+  // Every load starts from the database's version of things: nothing stays
+  // armed across a refetch, and no half-typed value survives to be mistaken
+  // for a saved one.
+  armed = null;
+  capDraft = null;
   showOnly(el.loading);
   el.excludeToggle.checked = readExcludeSelf();
   apiPost({
@@ -587,6 +745,142 @@ function loadDashboard() {
     el.offlineNote.textContent = "Check the connection and try again.";
   });
 }
+
+/* ============================================================================
+   ADMIN WRITES.
+
+   This page stays exactly as dumb as it was for reads. It does not decide
+   who may do any of this, it does not know the passphrase, and it cannot
+   check anything: it posts an action and the session token to the same edge
+   function, and that function re-verifies the token on every single write
+   the same way it does on every read. Everything below is presentation. The
+   two-step confirms are here to stop a misclick, not to stop an attacker -
+   an attacker would not be running this file.
+
+   After a successful write the page RELOADS from the server rather than
+   patching the row it just changed. A control that redraws itself from what
+   it hoped happened is how a kill switch ends up looking flipped when it is
+   not; the numbers on this page are only worth anything if they came back
+   from the database.
+   ========================================================================== */
+
+var lastData = null;
+
+/* The armed half of a two-step control. One at a time, by construction -
+ * arming anything disarms whatever was armed before, so there is never a
+ * second primed button waiting off-screen. */
+var armed = null;
+/* A half-typed day cap, kept across the re-render that arming the kill
+ * switch causes. Without it, typing a new cap and then reaching for the
+ * switch above it silently throws the number away, and the next thing you
+ * see is the old value looking like it saved. Cleared on every load, so the
+ * field always falls back to what the database actually says. */
+var capDraft = null;
+function isArmed(kind, id) {
+  return !!armed && armed.kind === kind && (armed.id || null) === (id || null);
+}
+function arm(kind, id) { armed = { kind: kind, id: id || null }; rerender(); }
+function disarm() { armed = null; rerender(); }
+function rerender() { if (lastData) renderDashboard(lastData); }
+
+var toastTimer = null;
+/* Says what happened in the same word the button said. No "successfully",
+ * no exclamation mark. */
+function toast(msg, bad) {
+  el.toast.textContent = msg;
+  el.toast.className = bad ? 'toast toast--bad' : 'toast';
+  el.toast.hidden = false;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.toast.hidden = true; }, bad ? 7000 : 4000);
+}
+
+var writing = false;
+/** Posts one admin action. `done` is the past tense of the button that was
+ * pressed - "Suspended" for Suspend - so the answer uses the reader's own
+ * word rather than a generic one. */
+function apiWrite(payload, done) {
+  if (writing) return;
+  var session = readSession();
+  if (!session) { showOnly(el.login); return; }
+  writing = true;
+  payload.token = session.token;
+  apiPost(payload).then(function (r) {
+    writing = false;
+    if (r.status === 401) {
+      clearSession();
+      showOnly(el.login);
+      el.loginErr.hidden = false;
+      el.loginErr.textContent = 'Session expired - sign in again.';
+      return;
+    }
+    if (r.status !== 200 || !r.json.ok) {
+      // The server's own sentence, not a rewrite of it. It knows things this
+      // page does not, like which migration is missing.
+      toast(r.json.error || 'The server refused that.', true);
+      return;
+    }
+    armed = null;
+    // An audit row that failed to save is said out loud. The change itself
+    // went through - the server does not roll a correct write back because
+    // the note about it failed - so this is a warning, not an error, and it
+    // has to be visible or the trail quietly stops being a trail.
+    if (r.json.audit_logged === false) toast(done + ' The audit row did not save.', true);
+    else toast(done);
+    loadDashboard();
+  }).catch(function () {
+    writing = false;
+    toast("Couldn't reach the server.", true);
+  });
+}
+
+function inputValue(id) {
+  var n = document.getElementById(id);
+  return n ? String(n.value || '').trim() : '';
+}
+
+/* One delegated listener for every control on the page. The panels are
+ * rendered as HTML strings and replaced wholesale on each load, so per-node
+ * listeners would have to be re-attached every time and one missed
+ * re-attachment is a dead button. Delegation cannot drift. */
+el.dashBody.addEventListener('click', function (e) {
+  var t = e.target && e.target.closest ? e.target.closest('[data-arm],[data-cancel],[data-do]') : null;
+  if (!t || t.disabled) return;
+
+  // Read before anything re-renders the node out from under us.
+  var capNode = document.getElementById('capInput');
+  if (capNode) capDraft = String(capNode.value || '').trim();
+
+  if (t.hasAttribute('data-cancel')) { disarm(); return; }
+  if (t.hasAttribute('data-arm')) { arm(t.getAttribute('data-arm'), t.getAttribute('data-user')); return; }
+
+  var doWhat = t.getAttribute('data-do');
+  var uid = t.getAttribute('data-user');
+
+  if (doWhat === 'set_pro') {
+    apiWrite({ action: 'set_pro', user_id: uid, pro_until: inputValue('armInput') || null }, 'Made Pro.');
+  } else if (doWhat === 'set_free') {
+    apiWrite({ action: 'set_free', user_id: uid }, 'Moved to free.');
+  } else if (doWhat === 'suspend') {
+    var why = inputValue('armInput');
+    if (!why) { toast('Say why. A reason is required.', true); return; }
+    apiWrite({ action: 'suspend', user_id: uid, reason: why }, 'Suspended.');
+  } else if (doWhat === 'unsuspend') {
+    var whyBack = inputValue('armInput');
+    if (!whyBack) { toast('Say why. A reason is required.', true); return; }
+    apiWrite({ action: 'unsuspend', user_id: uid, reason: whyBack }, 'Unsuspended.');
+  } else if (doWhat === 'kill_off') {
+    apiWrite({ action: 'set_config', key: 'script_mode_enabled', value: false }, 'Script Mode is off.');
+  } else if (doWhat === 'kill_on') {
+    apiWrite({ action: 'set_config', key: 'script_mode_enabled', value: true }, 'Script Mode is on.');
+  } else if (doWhat === 'set_cap') {
+    // Typing a number IS the deliberate step, so the cap saves on one press.
+    // It is also the one control here that cannot lock anyone out of
+    // anything permanently: the wrong number is fixed by typing another.
+    var raw = inputValue('capInput');
+    if (!/^\d{1,6}$/.test(raw)) { toast('The day cap is a whole number.', true); return; }
+    apiWrite({ action: 'set_config', key: 'script_mode_daily_cap', value: Number(raw) }, 'Day cap saved.');
+  }
+});
 
 /* ============================================================================
    RENDERING - pure functions of whatever dashboard-api's 'stats' action
@@ -734,32 +1028,162 @@ function panelLlm(l) {
   '</div>';
 }
 
+/** The armed half of a two-step control, as a table row spanning the whole
+ * table. `say` is the sentence naming exactly what the next press does, in
+ * the present tense, about the specific account it will do it to - never
+ * "Are you sure?", which tells a reader nothing they did not already know.
+ * `say` is pre-escaped by the caller because it interpolates a name. */
+function confirmRow(say, o) {
+  return '<tr class="confirm-row"><td colspan="7"><div class="confirm">' +
+    '<span class="say">' + say + '</span>' +
+    (o.input
+      ? '<input class="field field--inline' + (o.input.num ? ' field--num' : '') + '" id="armInput" type="' + o.input.type +
+        '" placeholder="' + esc(o.input.placeholder) + '"' + (o.input.max ? ' maxlength="' + o.input.max + '"' : '') + ' />'
+      : '') +
+    '<button type="button" class="btn btn--sm ' + (o.danger ? 'btn--danger' : 'btn--primary') +
+      '" data-do="' + esc(o.act) + '" data-user="' + esc(o.user) + '">' + esc(o.verb) + '</button>' +
+    '<button type="button" class="btn btn--sm" data-cancel="1">Cancel</button>' +
+  '</div></td></tr>';
+}
+
 function panelUsers(u) {
+  var avail = u.suspend_available;
+  var why = u.suspend_unavailable_reason || '';
   var rows = u.rows.slice(0, 200).map(function (r) {
-    return '<tr><td>' + esc(r.email || r.user_id) + '</td>' +
+    var uid = esc(r.user_id);
+    var who = esc(r.email || r.user_id);
+
+    var plan = r.is_pro ? '<span class="pill pill--pro">PRO</span>' : '<span class="pill">free</span>';
+    if (r.is_suspended) plan += ' <span class="pill pill--sus">SUSPENDED</span>';
+
+    // Each button names the state it moves the account TO, so the label and
+    // the toast that follows it are the same word.
+    var proBtn = r.is_pro
+      ? '<button type="button" class="btn btn--sm" data-arm="set_free" data-user="' + uid + '">Make free</button>'
+      : '<button type="button" class="btn btn--sm" data-arm="set_pro" data-user="' + uid + '">Make Pro</button>';
+
+    // Disabled, with the server's own sentence as the tooltip, whenever the
+    // column is not there. The reason travels from the database probe, so it
+    // stops being shown the moment the migration is applied - nothing in this
+    // file has to be edited for that to happen.
+    var susBtn = !avail
+      ? '<button type="button" class="btn btn--sm" disabled title="' + esc(why) + '">Suspend</button>'
+      : r.is_suspended
+        ? '<button type="button" class="btn btn--sm" data-arm="unsuspend" data-user="' + uid + '">Unsuspend</button>'
+        : '<button type="button" class="btn btn--sm btn--danger" data-arm="suspend" data-user="' + uid + '">Suspend</button>';
+
+    var tr = '<tr><td class="who">' + who + '</td>' +
       '<td>' + esc(fmtDay(r.created_at.slice(0, 10))) + '</td>' +
-      '<td>' + (r.is_pro ? '<span class="pill pill--pro">PRO</span>' : '<span class="pill">free</span>') + '</td>' +
+      '<td>' + plan + '</td>' +
       '<td>' + esc(r.pro_until ? fmtDay(r.pro_until.slice(0, 10)) : '–') + '</td>' +
       '<td class="num">' + fmtN(r.llm_calls) + '</td>' +
       '<td class="num">' + fmtN(r.llm_prompt_tokens + r.llm_completion_tokens) + '</td>' +
-      '<td><button type="button" class="btn btn--sm" disabled title="' + esc(u.suspend_unavailable_reason) + '">Suspend</button></td></tr>';
+      '<td class="ctls"><div class="ctls-stack">' + proBtn + susBtn + '</div></td></tr>';
+
+    if (isArmed('set_pro', r.user_id)) {
+      tr += confirmRow(
+        '<strong>' + who + '</strong> becomes Pro. Leave the date empty for no expiry, or set the last day the comp runs.',
+        { act: 'set_pro', user: r.user_id, verb: 'Make Pro', input: { type: 'date', placeholder: 'Pro until' } },
+      );
+    } else if (isArmed('set_free', r.user_id)) {
+      tr += confirmRow(
+        '<strong>' + who + '</strong> drops to free limits now, and any expiry date is cleared.',
+        { act: 'set_free', user: r.user_id, verb: 'Make free', danger: true },
+      );
+    } else if (isArmed('suspend', r.user_id)) {
+      tr += confirmRow(
+        '<strong>' + who + '</strong> loses Script Mode and every gated export until you undo it. Nothing is deleted.',
+        { act: 'suspend', user: r.user_id, verb: 'Suspend', danger: true, input: { type: 'text', placeholder: 'Why', max: 200 } },
+      );
+    } else if (isArmed('unsuspend', r.user_id)) {
+      tr += confirmRow(
+        '<strong>' + who + '</strong> gets Script Mode and exports back.',
+        { act: 'unsuspend', user: r.user_id, verb: 'Unsuspend', input: { type: 'text', placeholder: 'Why', max: 200 } },
+      );
+    }
+    return tr;
   }).join('');
+
   return '<div class="card">' +
     '<h2>Users</h2>' +
     '<div class="stat-row">' +
       '<div class="stat"><div class="num mono">' + fmtN(u.total) + '</div><div class="label">accounts</div></div>' +
       '<div class="stat"><div class="num mono">' + fmtN(u.pro) + '</div><div class="label">pro</div></div>' +
       '<div class="stat"><div class="num mono">' + fmtN(u.free) + '</div><div class="label">free</div></div>' +
+      (avail ? '<div class="stat"><div class="num mono">' + fmtN(u.suspended || 0) + '</div><div class="label">suspended</div></div>' : '') +
     '</div>' +
     (u.rows.length
-      ? '<div class="table-scroll"><table class="dtable"><thead><tr><th>Email</th><th>Created</th><th>Plan</th><th>Pro until</th><th class="num">LLM calls</th><th class="num">Tokens</th><th>&nbsp;</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr><th>Email</th><th>Created</th><th>Plan</th><th>Pro until</th><th class="num">LLM calls</th><th class="num">Tokens</th><th class="ctls-h">Controls</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<p class="empty">No accounts yet.</p>') +
     (u.rows.length > 200 ? '<p class="foot-note">Showing the first 200 of ' + fmtN(u.rows.length) + '.</p>' : '') +
-    '<p class="foot-note"><strong>Suspend / unsuspend is disabled on purpose.</strong> ' + esc(u.suspend_unavailable_reason) + '</p>' +
+    '<p class="foot-note"><strong>Pro is granted by hand.</strong> Razorpay is not wired up, so every Pro account is one you made here. An expiry date is the last day the comp runs; leave it empty and it never lapses.</p>' +
+    (avail
+      ? '<p class="foot-note"><strong>Suspend blocks, it never deletes.</strong> A suspended account keeps every project and every take. It is refused Script Mode and gated exports, and gets both back the moment you undo it.</p>'
+      : '<p class="foot-note"><strong>Suspend is disabled.</strong> ' + esc(why) + '</p>') +
+  '</div>';
+}
+
+/** App control. Rendered only when dashboard-api sent an `app_control` block:
+ * this static page and that edge function deploy on completely separate
+ * schedules, so a page that is newer than the function must show nothing
+ * here rather than a panel full of undefined. */
+function panelAppControl(c) {
+  if (!c) return '';
+
+  var on = c.script_mode_enabled === true;
+  var killPill = on ? '<span class="pill pill--pro">ON</span>' : '<span class="pill pill--off">OFF</span>';
+  var killBtn = on
+    ? '<button type="button" class="btn btn--sm btn--danger" data-arm="kill">Turn off</button>'
+    : '<button type="button" class="btn btn--sm" data-arm="kill">Turn on</button>';
+
+  var killConfirm = '';
+  if (isArmed('kill', null)) {
+    killConfirm = '<div class="ctl-confirm"><div class="confirm"><span class="say">' +
+      (on
+        ? 'Every Script Mode request from every account stops, straight away. Exports and the rest of the app keep working.'
+        : 'Script Mode starts answering again for every account, up to the day cap below.') +
+      '</span>' +
+      '<button type="button" class="btn btn--sm ' + (on ? 'btn--danger' : 'btn--primary') + '" data-do="' + (on ? 'kill_off' : 'kill_on') + '">' +
+        (on ? 'Turn off' : 'Turn on') + '</button>' +
+      '<button type="button" class="btn btn--sm" data-cancel="1">Cancel</button>' +
+    '</div></div>';
+  }
+
+  var cap = c.script_mode_daily_cap;
+  var capValue = capDraft !== null ? capDraft : (cap === null ? '' : String(cap));
+  var capSub = cap === null
+    ? 'No cap is set in config, so the gate reads it as zero and refuses everything.'
+    : fmtN(c.used_today) + ' used today of ' + fmtN(cap) + '.';
+
+  var warn = '';
+  if (c.malformed && c.malformed.length) {
+    warn = '<p class="foot-note"><strong>Bad value in config.</strong> ' + esc(c.malformed.join(', ')) +
+      ' is not the shape the gate expects. Saving it again from here rewrites it correctly.</p>';
+  }
+
+  return '<div class="card">' +
+    '<h2>App control</h2>' +
+    '<div class="ctl">' +
+      '<div class="ctl-k">Script Mode<span class="sub">The global Groq gate. Off refuses every request from every account.</span></div>' +
+      '<div class="ctl-do">' + killPill + killBtn + '</div>' +
+    '</div>' + killConfirm +
+    '<div class="ctl">' +
+      '<div class="ctl-k">Groq calls a day<span class="sub">' + esc(capSub) + '</span></div>' +
+      '<div class="ctl-do">' +
+        '<input class="field field--inline field--num" id="capInput" type="number" min="0" max="100000" step="1" value="' + esc(capValue) + '" />' +
+        '<button type="button" class="btn btn--sm" data-do="set_cap">Save cap</button>' +
+      '</div>' +
+    '</div>' +
+    warn +
+    '<p class="foot-note">Both settings are rows in the <code>config</code> table, read by <code>script_mode_gate()</code> on every request. The counter resets at midnight UTC, not IST, because that is the day the gate counts.</p>' +
   '</div>';
 }
 
 function renderDashboard(data) {
+  // Kept so arming a control can redraw the page it is already looking at
+  // without asking the server again. It is the last answer received, never a
+  // patched-up version of one - every write refetches.
+  lastData = data;
   var meta = data.meta;
   var excludeBits = [];
   if (meta.exclude_self) {
@@ -788,7 +1212,8 @@ function renderDashboard(data) {
     panelFunnel(data.funnel) +
     panelAppUsage(data.app_usage) +
     panelLlm(data.llm) +
-    panelUsers(data.users);
+    panelUsers(data.users) +
+    panelAppControl(data.app_control);
 
   el.generatedAt.textContent = 'Updated ' + fmtDT(meta.generated_at);
 }
@@ -800,6 +1225,11 @@ window.__dashboard = {
   renderDashboard: renderDashboard,
   showOnly: showOnly,
   el: el,
+  // `arm` is exposed so the armed half of a two-step control can be
+  // screenshotted. It is the same function the click handler calls, not a
+  // stand-in for it, so what a shot shows is what a press produces.
+  arm: arm,
+  disarm: disarm,
   showFixture: function (data) {
     renderDashboard(data);
     el.topControls.hidden = false;
