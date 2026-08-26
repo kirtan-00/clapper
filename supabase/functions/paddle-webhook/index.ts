@@ -22,11 +22,21 @@ import { supabaseEntitlementStore } from "../_shared/store.ts";
 // bytes, grants through the shared claim, and is covered by the same tests
 // that cover Stripe. It has simply never run, because it was never deployed.
 //
-// TO REVIVE IT: set PADDLE_WEBHOOK_SECRET, PADDLE_PRICE_INTRO_5 and
-// PADDLE_PRICE_CREDIT_1, deploy with --no-verify-jwt, and point a Paddle
+// TO REVIVE IT: set PADDLE_WEBHOOK_SECRET, PADDLE_PRICE_PRO_MONTHLY and
+// PADDLE_PRICE_BUNDLE_5, deploy with --no-verify-jwt, and point a Paddle
 // notification destination at it. The ledger is gateway-agnostic (`purchases`
 // is keyed on (provider, provider_event_id)), so both webhooks can even be
 // live at once without colliding.
+//
+// ONE THING THAT WOULD NOT PORT FOR FREE: this file only ever grants through
+// applyCreditPurchase, the ONE-TIME path. The catalogue changed 2026-08-26 to
+// add a subscription product (pro_monthly), and Paddle has no
+// checkout.session/invoice split the way Stripe does - a real port would need
+// its own answer to "which Paddle event signals a renewal", read from
+// Paddle's current docs the same way stripe-webhook's header does for
+// invoice.paid, not assumed from this comment. Setting
+// PADDLE_PRICE_PRO_MONTHLY without doing that work would make this file
+// treat a subscription's first payment as the only payment it ever grants.
 //
 // WHY PADDLE WAS CHOSEN AND WHAT WAS GIVEN UP BY LEAVING. Paddle is a merchant
 // of record: it becomes the seller and takes on the sales-tax liability.
@@ -64,9 +74,9 @@ import { supabaseEntitlementStore } from "../_shared/store.ts";
 // RPC and two best-effort writes; nothing calls out to another service.
 //
 // SECRETS (owner sets, never in this repo):
-//   PADDLE_WEBHOOK_SECRET   the notification destination's key, pdl_ntfset_...
-//   PADDLE_PRICE_INTRO_5    price id for the 5 USD / 5 projects introductory buy
-//   PADDLE_PRICE_CREDIT_1   price id for the 3 USD / 1 project standing buy
+//   PADDLE_WEBHOOK_SECRET     the notification destination's key, pdl_ntfset_...
+//   PADDLE_PRICE_PRO_MONTHLY  price id for the 5 USD/month subscription (one-time grant only - see the header)
+//   PADDLE_PRICE_BUNDLE_5     price id for the 20 USD, 5-project bundle
 
 const PROVIDER = "paddle";
 
@@ -312,8 +322,8 @@ Deno.serve(async (req: Request) => {
 //    Do NOT also tick transaction.paid. See the long comment above.
 //
 // 2. supabase secrets set PADDLE_WEBHOOK_SECRET='pdl_ntfset_...'
-//    supabase secrets set PADDLE_PRICE_INTRO_5='pri_...'
-//    supabase secrets set PADDLE_PRICE_CREDIT_1='pri_...'
+//    supabase secrets set PADDLE_PRICE_PRO_MONTHLY='pri_...'
+//    supabase secrets set PADDLE_PRICE_BUNDLE_5='pri_...'
 //
 // 3. supabase functions deploy paddle-webhook --no-verify-jwt
 //
