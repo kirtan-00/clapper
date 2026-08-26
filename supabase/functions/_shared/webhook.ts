@@ -150,3 +150,96 @@ export async function verifyPaddleWebhook(
   }
   return { ok: false, reason: "mismatch" };
 }
+
+// ---------------------------------------------------------------------------
+// Stripe
+//
+// Documented shape (docs.stripe.com/webhooks, "Verify manually", read
+// 2026-08-26, not written from memory):
+//
+//   Stripe-Signature: t=1492774577,v1=5257a869e7ecebeda32affa62cdca3fa...,
+//                     v0=6ffbb59b2300aae63f272406069a9788598b792a944a...
+//   (one line in reality; the docs wrap it for clarity)
+//
+//   signed_payload = `${t}.${rawRequestBody}`
+//   signature      = HMAC-SHA256(signed_payload, endpoint signing secret)
+//   compare        = constant time, against v1
+//
+// The secret is per endpoint, starts with `whsec_`, and is NOT the API key.
+//
+// IGNORE EVERY SCHEME THAT IS NOT v1. Stripe says this in as many words, and
+// the reason is a downgrade attack: they deliberately send a FAKE `v0`
+// signature on test events, so an implementation that accepts "any scheme that
+// matches" can be fed a v0 and told it verified. Only v1 is real.
+//
+// MULTIPLE v1 VALUES are normal during a secret roll: the old secret stays
+// active for up to 24 hours and Stripe signs once per active secret. Any match
+// is a pass, so rolling a secret does not drop a real event.
+//
+// TOLERANCE. Stripe's own libraries default to five minutes, and their docs
+// warn in bold never to set it to zero, because zero disables the recency
+// check entirely. Five minutes is also what this file already uses for Paddle,
+// for a different reason (cold starts), so both gateways land on the same
+// number honestly.
+
+export interface StripeSignature {
+  ts: number;
+  /** v1 values only. v0 is deliberately discarded, see above. */
+  v1: string[];
+}
+
+/** Parse `t=...,v1=...,v0=...`. Null for anything malformed, which is a
+ *  rejection rather than a warning. */
+export function parseStripeSignature(header: string | null | undefined): StripeSignature | null {
+  if (typeof header !== "string" || header.length === 0 || header.length > 2000) return null;
+  let ts: number | null = null;
+  const v1: string[] = [];
+  for (const part of header.split(",")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) continue;
+    const k = part.slice(0, eq).trim();
+    const v = part.slice(eq + 1).trim();
+    if (k === "t") {
+      if (!/^[0-9]{1,15}$/.test(v)) return null;
+      ts = Number(v);
+    } else if (k === "v1") {
+      // Hex only. A non-hex value cannot be a digest and would only give the
+      // compare a string it can never match.
+      if (!/^[0-9a-f]{64}$/i.test(v)) return null;
+      v1.push(v.toLowerCase());
+    }
+    // Every other scheme, v0 included, is dropped on the floor on purpose.
+  }
+  // No timestamp, or no v1 at all (a header carrying only v0, say), is a
+  // rejection. There is nothing here that could be checked.
+  if (ts === null || v1.length === 0) return null;
+  return { ts, v1 };
+}
+
+/**
+ * The whole check, over raw bytes. Same contract as verifyPaddleWebhook so the
+ * two gateways cannot drift apart.
+ */
+export async function verifyStripeWebhook(
+  rawBody: Uint8Array,
+  header: string | null | undefined,
+  secret: string | null | undefined,
+  opts?: { nowMs?: number; toleranceSecs?: number },
+): Promise<VerifyResult> {
+  if (!secret) return { ok: false, reason: "no_secret" };
+  const parsed = parseStripeSignature(header);
+  if (!parsed) return { ok: false, reason: "malformed_header" };
+
+  const nowMs = opts?.nowMs ?? Date.now();
+  // Never zero. Stripe's docs are explicit that a zero tolerance switches the
+  // recency check off rather than making it strict.
+  const tolerance = opts?.toleranceSecs && opts.toleranceSecs > 0 ? opts.toleranceSecs : 300;
+  if (Math.abs(nowMs / 1000 - parsed.ts) > tolerance) return { ok: false, reason: "stale" };
+
+  // `${t}.${body}`, with the body never decoded.
+  const expected = await hmacSha256Hex(prefixedBody(`${parsed.ts}.`, rawBody), secret);
+  for (const candidate of parsed.v1) {
+    if (timingSafeEqualHex(expected, candidate)) return { ok: true, ts: parsed.ts };
+  }
+  return { ok: false, reason: "mismatch" };
+}

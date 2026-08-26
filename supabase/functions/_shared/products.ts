@@ -66,25 +66,40 @@ export function getProduct(key: unknown): Product | null {
 /**
  * Price id to product key.
  *
- * Paddle price ids (`pri_...`) are minted inside the owner's Paddle account and
- * differ between sandbox and live, so they CANNOT be hardcoded here. They come
- * from the environment, one variable per product, and an id that matches
- * nothing is a refusal to guess: the purchase gets recorded with status
- * `unknown_product`, grants nothing, and surfaces in the dashboard panel. A
- * webhook that quietly picked "probably the cheap one" would be a bug that
- * pays out in either direction.
+ * A gateway's price ids are minted inside the owner's account on that gateway
+ * and differ between sandbox and live, so they CANNOT be hardcoded here. They
+ * come from the environment, one variable per product per gateway, and an id
+ * that matches nothing is a refusal to guess: the purchase gets recorded with
+ * status `unknown_product`, grants nothing, and surfaces in the dashboard
+ * panel. A webhook that quietly picked "probably the cheap one" would be a bug
+ * that pays out in either direction.
+ *
+ * THE SUFFIX IS SHARED, THE PREFIX IS THE GATEWAY. `PADDLE_PRICE_INTRO_5` and
+ * `STRIPE_PRICE_INTRO_5` are the same product at two gateways. Keeping the
+ * mapping in one table rather than one per webhook is the whole point of this
+ * file: the owner has changed gateway twice, and a third change should be a
+ * new prefix, not a new copy of the price list.
  */
-export const PRICE_ENV_BY_PRODUCT: Record<string, string> = {
-  credits_intro_5: "PADDLE_PRICE_INTRO_5",
-  credits_1: "PADDLE_PRICE_CREDIT_1",
+export const PRICE_ENV_SUFFIX_BY_PRODUCT: Record<string, string> = {
+  credits_intro_5: "PRICE_INTRO_5",
+  credits_1: "PRICE_CREDIT_1",
 };
+
+/** e.g. priceEnvName("credits_1", "STRIPE") -> "STRIPE_PRICE_CREDIT_1" */
+export function priceEnvName(productKey: string, gatewayPrefix: string): string | null {
+  const suffix = PRICE_ENV_SUFFIX_BY_PRODUCT[productKey];
+  return suffix ? `${gatewayPrefix}_${suffix}` : null;
+}
 
 export function productForPriceId(
   priceId: unknown,
   env: (name: string) => string | undefined,
+  gatewayPrefix: string,
 ): Product | null {
   if (typeof priceId !== "string" || !priceId) return null;
-  for (const [key, envName] of Object.entries(PRICE_ENV_BY_PRODUCT)) {
+  for (const key of Object.keys(PRICE_ENV_SUFFIX_BY_PRODUCT)) {
+    const envName = priceEnvName(key, gatewayPrefix);
+    if (!envName) continue;
     const configured = env(envName);
     if (configured && configured === priceId) return PRODUCTS[key] ?? null;
   }

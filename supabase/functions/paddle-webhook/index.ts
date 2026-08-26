@@ -7,6 +7,36 @@ import {
   type CreditPurchase,
   type EntitlementStore,
 } from "../_shared/entitlements.ts";
+// PARKED 2026-08-26. NOT DEPLOYED, NOT WIRED, DO NOT INVEST FURTHER.
+//
+// The owner moved to Stripe. See supabase/functions/stripe-webhook/index.ts
+// for the live path.
+//
+// This is the SECOND gateway to be parked in one day (razorpay-order and
+// razorpay-verify were the first), which is the reason the code below is worth
+// keeping rather than deleting: the seam it plugs into held. Everything that
+// decides anything about a purchase lives in _shared/entitlements.ts and
+// _shared/products.ts, so porting to Stripe meant writing a new signature
+// check and a new payload reader and touching NOTHING about how credits are
+// granted. Delete this file and the next gateway change has one less worked
+// example of that.
+//
+// NOTHING IS WRONG WITH IT. It verifies Paddle's documented signature over raw
+// bytes, grants through the shared claim, and is covered by the same tests
+// that cover Stripe. It has simply never run, because it was never deployed.
+//
+// TO REVIVE IT: set PADDLE_WEBHOOK_SECRET, PADDLE_PRICE_INTRO_5 and
+// PADDLE_PRICE_CREDIT_1, deploy with --no-verify-jwt, and point a Paddle
+// notification destination at it. The ledger is gateway-agnostic (`purchases`
+// is keyed on (provider, provider_event_id)), so both webhooks can even be
+// live at once without colliding.
+//
+// WHY PADDLE WAS CHOSEN AND WHAT WAS GIVEN UP BY LEAVING. Paddle is a merchant
+// of record: it becomes the seller and takes on the sales-tax liability.
+// Stripe is not, and does not. That trade is the owner's call and he has made
+// it, but it is the one thing here that is a business consequence rather than
+// a technical one.
+
 
 // Paddle webhook. The ONLY path that turns money into credits.
 //
@@ -193,7 +223,7 @@ Deno.serve(async (req: Request) => {
   const unknownPrices: string[] = [];
   for (const item of Array.isArray(data.items) ? data.items : []) {
     const priceId = asString(item?.price?.id, 120);
-    const product = productForPriceId(priceId, (n) => Deno.env.get(n));
+    const product = productForPriceId(priceId, (n) => Deno.env.get(n), "PADDLE");
     if (!product) {
       if (priceId) unknownPrices.push(priceId);
       continue;
