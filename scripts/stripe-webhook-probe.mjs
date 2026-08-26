@@ -23,6 +23,11 @@ const creds = readFileSync(process.argv[2], 'utf8');
 const secret = creds.match(/STRIPE_WEBHOOK_SECRET=(\S+)/)?.[1];
 if (!secret) throw new Error('no webhook secret found');
 
+// Each run needs its own event id: the purchases primary key is
+// (provider, provider_event_id), so re-running with a fixed id would be
+// recorded as a duplicate and grant nothing, which reads as a pass.
+const RUN = process.argv[4] || String(Math.floor(Math.random() * 1e9));
+const USER_ID = process.argv[3] || '00000000-0000-0000-0000-000000000000';
 const URL_ = 'https://sqqdivfgdfaztfzrzkhu.supabase.co/functions/v1/stripe-webhook';
 
 async function send(label, body, { skew = 0, tamper = false } = {}) {
@@ -40,15 +45,28 @@ async function send(label, body, { skew = 0, tamper = false } = {}) {
 }
 
 const session = (mode, price) => ({
-  id: 'evt_synthetic_1',
+  id: 'evt_synthetic_' + RUN,
   type: 'checkout.session.completed',
   data: { object: {
-    id: 'cs_test_synthetic_1',
+    id: 'cs_test_synthetic_' + RUN,
     mode,
     payment_status: 'paid',
     amount_total: mode === 'payment' ? 2000 : 500,
     currency: 'usd',
-    client_reference_id: '00000000-0000-0000-0000-000000000000',
+    // A REAL user id, taken from argv. The all-zeros placeholder that used to
+    // sit here made every run return 500: purchases.user_id carries a foreign
+    // key to auth.users, so a user that does not exist fails the insert and
+    // looks exactly like a broken grant path. A test whose failure mode is
+    // indistinguishable from the bug it is meant to catch is worse than none.
+    client_reference_id: USER_ID,
+    // WHAT WAS BOUGHT. The real stripe-checkout endpoint stamps this when it
+    // creates the session, and readCheckoutEvent reads it first, falling back
+    // to matching the price id against the configured env secrets. Omitting it
+    // here made the webhook answer 200 with needs_attention:"unknown_product":
+    // recorded, zero credits granted. That is the correct defensive behaviour
+    // for a price the catalogue does not know, and it is also exactly what an
+    // incomplete test payload produces, so the probe has to send it.
+    metadata: { product_key: mode === 'payment' ? 'bundle_5' : 'pro_monthly' },
     customer: 'cus_synthetic',
     subscription: mode === 'subscription' ? 'sub_synthetic' : null,
     line_items: { data: [{ price: { id: price }, quantity: 1 } ] },
