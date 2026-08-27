@@ -86,10 +86,13 @@ export interface Entitlements {
    *  purchase or a subscription's monthly grant all look identical here. */
   projectCredits: number;
   /** True when profiles.subscription_status reads as a currently-paying
-   *  state (active or trialing). Nothing is GATED on this - see the
-   *  entitlements migration's own note that only project_credits and
-   *  project_entitlements ever gate anything - it only decides which
-   *  podcast allowance to display. */
+   *  state, in either provider's vocabulary. See
+   *  ACTIVE_SUBSCRIPTION_STATUSES for the exact set and for why being wrong
+   *  here can double-charge somebody. Nothing is GATED on this (only
+   *  project_credits and project_entitlements ever gate anything), but the
+   *  Account screen DOES decide from it whether to render a plan as "Your
+   *  plan" or as a live buy button, so it is not display-only in the
+   *  harmless sense that phrase usually means. */
   subscriptionActive: boolean;
   /** Which products.ts key the account is subscribed to, or null. */
   subscriptionProduct: string | null;
@@ -109,7 +112,53 @@ interface ProfileRow {
   podcast_seconds_used: number | null;
 }
 
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
+/**
+ * Subscription states that mean THIS ACCOUNT IS CURRENTLY PAYING US.
+ *
+ * ONE COLUMN, TWO PROVIDERS' VOCABULARIES. `profiles.subscription_status` is
+ * a plain mirror of whatever status the provider reported, and BOTH Stripe
+ * and Razorpay write to it (stripe-webhook and razorpay-webhook). So this set
+ * has to speak both languages, and a word that belongs to one of them is not
+ * dead code just because the other never sends it.
+ *
+ * Stripe:
+ *   active        - paying.
+ *   trialing      - inside a free trial, card on file, will be charged. Kept
+ *                   deliberately: Stripe really does send this, even though
+ *                   Razorpay never has.
+ *
+ * Razorpay, both ADDED 2026-08-27 because neither was here and both mean the
+ * account is live:
+ *   authenticated - the mandate is approved and the first charge is on its
+ *                   way. razorpay-webhook mirrors whatever status the
+ *                   subscription fetch returns at delivery time, and that
+ *                   fetch can land before Razorpay has flipped the row to
+ *                   `active`.
+ *   pending       - a charge failed and Razorpay is retrying it. Still a
+ *                   live subscription, still going to be charged again.
+ *
+ * WHY GETTING THIS WRONG COSTS MONEY rather than just looking untidy. The
+ * Account screen decides which plan row renders as "Your plan" instead of a
+ * buy button from `subscriptionActive` (see AccountScreen.tsx's
+ * `currentSubscriptionKey`). An account reading `authenticated` therefore
+ * gets offered a live Subscribe button for the plan it already holds, and
+ * tapping it opens a second real subscription on a card that is already
+ * being charged. The old comment on `subscriptionActive` said nothing is
+ * gated on this so it only affects a displayed allowance; that was true when
+ * it was written and stopped being true the day this screen grew a buy
+ * button.
+ *
+ * ERRS TOWARD "ALREADY SUBSCRIBED". A state we do not recognise resolves to
+ * not-paying, so the deliberate direction of the whole set is to include
+ * anything that plausibly means live. Being wrong that way shows somebody a
+ * plan they cannot buy again and they send an email. Being wrong the other
+ * way takes their money twice.
+ *
+ * NOT INCLUDED, because they are genuinely over: `created` (never
+ * authorised), `halted` (retries exhausted), `cancelled`, `completed`,
+ * `expired`.
+ */
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'authenticated', 'pending']);
 
 /**
  * Read the caller's entitlements. Returns null when signed out (or if the

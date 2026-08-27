@@ -235,6 +235,65 @@ describe('getEntitlements: a subscriber mid-cycle', () => {
     expect(ent?.podcastMinutesLimit).toBe(PODCAST_MINUTES_STUDIO_PLUS_PER_MONTH);
   });
 
+  // RAZORPAY'S OWN LIVE STATES, added 2026-08-27. Neither of these was in
+  // ACTIVE_SUBSCRIPTION_STATUSES, and neither is cosmetic: AccountScreen
+  // decides whether a plan renders as "Your plan" or as a live Subscribe
+  // button from subscriptionActive, so an account sitting in either of these
+  // was being offered a second subscription on a card already being charged.
+  it.each(['authenticated', 'pending'])(
+    'a Razorpay subscription in %s reads as currently paying, so its plan cannot be bought twice',
+    async (status) => {
+      mockProfile({
+        is_pro: false,
+        pro_until: null,
+        free_projects_used: 2,
+        project_credits: 6,
+        subscription_status: status,
+        subscription_product: 'pro_monthly',
+        podcast_seconds_used: 0,
+      });
+      const ent = await getEntitlements();
+      expect(ent?.subscriptionActive).toBe(true);
+      expect(ent?.subscriptionProduct).toBe('pro_monthly');
+    },
+  );
+
+  // The set has to speak BOTH providers' languages, because one column
+  // mirrors both. Dropping Stripe's word while adding Razorpay's would have
+  // moved the same bug onto Stripe subscribers instead of fixing it.
+  it('keeps Stripe trialing as paying, alongside the Razorpay states', async () => {
+    mockProfile({
+      is_pro: false,
+      pro_until: null,
+      free_projects_used: 0,
+      project_credits: 0,
+      subscription_status: 'trialing',
+      subscription_product: 'pro_monthly',
+      podcast_seconds_used: 0,
+    });
+    const ent = await getEntitlements();
+    expect(ent?.subscriptionActive).toBe(true);
+  });
+
+  // Razorpay states that genuinely ARE over. A subscription that halted after
+  // exhausted retries is not being charged, and offering it again is correct.
+  it.each(['created', 'halted', 'cancelled', 'completed', 'expired'])(
+    'a Razorpay subscription in %s reads as not paying',
+    async (status) => {
+      mockProfile({
+        is_pro: false,
+        pro_until: null,
+        free_projects_used: 2,
+        project_credits: 0,
+        subscription_status: status,
+        subscription_product: 'studio_plus',
+        podcast_seconds_used: 0,
+      });
+      const ent = await getEntitlements();
+      expect(ent?.subscriptionActive).toBe(false);
+    },
+  );
+
   it('a cancelled subscription reads as free-tier podcast minutes even with a product still on file', async () => {
     mockProfile({
       is_pro: false,
