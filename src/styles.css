@@ -1691,13 +1691,19 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
       unchanged), and grows the tap target as a side effect. */
 @media (max-width: 360px) {
   .ob-signin .ob-fine {
-    /* sp-3 (bar's own top pad) + tap + sp-3 (gap) + tap (both stacked
-       buttons) + safe-bottom + sp-6 (bar's own bottom pad, matching
-       .sheet__body's existing reservation) + sp-4 spare so the last line
-       lands with breathing room, not flush against the bar's edge. */
-    padding-bottom: calc(
-      var(--sp-3) + var(--tap) + var(--sp-3) + var(--tap) + var(--safe-bottom) + var(--sp-6) + var(--sp-4)
-    );
+    /* What .sheet__body does NOT already reserve, and only that: the bar's
+       own top padding (sp-3), the two stacked buttons (tap each) and the gap
+       between them (sp-3), plus sp-4 so the last line rests with breathing
+       room rather than flush against the bar's edge.
+
+       The bar's BOTTOM padding and the safe-area inset are deliberately NOT
+       counted here. .sheet__body already reserves both (see the "OWNS that
+       padding" note on .sl-actions above), and adding them a second time is
+       not free: it opened roughly 90px of dead space above the buttons once
+       the stage was scrolled to its end, on the narrowest screen this app
+       supports, which is where empty space is most expensive. Reserve the
+       shortfall, not the whole bar. */
+    padding-bottom: calc(var(--sp-3) + var(--tap) + var(--sp-3) + var(--tap) + var(--sp-4));
   }
   .ob-signin .sheet__actions.sl-actions {
     flex-direction: column;
