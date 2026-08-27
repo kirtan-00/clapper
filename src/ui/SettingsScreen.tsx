@@ -22,7 +22,7 @@ import { HapticsRow, WakeLockRow, LeftHandRow, ReduceMotionRow, SoundRow } from 
 import { DefaultTagsRows } from './DefaultTagsRow';
 import { StudioRow } from './StudioRow';
 import { StudioLogoRow } from './StudioLogoRow';
-import { RazorpayBuyRow } from './RazorpayBuyRow';
+import { GoProRow } from './GoProRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
@@ -139,9 +139,12 @@ export function SettingsScreen(props: { nav: Nav }) {
         <StudioLogoRow />
       </Section>
 
-      {/* Razorpay, wired end to end 2026-08-27 - see RazorpayBuyRow.tsx's own
-          header for why this lives here and not on ProCta's paywall gates. */}
-      <RazorpayBuyRow />
+      {/* THE WAY IN, replacing RazorpayBuyRow here on 2026-08-27. That row put
+          a second shop on this screen, selling two of the five products with
+          their prices written out a second time, while the full ladder sat on
+          the Account tab with no button anywhere pointing at it. One row that
+          navigates beats two screens that both quote a price. */}
+      <GoProRow nav={props.nav} />
 
       <Section title="Help">
         <Row label="How to use" value="9 sections" push onClick={openGuide} />

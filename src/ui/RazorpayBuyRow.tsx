@@ -1,3 +1,16 @@
+// NO LONGER RENDERED ANYWHERE, as of 2026-08-27. Settings shows GoProRow
+// instead, which navigates to the Account tab's ladder rather than selling a
+// second time. Everything below this line describes the world before the
+// owner reversed the selling pause, and is kept only because the checkout
+// mechanics it proved (order, modal, verify) are the same ones net/pay.ts
+// runs today. If you are looking for the buy surface, it is PricingRows.tsx.
+//
+// The header that follows says this row "is deliberately NOT wired into
+// ProCta.tsx" and that it lives in Settings. Both were true when written and
+// neither is now: ProCta sells the full ladder, and Settings no longer
+// renders this at all. Left in place rather than quietly corrected, because
+// the reasoning it records is why two shops existed in the first place.
+//
 // NEW 2026-08-27. A working Razorpay checkout button, at the owner's direct
 // request, with test keys confirmed live against the real API. This is
 // deliberately NOT wired into ProCta.tsx (the paywall gate shown on
