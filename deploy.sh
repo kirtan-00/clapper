@@ -52,6 +52,15 @@ if [ -d landing/articles ]; then
   cp -R landing/articles/. "$STAGE/articles/"
 fi
 
+# Pricing at /pricing/. Same shape as articles/templates above: self-contained
+# HTML, no build step. Not excluded from GA4/beacon injection below - it is a
+# self-serve sales page and needs the same instrumentation as the rest of the
+# marketing site, unlike /app/ (own analytics) and /relink/ (privacy promise).
+if [ -d landing/pricing ]; then
+  mkdir -p "$STAGE/pricing"
+  cp -R landing/pricing/. "$STAGE/pricing/"
+fi
+
 # Answer pages at /answers/<slug>/. Same shape as articles/templates above:
 # self-contained HTML, no build step. AEO-targeted pages, reachable and
 # crawlable but deliberately not linked from the main nav - see the AEO
@@ -185,6 +194,40 @@ if [ "$GA_INJECTED" -eq 0 ]; then
   echo "ERROR: GA4 was injected into ZERO pages. Something is wrong with the stage. Aborting." >&2
   exit 1
 fi
+
+# 2c-2. Brand fonts (landing/fonts.html: Source Serif 4, Hanken Grotesk, IBM
+# Plex Mono as self-hosted base64 @font-face), injected exactly the way GA4
+# is above and for exactly the same reason.
+#
+# What was actually happening before this fix, discovered by rendering a
+# templates/ page and reading document.fonts back: landing/fragment.html (the
+# homepage) was the ONLY page that embedded these three @font-face blocks.
+# Every page under /templates/ and /articles/ declares --serif/--sans/--mono
+# (or its own font tokens) and asks for these families, but with no matching
+# @font-face on the page the browser has nothing to load and falls straight
+# through to system fonts. The homepage was the only page wearing the brand.
+# Same root cause, same fix shape as the beacon below: a block that has to be
+# hand-pasted into every new page is a block the next new page ships without.
+#
+# SAME FOUR EXCLUSIONS AS GA4. Fonts are not a tracking concern like the
+# beacon, but /app/ has its own build pipeline and asset handling, and
+# /dashboard/, /admin/, /relink/ never reference these font tokens at all -
+# injecting into them would only add ~180KB of unused base64 for nothing.
+FONT_MARK="clapper-brand-fonts-v1"
+FONT_INJECTED=0
+while IFS= read -r page; do
+  case "$page" in
+    "$STAGE"/app/*|"$STAGE"/dashboard/*|"$STAGE"/admin/*|"$STAGE"/relink/*) continue ;;
+  esac
+  # Skip a page that already carries the block - this is what keeps the
+  # homepage from getting a second, redundant copy of its own fonts.
+  if grep -q "$FONT_MARK" "$page"; then continue; fi
+  FONT_FILE="landing/fonts.html" perl -0777 -i -pe '
+    BEGIN { local $/; open my $fh, "<", $ENV{FONT_FILE} or die; our $snip = <$fh>; close $fh; }
+    s{</head>}{$main::snip</head>}i unless $done++;
+  ' "$page" && FONT_INJECTED=$((FONT_INJECTED + 1))
+done < <(find "$STAGE" -type f -name '*.html')
+echo "brand fonts: injected into $FONT_INJECTED page(s), $(( $(find "$STAGE" -type f -name '*.html' | wc -l) - FONT_INJECTED )) already had them or are excluded"
 
 # 2d. The first-party landing beacon (landing/beacon.html), injected exactly
 # the way GA4 is above and for exactly the same reason - read that comment
