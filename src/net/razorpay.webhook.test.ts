@@ -12,13 +12,19 @@ import {
   readInvoicePaidEvent,
   readOrderPaidEvent,
   ORDER_GRANT_EVENTS,
-  INVOICE_NEEDS_ATTENTION_EVENTS,
+  INVOICE_PAID_EVENTS,
   SUBSCRIPTION_GRANT_EVENTS,
   readSubscriptionChargedEvent,
   billingReasonForPaidCount,
   resolveSubscriptionProduct,
   identityForSubscriptionCharge,
 } from '../../supabase/functions/_shared/razorpay.ts';
+import {
+  applySubscriptionCredit,
+  type EntitlementStore,
+  type CreditPurchase,
+  type SubscriptionInvoiceGrant,
+} from '../../supabase/functions/_shared/entitlements.ts';
 
 // The webhook signature is the ONLY authentication on razorpay-webhook (it
 // runs with verify_jwt off, same as stripe-webhook), and the handshake
@@ -182,7 +188,14 @@ describe('readOrderPaidEvent: the grant path\'s payload reader', () => {
   });
 });
 
-describe('readInvoicePaidEvent: recorded, never granted (see razorpay-webhook\'s header)', () => {
+describe('readInvoicePaidEvent: a subscription grant path since 2026-08-27 (see razorpay-webhook\'s header)', () => {
+  // DELIBERATELY CHANGED, not weakened: this used to assert invoice.paid was
+  // never granted against at all. It is now the grant path for a
+  // subscription cycle (the owner's live webhook has subscription.charged
+  // UNTICKED and cannot tick it through the API), and readInvoicePaidEvent
+  // grew a `paymentId` field - the idempotency anchor for that grant - so the
+  // exact object this reader returns changed. See the "invoice.paid as a
+  // subscription grant" suite below for the actual grant behaviour.
   it('reads what it can without throwing on an unfamiliar invoice shape', () => {
     const payload = {
       event: 'invoice.paid',
@@ -195,6 +208,7 @@ describe('readInvoicePaidEvent: recorded, never granted (see razorpay-webhook\'s
             amount_paid: 99900,
             currency: 'INR',
             notes: { user_id: '11111111-1111-4111-8111-111111111111' },
+            payment_id: 'pay_fixture01',
           },
         },
       },
@@ -208,11 +222,19 @@ describe('readInvoicePaidEvent: recorded, never granted (see razorpay-webhook\'s
       amountPaid: 99900,
       currency: 'INR',
       notes: { user_id: '11111111-1111-4111-8111-111111111111' },
+      paymentId: 'pay_fixture01',
     });
   });
 
-  it('is subscribed but flagged for a human, never granted against: see the file header', () => {
-    expect(INVOICE_NEEDS_ATTENTION_EVENTS).toEqual(['invoice.paid']);
+  // DELIBERATELY CHANGED: this used to assert invoice.paid was flagged for a
+  // human and never granted, full stop. It is now the constant
+  // razorpay-webhook/index.ts routes BOTH behaviours through - grant when the
+  // invoice carries a subscription_id, record-only when it does not (a
+  // standalone invoice this app sells nothing that issues) - so the name and
+  // the assertion both changed to match. See INVOICE_PAID_EVENTS's own
+  // comment in _shared/razorpay.ts.
+  it('is subscribed, and is the constant both invoice.paid behaviours route through', () => {
+    expect(INVOICE_PAID_EVENTS).toEqual(['invoice.paid']);
   });
 });
 
@@ -258,12 +280,14 @@ describe('subscription.charged', () => {
     created_at: 1767225600,
   });
 
-  it('is the grant event, and invoice.paid is not', () => {
+  // DELIBERATELY CHANGED: this used to assert invoice.paid could never grant.
+  // It now can (see the suite below), so the assertion is narrowed to what is
+  // still true - the two constants list different event names, and
+  // ORDER_GRANT_EVENTS still owns neither.
+  it('is a grant event, and so, now, is invoice.paid - both key off the payment id so neither double-grants the other', () => {
     expect(SUBSCRIPTION_GRANT_EVENTS).toContain('subscription.charged');
-    // Both fire for the same money on every cycle. Exactly one may grant,
-    // and it has to be the one carrying paid_count.
     expect(SUBSCRIPTION_GRANT_EVENTS).not.toContain('invoice.paid');
-    expect(INVOICE_NEEDS_ATTENTION_EVENTS).toContain('invoice.paid');
+    expect(INVOICE_PAID_EVENTS).toContain('invoice.paid');
     expect(ORDER_GRANT_EVENTS).not.toContain('subscription.charged');
   });
 
@@ -326,5 +350,225 @@ describe('subscription.charged', () => {
     const two = identityForSubscriptionCharge('sub_fixture01', null, 2);
     expect(one.eventId).toBeTruthy();
     expect(one.eventId).not.toBe(two.eventId);
+  });
+
+  it('reads current_end off the subscription entity for the profiles mirror, in ISO, and null when absent', () => {
+    // current_end is unix seconds on the wire (razorpay.com's own Subscription
+    // entity page, read 2026-08-27) - display only, nothing gates on it (see
+    // both entitlements migrations' comments on subscription_current_period_end).
+    const withEnd = readSubscriptionChargedEvent(CHARGED(2));
+    // CHARGED() carries no current_end, so this pins the "absent" half; the
+    // fixture is extended inline below for the "present" half.
+    expect(withEnd?.currentEnd).toBeNull();
+
+    const payload = CHARGED(2);
+    (payload.payload.subscription.entity as Record<string, unknown>).current_end = 1798761600; // 2027-01-01T00:00:00Z
+    const read = readSubscriptionChargedEvent(payload);
+    expect(read?.currentEnd).toBe('2027-01-01T00:00:00.000Z');
+  });
+});
+
+// ===========================================================================
+// invoice.paid AS A SUBSCRIPTION GRANT, added 2026-08-27. The owner's live
+// webhook has order.paid and invoice.paid ticked, subscription.charged NOT
+// ticked and not tickable through the API - so a subscription grant that
+// only ever fired on subscription.charged was granting nothing for real
+// money already taken. This is the fix: invoice.paid grants when the invoice
+// carries a subscription_id, through the exact same identityForSubscription-
+// Charge + applySubscriptionCredit path subscription.charged always used, so
+// the two events can never double-grant the same charge - see both file
+// headers.
+//
+// The fake store below is a slimmed copy of entitlements.grant.test.ts's own
+// fake (same conditional-claim semantics; a fake that just returned the row
+// every time would prove nothing about idempotency, per that file's own
+// header note) rather than an import - these tests exercise razorpay.ts's
+// readers and identityForSubscriptionCharge FIRST, and only reach for a store
+// to prove the two payloads collapse onto ONE grant.
+// ===========================================================================
+
+interface FakeRow {
+  provider: string;
+  eventId: string;
+  userId: string | null;
+  credits: number;
+  status: string;
+}
+
+function fakeSubscriptionStore() {
+  const rows = new Map<string, FakeRow>();
+  const balances = new Map<string, number>();
+  const introBonusGranted = new Set<string>();
+  const key = (provider: string, eventId: string) => `${provider}::${eventId}`;
+
+  const store: EntitlementStore = {
+    async recordPurchase(p) {
+      const k = key(p.provider, p.eventId);
+      if (rows.has(k)) return {};
+      rows.set(k, { provider: p.provider, eventId: p.eventId, userId: p.userId, credits: p.credits, status: 'received' });
+      return {};
+    },
+    async claimPurchase(provider, eventId) {
+      const row = rows.get(key(provider, eventId));
+      if (!row || row.status !== 'received') return { claimed: null };
+      row.status = 'granting';
+      return { claimed: { userId: row.userId, credits: row.credits } };
+    },
+    async addCredits(userId, credits) {
+      const next = (balances.get(userId) ?? 0) + credits;
+      balances.set(userId, next);
+      return { balance: next };
+    },
+    async finishPurchase(provider, eventId, status, _note, credits) {
+      const row = rows.get(key(provider, eventId));
+      if (row) {
+        row.status = status;
+        if (typeof credits === 'number') row.credits = credits;
+      }
+      return {};
+    },
+    async grantSubscriptionCredits(userId, isFirstInvoice, introCredits, renewalCredits) {
+      const bonusApplied = isFirstInvoice && !introBonusGranted.has(userId);
+      if (bonusApplied) introBonusGranted.add(userId);
+      const credits = bonusApplied ? introCredits : renewalCredits;
+      const next = (balances.get(userId) ?? 0) + credits;
+      balances.set(userId, next);
+      return { credits, bonusApplied, balance: next };
+    },
+    async logEvent() {},
+  };
+  return { store, rows, balances };
+}
+
+const SUB_USER = '11111111-1111-4111-8111-111111111111';
+
+/** The SubscriptionInvoiceGrant applySubscriptionCredit expects, from an
+ *  identity plus the catalogue numbers - exactly the shape both the
+ *  subscription.charged and invoice.paid blocks in razorpay-webhook/index.ts
+ *  build. `paidCount` here stands in for what fetchRazorpaySubscription
+ *  would have returned - these tests exercise the identity/idempotency
+ *  contract, not the network call. */
+function subInvoiceGrant(
+  identity: { eventId: string; providerTxnId: string },
+  over?: Partial<SubscriptionInvoiceGrant>,
+): SubscriptionInvoiceGrant {
+  return {
+    provider: 'razorpay',
+    eventId: identity.eventId,
+    userId: SUB_USER,
+    productKey: 'pro_monthly',
+    billingReason: 'subscription_cycle',
+    introCredits: 5,
+    renewalCredits: 2,
+    amountCents: 49900,
+    currency: 'INR',
+    providerTxnId: identity.providerTxnId,
+    occurredAt: null,
+    ...over,
+  };
+}
+
+const invoiceWithSubscription = (over?: Record<string, unknown>) => ({
+  event: 'invoice.paid',
+  payload: {
+    invoice: {
+      entity: {
+        id: 'inv_fixture01',
+        status: 'paid',
+        subscription_id: 'sub_fixture01',
+        amount_paid: 49900,
+        currency: 'INR',
+        payment_id: 'pay_cycle01',
+        ...over,
+      },
+    },
+  },
+});
+
+describe('invoice.paid as a subscription grant, added 2026-08-27', () => {
+  it('an invoice.paid with a subscription id grants once', async () => {
+    const read = readInvoicePaidEvent(invoiceWithSubscription());
+    expect(read?.subscriptionId).toBe('sub_fixture01');
+    expect(read?.paymentId).toBe('pay_cycle01');
+
+    // paidCount 2 stands in for a fetched subscription's paid_count - a
+    // renewal, so this grants renewalCredits (2), not the bonus.
+    const identity = identityForSubscriptionCharge('sub_fixture01', read!.paymentId, 2);
+    const f = fakeSubscriptionStore();
+    const out = await applySubscriptionCredit(f.store, subInvoiceGrant(identity));
+
+    expect(out).toEqual({ status: 'granted', credits: 2, balance: 2 });
+    expect(f.balances.get(SUB_USER)).toBe(2);
+  });
+
+  it('the same payment id arriving twice grants once', async () => {
+    const identity = identityForSubscriptionCharge('sub_fixture01', 'pay_cycle01', 2);
+    const f = fakeSubscriptionStore();
+    const first = await applySubscriptionCredit(f.store, subInvoiceGrant(identity));
+    const second = await applySubscriptionCredit(f.store, subInvoiceGrant(identity));
+
+    expect(first).toEqual({ status: 'granted', credits: 2, balance: 2 });
+    expect(second).toEqual({ status: 'duplicate' });
+    expect(f.balances.get(SUB_USER)).toBe(2);
+  });
+
+  it('an invoice.paid and a subscription.charged for the SAME payment grant once between them', async () => {
+    // Two different deliveries, two different event NAMES, describing the
+    // same charge - the exact double-grant hazard the owner ticking
+    // subscription.charged on the dashboard alongside invoice.paid would
+    // create. identityForSubscriptionCharge is the one function both
+    // razorpay-webhook blocks call, so it must build the SAME key from both
+    // payloads' payment ids.
+    const invoiceRead = readInvoicePaidEvent(invoiceWithSubscription());
+    const chargedRead = readSubscriptionChargedEvent({
+      event: 'subscription.charged',
+      payload: {
+        subscription: { entity: { id: 'sub_fixture01', status: 'active', paid_count: 2, notes: {} } },
+        payment: { entity: { id: 'pay_cycle01', amount: 49900, currency: 'INR' } },
+      },
+    });
+
+    // Same payment, described two ways.
+    expect(invoiceRead?.paymentId).toBe('pay_cycle01');
+    expect(chargedRead?.paymentId).toBe('pay_cycle01');
+
+    const fromInvoice = identityForSubscriptionCharge('sub_fixture01', invoiceRead!.paymentId, 2);
+    const fromCharged = identityForSubscriptionCharge('sub_fixture01', chargedRead!.paymentId, chargedRead!.paidCount);
+    expect(fromInvoice).toEqual(fromCharged);
+
+    const f = fakeSubscriptionStore();
+    const a = await applySubscriptionCredit(f.store, subInvoiceGrant(fromInvoice));
+    const b = await applySubscriptionCredit(f.store, subInvoiceGrant(fromCharged));
+
+    const statuses = [a.status, b.status].sort();
+    expect(statuses).toEqual(['duplicate', 'granted']);
+    // Exactly one grant's worth of credit, whichever delivery won the race.
+    expect(f.balances.get(SUB_USER)).toBe(2);
+  });
+
+  it('an invoice.paid with no subscription id does not grant - the standalone-invoice path, unchanged', () => {
+    const read = readInvoicePaidEvent({
+      event: 'invoice.paid',
+      payload: {
+        invoice: {
+          entity: { id: 'inv_standalone01', status: 'paid', amount_paid: 10000, currency: 'INR' },
+        },
+      },
+    });
+    // No subscription_id: razorpay-webhook's invoice.paid block never calls
+    // fetchRazorpaySubscription or applySubscriptionCredit for this shape -
+    // it stays on the record-only path this reader has always supported.
+    expect(read?.subscriptionId).toBeNull();
+  });
+
+  it('falls back to the invoice id, never the subscription id, when the invoice carries no payment_id', () => {
+    // The one edge case identityForSubscriptionCharge's own composite
+    // fallback is wrong for here: paidCount on this path comes from a fetch
+    // made at delivery time, not from the payload, so a retry after another
+    // cycle landed would compose a DIFFERENT key for the SAME unresolved
+    // charge. The invoice id is stable across retries.
+    const read = readInvoicePaidEvent(invoiceWithSubscription({ payment_id: undefined }));
+    expect(read?.paymentId).toBeNull();
+    expect(read?.invoiceId).toBe('inv_fixture01');
   });
 });

@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { verifyRazorpayWebhook } from "../_shared/webhook.ts";
 import { supabaseEntitlementStore } from "../_shared/store.ts";
 import {
@@ -10,9 +10,10 @@ import {
 } from "../_shared/entitlements.ts";
 import {
   billingReasonForPaidCount,
+  fetchRazorpaySubscription,
   identityForOrder,
   identityForSubscriptionCharge,
-  INVOICE_NEEDS_ATTENTION_EVENTS,
+  INVOICE_PAID_EVENTS,
   ORDER_GRANT_EVENTS,
   peekRazorpayEvent,
   readInvoicePaidEvent,
@@ -21,6 +22,7 @@ import {
   resolveOneTimeProduct,
   resolveSubscriptionProduct,
   SUBSCRIPTION_GRANT_EVENTS,
+  type RazorpayIdentity,
 } from "../_shared/razorpay.ts";
 
 // NEW 2026-08-27. Razorpay's authoritative grant path - the fix for the GAP
@@ -34,18 +36,24 @@ import {
 //
 // GRANTS ON order.paid, NOT payment.captured. Confirmed against the owner's
 // own live Razorpay dashboard, not a tutorial: this webhook destination is
-// subscribed to order.paid, subscription.charged and invoice.paid. One-off
-// purchases grant on order.paid, subscriptions grant on subscription.charged,
-// and invoice.paid grants NOTHING ever (it duplicates every subscription
-// cycle - see the subscription section below). The reasoning for that split
-// is sound independent of what any guide assumes - payment.captured
-// can fire MORE THAN ONCE for a single order under partial or multiple
-// payment attempts, which is exactly the double-grant hazard this codebase
-// already solved once, on the Stripe side, by granting on invoice.paid and
-// never on payment_intent events (see stripe-webhook's file header, section
-// 1). order.paid fires exactly once, when an order's amount_due reaches
-// zero, so it is the better idempotency anchor of the two and is what
-// _shared/razorpay.ts's identityForOrder keys off.
+// subscribed to EXACTLY order.paid and invoice.paid. subscription.charged is
+// NOT ticked - dashboard only, a PATCH attempt through the API silently
+// no-oped - so a subscription that only granted on subscription.charged
+// would grant nothing, ever, for real money already taken. That was true
+// until 2026-08-27: one-off purchases grant on order.paid, subscription
+// charges now grant on invoice.paid (see its section in _shared/razorpay.ts
+// for how it resolves a buyer and a product it does not carry), and
+// subscription.charged stays wired as a second grant path for the day the
+// checkbox gets ticked - both are safe to receive for the same charge at
+// once because they key off the same payment id. The reasoning for order.paid
+// over payment.captured is sound independent of what any guide assumes -
+// payment.captured can fire MORE THAN ONCE for a single order under partial
+// or multiple payment attempts, which is exactly the double-grant hazard this
+// codebase already solved once, on the Stripe side, by granting on
+// invoice.paid and never on payment_intent events (see stripe-webhook's file
+// header, section 1). order.paid fires exactly once, when an order's
+// amount_due reaches zero, so it is the better idempotency anchor of the two
+// and is what _shared/razorpay.ts's identityForOrder keys off.
 //
 // VERIFY JWT MUST BE OFF FOR THIS FUNCTION. Razorpay is not a Supabase user
 // and has no anon key to send:
@@ -62,12 +70,21 @@ import {
 //                             RAZORPAY_KEY_SECRET - see _shared/webhook.ts's
 //                             Razorpay section for why those two must never
 //                             be confused; they sign different messages.
-//   RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET   only for the notes reader below;
-//                             order.paid already carries the order's notes
-//                             in the payload, so these are not needed for
-//                             the grant itself.
+//   RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET   order.paid already carries the
+//                             order's notes in the payload, so these are not
+//                             needed for that grant. invoice.paid's grant
+//                             DOES need them: a subscription cycle's invoice
+//                             carries no buyer, no product and no paid_count
+//                             of its own (see _shared/razorpay.ts's
+//                             invoice.paid section), so this webhook fetches
+//                             the subscription back with these credentials,
+//                             the same pair razorpay-subscription already
+//                             uses to create one.
 
 const PROVIDER = "razorpay";
+/** Same 5s convention razorpay-verify uses for fetchRazorpayOrder - a slow or
+ *  hanging fetch back to Razorpay must not itself become the failure. */
+const SUBSCRIPTION_FETCH_TIMEOUT_MS = 5000;
 
 Deno.serve(async (req: Request) => {
   const json = (body: unknown, status = 200) =>
@@ -78,6 +95,8 @@ Deno.serve(async (req: Request) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const WEBHOOK_SECRET = Deno.env.get("RAZORPAY_WEBHOOK_SECRET");
+  const KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
+  const KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
 
   // 1. THE RAW BYTES. Read once, hashed as they arrived, parsed from the
   // same buffer afterwards. Razorpay's docs say it in as many words as
@@ -181,11 +200,14 @@ Deno.serve(async (req: Request) => {
   }
 
   // =========================================================================
-  // subscription.charged - the RECURRING grant. Added 2026-08-27 with
-  // razorpay-subscription; see _shared/razorpay.ts's subscription section for
-  // why the grant lives on this event and not on invoice.paid (both fire for
-  // the same money every cycle, and only this one carries paid_count, which
-  // is the sole documented way to tell a first charge from a renewal).
+  // subscription.charged - the RECURRING grant, wired 2026-08-27 with
+  // razorpay-subscription and STILL LIVE for the day the owner ticks it on
+  // the dashboard - see the file header for why invoice.paid, not this
+  // event, is what actually runs today. Both key off the same payment id
+  // (identityForSubscriptionCharge), so if this ever fires alongside
+  // invoice.paid for the same charge, exactly one of the two grants and the
+  // other answers `duplicate` - see _shared/razorpay.ts's subscription
+  // section.
   // =========================================================================
   if (SUBSCRIPTION_GRANT_EVENTS.indexOf(eventType) !== -1) {
     const read = readSubscriptionChargedEvent(parsed);
@@ -225,35 +247,123 @@ Deno.serve(async (req: Request) => {
       occurredAt: null,
     });
 
+    // THE MIRROR, not the grant. See mirrorSubscriptionProfile's own comment
+    // for why this only runs on a fresh `granted` and not on `duplicate`: a
+    // replayed old delivery would overwrite a newer subscription's row with
+    // stale status/period data.
+    if (outcome.status === "granted" && userId) {
+      await mirrorSubscriptionProfile(admin, userId, read.status, read.subscriptionId, product?.key ?? null, read.currentEnd);
+    }
+
     return grantOutcomeResponse(json, outcome, PROVIDER, identity.providerTxnId, userId);
   }
 
   // =========================================================================
-  // invoice.paid - RECORDED, NOT GRANTED. See _shared/razorpay.ts's
-  // INVOICE_NEEDS_ATTENTION_EVENTS for the full reasoning: this pair has no
-  // subscription checkout yet (razorpay-order refuses `subscription` kind
-  // products) and this codebase has no verified way to tell a subscription's
-  // first invoice from a renewal for Razorpay the way Stripe's
-  // billing_reason lets it. Rather than guess - which is exactly what bug #4
-  // was about, guessing a grant amount for a case that isn't fully known -
-  // this is recorded loudly and granted nothing, every time, until a real
-  // subscription flow is built and this file grows a verified answer.
+  // invoice.paid - split by whether the invoice carries a subscription id,
+  // since 2026-08-27.
+  //
+  // WITH a subscription_id: a subscription charge, and - see the file header
+  // - the ONLY delivery that charge is guaranteed to produce on the owner's
+  // live webhook. Granted below through the SAME applySubscriptionCredit
+  // path subscription.charged uses. See _shared/razorpay.ts's invoice.paid
+  // section for why the invoice's own payload cannot resolve the buyer, the
+  // product or first-vs-renewal by itself, and why fetchRazorpaySubscription
+  // is what supplies them.
+  //
+  // WITHOUT one: a standalone invoice. This app sells no product that issues
+  // one, so this stays exactly what it always was - RECORDED, NOT GRANTED.
   // =========================================================================
-  if (INVOICE_NEEDS_ATTENTION_EVENTS.indexOf(eventType) !== -1) {
+  if (INVOICE_PAID_EVENTS.indexOf(eventType) !== -1) {
     const read = readInvoicePaidEvent(parsed);
-    const userId = read && typeof read.notes.user_id === "string" && read.notes.user_id.length > 0
+    if (!read) return json({ error: "not an event" }, 400);
+
+    if (read.subscriptionId) {
+      // A subscription cycle. NOTHING is recorded under this charge's key
+      // until the fetch below succeeds. That ordering is deliberate, not an
+      // oversight: applyCreditPurchase/applySubscriptionCredit both RECORD
+      // before they CLAIM, and claimPurchase only ever moves a row OUT of
+      // `received` - so a row written here as `unknown_product` while the
+      // buyer or the product was still unresolved would permanently poison
+      // the key a later, successful delivery for the SAME charge needs: that
+      // delivery would find the row already claimed-or-terminal and answer
+      // `duplicate`, granting nothing, forever. Fail loud with a 500 instead
+      // and let Razorpay retry the whole delivery - see the order.paid path
+      // for why 500 is the right answer to "we could not finish this", and
+      // razorpay-verify's identical posture around fetchRazorpayOrder.
+      if (!KEY_ID || !KEY_SECRET) {
+        console.error("razorpay-webhook: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set, cannot resolve invoice.paid's subscription");
+        return json({ error: "not configured" }, 500);
+      }
+
+      const fetched = await fetchRazorpaySubscription(read.subscriptionId, KEY_ID, KEY_SECRET, SUBSCRIPTION_FETCH_TIMEOUT_MS);
+      if (!fetched.ok) {
+        console.error(
+          `razorpay-webhook: could not fetch subscription ${read.subscriptionId} for invoice ${read.invoiceId ?? "?"}: ${fetched.reason} ${fetched.detail}`,
+        );
+        return json({ error: "could not verify subscription" }, 500);
+      }
+
+      const sub = fetched.subscription;
+      const userId = typeof sub.notes.user_id === "string" && sub.notes.user_id.length > 0
+        ? sub.notes.user_id
+        : null;
+      // Same rule as every other grant path: notes says WHICH product, the
+      // catalogue says how many credits.
+      const product = resolveSubscriptionProduct(sub.notes.product_key);
+
+      // NULL WHEN paid_count IS MISSING, deliberately - same rule
+      // subscription.charged follows. Fetched fresh above, not read off the
+      // invoice - the Invoice entity carries no paid_count of its own.
+      const billingReason = billingReasonForPaidCount(sub.paidCount);
+
+      // THE SAME KEY subscription.charged would build for this exact charge,
+      // when the invoice carries a payment_id - the normal case for a paid
+      // invoice, and what makes it safe for both events to be ticked at
+      // once. See identityForSubscriptionCharge's own comment for why the
+      // fallback here is the invoice id, not that function's
+      // subscription-id-plus-paid_count composite.
+      const identity: RazorpayIdentity = read.paymentId
+        ? identityForSubscriptionCharge(sub.id, read.paymentId, sub.paidCount)
+        : { provider: "razorpay", eventId: read.invoiceId ?? "", providerTxnId: read.invoiceId ?? "" };
+
+      const outcome = await applySubscriptionCredit(store, {
+        provider: identity.provider,
+        eventId: identity.eventId,
+        userId,
+        productKey: product ? product.key : null,
+        billingReason,
+        introCredits: product ? (product.introCredits ?? product.credits) : 0,
+        renewalCredits: product ? product.credits : 0,
+        amountCents: read.amountPaid,
+        currency: read.currency,
+        providerTxnId: identity.providerTxnId,
+        occurredAt: null,
+      });
+
+      if (outcome.status === "granted" && userId) {
+        await mirrorSubscriptionProfile(admin, userId, sub.status, sub.id, product?.key ?? null, sub.currentEnd);
+      }
+
+      return grantOutcomeResponse(json, outcome, PROVIDER, identity.providerTxnId, userId);
+    }
+
+    // ---------------------------------------------------------------------
+    // No subscription_id: a standalone invoice. Unchanged from before this
+    // file granted anything against invoice.paid at all.
+    // ---------------------------------------------------------------------
+    const userId = typeof read.notes.user_id === "string" && read.notes.user_id.length > 0
       ? read.notes.user_id
       : null;
     console.error(
-      `razorpay-webhook: invoice.paid received, RECORDED, NOT GRANTED - subscription.charged is the grant event (invoice ${read?.invoiceId ?? "?"})`,
+      `razorpay-webhook: invoice.paid received, RECORDED, NOT GRANTED - no subscription_id, this app sells nothing that issues a standalone invoice (invoice ${read.invoiceId ?? "?"})`,
     );
     await logEvent("purchase_needs_attention", userId, {
       provider: PROVIDER,
       event_type: eventType,
-      invoice_id: read?.invoiceId ?? null,
-      subscription_id: read?.subscriptionId ?? null,
-      amount_paid: read?.amountPaid ?? null,
-      currency: read?.currency ?? null,
+      invoice_id: read.invoiceId,
+      subscription_id: null,
+      amount_paid: read.amountPaid,
+      currency: read.currency,
       reason: "razorpay_invoice_is_record_only",
     });
     // ALSO route this through the SAME `purchases` ledger every other
@@ -267,7 +377,7 @@ Deno.serve(async (req: Request) => {
     // idempotent against Razorpay's own retries (same invoice id, same
     // claim), and grants nothing, exactly like an unrecognised product key
     // from any other event.
-    if (read?.invoiceId) {
+    if (read.invoiceId) {
       const recorded = await applyCreditPurchase(store, {
         provider: PROVIDER,
         eventId: read.invoiceId,
@@ -347,6 +457,54 @@ function grantOutcomeResponse(
   }
 }
 
+/**
+ * The profiles.subscription_* mirror - display only, nothing in this
+ * codebase gates on it (see both 20260826170000_entitlements.sql's and
+ * 20260827120000_project_metering.sql's comments on these four columns,
+ * which say in as many words that they are "written by the webhook with a
+ * plain UPDATE"). This is that UPDATE, for Razorpay, written for the first
+ * time here - the RPC that grants credits (grant_subscription_invoice_credits)
+ * never touched these columns, so before this function existed a Razorpay
+ * subscriber's credits landed correctly but the Account screen's Money panel
+ * had nothing to show for it.
+ *
+ * CALLED ONLY ON A FRESH `granted`, never on `duplicate`. A duplicate means
+ * this exact charge was already mirrored by the delivery that won the claim;
+ * writing again from a REPLAYED delivery risks overwriting a newer
+ * subscription's row with this older one's status and period end, which a
+ * plain unconditional UPDATE has no way to detect.
+ *
+ * Best effort by design, same posture as EntitlementStore.finishPurchase:
+ * the credits are already granted by the time this runs, and refusing to
+ * acknowledge a successful grant because a display-only mirror failed to
+ * write would be the wrong trade.
+ */
+async function mirrorSubscriptionProfile(
+  admin: SupabaseClient,
+  userId: string,
+  status: string | null,
+  subscriptionId: string,
+  productKey: string | null,
+  currentPeriodEnd: string | null,
+): Promise<void> {
+  try {
+    const { error } = await admin
+      .from("profiles")
+      .update({
+        subscription_status: status,
+        subscription_id: subscriptionId,
+        subscription_product: productKey,
+        subscription_current_period_end: currentPeriodEnd,
+      })
+      .eq("user_id", userId);
+    if (error) {
+      console.error(`razorpay-webhook: could not mirror subscription status for ${userId}: ${error.message ?? error}`);
+    }
+  } catch (e) {
+    console.error(`razorpay-webhook: could not mirror subscription status for ${userId}: ${e}`);
+  }
+}
+
 // ============================================================================
 // OWNER SETUP
 //
@@ -354,16 +512,18 @@ function grantOutcomeResponse(
 // next, not as an instruction to redo it:
 //
 //   Dashboard destination : https://<project-ref>.supabase.co/functions/v1/razorpay-webhook
-//   Events                : order.paid, invoice.paid
-//   Mode                  : live (the webhook secret is shared across test
-//                            and live mode; RAZORPAY_KEY_ID/KEY_SECRET are
-//                            still the TEST keys while the integration is
-//                            being proven out - a live delivery will verify
-//                            correctly against the shared webhook secret
-//                            even while order lookups elsewhere use test
-//                            credentials, which is expected and not a bug to
-//                            chase)
+//   Events                : order.paid, invoice.paid (subscription.charged is
+//                            NOT ticked and cannot be ticked through the API -
+//                            see the file header for why that is what moved
+//                            the subscription grant onto invoice.paid)
+//   Mode                  : live (LIVE keys, confirmed against two real
+//                            Rs 1 payments granting credits end to end)
 //   supabase secrets set RAZORPAY_WEBHOOK_SECRET='...'
+//   supabase secrets set RAZORPAY_KEY_ID='...' RAZORPAY_KEY_SECRET='...'
+//                            NOW REQUIRED, not optional - invoice.paid's
+//                            subscription grant fetches the subscription back
+//                            with these, and answers 500 (Razorpay retries)
+//                            without them.
 //   supabase functions deploy razorpay-webhook --no-verify-jwt
 //
 // If payment.failed observability is ever wanted, it is NOT subscribed on

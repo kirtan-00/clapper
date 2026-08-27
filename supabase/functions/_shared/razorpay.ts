@@ -145,15 +145,17 @@ export function peekRazorpayEvent(payload: unknown): string | null {
 export const ORDER_GRANT_EVENTS = ["order.paid"];
 
 /** Subscribed on the dashboard and describes real money, so it must never
- *  fall through to a silent 200-ignore - but see razorpay-webhook/index.ts
- *  for why this is recorded as needs-attention rather than granted: this
- *  pair has no subscription checkout (razorpay-order refuses `subscription`
- *  kind products outright) and Razorpay's own docs give no verified,
- *  documented way to tell a subscription's FIRST invoice from a renewal the
- *  way Stripe's billing_reason does - guessing that distinction would risk
- *  exactly the under-grant bug #4 was about, on the one field this pair
- *  cannot verify. */
-export const INVOICE_NEEDS_ATTENTION_EVENTS = ["invoice.paid"];
+ *  fall through to a silent 200-ignore. UPDATED 2026-08-27: this now grants,
+ *  for a subscription invoice. The owner's live webhook destination is
+ *  subscribed to order.paid and invoice.paid ONLY - subscription.charged is
+ *  not ticked and cannot be ticked through the API, so invoice.paid is the
+ *  only delivery a subscription charge is guaranteed to produce. A standalone
+ *  invoice (no subscription_id) is unaffected and stays record-only, exactly
+ *  as before - see razorpay-webhook/index.ts's invoice.paid block for the
+ *  split, and the subscription section below for how a subscription invoice
+ *  tells a first charge from a renewal without paid_count on the invoice
+ *  itself. */
+export const INVOICE_PAID_EVENTS = ["invoice.paid"];
 
 export interface OrderEntity {
   id: string;
@@ -204,23 +206,51 @@ export function readOrderPaidEvent(payload: unknown): OrderPaidRead | null {
 }
 
 // ---------------------------------------------------------------------------
-// invoice.paid - read only far enough to log it. See
-// INVOICE_NEEDS_ATTENTION_EVENTS above for why this pair does not grant
-// against it. Fields are read defensively: razorpay.com's own Invoices
-// webhook page (read 2026-08-27) gives an example payload for a STANDALONE
-// invoice (type "invoice", no subscription_id), not a subscription billing
-// cycle, so which fields a subscription's invoice.paid actually carries is
-// not confirmed. Nothing below is trusted for anything but a log line.
+// invoice.paid - a subscription grant path since 2026-08-27, when the owner's
+// live webhook turned out to have subscription.charged UNTICKED (dashboard
+// only, no way to flip it through the API - see razorpay-webhook/index.ts's
+// file header). A customer tapping Studio or Studio Plus was paying real
+// money and this delivery was the only one Razorpay actually sends for it,
+// so "record only, forever" stopped being an option.
+//
+// WHY THE INVOICE ITSELF CANNOT RESOLVE THE BUYER OR THE PRODUCT.
+// razorpay-subscription writes `notes: { user_id, product_key }` on the
+// SUBSCRIPTION entity at creation time, not on the invoice - so `obj.notes`
+// below is (and always was) empty for a subscription cycle. The grant block
+// in razorpay-webhook/index.ts fetches the subscription back
+// (fetchRazorpaySubscription, below) for its notes, its paid_count and its
+// status - the same reason razorpay-verify fetches an ORDER back rather than
+// trusting what the browser sent.
+//
+// Fields here are still read defensively - razorpay.com's Invoices entity
+// example (read 2026-08-27) is a STANDALONE invoice, not a subscription
+// cycle - but payment_id, subscription_id, amount_paid and currency are all
+// documented fields on the same Invoice entity
+// (razorpay.com/docs/api/payments/invoices/entity/, read 2026-08-27) and are
+// trusted for what they say they are, subscription cycle or not.
 // ---------------------------------------------------------------------------
 
 export interface InvoicePaidRead {
   eventType: string;
   invoiceId: string | null;
   status: string | null;
+  /** Absent on a standalone invoice, present on every subscription cycle's -
+   *  this is the field that decides which behaviour applies. See the split
+   *  in razorpay-webhook/index.ts's invoice.paid block. */
   subscriptionId: string | null;
   amountPaid: number | null;
   currency: string | null;
+  /** The invoice's OWN notes, not the subscription's. Empty for a
+   *  subscription cycle in practice - see the section header. */
   notes: Record<string, string>;
+  /** "Unique identifier of a payment made against this invoice"
+   *  (razorpay.com/docs/api/payments/invoices/entity/, read 2026-08-27). THE
+   *  idempotency anchor for a subscription grant off this event - see
+   *  identityForSubscriptionCharge and razorpay-webhook/index.ts. Null on an
+   *  unpaid invoice, or defensively if Razorpay ever omits it on a paid one -
+   *  the webhook falls back to invoiceId, never to subscriptionId, for
+   *  exactly the reason the subscription section below gives. */
+  paymentId: string | null;
 }
 
 export function readInvoicePaidEvent(payload: unknown): InvoicePaidRead | null {
@@ -239,6 +269,7 @@ export function readInvoicePaidEvent(payload: unknown): InvoicePaidRead | null {
     amountPaid: typeof obj.amount_paid === "number" ? obj.amount_paid : null,
     currency: str(obj.currency, 8),
     notes: normalizeNotes(obj.notes),
+    paymentId: str(obj.payment_id, 64),
   };
 }
 
@@ -306,43 +337,91 @@ export async function fetchRazorpayOrder(
 }
 
 // ---------------------------------------------------------------------------
-// subscription.charged - the RECURRING grant event. Added 2026-08-27, when
-// subscriptions were actually wired; before that this file said in as many
-// words that Razorpay gave "no verified, documented way to tell a
-// subscription's FIRST invoice from a renewal the way Stripe's
-// billing_reason does". That claim was true of `invoice.paid`, which is why
-// INVOICE_NEEDS_ATTENTION_EVENTS still records and never grants. It is NOT
-// true of subscription.charged, which carries the subscription entity and
+// subscription.charged - the RECURRING grant event Razorpay's own docs
+// describe for a subscription cycle, and the one this pair was originally
+// written against. Added 2026-08-27. It carries the subscription entity and
 // therefore `paid_count`: the number of successful charges INCLUDING this
 // one. paid_count === 1 is a first charge by definition, and anything above
-// it is a renewal. That is the missing field, and it is why the grant lives
-// on this event and not on the invoice.
+// it is a renewal.
 //
-// WHY NOT invoice.paid, given a subscription cycle emits BOTH. That is
-// precisely the reason. Razorpay sends invoice.paid AND subscription.charged
-// for the same money on every cycle, so granting on both would pay out twice
-// for one charge - the same double-grant shape stripe-webhook solved by
-// granting on invoice.paid and never on payment_intent events. Exactly one of
-// the pair may grant. subscription.charged is the one that can tell first
-// from renewal, so it wins, and invoice.paid stays record-only forever.
+// UPDATED 2026-08-27, SAME DAY: the owner's live webhook destination turned
+// out to have subscription.charged UNTICKED - dashboard only, a PATCH
+// attempt through the API silently no-oped - so in production this event
+// never arrives. invoice.paid IS ticked and Razorpay sends it for every
+// subscription charge including the first, so INVOICE_PAID_EVENTS above is
+// now the grant path that actually runs; this handler stays wired for the
+// day the checkbox gets ticked, and BOTH must stay safe to receive for the
+// SAME charge from that day on - see the idempotency paragraph below.
 //
 // IDEMPOTENCY KEYS OFF THE PAYMENT ID, not the subscription id. A
 // subscription id is stable for the life of the subscription and repeats on
 // every single cycle, so keying on it would let the second month dedupe
 // against the first and silently grant nothing for money that really moved.
 // The payment id is unique per charge, which is what "one grant per charge"
-// actually means.
+// actually means - and it is the SAME payment id whether it arrives wrapped
+// in subscription.charged's payment.entity.id or invoice.paid's
+// invoice.entity.payment_id, which is what makes it safe for both to be
+// ticked at once: identityForSubscriptionCharge (below) is the one function
+// building that key from either payload, so a charge described twice claims
+// the same `purchases` row and grants exactly once, whichever delivery wins
+// the race.
 //
 // Shape confirmed against razorpay.com/docs/webhooks/payloads/subscriptions/:
 //
 //   { event: "subscription.charged", contains: ["subscription", "payment"],
 //     payload: { subscription: { entity: {
-//         id, plan_id, status, paid_count, notes, ... } },
+//         id, plan_id, status, paid_count, current_end, notes, ... } },
 //       payment: { entity: { id, amount, currency, status, ... } } },
 //     created_at }
 // ---------------------------------------------------------------------------
 
 export const SUBSCRIPTION_GRANT_EVENTS = ["subscription.charged"];
+
+/** Unix seconds -> ISO, ledger/display only, never a gate - same posture as
+ *  OrderEntity.amount. Null on anything that is not a positive finite
+ *  number, which covers both "field absent" and a subscription that has not
+ *  completed a billing cycle yet (current_end can be null on Razorpay's own
+ *  Subscription entity). */
+function unixToIso(v: unknown): string | null {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? new Date(v * 1000).toISOString() : null;
+}
+
+/** The subscription entity, in the one shape shared by subscription.charged's
+ *  payload.subscription.entity and GET /v1/subscriptions/:id's own response -
+ *  confirmed the same fields appear on both
+ *  (razorpay.com/docs/api/payments/subscriptions/entity/, read 2026-08-27).
+ *  One parser, so readSubscriptionChargedEvent and fetchRazorpaySubscription
+ *  cannot drift on which fields a grant needs. */
+export interface SubscriptionEntity {
+  id: string;
+  status: string | null;
+  planId: string | null;
+  /** Successful charges so far INCLUDING this one. Null when Razorpay did
+   *  not send it - see billingReasonForPaidCount for why that is not read as
+   *  1. */
+  paidCount: number | null;
+  notes: Record<string, string>;
+  /** End of the current billing cycle, for the profiles.subscription_* mirror
+   *  only - see razorpay-webhook/index.ts. Nothing gates on it. */
+  currentEnd: string | null;
+}
+
+function readSubscriptionEntity(raw: unknown): SubscriptionEntity | null {
+  const obj = asRecord(raw);
+  if (!obj) return null;
+  const id = str(obj.id, 64);
+  if (!id) return null;
+  const rawCount = obj.paid_count;
+  const paidCount = typeof rawCount === "number" && Number.isFinite(rawCount) ? rawCount : null;
+  return {
+    id,
+    status: str(obj.status, 40),
+    planId: str(obj.plan_id, 64),
+    paidCount,
+    notes: normalizeNotes(obj.notes),
+    currentEnd: unixToIso(obj.current_end),
+  };
+}
 
 /**
  * The mirror of resolveOneTimeProduct, and it refuses for the same reason.
@@ -369,6 +448,9 @@ export interface SubscriptionChargedRead {
   paymentId: string | null;
   amount: number | null;
   currency: string | null;
+  /** End of the current billing cycle, for the profiles.subscription_* mirror
+   *  only - see razorpay-webhook/index.ts. Nothing gates on it. */
+  currentEnd: string | null;
 }
 
 export function readSubscriptionChargedEvent(payload: unknown): SubscriptionChargedRead | null {
@@ -376,25 +458,23 @@ export function readSubscriptionChargedEvent(payload: unknown): SubscriptionChar
   const eventType = top ? str(top.event, 100) : null;
   if (!top || !eventType) return null;
 
-  const sub = asRecord(asRecord(asRecord(top.payload)?.subscription)?.entity);
-  const subscriptionId = sub ? str(sub.id, 64) : null;
-  if (!sub || !subscriptionId) return null;
+  const subRaw = asRecord(asRecord(top.payload)?.subscription)?.entity;
+  const sub = readSubscriptionEntity(subRaw);
+  if (!sub) return null;
 
   const pay = asRecord(asRecord(asRecord(top.payload)?.payment)?.entity);
 
-  const rawCount = sub.paid_count;
-  const paidCount = typeof rawCount === "number" && Number.isFinite(rawCount) ? rawCount : null;
-
   return {
     eventType,
-    subscriptionId,
-    planId: str(sub.plan_id, 64),
-    status: str(sub.status, 40),
-    paidCount,
-    notes: normalizeNotes(sub.notes),
+    subscriptionId: sub.id,
+    planId: sub.planId,
+    status: sub.status,
+    paidCount: sub.paidCount,
+    notes: sub.notes,
     paymentId: pay ? str(pay.id, 64) : null,
     amount: pay && typeof pay.amount === "number" ? pay.amount : null,
     currency: pay ? str(pay.currency, 8) : null,
+    currentEnd: sub.currentEnd,
   };
 }
 
@@ -420,7 +500,21 @@ export function billingReasonForPaidCount(paidCount: number | null): string | nu
  *  id (see the section header for why the subscription id would be wrong),
  *  falling back to a composite only when Razorpay sends no payment entity at
  *  all - a shape its docs do not describe, but a missing key would make
- *  applySubscriptionCredit answer store_error and lose the record entirely. */
+ *  applySubscriptionCredit answer store_error and lose the record entirely.
+ *
+ *  USED BY subscription.charged ONLY. The invoice.paid grant block in
+ *  razorpay-webhook/index.ts calls this with its OWN paymentId
+ *  (InvoicePaidRead.paymentId) whenever one is present, which lands on the
+ *  identical key a subscription.charged delivery for the same charge would
+ *  build - that is the whole point, see the section header above. But when
+ *  invoice.paid arrives with no payment_id, that caller falls back to the
+ *  INVOICE id, NOT to this function's `${subscriptionId}:${paidCount}`
+ *  composite: paidCount there comes from a fetch made at delivery time, not
+ *  from the payload, so a retried delivery after another cycle has landed
+ *  would compose a DIFFERENT key for the SAME unresolved charge. The invoice
+ *  id is stable across retries; the composite is only stable when paidCount
+ *  rides along in the original payload, which is true for
+ *  subscription.charged and not for invoice.paid. */
 export function identityForSubscriptionCharge(
   subscriptionId: string,
   paymentId: string | null,
@@ -428,4 +522,62 @@ export function identityForSubscriptionCharge(
 ): RazorpayIdentity {
   const txn = paymentId ?? `${subscriptionId}:${paidCount ?? "unknown"}`;
   return { provider: "razorpay", eventId: txn, providerTxnId: txn };
+}
+
+// ---------------------------------------------------------------------------
+// Fetching a subscription back off Razorpay.
+//
+// WHY THIS EXISTS. invoice.paid's own payload cannot tell a first charge from
+// a renewal (no paid_count on the Invoice entity - confirmed against
+// razorpay.com/docs/api/payments/invoices/entity/, read 2026-08-27) and
+// cannot resolve the buyer or the product either (razorpay-subscription
+// writes notes on the SUBSCRIPTION, not the invoice - see the invoice.paid
+// section above). GET /v1/subscriptions/:id returns the same entity shape
+// subscription.charged's own payload carries - id, status, plan_id,
+// paid_count, current_end, notes - confirmed against
+// razorpay.com/docs/api/payments/subscriptions/entity/, read 2026-08-27. This
+// is the exact role fetchRazorpayOrder plays for razorpay-verify: the payload
+// in hand is a pointer, and this call is what turns it into something a
+// grant decision can trust.
+// ---------------------------------------------------------------------------
+
+export type FetchSubscriptionResult =
+  | { ok: true; subscription: SubscriptionEntity }
+  | { ok: false; reason: "http_error" | "network_error" | "bad_response"; detail: string };
+
+export async function fetchRazorpaySubscription(
+  subscriptionId: string,
+  keyId: string,
+  keySecret: string,
+  timeoutMs: number,
+): Promise<FetchSubscriptionResult> {
+  const basic = btoa(`${keyId}:${keySecret}`);
+  let res: Response;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      res = await fetch(`https://api.razorpay.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+        headers: { Authorization: `Basic ${basic}` },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    return { ok: false, reason: "network_error", detail: String(e).slice(0, 200) };
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    return { ok: false, reason: "http_error", detail: `${res.status}: ${body.slice(0, 300)}` };
+  }
+  let json: unknown;
+  try {
+    json = await res.json();
+  } catch {
+    return { ok: false, reason: "bad_response", detail: "not JSON" };
+  }
+  const subscription = readSubscriptionEntity(json);
+  if (!subscription) return { ok: false, reason: "bad_response", detail: "missing id" };
+  return { ok: true, subscription };
 }
