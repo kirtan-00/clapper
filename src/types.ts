@@ -525,18 +525,43 @@ export interface Exporter {
 }
 
 /**
+ * A studio's own uploaded mark, already resized and re-encoded by the time it
+ * reaches here - see ui/studio.ts's `resizeLogoFile` and `MAX_LOGO_DIM` for
+ * where that happens and why. `dataUri` is always `data:image/png;base64,...`
+ * or `data:image/jpeg;base64,...` because those are the only two formats
+ * pdf-lib can embed (`PDFDocument.embedPng` / `embedJpg`); `width`/`height`
+ * are the STORED pixel dimensions, carried alongside so a consumer can do
+ * aspect-ratio math without decoding the image again.
+ */
+export interface StudioLogo {
+  dataUri: string;
+  width: number;
+  height: number;
+}
+
+/**
  * WHO THE EXPORT BELONGS TO. Threaded in by the caller rather than read from
  * storage inside the writers, deliberately: pdf.ts and csv.ts are pure data
  * modules, their tests run in a DOM-less vitest with no `localStorage` at all,
  * and a writer that reached for a browser API would take the whole suite down
  * with it. See ui/studio.ts for where the value actually lives.
  *
- * `studio` is the PRODUCTION HOUSE and it is the only field the exports print.
+ * `studio` is the PRODUCTION HOUSE and it is the only field csv.ts prints.
+ *
+ * `logo`, Studio Plus only, is what pdf.ts draws in place of the Clapper mark
+ * on the cover - see the FUTURE (enterprise) comment at that call site. csv.ts
+ * has no image channel and ignores it. Threaded the same way `studio` is, for
+ * the same reason: the caller (ProjectScreen) is the only place with both
+ * localStorage AND a live entitlement read, so it is also the only honest
+ * place to decide whether THIS export gets to carry a logo. See studio.ts's
+ * `logoEligible` for that decision and its own note on how soft this gate is.
+ *
  * The person's own name is captured in the same sheet and stays out of the
  * file - an export is a document from a company, not a signature.
  */
 export interface ExportIdentity {
   studio?: string;
+  logo?: StudioLogo;
 }
 
 // timecode.ts contract

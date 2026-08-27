@@ -17,10 +17,10 @@ import { Sheet, SheetClose, Confirm, Rail } from './common';
 import { useScrolled } from './glist';
 import { BackButton, ForwardMark, DownMark, CheckMark, ExportMark, CloudMark, StopMark } from './marks';
 import { SignInSheet } from './SignInSheet';
-import { getStudio } from './studio';
+import { getStudio, logoEligible } from './studio';
 import { ProCta } from './ProCta';
 import { useSession } from '../net/auth';
-import { gateExport, type GatedFormat, type GateResult } from '../net/quota';
+import { gateExport, getEntitlements, type GatedFormat, type GateResult } from '../net/quota';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
 import { playClap } from './clapsound';
@@ -2270,7 +2270,23 @@ function ExportBar(props: { project: Project }) {
         // Read at export time, not at mount: someone can set their studio in
         // Settings and export in the same session without a remount, and the
         // export writers deliberately cannot reach localStorage themselves.
-        const identity = { studio: getStudio().studio };
+        const stored = getStudio();
+        // The logo is Studio Plus only, and PDF-only (csv.ts has no image
+        // channel and ignores `logo` outright - see ExportIdentity's own
+        // comment in types.ts). Entitlements are fetched FRESH here rather
+        // than read off any cached hook value, specifically so an export
+        // started the moment a subscription lapses (or activates) sees the
+        // current truth. This is a SOFT gate - see studio.ts's `logoEligible`
+        // and its own header for the full accounting of why a static site
+        // with no server in this loop cannot make it a hard one. The one
+        // thing that IS server-enforced on this export is the project-unlock
+        // check `gateExport` already made above; nothing server-side has an
+        // opinion on whether the PDF that unlock allows carries a logo.
+        const entitlements = kind === 'pdf' ? await getEntitlements() : null;
+        const identity = {
+          studio: stored.studio,
+          ...(kind === 'pdf' && logoEligible(entitlements) && stored.logo ? { logo: stored.logo } : {}),
+        };
         if (kind === 'pdf') {
           const blob = await exporter.toPdf(bundle, identity);
           await shareBlob(blob, `${base}-log-${dateStamp}.pdf`, 'application/pdf');

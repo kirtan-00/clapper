@@ -13,6 +13,14 @@
 // brief rules out, so rows carry an icon only where it earns its place.
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { getStudio, logoEligible } from './studio';
+import { useSession } from '../net/auth';
+import { useEntitlements } from './useEntitlements';
+// Not StudioLogoRow's own CSS module: THIS file is what Home, Projects,
+// Settings and Account all import to get ScreenMark, and Home never mounts
+// Settings (or StudioLogoRow) at all. The rule the logo-mark variant below
+// needs (.lmark__logo) has to load wherever ScreenMark does, which is here.
+import './studioLogo.css';
 
 const STROKE = {
   fill: 'none',
@@ -89,7 +97,44 @@ export function useScrolled(threshold = 12) {
  * favicon is a 1024px app tile with a rounded-square ground and it would read
  * as a button at 15px. This is the slate alone.
  */
+/**
+ * THE STUDIO PLUS SWAP. A subscriber's own logo takes this exact spot, in
+ * place of the Clapper wordmark, on every screen that carries ScreenMark
+ * (Home, Projects, Settings, Account) - one component, so all four agree
+ * without each screen having to ask.
+ *
+ * GATED THE SAME SOFT WAY AS THE UPLOAD ROW (StudioLogoRow.tsx) and the PDF
+ * export (ProjectScreen.tsx): `logoEligible` against this device's cached
+ * entitlements, never enforced server-side, for the reasons studio.ts's own
+ * header spells out in full - a masthead notice is not something worth a
+ * network round trip to police.
+ *
+ * `!loaded` (entitlements have not settled yet, including the entire
+ * signed-out case) renders the EXACT current markup below, byte-identical -
+ * a free or signed-out user's masthead never changes. A subscriber sees the
+ * Clapper wordmark for one frame while the read is in flight and then their
+ * own logo - `current`/`hasFetched` in useEntitlements.ts are module-level,
+ * so that flash happens once per app load, not once per tab switch.
+ *
+ * `onError` on the <img> is the in-app half of "fails to decode": a stored
+ * data URI that will not actually paint (truncated by a browser that refused
+ * the write, or hand-edited) flips this back to the wordmark rather than
+ * leaving a broken-image glyph in the header.
+ */
 export function ScreenMark() {
+  const { session } = useSession();
+  const { entitlements, loaded } = useEntitlements(!!session);
+  const [broken, setBroken] = useState(false);
+  const logo = loaded && logoEligible(entitlements) ? getStudio().logo : undefined;
+
+  if (logo && !broken) {
+    return (
+      <span className="lmark" aria-label="Studio logo">
+        <img className="lmark__logo" src={logo.dataUri} alt="" aria-hidden="true" onError={() => setBroken(true)} />
+      </span>
+    );
+  }
+
   return (
     <span className="lmark" aria-label="Clapper, copyright 2026">
       <svg className="lmark__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

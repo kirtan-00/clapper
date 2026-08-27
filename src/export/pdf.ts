@@ -322,6 +322,79 @@ function drawMark(page: PDFPage, x: number, y: number, size: number): void {
   page.drawCircle({ x: px(214), y: py(432), size: 30 * u, color: GO });
 }
 
+/**
+ * Decode a `data:image/...;base64,AAAA` URI to raw bytes. Node (this file's
+ * own vitest suite) and every browser both expose `atob` globally, so this
+ * needs no DOM - it is pure byte-munging, same as sanitize() below.
+ */
+function dataUriToBytes(dataUri: string): Uint8Array {
+  const comma = dataUri.indexOf(',');
+  const binary = atob(comma >= 0 ? dataUri.slice(comma + 1) : dataUri);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// How far right of MARGIN a subscriber's own logo may run. drawMark's box is
+// a 46pt SQUARE (MARK, at the toPdf call site) because the Clapper mark is
+// drawn, not photographed, and a slate is roughly as tall as it is wide. A
+// real studio logo is not: the common case is a wide wordmark, and contained
+// inside a 46x46 box a 5:1 wordmark prints at 46x9pt - a smudge, not an
+// upgrade. LOGO_MAX_W gives width its own, wider ceiling while MARK still
+// caps height, so a wide logo actually reads and a tall or square one simply
+// never reaches this wider box.
+const LOGO_MAX_W = 130;
+
+/**
+ * A subscriber's own logo, drawn in the SAME bottom-left corner drawMark
+ * uses. Aspect ratio is preserved and the image is CONTAINED within a
+ * `boxH`-tall, `maxW`-wide box (never stretched, never cropped) - a wide
+ * logo is capped by width and sits shorter than the box, a tall one is capped
+ * by height and sits narrower than it. Returns the drawn width so the caller
+ * can move the title over by exactly that much, or `null` on any failure
+ * (bad data URI, a format pdf-lib will not embed, zero-sized image) so the
+ * caller can fall back to drawMark - a logo must never be able to break an
+ * export.
+ *
+ * EMBEDS BEFORE THE CALLER COMMITS TO ANY LAYOUT: toPdf calls this first and
+ * only computes `titleX` off its result, specifically so a failed embed falls
+ * back to the ORIGINAL fixed-width mark rather than stranding the title next
+ * to a box that never got drawn.
+ */
+async function embedLogo(
+  doc: PDFDocument,
+  logo: { dataUri: string },
+  boxH: number,
+  maxW: number,
+): Promise<{ draw: (page: PDFPage, x: number, y: number) => void; width: number } | null> {
+  try {
+    const bytes = dataUriToBytes(logo.dataUri);
+    const isJpeg = logo.dataUri.startsWith('data:image/jpeg');
+    // pdf-lib embeds PNG and JPEG only - the same two formats
+    // ui/studio.ts's resizeLogoFile ever stores, but this file does not trust
+    // that: a hand-edited localStorage value is exactly what cleanLogo there
+    // guards against, and this is the second, independent line of defence.
+    const image = isJpeg ? await doc.embedJpg(bytes) : await doc.embedPng(bytes);
+    if (!image.width || !image.height) return null;
+    const scale = Math.min(boxH / image.height, maxW / image.width);
+    const w = image.width * scale;
+    const h = image.height * scale;
+    return {
+      width: w,
+      // Bottom-aligned to the box's own bottom edge (y), not vertically
+      // centred: drawMark's slate sits flush with the take-band shading
+      // elsewhere on this cover, and a short wide logo floating mid-box while
+      // its baseline drifted from every other element on the page would be
+      // the one thing that looked unintentional about it.
+      draw: (page: PDFPage, x: number, y: number) => {
+        page.drawImage(image, { x, y, width: w, height: h });
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Make text safe for WinAnsi encoding; swap em/en dashes for '-'. */
 function sanitize(text: string): string {
   const swapped = text
@@ -686,7 +759,19 @@ export async function toPdf(bundle: ProjectBundle, identity?: ExportIdentity): P
   // does rather than with a logo parked in a corner.
   y -= 18;
   const MARK = 46;
-  const titleX = MARGIN + MARK + 14;
+
+  // FUTURE (enterprise): SHIPPED. A studio that has uploaded a logo gets it
+  // embedded here in place of drawMark, contained within the same height
+  // (MARK) but a wider box (LOGO_MAX_W) - see embedLogo's own comment for why
+  // width needs more room than height. Embedding happens BEFORE titleX is
+  // computed, on purpose: a wide logo's actual drawn width pushes the title
+  // over to match it, and a failed embed (bad data, an unsupported format
+  // that slipped past every earlier guard) falls back to the fixed-width
+  // Clapper mark with the title exactly where it has always been. See
+  // ui/studio.ts for where the value comes from and how soft this gate is.
+  const embeddedLogo = identity?.logo ? await embedLogo(doc, identity.logo, MARK, LOGO_MAX_W) : null;
+  const markW = embeddedLogo?.width ?? MARK;
+  const titleX = MARGIN + markW + 14;
 
   // The production house sits ABOVE the project name as an eyebrow: whose
   // document this is, then which shoot. Through sanitize() like every other
@@ -714,10 +799,13 @@ export async function toPdf(bundle: ProjectBundle, identity?: ExportIdentity): P
     y -= 20;
   }
 
-  // FUTURE (enterprise): a studio that has uploaded a logo gets it embedded
-  // here in place of drawMark - same box, same baseline, so nothing below
-  // moves. See ui/studio.ts.
-  drawMark(page, MARGIN, y - 13, MARK);
+  // Same anchor either way: bottom-left at (MARGIN, y - 13), so swapping one
+  // mark for the other moves nothing else on the cover.
+  if (embeddedLogo) {
+    embeddedLogo.draw(page, MARGIN, y - 13);
+  } else {
+    drawMark(page, MARGIN, y - 13, MARK);
+  }
   page.drawText(sanitize(project.name), { x: titleX, y, size: 26, font: bold, color: INK });
   y -= 16;
   page.drawText(formatDate(Date.now()), { x: MARGIN, y, size: 9.5, font: helv, color: GRAY });

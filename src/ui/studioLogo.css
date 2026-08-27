@@ -1,0 +1,53 @@
+/* StudioLogoRow's own sheet furniture - everything StudioSheet's existing
+   classes (.camnote, .field, .btn, .sp-upload, .sp-error) do not already
+   cover. New file, not styles.css: another change is mid-flight on that file
+   and this feature owns its own small surface instead of touching it.
+   Palette is tokens only - --surface / --hairline / --text-dim - so this
+   inherits the locked acid/day/night ramp with nothing hardcoded here. */
+
+.studiologo__lede {
+  margin-bottom: var(--sp-5);
+}
+
+/* The preview swatch. Flat, no shadow, no border-radius fuss beyond the
+   house --radius-sm - a logo swatch is not a photo card. object-fit: contain
+   because the whole point of fitWithinCap/embedLogo is that this image can
+   be ANY aspect ratio; cropping it here to fill a fixed box would show the
+   one thing a subscriber uploaded a logo to avoid: their mark, cut off. */
+.studiologo__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.studiologo__preview img {
+  max-width: 100%;
+  max-height: 72px;
+  object-fit: contain;
+}
+
+.studiologo__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+/* THE MASTHEAD SWAP (ScreenMark in glist.tsx). Same slot the SVG mark's own
+   .lmark__icon occupies (18px), but height-capped rather than a fixed square:
+   a subscriber's logo is whatever aspect ratio they uploaded, and the header
+   is one line tall. object-fit: contain, same reasoning as the sheet's own
+   preview swatch above - never crop the one thing someone paid to see here. */
+.lmark__logo {
+  display: block;
+  max-height: 20px;
+  max-width: 96px;
+  width: auto;
+  object-fit: contain;
+}

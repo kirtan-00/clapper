@@ -21,6 +21,7 @@ import { CutSizeRow, UiSizeRow } from './CutSizeRow';
 import { HapticsRow, WakeLockRow, LeftHandRow, ReduceMotionRow, SoundRow } from './PreferenceRows';
 import { DefaultTagsRows } from './DefaultTagsRow';
 import { StudioRow } from './StudioRow';
+import { StudioLogoRow } from './StudioLogoRow';
 import { RazorpayBuyRow } from './RazorpayBuyRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
@@ -125,9 +126,17 @@ export function SettingsScreen(props: { nav: Nav }) {
 
       {/* Above Help, below the day-of controls: this is set once and then
           forgotten, but it is the only row on this screen that changes what
-          leaves the app, so it does not belong under documentation either. */}
+          leaves the app, so it does not belong under documentation either.
+
+          StudioLogoRow sits directly beside StudioRow, not in a section of
+          its own: "who this export is from" and "what it looks like when it
+          says so" are one decision, not two. It renders NOTHING for anyone
+          who is not an active Studio Plus subscriber - see its own header -
+          so a free account's Exports section is exactly the one row it has
+          always been. */}
       <Section title="Exports" note="Printed on every PDF and CSV.">
         <StudioRow />
+        <StudioLogoRow />
       </Section>
 
       {/* Razorpay, wired end to end 2026-08-27 - see RazorpayBuyRow.tsx's own

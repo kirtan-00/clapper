@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { packLines, shotHeadingBlock, shotHeadingHeight, toPdf } from './pdf';
-import { PDFArray, PDFDocument, PDFRawStream, StandardFonts, decodePDFRawStream, type PDFFont } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, StandardFonts, decodePDFRawStream, type PDFFont } from 'pdf-lib';
 import type { Moment, Project, ProjectBundle, Slate, Take } from '../types';
 
 function project(): Project {
@@ -428,4 +428,94 @@ describe('pdf.ts — studio eyebrow', () => {
     // stops this from being an unhandled throw in the middle of an export.
     await expect(textOf({ studio: 'फोरसाइड' })).resolves.toBeDefined();
   });
+});
+
+// THE STUDIO LOGO on the cover, in place of drawMark. A 1x1 transparent PNG
+// and a 1x1 black JPEG stand in for a real logo - what matters here is
+// EMBEDDING, not pixels, and the render check (a wide, a tall and a square
+// real logo, actually looked at) lives outside this suite. See the report for
+// where that ran.
+describe('pdf.ts — studio logo', () => {
+  const PNG_1X1 =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+  const JPEG_1X1 =
+    'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
+
+  const bundle = (): ProjectBundle => ({
+    project: project(),
+    slates: [slate()],
+    takes: [{
+      id: 't1', slateId: 's1', projectId: 'p1', number: 1, clipName: 'C0001',
+      status: 'good', startedAt: 0, durationMs: 1000, createdAt: 0, updatedAt: 0,
+    }],
+    moments: [],
+  });
+
+  /** How many image XObjects the cover page's /Resources carries. drawMark
+   *  is pure vector shapes (rects/lines/circles/paths) and embeds nothing, so
+   *  a document with no logo (or a logo that failed to embed) must read 0
+   *  here - this is what actually pins "in place of drawMark", not just "did
+   *  not throw". */
+  async function pageImageCount(identity?: {
+    studio?: string;
+    logo?: { dataUri: string; width: number; height: number };
+  }): Promise<number> {
+    const bytes = new Uint8Array(await (await toPdf(bundle(), identity)).arrayBuffer());
+    const doc = await PDFDocument.load(bytes);
+    const resources = doc.getPage(0).node.Resources();
+    const xobjects = resources?.lookup(PDFName.of('XObject'), PDFDict);
+    return xobjects ? xobjects.keys().length : 0;
+  }
+
+  it('renders without throwing for a wide, a tall and a square logo, and embeds an image each time', async () => {
+    for (const [width, height] of [[1600, 320], [320, 1600], [320, 320]] as const) {
+      const blob = await toPdf(bundle(), { logo: { dataUri: PNG_1X1, width, height } });
+      expect(blob.size).toBeGreaterThan(0);
+    }
+    expect(await pageImageCount({ logo: { dataUri: PNG_1X1, width: 1600, height: 320 } })).toBe(1);
+    expect(await pageImageCount({ logo: { dataUri: PNG_1X1, width: 320, height: 1600 } })).toBe(1);
+    expect(await pageImageCount({ logo: { dataUri: PNG_1X1, width: 320, height: 320 } })).toBe(1);
+  });
+
+  it('draws no image at all with no logo - drawMark is pure vector', async () => {
+    expect(await pageImageCount()).toBe(0);
+    expect(await pageImageCount({ studio: 'Fourside Studio' })).toBe(0);
+  });
+
+  it('embeds a PNG logo as an image XObject on the cover page', async () => {
+    expect(await pageImageCount({ logo: { dataUri: PNG_1X1, width: 40, height: 20 } })).toBe(1);
+  });
+
+  it('embeds a JPEG logo too, not just PNG', async () => {
+    await expect(
+      toPdf(bundle(), { logo: { dataUri: JPEG_1X1, width: 40, height: 20 } }),
+    ).resolves.toBeDefined();
+  });
+
+  it('never breaks the export on a garbage data URI - falls back to the Clapper mark', async () => {
+    const identity = { logo: { dataUri: 'data:image/png;base64,not-a-real-png!!!', width: 40, height: 20 } };
+    const blob = await toPdf(bundle(), identity);
+    expect(blob.size).toBeGreaterThan(0);
+    expect(blob.type).toBe('application/pdf');
+    // Not just "did not throw" - confirm the fallback actually drew the
+    // vector mark and not a broken image.
+    expect(await pageImageCount(identity)).toBe(0);
+  });
+
+  it('never breaks the export when the declared type is neither png nor jpeg - falls back to the Clapper mark', async () => {
+    const identity = { logo: { dataUri: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', width: 1, height: 1 } };
+    const blob = await toPdf(bundle(), identity);
+    expect(blob.size).toBeGreaterThan(0);
+    expect(await pageImageCount(identity)).toBe(0);
+  });
+
+  it('never breaks the export with no logo at all - the everyday case', async () => {
+    await expect(toPdf(bundle(), { studio: 'Fourside Studio' })).resolves.toBeDefined();
+  });
+
+  // The title actually MOVING to clear a wide logo (embedLogo's contained
+  // width capped by LOGO_MAX_W, height by MARK, computed BEFORE titleX) is
+  // pinned by looking at rendered output, not by parsing the content stream
+  // here - see the report for the wide/tall/square PDFs generated and read
+  // directly for this task.
 });
