@@ -99,25 +99,38 @@ export function tierLabel(product: Product): string {
 }
 
 export interface TierValue {
-  /** What you pay, top line: "Rs 999/mo", "Rs 2,399 once". */
+  /** What you pay, and NOTHING else: "Rs 999", "Rs 2,399". Every sticker on
+   *  the ladder is now just money, which is the whole fix - see this
+   *  function's own header for the alignment bug that forced this shape. */
   sticker: string;
-  /** The per-project figure, second line, muted - the number that makes
-   *  the ladder argue itself. Null for a single credit, where it would
-   *  just repeat the sticker price. */
-  perProject: string | null;
+  /** Second line, muted: the qualifier ("once" / "per month") and, when the
+   *  tier buys more than one credit, the per-project figure that argues the
+   *  ladder - "once, Rs 480 each", "per month, Rs 125 each". Never null:
+   *  every row gets at least the qualifier, which is what stops "Free" and
+   *  a real price from reading as the same kind of row. */
+  detail: string;
 }
 
-/** The row's tabular right-hand figure, as two parts rather than one
- *  concatenated string: on a 375-390px row, "Rs 2,499/mo (Rs 125/ea)" ran
- *  into the label and forced it into an ellipsis on every subscription
- *  row - a first cut of this that looked exactly like the "figures do not
- *  share a baseline" complaint it was meant to fix. Two short lines,
- *  right-aligned to each other (see PricingRows.tsx's ValueStack), leave
- *  the label room to stay whole. */
+/**
+ * THE ALIGNMENT FIX. Four prices on this screen used to each end their
+ * sticker line in a different WORD - "Rs 699 once", "Rs 999/mo" - so even
+ * though `ValueStack` right-aligns every line to the same edge, the DIGITS
+ * never landed on it: "once" and "/mo" are different widths, so the money
+ * itself staggered while the trailing word lined up instead. That is the
+ * owner's own "alignment looks bad" complaint, read literally.
+ *
+ * The fix is not fancier alignment, it is a shorter sticker: this line is
+ * money and nothing else, so its last character is ALWAYS a digit, and
+ * flex-end therefore always lines up the digits, not whatever word happened
+ * to trail them. The qualifier moves to `detail`, sharing a line with the
+ * per-project figure that used to stand alone - one number the ladder needs
+ * to argue itself, not two lines pretending to be one.
+ */
 export function tierValue(product: Product): TierValue {
-  const sticker = product.kind === 'subscription' ? `${formatPrice(product)}/mo` : `${formatPrice(product)} once`;
-  if (product.credits <= 1) return { sticker, perProject: null };
-  return { sticker, perProject: `Rs ${perProjectCost(product)}/ea` };
+  const sticker = formatPrice(product);
+  const qualifier = product.kind === 'subscription' ? 'per month' : 'once';
+  if (product.credits <= 1) return { sticker, detail: qualifier };
+  return { sticker, detail: `${qualifier}, Rs ${perProjectCost(product)} each` };
 }
 
 function sleep(ms: number): Promise<void> {

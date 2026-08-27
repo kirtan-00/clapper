@@ -8,8 +8,27 @@
    `overflow:hidden; white-space:nowrap; text-overflow:ellipsis` because it
    holds plain text everywhere else; `.pr-subrow__label` opts THIS row back
    out of that so its child spans lay out as a column instead of one
-   truncating line. Two classes on the element beats list.css's one-class
-   rule on specificity, so this does not have to fight it with !important. */
+   truncating line.
+
+   CORRECTED 2026-08-27: the line that stood here used to claim "two classes
+   on the element beats list.css's one-class rule on specificity" - that is
+   wrong, and the bug it hid shipped for a while before this task's own
+   render caught it. `.pr-subrow__label { white-space: normal }` and
+   list.css's `.grow-label { white-space: nowrap }` are BOTH single-class
+   selectors - identical (0,1,0) specificity - so at a tie the LATER rule in
+   the actual stylesheet order wins, not the element with more classes on it.
+   Vite loads list.css's giant combined sheet after this file's, so
+   list.css's `nowrap` was winning silently on every row this rule touches.
+   It stayed invisible for a long time because `display: flex` below (which
+   list.css never contests) still stacked the name and the perk line
+   correctly, and because no name/value pair got tight enough to need real
+   wrapping until Studio Plus actually scaled to 1.3x (see `SubscriptionRow`'s
+   own header on the cyclic `--t-row` bug that had suppressed that scale) and
+   met its OWN `current`-branch value ("Your plan") at 320px - see that
+   branch in PricingRows.tsx for the actual fix, which is the SAME technique
+   list.css already has a name for: `.pr-wraprow .grow-label` is a genuine
+   descendant selector, (0,2,0), which beats a same-specificity sibling
+   regardless of load order. This rule alone was never enough. */
 
 .pr-subrow__label {
   display: flex;
@@ -22,21 +41,63 @@
 }
 
 .pr-subrow__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   max-width: 100%;
 }
 
-/* Supporting text, not a second product - deliberately the caption weight
-   (list.css's own per-project figure under a price uses the same size and
-   colour, see PricingRows.tsx's ValueStack), never the row's own bold. */
+/* Supporting text, not a second product - never the row's own bold weight.
+   USED TO BE `--t-caption` in `--text-faint` - the faintest text on the
+   screen, naming the one reason to pay 2.5x more for Studio Plus. Bumped one
+   step to `--t-secondary` in `--text-dim`, the same pairing `.glist-note`
+   (list.css) uses for "a sentence somebody has to read outdoors" - a claim
+   this important cannot be the least legible thing on a screen asking for
+   money. Deliberately NOT tied to `.pr-subplus` below: this has to read
+   whether or not the promo happens to be live right now (see PricingRows.tsx
+   for why the accent moves), not just once the accent lands here. */
 .pr-subrow__perks {
-  font-size: var(--t-caption);
-  font-weight: 400;
+  font-size: var(--t-secondary);
+  font-weight: 500;
   line-height: 1.3;
-  color: var(--text-faint);
+  color: var(--text-dim);
   white-space: normal;
+}
+
+/* ---- the scale fix ----------------------------------------------------
+   `SubscriptionRow` (PricingRows.tsx) sets `--pr-row-scale` as an inline
+   style on THIS wrapper - a plain number, 1.12 or 1.3, never itself a
+   `--t-row`-shaped value - and this is the one rule that turns it into a
+   bigger row. `--t-row` on the right is read fresh off the row's real
+   ancestor (the section's card, still 17px): it is never redeclared inside
+   this wrapper, which is the whole fix - see that component's own header
+   for the cyclic-reference bug this replaces, where redeclaring `--t-row` by
+   reading `--t-row` on the SAME element made the "bigger" rows render at the
+   browser's UA default instead, silently, smaller than a plain row. */
+.pr-subrow-scale > .grow {
+  font-size: calc(var(--t-row) * var(--pr-row-scale, 1));
+}
+
+/* ---- the one accent that survives the promo ---------------------------
+   `.pr-subplus`, applied to the Studio Plus row's own `.grow` only when
+   `SubscriptionRow`'s `accent` prop is on (gated in `PricingLadder` so this
+   and the launch offer's `primary` row never both fire - see both of their
+   own headers). Same GOLD vocabulary `procta__btn`, `.goldbtn` and
+   `.camcount__opt--on` already use elsewhere in this app for "the one that
+   matters" (styles.css) - a tint, an edge, coloured type. No shadow, no
+   gradient, no radius of its own: `--brass-tint` is a flat colour that
+   composites onto whatever surface it lands on (see that token's own
+   comment in styles.css), so it is safe as a full-bleed background on
+   whichever row happens to be last in the Subscribe section - ProCta's
+   cap-hit paywall never renders Enterprise, so Studio Plus IS the last row
+   there, and a full ALL-ROUND border would visibly mismatch the card's own
+   rounded bottom corner in that position. A LEFT edge only (3px, the same
+   width `.momentrow--gold` already uses in styles.css) never has that
+   problem, because a border-left never touches the corner. */
+.pr-subplus {
+  background: var(--brass-tint);
+  border-left: 3px solid var(--brass-edge);
+  padding-left: calc(var(--sp-4) - 3px);
+}
+.pr-subplus .pr-subrow__name {
+  color: var(--brass-text);
 }
 
 /* ---- the shotlist drop zone, LOCKED ---------------------------------

@@ -87,15 +87,20 @@ function useAccountDev(): AccountDevOverride | null {
 }
 
 /**
- * "Ever" when FREE_PROJECT_RESET_DAYS is 0 (today's setting - the owner's
- * explicit one-time grant), or "a month" for any positive value. Read off
- * the same constant the entitlements read uses, so flipping that one number
- * in quota.ts/products.ts to switch to a monthly refill updates this screen's
- * copy for free - see products.ts's FREE_PROJECT_RESET_DAYS for the full
- * reasoning on why that is a single number rather than a rewrite.
+ * The Director mode section's own footnote. NOT one sentence with a hyphen
+ * doing a colon's job ("Free grant is a one-time thing - ever.") - that read
+ * as the exact AI tell the owner named by hand, and branching it here also
+ * fixes a second problem the old single template had: it hardcoded "ever",
+ * so if FREE_PROJECT_RESET_DAYS is ever thrown to a positive number the old
+ * copy would have read "Free grant is a one-time thing, every 90 days" -
+ * "one-time" and "every N days" contradicting each other in the same
+ * sentence. This says one true thing for each setting instead of forcing
+ * one template to cover both.
  */
-function freeProjectPeriodLabel(): string {
-  return FREE_PROJECT_RESET_DAYS > 0 ? `every ${FREE_PROJECT_RESET_DAYS} days` : 'ever';
+function freeGrantNote(): string {
+  return FREE_PROJECT_RESET_DAYS > 0
+    ? `Your free grant refills every ${FREE_PROJECT_RESET_DAYS} days.`
+    : 'Your free grant is a one-time thing. It never refills.';
 }
 
 /**
@@ -106,18 +111,17 @@ function freeProjectPeriodLabel(): string {
  * to find out. Written as its own function, not inlined, so the one place
  * this promise is made is the one place it has to stay true if the flip
  * above is ever thrown.
+ *
+ * TWO SENTENCES, NOT ONE WITH A HYPHEN STANDING IN FOR A PERIOD. "This grant
+ * does not come back - unlock a project to continue" was the exact "AI tell"
+ * the owner called out by name on an earlier pass at this screen. A full
+ * stop does the same job a lone hyphen was doing here, honestly.
  */
 function projectsLeftCopy(used: number, limit: number): string {
   const left = Math.max(0, limit - used);
   if (left > 0) return `${left} of ${limit} free projects left`;
   if (FREE_PROJECT_RESET_DAYS > 0) return `0 of ${limit} free projects left this period`;
-  return `Free projects used up. This grant does not come back - unlock a project to continue.`;
-}
-
-function podcastCopy(ent: Entitlements): string {
-  const left = Math.max(0, ent.podcastMinutesLimit - ent.podcastMinutesUsed);
-  const hours = (n: number) => (n % 60 === 0 ? `${n / 60}h` : `${Math.floor(n / 60)}h ${n % 60}m`);
-  return `${hours(left)} of ${hours(ent.podcastMinutesLimit)} left this month`;
+  return `Free projects used up. This grant does not come back. Unlock a project to continue.`;
 }
 
 export function AccountScreen(_props: { nav: Nav }) {
@@ -175,13 +179,12 @@ export function AccountScreen(_props: { nav: Nav }) {
           {proActive ? (
             <Section title="Pro" note="Legacy grant. Every project unlocked, no limits.">
               <ReadRow label="Projects" value="Unlimited" />
-              <ReadRow label="Podcast roll time" value="Unlimited" />
               <ReadRow label="PDF / Premiere / Resolve export" value="Unlimited" />
             </Section>
           ) : (
             <Section
               title="Director mode"
-              note={ent ? `Free grant is a one-time thing - ${freeProjectPeriodLabel()}.` : 'Needs a connection to read.'}
+              note={ent ? freeGrantNote() : 'Needs a connection to read.'}
             >
               <ReadRow
                 label="Projects"
@@ -210,22 +213,25 @@ export function AccountScreen(_props: { nav: Nav }) {
             </Section>
           )}
 
-          {!proActive && (
-            <Section title="Podcast mode" note="Roll time, not project count.">
-              {/* `pr-wraprow` (PricingRows.css): the value here is a
-                  sentence, not a figure ("3h of 3h left this month"), so at
-                  320px it squeezed the label down until "This month" itself
-                  was ellipsed. Same rule as every other row on this screen:
-                  the label wins and the row grows taller. */}
-              <ReadRow className="pr-wraprow" label="This month" value={ent ? podcastCopy(ent) : '—'} />
-            </Section>
-          )}
-
           {/* CSV is the one export that never needs a project unlocked - see
               the header of net/quota.ts for why CSV specifically is the free
-              one. */}
+              one. Podcast roll time moved in here 2026-08-27: the standing
+              "Podcast mode" section this used to be its own home for counted
+              down from a per-tier allowance (3h free, 20h Studio, 60h Studio
+              Plus) - `PODCAST_MINUTES_*` in net/quota.ts, still there, still
+              real numbers on paper. But nothing anywhere in this codebase
+              has ever called `consume_podcast_seconds` (grep confirms zero
+              call sites), so `podcastMinutesUsed` reads 0 for every account
+              in this build, forever, and a countdown that never counts down
+              is not a countdown, it is a screen telling a crew mid-shoot
+              that recording has a wall, when it does not. Free and paying
+              accounts alike get the one true sentence about it instead: the
+              roll never stops. If podcast metering ever ships for real, THIS
+              is the row to make conditional again, once there is a number
+              behind it worth showing. */}
           <Section title="Always free">
             <ReadRow label="Take logging" value="Unlimited" />
+            <ReadRow label="Podcast roll time" value="Unlimited" />
             <ReadRow label="CSV export" value="Unlimited" />
             <ReadRow label="Backup and restore" value="Unlimited" />
           </Section>
