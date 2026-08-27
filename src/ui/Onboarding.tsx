@@ -77,6 +77,8 @@ import { useSession, signInWithGoogle } from '../net/auth';
 import { track } from '../net/analytics';
 import { store } from '../store';
 import * as haptics from './haptics';
+import { getStudio, saveIdentityBeforeGoogle } from './studio';
+import { IdentityFields } from './IdentityFields';
 import {
   isStandalone,
   isIosSafari,
@@ -392,6 +394,12 @@ function SignInStage(props: {
   onAdvance: () => void;
   setReason: (r: Reason) => void;
 }) {
+  // Prefilled from getStudio() the same way SignInSheet.tsx is - someone who
+  // already answered this (on this device, on either sheet) is not asked to
+  // retype it. Lazy initialisers (the `() =>` form), so each read happens
+  // once on mount rather than on every render.
+  const [name, setName] = useState(() => getStudio().name);
+  const [studioName, setStudioName] = useState(() => getStudio().studio);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Inside a <Sheet>, so this is the sheet's own animated dismiss. The fallback
@@ -406,11 +414,19 @@ function SignInStage(props: {
    * the catch, which is the branch where the redirect never started and the
    * button therefore has to become pressable again. Same shape as
    * SignInSheet.tsx, deliberately.
+   *
+   * `saveIdentityBeforeGoogle` runs before the `await`, for the same reason it
+   * does in SignInSheet.tsx: this is the last code that runs before the tab
+   * leaves for accounts.google.com, and that function is the ONE place (see
+   * studio.ts) that decides whether a blank pair of fields writes nothing. The
+   * `track` call carries stage/action only - never the name or studio fields,
+   * which are not analytics, they are PII, and this codebase does not send it.
    */
   async function onSignIn() {
     setBusy(true);
     setError(null);
     track('onboarding', { stage: 'signin', action: 'signin_start' });
+    saveIdentityBeforeGoogle(name, studioName);
     try {
       await signInWithGoogle();
       // On success the browser redirects to Google; nothing else runs here.
@@ -444,15 +460,33 @@ function SignInStage(props: {
           ? `${props.takes} ${props.takes === 1 ? 'take lives' : 'takes live'} in this browser and nowhere else.`
           : 'Everything you log lives in this browser and nowhere else.'}
       </p>
+      {/* Was two paragraphs; folded into one to leave room for the identity
+          fields below without pushing the footer past a 390x844 phone. What
+          each sentence carries is unchanged: what an account buys, and that
+          everything else stays free and this step is never the only door. */}
       <p className="camnote ob-note">
-        An account backs the shot log up off the phone, so a cleared browser or a
-        lost handset is not a lost shoot. It also opens shotlist import and the
-        Premiere and CSV exports.
+        An account backs the shot log up off the phone and opens shotlist import
+        and the Premiere/CSV exports. Everything else stays free without one, and
+        you can do this later from the Account tab.
       </p>
-      <p className="camnote ob-note">
-        Logging takes, the PDF shot log, backup and restore all stay free without
-        one — and you can do this later from the Account tab.
-      </p>
+
+      {/* Same question SignInSheet.tsx asks before its own Google button, same
+          fields (IdentityFields), same rule for whether an answer gets kept
+          (saveIdentityBeforeGoogle, studio.ts) - see that function's comment
+          for why this can only be decided in one place. No lede sentence of
+          its own: the account paragraph above already made the pitch for
+          signing in, and repeating "your production house goes on every
+          export" a second time in one flow would be the copy taking up room
+          it does not need to, on a stage that is already close to full height
+          at 390x844 - checked against that viewport with both fields filled
+          and the footer still lands with room under it, unscrolled. */}
+      <IdentityFields
+        idPrefix="ob-signin"
+        name={name}
+        studioName={studioName}
+        onNameChange={setName}
+        onStudioChange={setStudioName}
+      />
 
       {/* `--bad` was never defined anywhere, so an error line styled with it
           renders its raw-hex fallback: a colour outside the palette. --rec-text

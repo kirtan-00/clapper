@@ -40,6 +40,7 @@ import {
   isAcceptedLogoType,
   resizeLogoFile,
   logoEligible,
+  saveIdentityBeforeGoogle,
   MAX_LOGO_DIM,
 } from './studio';
 
@@ -122,6 +123,56 @@ describe('studio.ts', () => {
       getItem: () => null,
     };
     expect(() => setStudio({ name: 'Kirtan', studio: 'Fourside' })).not.toThrow();
+  });
+});
+
+// SignInSheet.tsx and Onboarding.tsx's SignInStage both call this immediately
+// before signInWithGoogle(), and this is the ONLY place either call site's
+// tests need to cover it - see the function's own comment in studio.ts for
+// why the rule has to live in exactly one place rather than be reimplemented
+// per caller.
+describe('saveIdentityBeforeGoogle - the one save-before-redirect rule both sign-in surfaces share', () => {
+  it('a filled name saves and marks the device asked', () => {
+    saveIdentityBeforeGoogle('Kirtan', '');
+    expect(studioAsked()).toBe(true);
+    expect(getStudio()).toEqual({ name: 'Kirtan', studio: '' });
+  });
+
+  it('a filled production house alone saves and marks the device asked', () => {
+    saveIdentityBeforeGoogle('', 'Fourside Studio');
+    expect(studioAsked()).toBe(true);
+    expect(getStudio()).toEqual({ name: '', studio: 'Fourside Studio' });
+  });
+
+  it('both fields blank never calls setStudio, so studioAsked stays false', () => {
+    saveIdentityBeforeGoogle('', '');
+    expect(studioAsked()).toBe(false);
+    expect(getStudio()).toEqual({ name: '', studio: '' });
+  });
+
+  it('whitespace-only fields count as blank, same as empty', () => {
+    saveIdentityBeforeGoogle('   ', '  \t ');
+    expect(studioAsked()).toBe(false);
+  });
+
+  it('a blank call leaves StudioPrompt able to catch the person post-sign-in', () => {
+    // The contract StudioPrompt.tsx relies on: studioAsked() is the only
+    // thing it checks (alongside session/rolling/onboarding state, none of
+    // which this file owns). Staying false here IS the guarantee that the
+    // post-sign-in ask still fires for someone who left both fields blank on
+    // either sign-in sheet.
+    saveIdentityBeforeGoogle('', '');
+    expect(studioAsked()).toBe(false);
+  });
+
+  it('does not disturb a logo saved earlier', () => {
+    // setStudio already carries the logo forward (pinned below); this
+    // confirms the sign-in call sites go through that same read-modify-write
+    // path rather than a raw write that could drop it.
+    const logo = { dataUri: 'data:image/png;base64,AAAA', width: 40, height: 20 };
+    setStudioLogo(logo);
+    saveIdentityBeforeGoogle('Kirtan', 'Fourside Studio');
+    expect(getStudio()).toEqual({ name: 'Kirtan', studio: 'Fourside Studio', logo });
   });
 });
 

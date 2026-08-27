@@ -1,22 +1,26 @@
 // ASKED ONCE: your name, and the production house the exports go out under.
 //
-// TWO PLACES ASK THIS SAME QUESTION, and that is deliberate, not duplication.
-// SignInSheet.tsx now carries the same two fields ABOVE its Google button,
-// because that sheet is ours - it is the last screen we control before the
-// flow leaves the app for accounts.google.com and comes back. Google's own
-// screen still has no form of ours to add fields to; that part of the old
-// argument here was always right. What was wrong was concluding from it that
-// OUR sheet could not ask first. It can, and now does.
+// TWO SURFACES NOW ASK THIS SAME QUESTION FIRST, and that is deliberate, not
+// duplication: SignInSheet.tsx (the gated-action sheet) and Onboarding.tsx's
+// SignInStage (first run) both carry the same two fields ABOVE their own
+// Google button, because those sheets are ours - each is the last screen we
+// control before the flow leaves the app for accounts.google.com and comes
+// back. Google's own screen still has no form of ours to add fields to; that
+// part of the old argument here was always right. What was wrong was
+// concluding from it that OUR sheets could not ask first. They can, and now
+// do - both through the same shared pieces, `IdentityFields` for the markup
+// and `saveIdentityBeforeGoogle` for the one rule about what gets kept, so
+// the two ask-first sheets cannot quietly disagree with each other either.
 //
 // THIS sheet - StudioSheet, gated by StudioPrompt below - is the catch for
 // everyone that pre-ask misses: the ten accounts that already exist and will
-// never see SignInSheet again, and anyone who saw it and left both fields
-// blank. It is triggered by STATE (signed in, never asked) rather than by the
-// sign-in EVENT, which is exactly what makes it able to reach people whose
-// sign-in event happened before this feature existed, or before this session.
-// `setStudio` from either sheet writes the same key, so filling it in on
-// SignInSheet marks `studioAsked()` true and this sheet correctly stays
-// silent afterward - see studio.ts.
+// never see either sign-in sheet again, and anyone who saw one and left both
+// fields blank. It is triggered by STATE (signed in, never asked) rather than
+// by the sign-in EVENT, which is exactly what makes it able to reach people
+// whose sign-in event happened before this feature existed, or before this
+// session. `saveIdentityBeforeGoogle` writes the same key `setStudio` here
+// does, so filling it in on either sign-in sheet marks `studioAsked()` true
+// and this sheet correctly stays silent afterward - see studio.ts.
 //
 // The name is prefilled from Google because Google already gave it to us and
 // retyping something the machine knows is a small insult. It is still editable

@@ -308,3 +308,29 @@ export function studioAsked(): boolean {
 export function hasStudio(): boolean {
   return getStudio().studio.length > 0;
 }
+
+/**
+ * THE SAVE-BEFORE-REDIRECT RULE, in exactly one place.
+ *
+ * Two screens now ask for name/production house before handing off to
+ * Google: SignInSheet.tsx (the gated-action sheet) and Onboarding.tsx's
+ * SignInStage (first run). Both call `signInWithGoogle()`, which navigates
+ * the document away to accounts.google.com - so anything either sheet wants
+ * to keep has to be written before that call, not after; there is no code
+ * running on this side of the redirect to write it later. Both call sites
+ * call this function immediately before `signInWithGoogle()`, so the rule
+ * can only be expressed once and cannot quietly diverge between the sheet
+ * everyone sees on first run and the one only returning users see.
+ *
+ * BLANK STAYS BLANK, on purpose: if neither field has anything in it, this
+ * writes nothing at all, so `studioAsked()` stays false and StudioPrompt
+ * still catches this person after they sign in - exactly as it does for
+ * someone who never saw either sheet. Sign-in itself is never blocked on
+ * this; that is enforced by the caller, not here, but the never-write-on-
+ * blank behaviour is what makes it safe for a caller to fire-and-forget.
+ */
+export function saveIdentityBeforeGoogle(name: string, studio: string): void {
+  if (name.trim() || studio.trim()) {
+    setStudio({ name, studio });
+  }
+}
