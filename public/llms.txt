@@ -35,7 +35,7 @@ Clapper is a free web app (PWA) that runs on the phone already in your pocket. D
 
 ## Pricing
 
-Free. No signup is needed to log takes, tag coverage, flag GOLD, work offline, or back up a project as a local file. Sign-in with Google is required for a shot-list breakdown (the key-moment chips), a call-sheet load, and for PDF, Premiere XML, or CSV export. Free accounts get 1 shot-list breakdown, 5 call-sheet loads, 2 Premiere XML exports, 5 PDF exports, and 5 CSV exports; logging takes itself is unlimited.
+Two full projects are free forever, no card required: unlimited take logging, tagging, GOLD flags, offline use, and unlimited CSV export on every project, paid or not. Past the first two projects, a credit unlocks the PDF shot log and the Premiere or Resolve export: Rs 699 for one project credit, or Rs 2,399 for five. For crews shooting constantly, Clapper Studio subscribes at Rs 999/month (6 project credits or 20 podcast hours a month) and Clapper Studio Plus at Rs 2,499/month (20 project credits or 60 podcast hours a month, plus your own logo on every export). All prices are in INR and include GST. Full pricing: https://clapper.in/pricing/
 
 ## Free templates
 
@@ -61,10 +61,28 @@ Reference articles on on-set logging practice. Written to be useful on their own
 - MOS meaning in film: https://clapper.in/articles/mos-meaning-in-film/ (why the "mit out sound" story does not survive contact with German)
 - What is a TCR sheet: https://clapper.in/articles/what-is-a-tcr-sheet/ (timecode logging on set, including an honest note that the term is used inconsistently)
 
+## Answers
+
+Short, specific answers to questions people actually search, each a single self-contained page:
+
+- Camera report and script supervisor log disagree, now what: https://clapper.in/answers/camera-report-vs-script-supervisor-log-disagree/
+- Camera rolled without a log, what happens to the clip numbers: https://clapper.in/answers/camera-rolled-without-a-log/
+- Does a set-logging app upload your script to an AI: https://clapper.in/answers/does-ai-read-your-script-on-set/
+- If a take is no good, does the clip number still count: https://clapper.in/answers/does-an-ng-take-still-use-a-clip-number/
+- Does the editor need special software to open a shot log XML: https://clapper.in/answers/does-editor-need-special-software-for-shot-log-xml/
+- Is there a free alternative to Shot Notes X: https://clapper.in/answers/free-alternative-to-shot-notes-x/
+- Do you need an iPad and a paid app for continuity: https://clapper.in/answers/free-continuity-app-vs-paid-ipad-app/
+- How does the editor know which take the director wanted: https://clapper.in/answers/how-editor-finds-directors-favorite-take/
+- Getting script supervisor notes into Premiere as markers: https://clapper.in/answers/script-supervisor-notes-to-premiere-markers/
+- How accurate is automatic shot list breakdown: https://clapper.in/answers/shot-list-breakdown-accuracy/
+- Two cameras, same clip number, how the editor tells them apart: https://clapper.in/answers/two-cameras-same-clip-number/
+- What does the editor actually receive at wrap: https://clapper.in/answers/what-editor-actually-receives-at-wrap/
+
 ## Links
 
 - Landing page: https://clapper.in/
 - App: https://clapper.in/app/
+- Pricing: https://clapper.in/pricing/
 - Free templates index: https://clapper.in/templates/continuity-sheet-template/
 - Guides index: https://clapper.in/articles/
 - Relink (rewrite media paths in a Premiere/FCP7 XML, runs in-browser): https://clapper.in/relink/
