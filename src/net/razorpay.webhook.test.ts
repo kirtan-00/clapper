@@ -13,6 +13,11 @@ import {
   readOrderPaidEvent,
   ORDER_GRANT_EVENTS,
   INVOICE_NEEDS_ATTENTION_EVENTS,
+  SUBSCRIPTION_GRANT_EVENTS,
+  readSubscriptionChargedEvent,
+  billingReasonForPaidCount,
+  resolveSubscriptionProduct,
+  identityForSubscriptionCharge,
 } from '../../supabase/functions/_shared/razorpay.ts';
 
 // The webhook signature is the ONLY authentication on razorpay-webhook (it
@@ -220,5 +225,106 @@ describe('peekRazorpayEvent', () => {
     expect(peekRazorpayEvent(null)).toBeNull();
     expect(peekRazorpayEvent([])).toBeNull();
     expect(peekRazorpayEvent({})).toBeNull();
+  });
+});
+
+// ===========================================================================
+// SUBSCRIPTIONS, added 2026-08-27. The distinction these cover is the one
+// that decides how much money is owed: a first charge grants introCredits,
+// a renewal grants credits, and Razorpay's only signal for which is which is
+// paid_count on the subscription entity. Getting it wrong is not a crash, it
+// is a silent over- or under-grant, so the boundary is pinned here.
+// ===========================================================================
+
+describe('subscription.charged', () => {
+  const CHARGED = (paidCount: unknown, productKey = 'pro_monthly') => ({
+    entity: 'event',
+    event: 'subscription.charged',
+    contains: ['subscription', 'payment'],
+    payload: {
+      subscription: {
+        entity: {
+          id: 'sub_fixture01',
+          plan_id: 'plan_fixture01',
+          status: 'active',
+          paid_count: paidCount,
+          notes: { user_id: '11111111-1111-4111-8111-111111111111', product_key: productKey },
+        },
+      },
+      payment: {
+        entity: { id: 'pay_fixture01', amount: 99900, currency: 'INR', status: 'captured' },
+      },
+    },
+    created_at: 1767225600,
+  });
+
+  it('is the grant event, and invoice.paid is not', () => {
+    expect(SUBSCRIPTION_GRANT_EVENTS).toContain('subscription.charged');
+    // Both fire for the same money on every cycle. Exactly one may grant,
+    // and it has to be the one carrying paid_count.
+    expect(SUBSCRIPTION_GRANT_EVENTS).not.toContain('invoice.paid');
+    expect(INVOICE_NEEDS_ATTENTION_EVENTS).toContain('invoice.paid');
+    expect(ORDER_GRANT_EVENTS).not.toContain('subscription.charged');
+  });
+
+  it('reads the subscription, its notes and the payment', () => {
+    const read = readSubscriptionChargedEvent(CHARGED(1));
+    expect(read?.subscriptionId).toBe('sub_fixture01');
+    expect(read?.paidCount).toBe(1);
+    expect(read?.paymentId).toBe('pay_fixture01');
+    expect(read?.amount).toBe(99900);
+    expect(read?.currency).toBe('INR');
+    expect(read?.notes.product_key).toBe('pro_monthly');
+    expect(read?.notes.user_id).toBe('11111111-1111-4111-8111-111111111111');
+  });
+
+  it('refuses a payload with no subscription entity', () => {
+    expect(readSubscriptionChargedEvent({ event: 'subscription.charged', payload: {} })).toBeNull();
+    expect(readSubscriptionChargedEvent({ payload: { subscription: { entity: { id: 'x' } } } })).toBeNull();
+  });
+
+  it('maps paid_count 1 to a first charge and anything higher to a renewal', () => {
+    expect(billingReasonForPaidCount(1)).toBe('subscription_create');
+    expect(billingReasonForPaidCount(2)).toBe('subscription_cycle');
+    expect(billingReasonForPaidCount(37)).toBe('subscription_cycle');
+  });
+
+  it('returns null rather than guessing when paid_count is missing', () => {
+    // The whole point: applySubscriptionCredit records an unknown billing
+    // reason as needs-attention and grants nothing. Defaulting either way
+    // would silently pay out the wrong amount, which is unrecoverable
+    // without taking money back out of somebody's account.
+    expect(billingReasonForPaidCount(null)).toBeNull();
+    expect(readSubscriptionChargedEvent(CHARGED(undefined))?.paidCount).toBeNull();
+    expect(readSubscriptionChargedEvent(CHARGED('1'))?.paidCount).toBeNull();
+  });
+
+  it('refuses a one_time product key on a recurring charge', () => {
+    // A credit pack billed every month forever is the failure this stops.
+    expect(resolveSubscriptionProduct('credit_1')).toBeNull();
+    expect(resolveSubscriptionProduct('bundle_5')).toBeNull();
+    expect(resolveSubscriptionProduct('pro_monthly')?.kind).toBe('subscription');
+    expect(resolveSubscriptionProduct('studio_plus')?.kind).toBe('subscription');
+    expect(resolveSubscriptionProduct('nonsense')).toBeNull();
+  });
+
+  it('keys idempotency on the payment id, never the subscription id', () => {
+    // A subscription id repeats on every single cycle. Keying on it would
+    // make month two dedupe against month one and grant nothing for money
+    // that really moved.
+    const first = identityForSubscriptionCharge('sub_fixture01', 'pay_month_one', 1);
+    const second = identityForSubscriptionCharge('sub_fixture01', 'pay_month_two', 2);
+    expect(first.eventId).toBe('pay_month_one');
+    expect(first.providerTxnId).toBe('pay_month_one');
+    expect(second.eventId).not.toBe(first.eventId);
+  });
+
+  it('still produces a distinct key when no payment entity arrives', () => {
+    // A shape Razorpay's docs do not describe, but a missing key would make
+    // applySubscriptionCredit answer store_error and lose the record.
+    const one = identityForSubscriptionCharge('sub_fixture01', null, 1);
+    const two = identityForSubscriptionCharge('sub_fixture01', null, 2);
+    expect(one.eventId).toBeTruthy();
+    expect(one.eventId).not.toBe(two.eventId);
   });
 });

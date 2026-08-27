@@ -304,3 +304,128 @@ export async function fetchRazorpayOrder(
   if (!order) return { ok: false, reason: "bad_response", detail: "missing id/status/amount/currency" };
   return { ok: true, order };
 }
+
+// ---------------------------------------------------------------------------
+// subscription.charged - the RECURRING grant event. Added 2026-08-27, when
+// subscriptions were actually wired; before that this file said in as many
+// words that Razorpay gave "no verified, documented way to tell a
+// subscription's FIRST invoice from a renewal the way Stripe's
+// billing_reason does". That claim was true of `invoice.paid`, which is why
+// INVOICE_NEEDS_ATTENTION_EVENTS still records and never grants. It is NOT
+// true of subscription.charged, which carries the subscription entity and
+// therefore `paid_count`: the number of successful charges INCLUDING this
+// one. paid_count === 1 is a first charge by definition, and anything above
+// it is a renewal. That is the missing field, and it is why the grant lives
+// on this event and not on the invoice.
+//
+// WHY NOT invoice.paid, given a subscription cycle emits BOTH. That is
+// precisely the reason. Razorpay sends invoice.paid AND subscription.charged
+// for the same money on every cycle, so granting on both would pay out twice
+// for one charge - the same double-grant shape stripe-webhook solved by
+// granting on invoice.paid and never on payment_intent events. Exactly one of
+// the pair may grant. subscription.charged is the one that can tell first
+// from renewal, so it wins, and invoice.paid stays record-only forever.
+//
+// IDEMPOTENCY KEYS OFF THE PAYMENT ID, not the subscription id. A
+// subscription id is stable for the life of the subscription and repeats on
+// every single cycle, so keying on it would let the second month dedupe
+// against the first and silently grant nothing for money that really moved.
+// The payment id is unique per charge, which is what "one grant per charge"
+// actually means.
+//
+// Shape confirmed against razorpay.com/docs/webhooks/payloads/subscriptions/:
+//
+//   { event: "subscription.charged", contains: ["subscription", "payment"],
+//     payload: { subscription: { entity: {
+//         id, plan_id, status, paid_count, notes, ... } },
+//       payment: { entity: { id, amount, currency, status, ... } } },
+//     created_at }
+// ---------------------------------------------------------------------------
+
+export const SUBSCRIPTION_GRANT_EVENTS = ["subscription.charged"];
+
+/**
+ * The mirror of resolveOneTimeProduct, and it refuses for the same reason.
+ * A `one_time` key arriving on a subscription charge is not "close enough":
+ * it would grant a permanent credit pack on a recurring charge, forever, on
+ * every cycle. Wrong kind is `unknown_product`, exactly as if the key had
+ * not resolved at all.
+ */
+export function resolveSubscriptionProduct(productKey: unknown): Product | null {
+  const product = getProduct(productKey);
+  return product && product.kind === "subscription" ? product : null;
+}
+
+export interface SubscriptionChargedRead {
+  eventType: string;
+  subscriptionId: string;
+  planId: string | null;
+  status: string | null;
+  /** Successful charges so far INCLUDING this one. 1 means first charge.
+   *  Null when Razorpay did not send it, which is NOT treated as 1 - see
+   *  billingReasonForPaidCount. */
+  paidCount: number | null;
+  notes: Record<string, string>;
+  paymentId: string | null;
+  amount: number | null;
+  currency: string | null;
+}
+
+export function readSubscriptionChargedEvent(payload: unknown): SubscriptionChargedRead | null {
+  const top = asRecord(payload);
+  const eventType = top ? str(top.event, 100) : null;
+  if (!top || !eventType) return null;
+
+  const sub = asRecord(asRecord(asRecord(top.payload)?.subscription)?.entity);
+  const subscriptionId = sub ? str(sub.id, 64) : null;
+  if (!sub || !subscriptionId) return null;
+
+  const pay = asRecord(asRecord(asRecord(top.payload)?.payment)?.entity);
+
+  const rawCount = sub.paid_count;
+  const paidCount = typeof rawCount === "number" && Number.isFinite(rawCount) ? rawCount : null;
+
+  return {
+    eventType,
+    subscriptionId,
+    planId: str(sub.plan_id, 64),
+    status: str(sub.status, 40),
+    paidCount,
+    notes: normalizeNotes(sub.notes),
+    paymentId: pay ? str(pay.id, 64) : null,
+    amount: pay && typeof pay.amount === "number" ? pay.amount : null,
+    currency: pay ? str(pay.currency, 8) : null,
+  };
+}
+
+/**
+ * Map Razorpay's paid_count onto the billing reason applySubscriptionCredit
+ * already understands, so BOTH gateways grant through one code path and the
+ * intro-bonus rule cannot drift between them.
+ *
+ * A MISSING paid_count RETURNS NULL, NOT "subscription_cycle". Null makes
+ * applySubscriptionCredit record the charge as needs-attention and grant
+ * nothing, which is the safe direction: a human reconciles one row. Defaulting
+ * to "cycle" would silently under-grant a first charge that was owed intro
+ * credits, and defaulting to "create" would re-grant the intro bonus on every
+ * renewal. Neither guess is recoverable without reading the money back out of
+ * somebody's account.
+ */
+export function billingReasonForPaidCount(paidCount: number | null): string | null {
+  if (paidCount === null) return null;
+  return paidCount <= 1 ? "subscription_create" : "subscription_cycle";
+}
+
+/** Idempotency identity for one subscription charge. Keyed on the PAYMENT
+ *  id (see the section header for why the subscription id would be wrong),
+ *  falling back to a composite only when Razorpay sends no payment entity at
+ *  all - a shape its docs do not describe, but a missing key would make
+ *  applySubscriptionCredit answer store_error and lose the record entirely. */
+export function identityForSubscriptionCharge(
+  subscriptionId: string,
+  paymentId: string | null,
+  paidCount: number | null,
+): RazorpayIdentity {
+  const txn = paymentId ?? `${subscriptionId}:${paidCount ?? "unknown"}`;
+  return { provider: "razorpay", eventId: txn, providerTxnId: txn };
+}

@@ -43,3 +43,9 @@ verify_jwt = true
 
 [functions.razorpay-verify]
 verify_jwt = true
+
+# The recurring counterpart to razorpay-order, added 2026-08-27. Same posture:
+# called by the app with a real user session, so the gateway checks the JWT and
+# the function trusts `sub` as the subscriber.
+[functions.razorpay-subscription]
+verify_jwt = true

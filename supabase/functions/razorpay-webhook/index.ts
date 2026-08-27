@@ -2,15 +2,25 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { verifyRazorpayWebhook } from "../_shared/webhook.ts";
 import { supabaseEntitlementStore } from "../_shared/store.ts";
-import { applyCreditPurchase, type CreditPurchase, type GrantOutcome } from "../_shared/entitlements.ts";
 import {
+  applyCreditPurchase,
+  applySubscriptionCredit,
+  type CreditPurchase,
+  type GrantOutcome,
+} from "../_shared/entitlements.ts";
+import {
+  billingReasonForPaidCount,
   identityForOrder,
+  identityForSubscriptionCharge,
   INVOICE_NEEDS_ATTENTION_EVENTS,
   ORDER_GRANT_EVENTS,
   peekRazorpayEvent,
   readInvoicePaidEvent,
   readOrderPaidEvent,
+  readSubscriptionChargedEvent,
   resolveOneTimeProduct,
+  resolveSubscriptionProduct,
+  SUBSCRIPTION_GRANT_EVENTS,
 } from "../_shared/razorpay.ts";
 
 // NEW 2026-08-27. Razorpay's authoritative grant path - the fix for the GAP
@@ -24,8 +34,11 @@ import {
 //
 // GRANTS ON order.paid, NOT payment.captured. Confirmed against the owner's
 // own live Razorpay dashboard, not a tutorial: this webhook destination is
-// subscribed to order.paid and invoice.paid, and the reasoning for that
-// split is sound independent of what any guide assumes - payment.captured
+// subscribed to order.paid, subscription.charged and invoice.paid. One-off
+// purchases grant on order.paid, subscriptions grant on subscription.charged,
+// and invoice.paid grants NOTHING ever (it duplicates every subscription
+// cycle - see the subscription section below). The reasoning for that split
+// is sound independent of what any guide assumes - payment.captured
 // can fire MORE THAN ONCE for a single order under partial or multiple
 // payment attempts, which is exactly the double-grant hazard this codebase
 // already solved once, on the Stripe side, by granting on invoice.paid and
@@ -168,6 +181,54 @@ Deno.serve(async (req: Request) => {
   }
 
   // =========================================================================
+  // subscription.charged - the RECURRING grant. Added 2026-08-27 with
+  // razorpay-subscription; see _shared/razorpay.ts's subscription section for
+  // why the grant lives on this event and not on invoice.paid (both fire for
+  // the same money every cycle, and only this one carries paid_count, which
+  // is the sole documented way to tell a first charge from a renewal).
+  // =========================================================================
+  if (SUBSCRIPTION_GRANT_EVENTS.indexOf(eventType) !== -1) {
+    const read = readSubscriptionChargedEvent(parsed);
+    if (!read) return json({ error: "not an event" }, 400);
+
+    const userId = typeof read.notes.user_id === "string" && read.notes.user_id.length > 0
+      ? read.notes.user_id
+      : null;
+    // Same rule as the order path: notes says WHICH product, the catalogue
+    // says how many credits. resolveSubscriptionProduct additionally refuses
+    // a one_time key, so a mislabelled subscription can never grant a credit
+    // pack on every cycle forever.
+    const product = resolveSubscriptionProduct(read.notes.product_key);
+
+    // NULL WHEN paid_count IS MISSING, deliberately - see
+    // billingReasonForPaidCount. applySubscriptionCredit records an unknown
+    // reason as needs-attention and grants nothing, which is one row for a
+    // human rather than an unrecoverable over- or under-grant.
+    const billingReason = billingReasonForPaidCount(read.paidCount);
+
+    const identity = identityForSubscriptionCharge(read.subscriptionId, read.paymentId, read.paidCount);
+
+    const outcome = await applySubscriptionCredit(store, {
+      provider: identity.provider,
+      eventId: identity.eventId,
+      userId,
+      productKey: product ? product.key : null,
+      billingReason,
+      // Both come from the catalogue, never from the payload. On a first
+      // charge applySubscriptionCredit spends introCredits (once per account
+      // ever); on a renewal it grants `credits`.
+      introCredits: product ? (product.introCredits ?? product.credits) : 0,
+      renewalCredits: product ? product.credits : 0,
+      amountCents: read.amount,
+      currency: read.currency,
+      providerTxnId: identity.providerTxnId,
+      occurredAt: null,
+    });
+
+    return grantOutcomeResponse(json, outcome, PROVIDER, identity.providerTxnId, userId);
+  }
+
+  // =========================================================================
   // invoice.paid - RECORDED, NOT GRANTED. See _shared/razorpay.ts's
   // INVOICE_NEEDS_ATTENTION_EVENTS for the full reasoning: this pair has no
   // subscription checkout yet (razorpay-order refuses `subscription` kind
@@ -184,7 +245,7 @@ Deno.serve(async (req: Request) => {
       ? read.notes.user_id
       : null;
     console.error(
-      `razorpay-webhook: invoice.paid received, RECORDED, NOT GRANTED - no subscription flow exists yet (invoice ${read?.invoiceId ?? "?"})`,
+      `razorpay-webhook: invoice.paid received, RECORDED, NOT GRANTED - subscription.charged is the grant event (invoice ${read?.invoiceId ?? "?"})`,
     );
     await logEvent("purchase_needs_attention", userId, {
       provider: PROVIDER,
@@ -193,7 +254,7 @@ Deno.serve(async (req: Request) => {
       subscription_id: read?.subscriptionId ?? null,
       amount_paid: read?.amountPaid ?? null,
       currency: read?.currency ?? null,
-      reason: "razorpay_subscription_not_wired",
+      reason: "razorpay_invoice_is_record_only",
     });
     // ALSO route this through the SAME `purchases` ledger every other
     // gateway's needs-attention row lands in, not analytics alone. The
@@ -236,7 +297,7 @@ Deno.serve(async (req: Request) => {
     // rule applyCreditPurchase itself enforces (`store_error` for a purchase
     // with no event id) - so this stays an analytics-only log line, already
     // written above.
-    return json({ ok: true, needs_attention: "razorpay_subscription_not_wired" });
+    return json({ ok: true, needs_attention: "razorpay_invoice_is_record_only" });
   }
 
   // Anything else. 200, always - Razorpay retries a non-2xx and answering

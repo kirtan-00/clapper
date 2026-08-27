@@ -219,3 +219,154 @@ export async function startCheckout(productKey: string, prefillEmail?: string): 
     };
   }
 }
+
+// ===========================================================================
+// SUBSCRIPTIONS. Added 2026-08-27 alongside supabase/functions/razorpay-
+// subscription. Read startCheckout above first: everything up to the modal is
+// the same shape, and only the last third genuinely differs.
+//
+// WHY THERE IS NO CLIENT-SIDE VERIFY STEP HERE, unlike the one-off path.
+// Razorpay's subscription handshake signs `payment_id|subscription_id` - note
+// the REVERSED order against an order's `order_id|payment_id` - and even a
+// correct check of it would only prove a payment happened. It could not say
+// whether this was a first charge or a renewal, and that distinction decides
+// how many credits are owed. Only `subscription.charged` carries paid_count,
+// so the webhook is not merely the durable grant path here, it is the ONLY
+// path that can compute the right answer. Adding a browser-side grant would
+// mean a second implementation of the same decision, in the place least able
+// to make it.
+//
+// SO THIS POLLS. The modal closes, the webhook lands a second or two later,
+// and this watches the account's own credit balance until it moves. That is
+// slower than the one-off path by design, and it is honest: the number it
+// reports is one the server has already written down, never an optimistic
+// guess. If nothing lands inside the window below, that is a REAL anomaly -
+// money moved and the grant did not - so it resolves 'unverified' with the
+// same wording the one-off path uses, which tells the person to email us
+// rather than pretending either outcome.
+// ===========================================================================
+
+interface SubscriptionResponse {
+  subscription_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+  label: string;
+}
+
+/** How long to wait for the webhook's grant before calling it an anomaly.
+ *  Razorpay delivers subscription.charged within a couple of seconds in
+ *  practice; 30s is generous enough that a slow delivery is not reported as
+ *  a failure, and short enough that somebody is not left staring at a
+ *  spinner if the webhook is genuinely broken. */
+const GRANT_WAIT_MS = 30_000;
+const GRANT_POLL_MS = 1_500;
+
+/** Read the account's own credit balance. Null when signed out or the row is
+ *  unreadable - the caller treats null as "cannot tell", never as zero. */
+async function readCredits(): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('project_credits')
+      .maybeSingle();
+    if (error || !data) return null;
+    const n = (data as { project_credits: number | null }).project_credits;
+    return typeof n === 'number' ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Subscribe to a recurring PRODUCT (a `subscription`-kind key from
+ * supabase/functions/_shared/products.ts: `pro_monthly` or `studio_plus`).
+ * Resolves once the first charge's credits are visible on the account, or
+ * with the reason it did not happen.
+ *
+ * Same `PayResult` union as startCheckout, deliberately: a caller should not
+ * have to branch on which kind of thing was bought to know how it went.
+ */
+export async function startSubscription(productKey: string, prefillEmail?: string): Promise<PayResult> {
+  // 0. The balance BEFORE any money moves. This is what makes the poll below
+  // meaningful: without a baseline, an account that already had credits
+  // would look granted the instant the first read came back.
+  const before = await readCredits();
+
+  // 1. Subscription, from our server.
+  let sub: SubscriptionResponse;
+  try {
+    const { data, error } = await supabase.functions.invoke<SubscriptionResponse>('razorpay-subscription', {
+      body: { product: productKey },
+    });
+    if (error || !data) {
+      if (error instanceof FunctionsHttpError) {
+        const status = error.context?.status;
+        if (status === 401) return { ok: false, reason: 'signin' };
+        if (status === 503) return { ok: false, reason: 'not_configured' };
+      }
+      return { ok: false, reason: 'network' };
+    }
+    sub = data;
+  } catch {
+    return { ok: false, reason: 'network' };
+  }
+
+  // 2. The modal. `subscription_id` where a one-off passes `order_id`; that
+  // one field is the whole difference on this side.
+  const ready = await loadCheckout();
+  if (!ready || !window.Razorpay) return { ok: false, reason: 'network' };
+
+  const outcome = await new Promise<'paid' | 'dismissed' | { failed: string }>((resolve) => {
+    let settled = false;
+    const settle = (v: 'paid' | 'dismissed' | { failed: string }) => {
+      if (settled) return;
+      settled = true;
+      resolve(v);
+    };
+
+    const rzp = new window.Razorpay!({
+      key: sub.key_id,
+      subscription_id: sub.subscription_id,
+      name: 'Clapper',
+      description: sub.label,
+      prefill: prefillEmail ? { email: prefillEmail } : undefined,
+      theme: { color: '#0b4650' }, // --m-accent, the app's own day accent
+      // The handshake fields are deliberately ignored - see the section
+      // header for why verifying them here would not answer the question
+      // that actually matters.
+      handler: () => settle('paid'),
+      modal: { ondismiss: () => settle('dismissed') },
+    });
+
+    rzp.on('payment.failed', (r) => {
+      settle({ failed: r?.error?.description || 'The payment did not go through.' });
+    });
+
+    rzp.open();
+  });
+
+  if (outcome === 'dismissed') return { ok: false, reason: 'dismissed' };
+  if (typeof outcome === 'object') return { ok: false, reason: 'failed', message: outcome.failed };
+
+  // 3. Wait for the webhook's grant to become visible.
+  const deadline = Date.now() + GRANT_WAIT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, GRANT_POLL_MS));
+    const now = await readCredits();
+    // `before` null means we could not read a baseline, so any readable
+    // non-zero balance is the best evidence available. `now` null means we
+    // still cannot read: keep waiting rather than concluding anything.
+    if (now === null) continue;
+    if (before === null ? now > 0 : now > before) {
+      return { ok: true, credits: before === null ? now : now - before, balance: now };
+    }
+  }
+
+  return {
+    ok: false,
+    reason: 'unverified',
+    message:
+      'The payment went through but the credits have not landed yet. Email us and we will sort it out.',
+  };
+}
