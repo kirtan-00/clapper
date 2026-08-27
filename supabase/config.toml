@@ -17,3 +17,29 @@ verify_jwt = false
 # the webhook above.
 [functions.stripe-checkout]
 verify_jwt = true
+
+# RAZORPAY. Added 2026-08-27, AFTER the first real live payment took ₹1 and
+# granted nothing. razorpay-webhook/index.ts's own header said this flag was
+# required and this file never grew the entry, so the function shipped with
+# the gateway default (verify_jwt = true) and every delivery Razorpay made
+# was refused before a line of our code ran:
+#
+#   HTTP 401 {"code":"UNAUTHORIZED_NO_AUTH_HEADER"}
+#
+# That is the Supabase gateway answering, not the function - which is exactly
+# why it was invisible from our side: no function log, no ledger row, no
+# failed grant to find. Razorpay is not a Supabase user and never sends an
+# Authorization header, so this MUST stay false and the signature check
+# inside the function remains the only authentication.
+[functions.razorpay-webhook]
+verify_jwt = false
+
+# Both called by the app with a real user session - the gateway checks the
+# JWT and the function trusts `sub` as the buyer. razorpay-order in
+# particular writes notes.user_id from that claim, so a forged body cannot
+# buy credits for somebody else's account.
+[functions.razorpay-order]
+verify_jwt = true
+
+[functions.razorpay-verify]
+verify_jwt = true
