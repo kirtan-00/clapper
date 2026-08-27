@@ -1,0 +1,78 @@
+/* PROJECT FOLDERS — additions to the Projects screen for Studio Plus.
+   Owned entirely by ProjectsScreen.tsx / filing.ts; skin/projects.css is not
+   touched. Every rule here reuses that file's own tokens (--pj-*, --t-*,
+   --sp-*) so a folder row and a plain row are drawn by the same hand — no
+   new colour, no card, no badge, no rail. Hierarchy here is the same two
+   moves the rest of this screen already makes: font-weight and the ink/dim/
+   faint ladder, never a box around something to make it look important. */
+
+/* The folder header plus its "⋯" options button, side by side. `.pj-fhead`
+   itself stays a single full-width button (unchanged, in projects.css) so
+   the tap target for opening/closing the folder is exactly as wide as
+   before; this row only exists to give the options button a sibling slot
+   next to it rather than nesting a second interactive element inside one
+   button, which the browser would not allow anyway. */
+.pj-fhead-row {
+  display: flex;
+  align-items: center;
+}
+.pj-fhead-row > .pj-fhead { flex: 1; min-width: 0; }
+
+/* Same three-dot mark the per-project row already uses for "File under…" —
+   this is that exact vocabulary, reused for "options on this folder"
+   instead of invented fresh. Full tap floor, no fill, no border: it reads
+   as part of the row it sits in, not as a chip stuck onto it. */
+.pj-fopts {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  min-height: var(--tap);
+  background: transparent;
+  border: none;
+  color: var(--pj-ink-faint);
+}
+.pj-fopts:active { color: var(--pj-ink-dim); }
+/* On the open mass the header's own ink ladder is the mass variant — this
+   follows the same override `.pj-folder .pj-fhead__chev` already makes. */
+.pj-folder .pj-fopts { color: var(--pj-mass-faint); }
+.pj-folder .pj-fopts:active { color: var(--pj-mass-dim); }
+
+/* A drop zone that would not actually move anything — the finger is over a
+   folder (or the plain list, taking something OUT of a folder) but the
+   device is not entitled to do that move. Same dashed slot as `.pj-drop` /
+   `.pj-drop--sheet`, so the shape a person is already reading never
+   changes; only the ink drops out of it, the same way a disabled button
+   in this app goes quiet rather than growing a lock icon on top of itself. */
+.pj-drop--locked {
+  color: var(--pj-ink-faint);
+  border-color: var(--pj-ink-faint);
+}
+.pj-folder .pj-drop--locked {
+  color: var(--pj-mass-faint);
+  border-color: var(--pj-mass-faint);
+}
+
+/* The File-under sheet's one-line explanation when folders exist but this
+   device cannot edit them. Same left inset and size as `.pj-band__note`
+   (the Archive section's own aside), so an explanatory line reads the same
+   wherever it shows up on this screen. */
+.pj-locked-note {
+  margin: 0 0 var(--sp-3);
+  padding: 0 var(--sp-1);
+  color: var(--pj-ink-faint);
+  font-size: var(--t-caption);
+}
+
+/* A filerow — Not in a folder / a folder / New folder… — that cannot be
+   tapped right now. Native `disabled`, so it is already out of the tab
+   order and un-pressable; this only mutes the ink to match, the same
+   quieting `.pj-filerow__name--quiet` already does for a label that is
+   secondary rather than actionable. */
+.pj-filerow--locked {
+  color: var(--pj-ink-faint);
+}
+.pj-filerow--locked .pj-filerow__ic { color: var(--pj-ink-faint); }
+.pj-filerow--locked .pj-filerow__name { color: var(--pj-ink-faint); }
+.pj-filerow:disabled { opacity: 0.6; }

@@ -38,6 +38,23 @@ import { ScreenHeader } from './glist';
 import { lastActivity } from './newRoll';
 import { PlusMark, ListMark } from './marks';
 import * as haptics from './haptics';
+import { useSession } from '../net/auth';
+import { useEntitlements } from './useEntitlements';
+import {
+  ARCHIVE,
+  canManageFolders,
+  createFolder,
+  deleteFolder,
+  isFolderPlace,
+  moveNeedsFolders,
+  placeOf,
+  readFiling,
+  renameFolder,
+  writeFiling,
+  type Filing,
+  type Folder,
+} from './filing';
+import './filing.css';
 
 export interface Row {
   project: Project;
@@ -231,102 +248,55 @@ export function matchesQuery(query: string, project: Project, row: Row): boolean
 // ============================================================== FILING ======
 //
 // A real filing system, kept entirely on the device and entirely OUT of the
-// Project record.
-//
-// WHY NOT A FIELD ON `Project`. Which folder a shoot sits in is not a fact
-// about the shoot — it is a fact about how one person likes their list. It
-// never exports, never syncs, never reaches a PDF, and two people looking at
-// the same backup should be free to file it differently. Putting it in the
-// store would also mean a schema migration and a write on every drag, which is
-// a lot of machinery to move a card six inches.
+// Project record. The DATA and its rules — Folder/Filing shapes, storage,
+// the auto-archive read, the "delete a folder never deletes a project"
+// guarantee, the Studio Plus gate, and why none of this syncs or backs up —
+// now live in ./filing.ts, extracted so the gate and the delete-safety rule
+// are unit-testable without a DOM (see filing.test.ts). This screen only
+// wires that module to React state and draws it.
 //
 // Guarded exactly the way theme.ts guards its own key: storage throws outright
 // in Safari private mode and with cookies blocked, and a filing preference is
 // never worth taking the app down for. Every failure resolves to "unfiled",
 // which is the shape the list had before folders existed.
-
-const FILING_KEY = 'clapper.folders.v1';
-
-/** The one non-folder destination. Never a folder id, so it can never collide. */
-const ARCHIVE = '__archive__';
-
-interface Folder {
-  id: string;
-  name: string;
-  order: number;
+//
+// `placeOf` here is a thin wrapper over filing.ts's own, which takes a bare
+// projectId + lastActivity rather than a whole `Project` — this module is the
+// only one that knows what a `Project` is.
+function placeOfProject(filing: Filing, now: number, p: Project): string {
+  return placeOf(filing, now, p.id, lastActivity(p));
 }
 
-interface Filing {
-  folders: Folder[];
-  /** projectId -> folder id, or ARCHIVE. Absent = unfiled. */
-  filed: Record<string, string>;
+// ===========================================================================
+// A SEAM FOR SCREENSHOTS. DEV ONLY.
+// ===========================================================================
+// Same move AccountScreen.tsx's `__clapperAccountDev` and ShotlistSheet.tsx's
+// `__clapperShotlistGate` make, for the same reason: "entitled", "lapsed" and
+// "never subscribed" cannot be stood in front of without a real Supabase
+// session and a real Studio Plus subscription. `import.meta.env.DEV` is a
+// compile-time constant, so this whole block is dropped from the shipped
+// bundle. Overrides `canEdit` directly rather than faking an `Entitlements`
+// object, because `canEdit` is the only thing this screen actually reads —
+// see `canManageFolders` in filing.ts for what a real read has to satisfy.
+let projectsDevCanEdit: boolean | null = null;
+const projectsDevListeners = new Set<() => void>();
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__clapperProjectsDev = (canEdit: boolean | null) => {
+    projectsDevCanEdit = canEdit;
+    for (const fn of projectsDevListeners) fn();
+  };
 }
-
-const EMPTY_FILING: Filing = { folders: [], filed: {} };
-
-function readFiling(): Filing {
-  try {
-    const raw = localStorage.getItem(FILING_KEY);
-    if (!raw) return EMPTY_FILING;
-    const parsed = JSON.parse(raw) as Partial<Filing>;
-    return {
-      folders: Array.isArray(parsed.folders) ? parsed.folders : [],
-      filed: parsed.filed && typeof parsed.filed === 'object' ? parsed.filed : {},
+function useProjectsDevCanEdit(): boolean | null {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const fn = () => bump((n) => n + 1);
+    projectsDevListeners.add(fn);
+    return () => {
+      projectsDevListeners.delete(fn);
     };
-  } catch {
-    return EMPTY_FILING;
-  }
-}
-
-function writeFiling(next: Filing): void {
-  try {
-    localStorage.setItem(FILING_KEY, JSON.stringify(next));
-  } catch {
-    /* the filing still works for this session, it just will not survive it */
-  }
-}
-
-/**
- * AUTO-ARCHIVE, round 2 §folders — implemented as a READ, not a write.
- *
- * The pitch asks for "auto-files 30 days after wrap, because on-set apps never
- * get housekeeping time". A background job cannot be the answer: this app is
- * offline-first and is opened on a set, in a hurry, weeks apart — there is no
- * moment it can be trusted to run, and a sweep that fires on launch would
- * rewrite the user's list while they are looking for something in it.
- *
- * So archive is DERIVED. A project nobody has filed and nobody has touched for
- * thirty days is in the Archive, and the instant it is touched again it walks
- * straight back out — which is the behaviour the feature was actually asking
- * for, with no state to get stale and nothing to undo.
- *
- * GENERALISED FROM "after wrap" TO "after neglect" deliberately. Wrap is a
- * button a human presses, and the shoots most in need of filing themselves are
- * exactly the ones nobody remembered to wrap. Keying on the wrap alone would
- * leave every abandoned recce sitting at the top of the list forever, which is
- * the mess the feature exists to clear.
- *
- * An EXPLICIT filing always wins. A decision a person made is never overridden
- * by a rule about time — including filing something into the Archive by hand,
- * which is how "get this out of my face" works and why it has to survive being
- * touched.
- */
-const ARCHIVE_AFTER_MS = 30 * DAY_MS;
-
-function isAutoArchived(now: number, p: Project): boolean {
-  return now - lastActivity(p) >= ARCHIVE_AFTER_MS;
-}
-
-/** Where a project lives: a folder id, ARCHIVE, or '' for the unfiled bands. */
-function placeOf(filing: Filing, now: number, p: Project): string {
-  const explicit = filing.filed[p.id];
-  if (explicit) {
-    // A folder that was deleted out from under a project leaves it unfiled
-    // rather than invisible.
-    if (explicit === ARCHIVE) return ARCHIVE;
-    return filing.folders.some((f) => f.id === explicit) ? explicit : '';
-  }
-  return isAutoArchived(now, p) ? ARCHIVE : '';
+  }, []);
+  return import.meta.env.DEV ? projectsDevCanEdit : null;
 }
 
 // ---------------------------------------------------------------- marks ----
@@ -400,6 +370,44 @@ function PlusRowMark() {
   );
 }
 
+/** A folder row a non-Studio-Plus device cannot touch right now. Not an
+ *  error mark — the thing it names still exists, it just is not editable
+ *  from here (see filing.ts's header on the lapsed-subscription rule). */
+function LockMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
+      <rect x="5" y="10.3" width="14" height="9.2" rx="2.2" {...STROKE} />
+      <path d="M8 10.3V7.8a4 4 0 0 1 8 0v2.5" {...STROKE} />
+    </svg>
+  );
+}
+
+/** Rename. A pencil, same 16px row-icon size as FolderMark/ArchiveMark next
+ *  to it — not PlusRowMark's "+", which already means "New folder…" a few
+ *  rows away and would say "create" here instead of "rename". */
+function PencilMark(props: { size?: number }) {
+  const s = props.size ?? 16;
+  return (
+    <svg viewBox="0 0 24 24" width={s} height={s} aria-hidden="true" focusable="false">
+      <path d="M15.4 4.6a1.9 1.9 0 0 1 2.7 2.7L8.6 16.8l-3.4.7.7-3.4z" {...STROKE} />
+      <path d="M13.6 6.4 16.3 9.1" {...STROKE} />
+    </svg>
+  );
+}
+
+/** Delete folder. A bin, not ArchiveMark's crate — Archive keeps the shoot
+ *  and this removes the folder, and the two must not read as the same move. */
+function TrashMark(props: { size?: number }) {
+  const s = props.size ?? 16;
+  return (
+    <svg viewBox="0 0 24 24" width={s} height={s} aria-hidden="true" focusable="false">
+      <path d="M5 7h14M9.5 7V5.3a1.4 1.4 0 0 1 1.4-1.4h2.2a1.4 1.4 0 0 1 1.4 1.4V7" {...STROKE} />
+      <path d="M6.5 7 7.3 19a1.9 1.9 0 0 0 1.9 1.7h5.6a1.9 1.9 0 0 0 1.9-1.7L17.5 7" {...STROKE} />
+      <path d="M10.3 10.7v6.1M13.7 10.7v6.1" {...STROKE} />
+    </svg>
+  );
+}
+
 function Grip() {
   return (
     <span className="pj-grip" aria-hidden="true">
@@ -447,6 +455,44 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
   // The project whose "File under…" sheet is up, and the new-folder prompt.
   const [filingRow, setFilingRow] = useState<Row | null>(null);
   const [liveMsg, setLiveMsg] = useState('');
+
+  // ------------------------------------------------------------- THE GATE --
+  // Studio Plus, read the same way ProjectScreen's own paywall reads it —
+  // `useEntitlements`'s shared, refreshable cache, never a private fetch.
+  // `entitlements` is `null` for BOTH "signed out" and "still loading" (see
+  // useEntitlements.ts), and `canManageFolders(null)` is false — so there is
+  // no separate "wait for load" branch to get wrong here: the gate starts
+  // closed and only ever opens once a real, positive read lands. That is
+  // what stops the "briefly editable, then locks" flash the brief calls out.
+  //
+  // A SOFT GATE, and this is the whole of it. Clapper is a static site with
+  // local-first data: there is no server that owns a `folders` table (see
+  // filing.ts's own header), so there is no request this screen could make
+  // that a browser's devtools could not simply forge a "yes" to. A hard gate
+  // is not an option that exists to reach for here — only a client-side
+  // read, same as every other display-only entitlement in this app (see
+  // net/quota.ts's own "DISPLAY ONLY" header). The worst case of someone
+  // bypassing it is organising their own projects for free, on their own
+  // device, which is not worth pretending otherwise about.
+  const { session } = useSession();
+  const { entitlements } = useEntitlements(!!session);
+  const devCanEdit = useProjectsDevCanEdit();
+  const canEdit = devCanEdit !== null ? devCanEdit : canManageFolders(entitlements);
+  // Read from inside the stable pointer/callback handlers below, same
+  // reasoning as `filingRef` further down: those close over `[]` deps so
+  // they are created once, and a ref is how they see a value that changes
+  // on later renders (a purchase, a lapse) without being rebuilt.
+  const canEditRef = useRef(canEdit);
+  canEditRef.current = canEdit;
+
+  // Folder options (rename / delete) — which folder's menu is open, and the
+  // two sheets it can hand off to. Kept separate from `filingRow`'s "which
+  // PROJECT am I filing" state: this is "which FOLDER am I managing", a
+  // different question asked from the folder header, not a project row.
+  const [folderMenu, setFolderMenu] = useState<Folder | null>(null);
+  const [renamingFolder, setRenamingFolder] = useState<Folder | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [deletingFolder, setDeletingFolder] = useState<Folder | null>(null);
   // The search box's own text. NOT auto-focused and never revealed behind a
   // tap - see the field's own comment at the render site for why: this
   // screen opens on set, one-handed, and a keyboard nobody asked for is a
@@ -495,11 +541,75 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
     writeFiling(next);
   }
 
-  /** File one project, or unfile it with `null`. */
+  // ------------------------------------------------------ folder options --
+  // Rename and delete. Both are Studio Plus controls — gated at the one spot
+  // that opens the menu (`openFolderOptions`), same "one choke point" call as
+  // `fileUnder`'s own gate, so there is nowhere else in this file a rename or
+  // a delete could be triggered from.
+  function openFolderOptions(folder: Folder) {
+    if (!canEdit) return;
+    haptics.tap();
+    setFolderMenu(folder);
+  }
+
+  function startRename(folder: Folder) {
+    setFolderMenu(null);
+    setRenameValue(folder.name);
+    setRenamingFolder(folder);
+  }
+
+  function commitRename() {
+    if (!renamingFolder) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) return;
+    commitFiling(renameFolder(filing, renamingFolder.id, trimmed));
+    setLiveMsg(`Renamed to ${trimmed}`);
+    setRenamingFolder(null);
+  }
+
+  function startDelete(folder: Folder) {
+    setFolderMenu(null);
+    setDeletingFolder(folder);
+  }
+
+  /** THE HARD RULE: deleting a folder never deletes a project. See
+   *  filing.ts's `deleteFolder` — every project that was filed under this
+   *  folder falls back to Unfiled, nothing else about it changes. */
+  function confirmDeleteFolder() {
+    if (!deletingFolder) return;
+    const name = deletingFolder.name;
+    const doomed = deletingFolder.id;
+    commitFiling(deleteFolder(filing, doomed));
+    setOpen((prev) => {
+      if (!prev.has(doomed)) return prev;
+      const next = new Set(prev);
+      next.delete(doomed);
+      return next;
+    });
+    setLiveMsg(`Deleted ${name}. Its projects are back in the unfiled list.`);
+    setDeletingFolder(null);
+  }
+
+  /**
+   * File one project, or unfile it with `null`. THE ONE CHOKE POINT every
+   * caller — the drag drop, the File-under sheet's rows — goes through, so
+   * the Studio Plus gate only has to be enforced in one place. Archive and
+   * Unfiled stay free in both directions; a move that touches a real folder
+   * on either end (`moveNeedsFolders`) is refused when `canEditRef` reads
+   * false, rather than trusting whatever the caller already decided — a
+   * caller built before this rule existed, or a stale closure holding an
+   * old `canEdit`, would otherwise still be able to write a folder move.
+   */
   const fileUnder = useCallback(
     (projectId: string, place: string | null, label: string) => {
-      haptics.tap();
+      let blocked = false;
       setFiling((prev) => {
+        const from = prev.filed[projectId] ?? '';
+        const to = place ?? '';
+        if (moveNeedsFolders(from, to) && !canEditRef.current) {
+          blocked = true;
+          return prev;
+        }
         const filed = { ...prev.filed };
         if (place === null) delete filed[projectId];
         else filed[projectId] = place;
@@ -507,7 +617,8 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         writeFiling(next);
         return next;
       });
-      setLiveMsg(label);
+      haptics.tap();
+      setLiveMsg(blocked ? 'Folders need Studio Plus' : label);
     },
     [],
   );
@@ -657,7 +768,7 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
     const inFolder = new Map<string, Row[]>();
     const unfiled: Row[] = [];
     for (const row of rows) {
-      const place = placeOf(filing, now, row.project);
+      const place = placeOfProject(filing, now, row.project);
       if (place === ARCHIVE) archived.push(row);
       else if (place === '') unfiled.push(row);
       else {
@@ -671,8 +782,8 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
     // ALWAYS one, if there is one at all: the mass is the screen's signature
     // and the first thing the eye lands on, and a list that loses it the
     // moment its owner files everything has quietly become a different screen.
-    const hero = rows.find((r) => placeOf(filing, now, r.project) !== ARCHIVE) ?? null;
-    const heroPlace = hero ? placeOf(filing, now, hero.project) : '';
+    const hero = rows.find((r) => placeOfProject(filing, now, r.project) !== ARCHIVE) ?? null;
+    const heroPlace = hero ? placeOfProject(filing, now, hero.project) : '';
     const heroFolder = filing.folders.find((f) => f.id === heroPlace)?.name;
 
     const bands = new Map<Bucket, Row[]>();
@@ -947,12 +1058,20 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
               // A slot where the card ALREADY lives promises a move that will
               // not happen. The lift still reads as picked-up; there is just
               // nothing to land in until the finger reaches somewhere else.
-              const dropping =
+              // `hovering` tracks the finger regardless of entitlement — a
+              // dragged card still highlights the zone it is over, so a
+              // lapsed subscriber gets an honest "why didn't that work"
+              // rather than a zone that never reacts at all — but only
+              // `dropping` (gated) promises "Drop to file here", and only
+              // `dropping` makes `endDrag` actually commit anything
+              // (`fileUnder` is the enforcement; this is just the label).
+              const hovering =
                 drag?.over === folder.id && filing.filed[drag.projectId] !== folder.id;
+              const dropping = hovering && canEdit;
               // An EMPTY folder stays quiet even when open: a mass with nothing
               // on it is a slab, and a slab reads as broken where a dashed slot
               // reads as an invitation.
-              const asMass = isOpen && (folderRows.length > 0 || dropping);
+              const asMass = isOpen && (folderRows.length > 0 || hovering);
               return (
                 <section
                   className="pj-band"
@@ -961,27 +1080,56 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
                 >
                   {asMass ? (
                     <div className="pj-mass pj-folder">
-                      <button type="button" className="pj-fhead" onClick={() => toggleFolder(folder.id)}>
-                        <span className="pj-fhead__mark"><FolderMark /></span>
-                        <span className="pj-fhead__name">{folder.name}</span>
-                        <span className="pj-fhead__count">
-                          {count} shoot{count === 1 ? '' : 's'}
-                        </span>
-                        <span className="pj-fhead__chev"><ChevronMark down /></span>
-                      </button>
+                      <div className="pj-fhead-row">
+                        <button type="button" className="pj-fhead" onClick={() => toggleFolder(folder.id)}>
+                          <span className="pj-fhead__mark"><FolderMark /></span>
+                          <span className="pj-fhead__name">{folder.name}</span>
+                          <span className="pj-fhead__count">
+                            {count} shoot{count === 1 ? '' : 's'}
+                          </span>
+                          <span className="pj-fhead__chev"><ChevronMark down /></span>
+                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            className="pj-fopts"
+                            aria-label={`Options for ${folder.name}`}
+                            onClick={() => openFolderOptions(folder)}
+                          >
+                            <MoreMark />
+                          </button>
+                        )}
+                      </div>
                       {folderRows.map((row) => renderLine(row, 'key'))}
-                      {dropping && <div className="pj-drop">Drop to file here</div>}
+                      {hovering &&
+                        (dropping ? (
+                          <div className="pj-drop">Drop to file here</div>
+                        ) : (
+                          <div className="pj-drop pj-drop--locked">Folders need Studio Plus</div>
+                        ))}
                     </div>
                   ) : (
                     <>
-                      <button type="button" className="pj-fhead" onClick={() => toggleFolder(folder.id)}>
-                        <span className="pj-fhead__mark"><FolderMark /></span>
-                        <span className="pj-fhead__name">{folder.name}</span>
-                        <span className="pj-fhead__count">
-                          {count === 0 ? 'empty' : `${count} shoot${count === 1 ? '' : 's'}`}
-                        </span>
-                        <span className="pj-fhead__chev"><ChevronMark down={isOpen} /></span>
-                      </button>
+                      <div className="pj-fhead-row">
+                        <button type="button" className="pj-fhead" onClick={() => toggleFolder(folder.id)}>
+                          <span className="pj-fhead__mark"><FolderMark /></span>
+                          <span className="pj-fhead__name">{folder.name}</span>
+                          <span className="pj-fhead__count">
+                            {count === 0 ? 'empty' : `${count} shoot${count === 1 ? '' : 's'}`}
+                          </span>
+                          <span className="pj-fhead__chev"><ChevronMark down={isOpen} /></span>
+                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            className="pj-fopts"
+                            aria-label={`Options for ${folder.name}`}
+                            onClick={() => openFolderOptions(folder)}
+                          >
+                            <MoreMark />
+                          </button>
+                        )}
+                      </div>
                       {isOpen && (
                         <div className="pj-drop pj-drop--sheet">Nothing filed — drag a shoot in</div>
                       )}
@@ -998,8 +1146,19 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
                   {bandRows.map((row) => renderLine(row, 'row'))}
                 </section>
               ))}
+              {/* Leaving a real folder is gated the same as entering one
+                  (`isFolderPlace`); un-archiving (dropping ARCHIVE onto the
+                  plain list) is not — Archive predates Studio Plus. */}
               {drag && drag.over === '' && filing.filed[drag.projectId] !== undefined && (
-                <div className="pj-drop pj-drop--sheet">Drop to take it out of its folder</div>
+                isFolderPlace(filing.filed[drag.projectId]) ? (
+                  canEdit ? (
+                    <div className="pj-drop pj-drop--sheet">Drop to take it out of its folder</div>
+                  ) : (
+                    <div className="pj-drop pj-drop--sheet pj-drop--locked">Folders need Studio Plus</div>
+                  )
+                ) : (
+                  <div className="pj-drop pj-drop--sheet">Drop to take it out of the archive</div>
+                )
               )}
             </div>
 
@@ -1059,26 +1218,100 @@ export function ProjectsScreen(props: { onOpen: (project: Project) => void }) {
         <FileUnderSheet
           row={filingRow}
           filing={filing}
+          canEdit={canEdit}
           onClose={() => setFilingRow(null)}
           onFile={(place, label) => {
             fileUnder(filingRow.project.id, place, label);
             setFilingRow(null);
           }}
           onNewFolder={(name) => {
-            const folder: Folder = {
-              id: `f${Date.now().toString(36)}`,
-              name,
-              order: filing.folders.length,
-            };
+            // Belt and braces: the "New folder…" row that calls this is
+            // already hidden whenever `!canEdit` (see FileUnderSheet), so
+            // this can only fire from a stray call — but a folder must never
+            // get created off a stale closure that thought it was entitled.
+            if (!canEdit) return;
+            const { filing: withFolder, folder } = createFolder(filing, name);
             const next: Filing = {
-              folders: [...filing.folders, folder],
-              filed: { ...filing.filed, [filingRow.project.id]: folder.id },
+              ...withFolder,
+              filed: { ...withFolder.filed, [filingRow.project.id]: folder.id },
             };
             commitFiling(next);
             setOpen((prev) => new Set(prev).add(folder.id));
-            setLiveMsg(`Filed under ${name}`);
+            setLiveMsg(`Filed under ${folder.name}`);
             setFilingRow(null);
           }}
+        />
+      )}
+
+      {/* Folder options — rename / delete. Reached only from a folder header's
+          "⋯", which itself only renders when `canEdit` (see the folder map
+          above), so this sheet never opens for a non-Studio-Plus device. */}
+      {folderMenu && (
+        <Sheet onClose={() => setFolderMenu(null)}>
+          <div className="pj-filehead">
+            <span className="pj-filehead__chip">{folderMenu.name}</span>
+            <span className="pj-filehead__label">Folder</span>
+          </div>
+          <button type="button" className="pj-filerow" onClick={() => startRename(folderMenu)}>
+            <span className="pj-filerow__ic"><PencilMark /></span>
+            <span className="pj-filerow__name">Rename</span>
+          </button>
+          <button
+            type="button"
+            className="pj-filerow pj-filerow--cut"
+            onClick={() => startDelete(folderMenu)}
+          >
+            <span className="pj-filerow__ic"><TrashMark /></span>
+            <span className="pj-filerow__name">Delete folder</span>
+          </button>
+          <div className="sheet__actions">
+            <SheetClose className="btn btn--ghost" onClose={() => setFolderMenu(null)}>
+              Cancel
+            </SheetClose>
+          </div>
+        </Sheet>
+      )}
+
+      {renamingFolder && (
+        <Sheet onClose={() => setRenamingFolder(null)} title="Rename folder">
+          <div className="formrow">
+            <label className="label" htmlFor="pj-renamefolder">
+              Folder name
+            </label>
+            <input
+              id="pj-renamefolder"
+              className="field"
+              value={renameValue}
+              autoFocus
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && renameValue.trim()) commitRename();
+              }}
+            />
+          </div>
+          <div className="sheet__actions">
+            <SheetClose className="btn btn--ghost" onClose={() => setRenamingFolder(null)}>
+              Cancel
+            </SheetClose>
+            <button type="button" className="btn btn--go" disabled={!renameValue.trim()} onClick={commitRename}>
+              Save
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {/* Deleting a folder never deletes a project — see filing.ts's
+          `deleteFolder` and confirmDeleteFolder above. The copy says so,
+          because "Delete folder?" alone reads as if the shoots inside it are
+          on the line too, and this is exactly the one guarantee on this
+          screen that must never be in doubt. */}
+      {deletingFolder && (
+        <Confirm
+          title={`Delete "${deletingFolder.name}"?`}
+          message="Its projects move back to the unfiled list. Nothing is deleted."
+          confirmLabel="Delete folder"
+          onConfirm={confirmDeleteFolder}
+          onCancel={() => setDeletingFolder(null)}
         />
       )}
 
@@ -1218,14 +1451,22 @@ function HeroMass(props: { row: Row; folderName?: string; onOpen: () => void }) 
 function FileUnderSheet(props: {
   row: Row;
   filing: Filing;
+  /** The Studio Plus read. Archive and Unfiled stay live either way; every
+   *  row below that touches a real folder (see `isFolderPlace`) is disabled
+   *  rather than removed once a folder is already in play, so a lapsed
+   *  subscriber can still see where a project sits — they just cannot move
+   *  it. `false` also hides "New folder…" outright: a free account that has
+   *  never touched folders should see nothing folder-shaped here at all. */
+  canEdit: boolean;
   onClose: () => void;
   onFile: (place: string | null, label: string) => void;
   onNewFolder: (name: string) => void;
 }) {
-  const { row, filing } = props;
+  const { row, filing, canEdit } = props;
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
   const here = filing.filed[row.project.id];
+  const hereIsFolder = here !== undefined && isFolderPlace(here);
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const place of Object.values(filing.filed)) {
@@ -1235,6 +1476,10 @@ function FileUnderSheet(props: {
   }, [filing]);
 
   const folders = [...filing.folders].sort((a, b) => a.order - b.order);
+  // Only "leaving a folder" is locked by `hereIsFolder` — un-archiving is
+  // never gated (Archive predates Studio Plus), so this button stays live
+  // whenever `here` is ARCHIVE or already unfiled.
+  const unfileLocked = hereIsFolder && !canEdit;
 
   return (
     <Sheet onClose={props.onClose}>
@@ -1275,47 +1520,65 @@ function FileUnderSheet(props: {
         </div>
       ) : (
         <>
+          {/* One line, only when there is something folder-shaped on this
+              sheet to explain — a free account that has never touched
+              folders gets no mention of them at all. */}
+          {!canEdit && (folders.length > 0 || hereIsFolder) && (
+            <p className="pj-locked-note">
+              Folders need Studio Plus. Nothing here moves until you upgrade.
+            </p>
+          )}
+
           {/* Unfiled is a destination too. Without it there is no way back out
               of a folder except into another one. */}
           <button
             type="button"
-            className={`pj-filerow${here === undefined ? ' pj-filerow--here' : ''}`}
+            className={`pj-filerow${here === undefined ? ' pj-filerow--here' : ''}${unfileLocked ? ' pj-filerow--locked' : ''}`}
+            disabled={unfileLocked}
             onClick={() => props.onFile(null, 'Unfiled')}
           >
-            <span className="pj-filerow__ic"><FolderMark size={16} /></span>
+            <span className="pj-filerow__ic">{unfileLocked ? <LockMark /> : <FolderMark size={16} />}</span>
             <span className="pj-filerow__name pj-filerow__name--quiet">Not in a folder</span>
             {here === undefined && <span className="pj-filerow__tick"><TickMark /></span>}
           </button>
 
-          {folders.map((folder) => (
+          {folders.map((folder) => {
+            const locked = !canEdit;
+            return (
+              <button
+                type="button"
+                key={folder.id}
+                className={`pj-filerow${here === folder.id ? ' pj-filerow--here' : ''}${locked ? ' pj-filerow--locked' : ''}`}
+                disabled={locked}
+                onClick={() => props.onFile(folder.id, `Filed under ${folder.name}`)}
+              >
+                <span className="pj-filerow__ic">{locked ? <LockMark /> : <FolderMark size={16} />}</span>
+                <span className="pj-filerow__name">{folder.name}</span>
+                {here === folder.id ? (
+                  <span className="pj-filerow__tick"><TickMark /></span>
+                ) : !locked ? (
+                  <span className="pj-filerow__count tnum">{counts.get(folder.id) ?? 0}</span>
+                ) : null}
+              </button>
+            );
+          })}
+
+          {canEdit && (
             <button
               type="button"
-              key={folder.id}
-              className={`pj-filerow${here === folder.id ? ' pj-filerow--here' : ''}`}
-              onClick={() => props.onFile(folder.id, `Filed under ${folder.name}`)}
+              className="pj-filerow"
+              onClick={() => {
+                haptics.tap();
+                setNaming(true);
+              }}
             >
-              <span className="pj-filerow__ic"><FolderMark size={16} /></span>
-              <span className="pj-filerow__name">{folder.name}</span>
-              {here === folder.id ? (
-                <span className="pj-filerow__tick"><TickMark /></span>
-              ) : (
-                <span className="pj-filerow__count tnum">{counts.get(folder.id) ?? 0}</span>
-              )}
+              <span className="pj-filerow__ic"><PlusRowMark /></span>
+              <span className="pj-filerow__name pj-filerow__name--quiet">New folder…</span>
             </button>
-          ))}
+          )}
 
-          <button
-            type="button"
-            className="pj-filerow"
-            onClick={() => {
-              haptics.tap();
-              setNaming(true);
-            }}
-          >
-            <span className="pj-filerow__ic"><PlusRowMark /></span>
-            <span className="pj-filerow__name pj-filerow__name--quiet">New folder…</span>
-          </button>
-
+          {/* Archive is a free action either way — it predates Studio Plus
+              and is not a folder, so it never checks `canEdit`. */}
           <button
             type="button"
             className={`pj-filerow pj-filerow--cut${here === ARCHIVE ? ' pj-filerow--here' : ''}`}
