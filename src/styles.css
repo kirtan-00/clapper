@@ -1664,6 +1664,55 @@ button.card:active .card__chevron { color: var(--chalk-dim); }
    icon inside a brass ring. */
 .ob-glyph { display: inline-block; vertical-align: -2px; color: inherit; }
 
+/* SIGN-IN STAGE AT 320px, the narrowest phone this app claims (see
+   scripts/check-pricing-width.mjs). 390x844 is already correct in both
+   themes and stays untouched: `.ob-signin` is the class only Onboarding.tsx's
+   SignInStage renders, so nothing here reaches InstallStage's own footer or
+   any other staged flow's `.sl-actions`.
+
+   TWO THINGS BREAK AT 320 THAT 390 NEVER SURFACES, because 390 never needs
+   to scroll this stage at all:
+
+   1. THE CONSENT LINE. `.sheet__body`'s bottom padding only reserves the
+      sticky bar's OWN bottom padding (see the comment on `.sl-actions`
+      above, "OWNS that padding") - it does not reserve the bar's top padding
+      or the buttons' own height, because normally the bar simply sits below
+      the last paragraph in flow and none of that matters. At 320 the stage
+      is tall enough to scroll, and the shortfall is exactly the bar's
+      content height: the consent paragraph's last line comes to rest UNDER
+      the bar instead of above it - a legal notice visibly cut off on the
+      screen where consent is given. The fix is on the stage's own last
+      block, not on the shared `.sheet__body`/`.sl-actions` pairing every
+      other staged flow still relies on unmodified.
+   2. THE BUTTONS WRAP. "Not now" breaks after "Not" and "Sign in with
+      Google" breaks after "with" - two half-finished-looking buttons on the
+      first screen a new user ever meets. Stacking them removes the wrap
+      without shrinking type below the app's own button size (`--tap`
+      unchanged), and grows the tap target as a side effect. */
+@media (max-width: 360px) {
+  .ob-signin .ob-fine {
+    /* sp-3 (bar's own top pad) + tap + sp-3 (gap) + tap (both stacked
+       buttons) + safe-bottom + sp-6 (bar's own bottom pad, matching
+       .sheet__body's existing reservation) + sp-4 spare so the last line
+       lands with breathing room, not flush against the bar's edge. */
+    padding-bottom: calc(
+      var(--sp-3) + var(--tap) + var(--sp-3) + var(--tap) + var(--safe-bottom) + var(--sp-6) + var(--sp-4)
+    );
+  }
+  .ob-signin .sheet__actions.sl-actions {
+    flex-direction: column;
+  }
+  /* Overrides both `.sheet__actions .btn { flex: 1 }` and this same file's
+     `.sheet__actions.sl-actions .btn--ghost { flex: 0 1 34% }` - in a column
+     flow those percentages are HEIGHT, not width, which is not what either
+     rule meant. Explicit `flex: 0 0 auto` plus a real width sidesteps both. */
+  .ob-signin .sheet__actions.sl-actions .btn,
+  .ob-signin .sheet__actions.sl-actions .btn--ghost {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}
+
 /* ---- stage one: the document -------------------------------------------
    A target, not a button in a form. It is the only thing on the stage above
    the divider, so it gets the height to say so. */

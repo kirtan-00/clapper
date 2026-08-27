@@ -450,7 +450,11 @@ function SignInStage(props: {
   }
 
   return (
-    <>
+    // `.ob-signin` scopes the narrow-phone rules in styles.css (search that file
+    // for this class) to exactly this stage - InstallStage's own StageActions and
+    // every other staged flow's `.sl-actions` are untouched by them. See those
+    // rules for what breaks at 320 that never shows at 390.
+    <div className="ob-signin">
       {/* The FACT, with the real number in it where there is one. A brand new
           phone has no takes on it yet, and "0 takes live in this browser" is a
           scare quote about nothing — so the general sentence carries that case,
@@ -520,7 +524,7 @@ function SignInStage(props: {
           {busy ? 'Opening Google…' : 'Sign in with Google'}
         </button>
       </StageActions>
-    </>
+    </div>
   );
 }
 
