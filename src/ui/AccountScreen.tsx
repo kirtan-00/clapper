@@ -24,11 +24,67 @@
 
 import { useEffect, useState } from 'react';
 import { Section, Row, ReadRow, ScreenHeader } from './glist';
-import { ProCta } from './ProCta';
 import type { Nav } from './nav';
 import { useSession, signInWithGoogle, signOut } from '../net/auth';
-import { getEntitlements, FREE_PROJECT_LIMIT, FREE_PROJECT_RESET_DAYS, type Entitlements } from '../net/quota';
+import { FREE_PROJECT_LIMIT, FREE_PROJECT_RESET_DAYS, type Entitlements } from '../net/quota';
+import { useEntitlements } from './useEntitlements';
+import { usePurchase, usePromoOffer, type Purchase } from './pricing';
+import { PricingLadder } from './PricingRows';
 import * as haptics from './haptics';
+
+// The one contact route for the tier the catalogue deliberately never
+// prices - see products.ts's own closing note: enterprise is a "contact us"
+// link, negotiated by hand, and never reaches a payment gateway.
+const ENTERPRISE_MAILTO =
+  'mailto:purohit.krick@gmail.com?subject=' +
+  encodeURIComponent('Clapper Enterprise') +
+  '&body=' +
+  encodeURIComponent('Tell us about your team and how many projects a month:\n\n');
+
+// ===========================================================================
+// A SEAM FOR SCREENSHOTS. DEV ONLY.
+// ===========================================================================
+// Same move ShotlistSheet.tsx's `__clapperShotlistGate` makes, for the same
+// reason: the states that matter most on this screen (signed in on Free, on
+// Studio, on Studio Plus, mid-purchase) cannot be stood in front of without
+// a real Supabase session and a real subscription. `import.meta.env.DEV` is
+// a compile-time constant, so this whole block is dropped from the shipped
+// bundle.
+interface AccountDevOverride {
+  email?: string;
+  entitlements?: Partial<Entitlements>;
+}
+const DEV_DEFAULT_ENTITLEMENTS: Entitlements = {
+  isPro: false,
+  proUntil: null,
+  freeProjectsUsed: FREE_PROJECT_LIMIT,
+  freeProjectsLimit: FREE_PROJECT_LIMIT,
+  projectCredits: 0,
+  subscriptionActive: false,
+  subscriptionProduct: null,
+  podcastMinutesLimit: 180,
+  podcastMinutesUsed: 0,
+};
+let accountDevOverride: AccountDevOverride | null = null;
+const accountDevListeners = new Set<() => void>();
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__clapperAccountDev = (o: AccountDevOverride | null) => {
+    accountDevOverride = o;
+    for (const fn of accountDevListeners) fn();
+  };
+}
+function useAccountDev(): AccountDevOverride | null {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const fn = () => bump((n) => n + 1);
+    accountDevListeners.add(fn);
+    return () => {
+      accountDevListeners.delete(fn);
+    };
+  }, []);
+  return import.meta.env.DEV ? accountDevOverride : null;
+}
 
 /**
  * "Ever" when FREE_PROJECT_RESET_DAYS is 0 (today's setting - the owner's
@@ -67,23 +123,20 @@ function podcastCopy(ent: Entitlements): string {
 export function AccountScreen(_props: { nav: Nav }) {
   const { session, loading } = useSession();
   const [busy, setBusy] = useState(false);
-  const [ent, setEnt] = useState<Entitlements | null>(null);
+  const dev = useAccountDev();
 
-  const signedIn = !!session;
-
-  useEffect(() => {
-    if (!signedIn) {
-      setEnt(null);
-      return;
-    }
-    let active = true;
-    void getEntitlements().then((e) => {
-      if (active) setEnt(e);
-    });
-    return () => {
-      active = false;
-    };
-  }, [signedIn]);
+  const signedIn = dev ? true : !!session;
+  const email = dev?.email ?? session?.user.email ?? 'your account';
+  // Shared with every other screen's paywall - a purchase made from a
+  // locked export on ProjectScreen calls refreshEntitlements() (see
+  // pricing.ts), and this hook picks the new number up the next time this
+  // screen is mounted, no manual reload. See useEntitlements.ts's header.
+  // Suspended while a dev override is active - see the seam's own header.
+  const { entitlements: liveEnt } = useEntitlements(signedIn && !dev);
+  const ent = dev ? { ...DEV_DEFAULT_ENTITLEMENTS, ...dev.entitlements } : liveEnt;
+  const { busyKey, status, buy } = usePurchase();
+  const purchase: Purchase = { busyKey, status, buy };
+  const { offer } = usePromoOffer();
 
   async function onSignIn() {
     setBusy(true);
@@ -116,7 +169,7 @@ export function AccountScreen(_props: { nav: Nav }) {
       ) : signedIn ? (
         <>
           <Section title="Signed in">
-            <ReadRow label="Google" value={session.user.email ?? 'your account'} />
+            <ReadRow label="Google" value={email} />
           </Section>
 
           {proActive ? (
@@ -133,6 +186,11 @@ export function AccountScreen(_props: { nav: Nav }) {
               <ReadRow
                 label="Projects"
                 value={ent ? projectsLeftCopy(ent.freeProjectsUsed, ent.freeProjectsLimit) : '—'}
+                // `pr-wraprow` (PricingRows.css): the spent-grant sentence
+                // (projectsLeftCopy's last branch) is a full sentence, not a
+                // short counter - list.css's normal nowrap value ran the
+                // card past the screen's right edge rather than wrapping it.
+                className="pr-wraprow"
               />
               <ReadRow
                 label="Project credits"
@@ -143,6 +201,11 @@ export function AccountScreen(_props: { nav: Nav }) {
                 value={ent && ent.projectCredits > 0
                   ? 'Included with every unlocked project'
                   : 'Unlock a project to export'}
+                // Same opt-in, same reason: this label plus this value
+                // together do not fit on one line at 390px (let alone
+                // 320px), and list.css's ellipsis crushed the label to "P…"
+                // rather than wrapping it - see `pr-wraprow`'s own comment.
+                className="pr-wraprow"
               />
             </Section>
           )}
@@ -162,7 +225,29 @@ export function AccountScreen(_props: { nav: Nav }) {
             <ReadRow label="Backup and restore" value="Unlimited" />
           </Section>
 
-          <ProCta gate="account" />
+          {/* THE STANDING PRICING SURFACE. Reachable on its own, not behind
+              a lock - the "wanna go pro" entry the owner asked for, that a
+              cap-hit's ProCta (still shown on ProjectScreen/ShotlistSheet)
+              does not cover by itself: someone who has never hit a wall
+              still gets to see what buying gets them.
+
+              GROUPED, per the owner's own correction after seeing a flat
+              five-row list: pay-per-job and subscribe are two different
+              questions, so `PricingLadder` (PricingRows.tsx) answers them
+              as two sections at two weights, Free included and Enterprise
+              linked since this IS the full pricing page (ProCta's cap-hit
+              paywall omits both). The subscription this account already
+              holds passes through as `currentSubscriptionKey` and renders
+              as a plain read row instead of a buy button - one-time
+              credits never show "current", they are a consumable, not a
+              plan you are "on". */}
+          <PricingLadder
+            offer={offer}
+            purchase={purchase}
+            includeFree
+            enterpriseHref={ENTERPRISE_MAILTO}
+            currentSubscriptionKey={ent?.subscriptionActive ? ent.subscriptionProduct : null}
+          />
 
           <Section title="Session">
             <Row

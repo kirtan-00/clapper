@@ -210,12 +210,21 @@ export function Row(
     primary?: boolean;
     destructive?: boolean;
     disabled?: boolean;
+    /** Escape hatch for a caller that owns a long label or value this row's
+     *  default single-line, ellipsis-on-overflow contract cannot honour
+     *  without either cutting text or overrunning the card. Merged onto the
+     *  SAME element as `"grow"` (not a wrapping ancestor), so a caller's
+     *  stylesheet can target `.<their-class> .grow-label` / `.grow-value`
+     *  as descendants and opt just that row out of the nowrap/ellipsis
+     *  rule - list.css itself, and every row that does not pass this,
+     *  stays untouched. */
+    className?: string;
   },
 ) {
   return (
     <button
       type="button"
-      className="grow"
+      className={props.className ? `grow ${props.className}` : 'grow'}
       data-icon={props.icon ? '' : undefined}
       data-primary={props.primary ? '' : undefined}
       data-destructive={props.destructive ? '' : undefined}
@@ -248,10 +257,16 @@ export function LinkRow(props: RowFace & { href: string }) {
   );
 }
 
-/** A row that only reports. No press state, no chevron, not a control. */
-export function ReadRow(props: RowFace) {
+/** A row that only reports. No press state, no chevron, not a control.
+ *  `className` is the same escape hatch `Row` takes, and for the same
+ *  reason - see its own comment. */
+export function ReadRow(props: RowFace & { className?: string }) {
   return (
-    <div className="grow" data-static="" data-icon={props.icon ? '' : undefined}>
+    <div
+      className={props.className ? `grow ${props.className}` : 'grow'}
+      data-static=""
+      data-icon={props.icon ? '' : undefined}
+    >
       <Face label={props.label} value={props.value} mono={props.mono} icon={props.icon} />
     </div>
   );

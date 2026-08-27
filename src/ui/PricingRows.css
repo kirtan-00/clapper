@@ -1,0 +1,125 @@
+/* PricingRows.tsx's own styles - owned here, not in the shared list.css or
+   the central styles.css, per this task's file-ownership split.
+
+   ONE JOB: let SubscriptionRow's label be TWO lines (the plan name, then,
+   for Studio Plus only, a dim caption naming what the extra money buys)
+   without breaking `.grow-label`'s normal single-line contract that every
+   other row in the app still relies on. `.grow-label` (list.css) is
+   `overflow:hidden; white-space:nowrap; text-overflow:ellipsis` because it
+   holds plain text everywhere else; `.pr-subrow__label` opts THIS row back
+   out of that so its child spans lay out as a column instead of one
+   truncating line. Two classes on the element beats list.css's one-class
+   rule on specificity, so this does not have to fight it with !important. */
+
+.pr-subrow__label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.pr-subrow__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Supporting text, not a second product - deliberately the caption weight
+   (list.css's own per-project figure under a price uses the same size and
+   colour, see PricingRows.tsx's ValueStack), never the row's own bold. */
+.pr-subrow__perks {
+  font-size: var(--t-caption);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--text-faint);
+  white-space: normal;
+}
+
+/* ---- the shotlist drop zone, LOCKED ---------------------------------
+   `showCap` in ShotlistSheet.tsx stamps `data-locked` on `.sl-drop` the
+   moment a paywall sits right under it (that file is not owned by this
+   task, so the attribute and this rule are the whole fix - no logic moved
+   into a forbidden file). The base `.sl-drop` (styles.css) paints an accent
+   wash with accent-coloured "tap me" type; on a background that is only a
+   16% tint of that same accent, the two nearly cancel out, so the box reads
+   as a broken control rather than a closed one. This swaps it for the same
+   neutral, full-contrast vocabulary `.grow[data-static]` already uses
+   elsewhere for "true, but not a control": solid ink, no accent, no
+   invitation, and `pointer-events: none` so it cannot be tapped into a
+   parse it already knows the answer to.
+
+   NIGHT IS WRITTEN OUT SEPARATELY, on purpose. Night's base `.sl-drop` rule
+   reads `--m-accent` for both its border and its type, and `--m-accent` ON
+   NIGHT IS THE APP'S ONE ACID. Leaving that inherited here would put acid
+   on two surfaces of the same screen at once - this locked box AND the
+   launch offer's primary row - when the palette reserves it for the launch
+   offer alone. Both rules use the attribute selector (`.sl-drop[data-locked]`,
+   `[data-theme='night'] .sl-drop[data-locked]`) rather than relying on
+   cascade order to beat styles.css's own selectors of equal specificity. */
+.sl-drop[data-locked] {
+  border-color: var(--hairline);
+  background: var(--surface);
+  color: var(--text);
+  cursor: default;
+  pointer-events: none;
+}
+.sl-drop[data-locked] .sl-drop__sub {
+  opacity: 1;
+  color: var(--text-dim);
+}
+[data-theme='night'] .sl-drop[data-locked] {
+  border-color: var(--hairline);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ---- rows that opt OUT of the one-line contract ----------------------
+   `.grow-label` / `.grow-value` (list.css) are nowrap + ellipsis, correct
+   for the settings/counter rows they were built for. Three rows this task
+   touches carry text that rule was never built for - the launch offer's
+   "N of M left" (the one number that makes the offer legible, PricingRows.tsx),
+   and two pre-existing Account rows whose value is a full sentence, not a
+   number (AccountScreen.tsx's spent-grant notice and its export line). At
+   390px, and worse at 320px, ellipsis on the label crushed it to one letter
+   while the un-shrinking, un-wrapping value still overran the card's right
+   edge past the viewport - text lost AND a card wider than the screen. Two
+   bugs, one cause.
+
+   `className` on `Row`/`ReadRow` (glist.tsx) is the opt-in - it merges this
+   class onto the SAME element as `.grow`, so `.pr-wraprow .grow-label` is a
+   descendant selector list.css's own `.grow-label` rule cannot see past;
+   list.css is untouched, and every row that does not pass this class keeps
+   its normal one-line behaviour. Label AND value both go `flex: 1 1 auto`
+   with wrapping allowed, so whichever one is long simply grows the row
+   taller - never the label losing to the value, never either one pushing
+   the card past the screen. */
+.pr-wraprow.grow {
+  align-items: flex-start;
+}
+.pr-wraprow .grow-label,
+.pr-wraprow .grow-value {
+  flex: 1 1 auto;
+  /* NOT 0. list.css's own `.grow-label` sets `min-width: 0` because it
+     pairs that with `overflow: hidden` - shrink the box past its content
+     and CLIP is safe, nothing shows. This rule pairs the same shrink with
+     `overflow: visible` instead (on purpose, so a wrapped line is never cut
+     off), and `min-width: 0` under `overflow: visible` is unsafe: flexbox
+     shrinks a short label (say "Projects", one unbreakable word) down past
+     its own single word's width whenever the SIBLING value is long enough
+     to dominate the shrink math, and since there is no space inside one
+     word to wrap at, the glyphs just spill past the label's now-too-narrow
+     box into the value's box sitting right after it - which is exactly the
+     "Projects" / "Free projects used up..." row overlapping into unreadable
+     text the first version of this rule produced. `auto` restores the
+     normal flex "automatic minimum size" (content's min-content width, the
+     widest unbreakable run) as the shrink floor, so a box can still shrink
+     and wrap down to that floor but never past it. */
+  min-width: auto;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}

@@ -354,13 +354,21 @@ export function DocumentStage(props: {
     const file = e.target.files?.[0];
     e.target.value = ''; // let the same file be picked again after an error
     if (!file) return;
+    // LOCKED, NOT LIVE. `showCap` true means a real parse would only burn
+    // real seconds (extractPdfText, then a network round trip) before
+    // failing at the same server-side gate that set `capped` in the first
+    // place. `.sl-drop[data-locked]`'s `pointer-events: none` (see
+    // PricingRows.css) already stops a pointer from reaching this input, but
+    // this guard is the belt to that CSS's braces - nothing here should
+    // start a parse it already knows the answer to.
+    if (showCap) return;
     void read(file);
   }
 
   function onDrop(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault();
     setOver(false);
-    if (busy) return;
+    if (busy || showCap) return;
     const file = e.dataTransfer.files?.[0];
     if (file) void read(file);
   }
@@ -386,9 +394,17 @@ export function DocumentStage(props: {
         <Tally phase={phase} pages={pages} found={found} />
       ) : signedIn ? (
         <>
+          {/* LOCKED READS AS CLOSED, NOT BROKEN. `data-locked` (PricingRows.css
+              owns the rule: neutral, full-contrast ink, no pointer events)
+              replaces the box's normal accent wash the moment `showCap` is
+              true, rather than leaving the same barely-legible tinted panel
+              standing in front of a wall someone cannot act on from here -
+              the paywall right below it is the only thing that can. */}
           <label
             className={`sl-drop${over ? ' sl-drop--over' : ''}`}
             data-testid="sl-drop"
+            data-locked={showCap ? '' : undefined}
+            aria-disabled={showCap || undefined}
             onDragOver={(e) => {
               e.preventDefault();
               setOver(true);
@@ -398,9 +414,11 @@ export function DocumentStage(props: {
           >
             <span className="sl-drop__title">Choose your shotlist PDF</span>
             <span className="sl-drop__sub">
-              Every scene and numbered shot, read off the document on this phone.
+              {showCap
+                ? 'Locked until this project is unlocked - pick a plan below.'
+                : 'Every scene and numbered shot, read off the document on this phone.'}
             </span>
-            <input type="file" accept="application/pdf,.pdf" hidden onChange={onPickPdf} />
+            <input type="file" accept="application/pdf,.pdf" hidden disabled={showCap} onChange={onPickPdf} />
           </label>
           {typeof left === 'number' && (
             <p className="camnote sl-quota">
