@@ -86,6 +86,12 @@ export function TierRow(props: { product: Product; purchase: Purchase }) {
       label={tierLabel(product)}
       value={busy ? 'Working…' : <ValueStack value={tierValue(product)} />}
       mono={!busy}
+      // Same opt-out as the launch offer row, for the same reason and one
+      // width down: at 320px, the narrowest phone this app supports, "5
+      // project credits" lost its last word to ellipsis while the price
+      // beside it kept every digit. A price is never a reason to make the
+      // thing being priced unreadable.
+      className="pr-wraprow"
       push
       disabled={purchase.busyKey !== null}
       onClick={() => void purchase.buy(product)}
@@ -194,7 +200,11 @@ export function SubscriptionRow(props: { product: Product; purchase: Purchase; b
     <div style={rawStyle as CSSProperties}>
       <button
         type="button"
-        className="grow"
+        // `pr-wraprow` has to sit on the SAME element as `grow` (see that
+        // class's comment). This row hand-builds its markup instead of
+        // going through `Row`, so it does not inherit the opt-out and has
+        // to name it: at 320px "Studio Plus · 20/mo" was truncating.
+        className="grow pr-wraprow"
         disabled={purchase.busyKey !== null}
         onClick={() => void purchase.buy(product)}
       >

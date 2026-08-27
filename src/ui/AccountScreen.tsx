@@ -212,7 +212,12 @@ export function AccountScreen(_props: { nav: Nav }) {
 
           {!proActive && (
             <Section title="Podcast mode" note="Roll time, not project count.">
-              <ReadRow label="This month" value={ent ? podcastCopy(ent) : '—'} />
+              {/* `pr-wraprow` (PricingRows.css): the value here is a
+                  sentence, not a figure ("3h of 3h left this month"), so at
+                  320px it squeezed the label down until "This month" itself
+                  was ellipsed. Same rule as every other row on this screen:
+                  the label wins and the row grows taller. */}
+              <ReadRow className="pr-wraprow" label="This month" value={ent ? podcastCopy(ent) : '—'} />
             </Section>
           )}
 
