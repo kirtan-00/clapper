@@ -1,13 +1,22 @@
 // ASKED ONCE: your name, and the production house the exports go out under.
 //
-// WHY THIS IS NOT PART OF SIGN-IN, which is what it looks like it should be.
-// Google OAuth has no form of ours to add fields to - the flow leaves the app,
-// lands on accounts.google.com and comes back. There is no "login screen" to
-// put two inputs on. So the prompt is a one-time sheet on the RETURN, and it
-// is triggered by STATE (signed in, never asked) rather than by the sign-in
-// EVENT. That distinction is the whole design: ten people already have
-// accounts and will never sign in again. An event-triggered prompt would
-// never reach a single one of them.
+// TWO PLACES ASK THIS SAME QUESTION, and that is deliberate, not duplication.
+// SignInSheet.tsx now carries the same two fields ABOVE its Google button,
+// because that sheet is ours - it is the last screen we control before the
+// flow leaves the app for accounts.google.com and comes back. Google's own
+// screen still has no form of ours to add fields to; that part of the old
+// argument here was always right. What was wrong was concluding from it that
+// OUR sheet could not ask first. It can, and now does.
+//
+// THIS sheet - StudioSheet, gated by StudioPrompt below - is the catch for
+// everyone that pre-ask misses: the ten accounts that already exist and will
+// never see SignInSheet again, and anyone who saw it and left both fields
+// blank. It is triggered by STATE (signed in, never asked) rather than by the
+// sign-in EVENT, which is exactly what makes it able to reach people whose
+// sign-in event happened before this feature existed, or before this session.
+// `setStudio` from either sheet writes the same key, so filling it in on
+// SignInSheet marks `studioAsked()` true and this sheet correctly stays
+// silent afterward - see studio.ts.
 //
 // The name is prefilled from Google because Google already gave it to us and
 // retyping something the machine knows is a small insult. It is still editable
