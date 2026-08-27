@@ -227,21 +227,35 @@ export function deleteFolder(filing: Filing, folderId: string): Filing {
 // ============================================================ THE GATE =====
 
 /**
- * The Studio Plus entitlement check for folder CONTROLS — create, rename,
- * delete, and moving a project into or out of a real folder (see
- * `moveNeedsFolders`). Archive and Unfiled are never gated; VIEWING whatever
- * is already on disk is never gated either — only the write path runs
- * through this.
+ * FOLDERS ARE FREE, AND THIS RETURNS TRUE FOR EVERYBODY. Read the paragraph
+ * below before changing it back.
  *
- * A `Pick`, not the full `Entitlements` shape: the only two fields this
- * decision has ever needed, spelled out at the call site (net/quota.ts) as
- * THE gate for this product — `subscriptionProduct === 'studio_plus'` while
- * `subscriptionActive`. `null` (signed out, or the read hasn't resolved yet)
- * reads as not-entitled, which is also the fail-safe default: this function
- * never returns true on an absence of information.
+ * This function briefly gated folder controls behind Studio Plus, on the
+ * understanding that folders were a new feature being added to that tier.
+ * They were not. Filing already shipped and was ALREADY LIVE IN PRODUCTION,
+ * free, for every existing user - verified 2026-08-27 against the deployed
+ * bundle itself, which carries "New folder", "File under", "Unfiled" and
+ * twenty-three instances of .pj-filerow. So the gate was not adding value to
+ * a paid tier, it was removing a feature people already had, from the
+ * handful of early users whose goodwill is worth more than the revenue.
+ * The owner decided they stay free.
+ *
+ * KEPT AS A FUNCTION RATHER THAN DELETED, and still called from every write
+ * path in ProjectsScreen, so that this file remains the ONE place the answer
+ * lives. If folders are ever sold, this is the only line that changes and
+ * every call site is already wired for a false. Deleting it would scatter
+ * that decision back across the screen.
+ *
+ * Studio Plus's real differentiator is the studio logo on client-facing
+ * exports (see ui/studio.ts), which is genuinely new and takes nothing away
+ * from anybody.
+ *
+ * The parameter is retained for the same reason: the shape a real gate needs
+ * is `subscriptionProduct === 'studio_plus'` while `subscriptionActive`,
+ * with `null` reading as not-entitled so an unresolved read can never grant.
  */
 export function canManageFolders(
-  entitlements: Pick<Entitlements, 'subscriptionProduct' | 'subscriptionActive'> | null,
+  _entitlements: Pick<Entitlements, 'subscriptionProduct' | 'subscriptionActive'> | null,
 ): boolean {
-  return !!entitlements && entitlements.subscriptionActive && entitlements.subscriptionProduct === 'studio_plus';
+  return true;
 }

@@ -222,22 +222,29 @@ describe('isFolderPlace / moveNeedsFolders — the free/paid line', () => {
   });
 });
 
-describe('canManageFolders — the Studio Plus gate', () => {
-  it('is false when signed out / not yet loaded', () => {
-    expect(canManageFolders(null)).toBe(false);
+describe('canManageFolders — folders are free', () => {
+  // Filing was already live in production, free, before anybody thought to
+  // sell it. Gating it would have taken a working feature off the existing
+  // users rather than added one to a paid tier, so it stays open. These
+  // assertions exist so that a future edit which quietly reintroduces a
+  // paywall fails here rather than in front of somebody mid-shoot.
+  it('is true for a signed-out user, and for a read that has not resolved', () => {
+    expect(canManageFolders(null)).toBe(true);
   });
 
-  it('is true only for an active studio_plus subscription', () => {
+  it('is true on the free tier, with no subscription at all', () => {
+    expect(canManageFolders({ subscriptionActive: false, subscriptionProduct: null })).toBe(true);
+  });
+
+  it('does not depend on which product somebody is on', () => {
+    expect(canManageFolders({ subscriptionActive: true, subscriptionProduct: 'pro_monthly' })).toBe(true);
     expect(canManageFolders({ subscriptionActive: true, subscriptionProduct: 'studio_plus' })).toBe(true);
   });
 
-  it('is false for the wrong product, even while active', () => {
-    expect(canManageFolders({ subscriptionActive: true, subscriptionProduct: 'pro_monthly' })).toBe(false);
-    expect(canManageFolders({ subscriptionActive: true, subscriptionProduct: null })).toBe(false);
-  });
-
-  it('is false for studio_plus that has lapsed (inactive)', () => {
-    expect(canManageFolders({ subscriptionActive: false, subscriptionProduct: 'studio_plus' })).toBe(false);
+  it('does not take folders away when a subscription lapses', () => {
+    // The failure this guards: somebody pays, files a season's work into
+    // folders, cancels, and loses the ability to touch their own filing.
+    expect(canManageFolders({ subscriptionActive: false, subscriptionProduct: 'studio_plus' })).toBe(true);
   });
 });
 
@@ -257,8 +264,11 @@ describe('lapsed subscription — folders and grouping survive; only editing loc
     const entitled = { subscriptionActive: true, subscriptionProduct: 'studio_plus' };
     const lapsed = { subscriptionActive: false, subscriptionProduct: 'studio_plus' };
 
+    // Both true now that folders are free. Kept as an assertion rather than
+    // deleted: the point of the test below is that the DATA is untouched by
+    // the entitlement flip, and that has to hold whichever way the gate goes.
     expect(canManageFolders(entitled)).toBe(true);
-    expect(canManageFolders(lapsed)).toBe(false);
+    expect(canManageFolders(lapsed)).toBe(true);
 
     // Same grouping question, asked before and after the subscription lapses
     // — `placeOf`/`readFiling` never consult entitlements at all, so the
@@ -272,8 +282,8 @@ describe('lapsed subscription — folders and grouping survive; only editing loc
     expect(placeOf(readFiling(), now, 'p3', now)).toBe('f2');
     expect(readFiling().folders).toHaveLength(2);
 
-    // The only thing that changed is whether the CONTROLS are open — nothing
-    // in storage was touched by computing `canManageFolders(lapsed)` above.
+    // Nothing in storage was touched by computing `canManageFolders(lapsed)`
+    // above, and with folders free the controls do not close either.
     expect(readFiling()).toEqual(filing);
   });
 });
