@@ -57,3 +57,34 @@ verify_jwt = true
 # distinction it wants. It grants nothing and takes no money.
 [functions.promo-status]
 verify_jwt = true
+
+# ---------------------------------------------------------------------------
+# EVERY DEPLOYED FUNCTION NEEDS AN ENTRY HERE, INCLUDING THE ONES NOBODY IS
+# CURRENTLY EDITING. Added 2026-08-27 after finding four live functions with no
+# declaration at all. The CLI defaults an undeclared function to verify_jwt =
+# true, so the next person who redeploys `breakdown` or `export-gate` without
+# touching this file flips them from false to true and the gateway starts
+# 401ing before the function runs. That is the same failure that already cost
+# this project a real payment, and it leaves no function log to find it by.
+# The values below are what production ACTUALLY had when this was written,
+# read back from the deployed function list, not what anyone assumed.
+
+# Script Mode's shot-division parse. Runs on the anon key and does its own
+# auth and quota work inside the function.
+[functions.breakdown]
+verify_jwt = false
+
+# The export wall. Same posture as breakdown: reached on the anon key, decides
+# for itself who is asking and whether the project is unlocked.
+[functions.export-gate]
+verify_jwt = false
+
+# The owner's private analytics dashboard. The page sends the anon key as the
+# Authorization header, so the gateway is satisfied by that; the passphrase is
+# a separate app-level identity the gateway never sees.
+[functions.dashboard-api]
+verify_jwt = true
+
+# Not in use, kept so a redeploy cannot silently change its posture.
+[functions.paddle-webhook]
+verify_jwt = false
