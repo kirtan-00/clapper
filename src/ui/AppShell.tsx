@@ -24,6 +24,7 @@ import { Onboarding } from './Onboarding';
 import { RollRecovery } from './RollRecovery';
 import { StudioPrompt } from './StudioSheet';
 import { trackScreenView } from '../net/analytics';
+import { bumpSafeBottomFloor } from './safeBottomFloor';
 
 // ------------------------------------------------- full-screen claims -----
 
@@ -77,6 +78,22 @@ export function AppShell(props: { render: (route: Route, nav: Nav) => ReactNode 
   // reports whatever screen was recorded here last.
   useEffect(() => {
     trackScreenView(route.name);
+  }, [route.name]);
+
+  // Every tab switch is a free chance to re-latch the tray's safe-area floor
+  // (see ui/safeBottomFloor.ts). It was boot-only before, which left long,
+  // ordinary gaps - open the app, sit on Home, tap into Account - where
+  // nothing had fired a `resize`/`orientationchange`/keyboard event to ever
+  // correct a bad first reading, so the floor could still be 0 the first
+  // time a screen with an input rendered. This is what fixed the tray
+  // sitting lower on Account and Settings than on Home and Projects: by the
+  // time either renders, the floor has already had one fresh, forced
+  // `getComputedStyle` read on every tab crossed to get there, not just
+  // whatever happened to fire near boot. Keyed on `route.name`, same as the
+  // screen_view effect above, so a `nav.replace` (editing in place) does not
+  // re-fire it needlessly - a genuine tab switch is plenty.
+  useEffect(() => {
+    bumpSafeBottomFloor();
   }, [route.name]);
 
   return (

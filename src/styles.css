@@ -816,8 +816,25 @@ input, select, textarea {
     calc(var(--safe-top) + var(--sp-2))
     calc(var(--safe-right) + var(--inset))
     /* clears the tray: without this the last row of every screen (the export
-       bar, the account row) renders underneath it */
-    calc(var(--bar-h) + var(--safe-bottom) + var(--sp-6))
+       bar, the account row) renders underneath it.
+
+       READS --safe-bottom-floor TOO, same as .mnav (skin/shell.css) and
+       .toast's own tray clearance below - three consumers of that token, all
+       three about the one piece of furniture. The tray is positioned off
+       max(--safe-bottom, --safe-bottom-floor) (see ui/safeBottomFloor.ts for
+       what keeps the floor itself honest), so whenever iOS's live inset dips
+       below the floor - exactly the transient that mechanism exists to
+       survive - the tray is still sitting at the FLOORED height while this
+       padding, if it only read the live value, would reserve less room than
+       the tray actually occupies. The gap is the floor/live delta (up to a
+       whole safe-area-inset-bottom, ~34pt on the phone that surfaced this)
+       which comfortably eats the --sp-6 buffer below and lets the last row
+       render behind the tray - measured doing exactly that on Settings, the
+       screen with the most bottom content and the input fields most likely to
+       have opened a keyboard moments before. Matching the expression here to
+       the one in .mnav is what keeps "how far off the bottom the tray is
+       right now" a single number instead of two that can drift apart. */
+    calc(var(--bar-h) + max(var(--safe-bottom), var(--safe-bottom-floor, 0px)) + var(--sp-6))
     calc(var(--safe-left) + var(--inset));
   display: flex;
   flex-direction: column;
@@ -4621,8 +4638,18 @@ html:has(.roll) {
   position: fixed;
   left: 50%;
   /* +--tray-lift, or it lands exactly on the tab tray. Zero on the roll screen
-     and under the guide, where the tray is unmounted. */
-  bottom: calc(var(--tray-lift, 0px) + var(--safe-bottom) + 22px);
+     and under the guide, where the tray is unmounted.
+
+     READS max(--safe-bottom, --safe-bottom-floor) too, same fix and same
+     reason as .app's padding-bottom (styles.css, .app rule) and .mnav
+     (skin/shell.css): the tray it is climbing past is itself positioned off
+     that max(), so a toast that only reads the live value can climb too
+     little when the floor is the one holding the tray up. Safe on the roll
+     screen too, where --tray-lift means something else entirely (CUT
+     clearance, see the .app--rolling rule above) - the floor there can only
+     ever match or exceed the live reading, never claw back space that was
+     actually needed. */
+  bottom: calc(var(--tray-lift, 0px) + max(var(--safe-bottom), var(--safe-bottom-floor, 0px)) + 22px);
   transform: translateX(-50%);
   background: var(--ink-800);
   border: 1px solid var(--line);

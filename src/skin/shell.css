@@ -251,7 +251,14 @@ html[data-uiscale='fine'] textarea {
 :root {
   --m-nav-pad: 5px;       /* the pod's own wall around its keys */
   --m-nav-item-gap: 4px;
-  --m-nav-float: 10px;    /* how far the pod floats off the safe area */
+  /* How far the pod floats off the safe area. Dropped from 10px in the lane
+     report's own build - measured against the owner's photos, the pod was
+     sitting further off the bottom edge than a native iOS tab bar ever does,
+     which floats on nothing. 4px keeps it a pod (still visibly off the
+     hairline, still casting its shadow) without the extra lift reading as
+     "hovering". Universal: this is the ONLY place the float is set, so every
+     route drops by the same 6px with nothing further to reconcile. */
+  --m-nav-float: 4px;
   --bar-h: calc(var(--tap) + var(--m-nav-pad) * 2 + var(--m-nav-float));
 }
 

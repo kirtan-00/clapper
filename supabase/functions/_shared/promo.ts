@@ -31,7 +31,20 @@
 // over-sale is logged for a human. Taking somebody's money and then refusing
 // to deliver because of our own counter is not a trade-off worth making.
 
-import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+// NOT `import type { SupabaseClient } from "jsr:@supabase/supabase-js@2"`,
+// which is what store.ts does. This module is imported by
+// src/net/promo.test.ts so the cap can be tested, and that drags it into the
+// APP's tsconfig, where a `jsr:` specifier does not resolve. store.ts gets
+// away with it only because nothing under src/ imports store.ts. The same
+// reasoning is why suspension.ts in this directory already types its client
+// loosely.
+//
+// The cost is real and worth naming: this file gets no type checking on the
+// query chain, so a typo in a column name is a runtime bug, not a compile
+// error. That is exactly why every query below is covered by a test with a
+// hand written double rather than trusted to the compiler.
+// deno-lint-ignore-file no-explicit-any
+type PromoDb = any;
 
 /** The catalogue key. Must match _shared/products.ts. */
 export const PROMO_PRODUCT_KEY = "jumpstart_5";
@@ -61,7 +74,7 @@ export interface PromoState {
  * list price.
  */
 export async function readPromoState(
-  admin: SupabaseClient,
+  admin: PromoDb,
   userId: string,
 ): Promise<PromoState> {
   const gone: PromoState = { remaining: 0, alreadyClaimed: false, eligible: false };
