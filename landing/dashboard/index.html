@@ -906,6 +906,22 @@ function fmtDT(iso) { return DT_FMT.format(new Date(iso)); }
 function fmtN(n) { return Number(n || 0).toLocaleString(); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function pct(a, b) { return b > 0 ? Math.round((a / b) * 1000) / 10 : 0; }
+// Money is smallest-unit-in, real-unit-out, divided by 100 in exactly ONE
+// place. Never handed to fmtN(): that helper runs Number() over the value,
+// which turns "5.00 USD" into NaN - an amount is a string with a unit, and
+// every panel on this page that shows money (Users, Purchases) calls this
+// same function so the division only ever happens here.
+function fmtMoney(minorUnits, currency) {
+  if (minorUnits === null || minorUnits === undefined) return '-';
+  return (minorUnits / 100).toFixed(2) + (currency ? ' ' + currency : '');
+}
+// A user can, in principle, have paid in more than one currency - fmtMoney
+// takes one amount, this joins however many a person actually has, and never
+// adds them together (same rule as "Taken, by currency" in Money below).
+function fmtMoneyList(entries) {
+  if (!entries || !entries.length) return '-';
+  return entries.map(function (e) { return fmtMoney(e.minor_units, e.currency); }).join(', ');
+}
 
 var SCREEN_LABEL = {
   home: 'Home', projects: 'Projects list', project: 'A project', shots: 'Shot list',
@@ -1045,7 +1061,7 @@ function panelLlm(l) {
  * "Are you sure?", which tells a reader nothing they did not already know.
  * `say` is pre-escaped by the caller because it interpolates a name. */
 function confirmRow(say, o) {
-  return '<tr class="confirm-row"><td colspan="7"><div class="confirm">' +
+  return '<tr class="confirm-row"><td colspan="12"><div class="confirm">' +
     '<span class="say">' + say + '</span>' +
     (o.input
       ? '<input class="field field--inline' + (o.input.num ? ' field--num' : '') + '" id="armInput" type="' + o.input.type +
@@ -1057,9 +1073,22 @@ function confirmRow(say, o) {
   '</div></td></tr>';
 }
 
+// Plan text -> pill, matching the vocabulary planFor() in dashboard-api
+// writes: a live subscription's own product name, "pay-per-job" for anyone
+// who has bought a credit without subscribing, "free" for everyone else. Not
+// the same pill as the PRO/free one below it - see the Users foot-note.
+function planPill(plan) {
+  if (plan === null || plan === undefined) return '<span class="pill">-</span>';
+  if (plan === 'free') return '<span class="pill">free</span>';
+  if (plan === 'pay-per-job') return '<span class="pill pill--pro">PAY-PER-JOB</span>';
+  return '<span class="pill pill--pro">' + esc(plan.toUpperCase()) + '</span>';
+}
+
 function panelUsers(u) {
   var avail = u.suspend_available;
   var why = u.suspend_unavailable_reason || '';
+  var entAvail = u.entitlements_available;
+  var entWhy = u.entitlements_unavailable_reason || '';
   var rows = u.rows.slice(0, 200).map(function (r) {
     var uid = esc(r.user_id);
     var who = esc(r.email || r.user_id);
@@ -1083,10 +1112,19 @@ function panelUsers(u) {
         ? '<button type="button" class="btn btn--sm" data-arm="unsuspend" data-user="' + uid + '">Unsuspend</button>'
         : '<button type="button" class="btn btn--sm btn--danger" data-arm="suspend" data-user="' + uid + '">Suspend</button>';
 
+    // Money columns read '-' when entitlements/purchases could not be probed
+    // (r.credit_balance etc. arrive as null in that case) rather than a bare
+    // 0, which would look like "this account has nothing" instead of "this
+    // page could not check".
     var tr = '<tr><td class="who">' + who + '</td>' +
       '<td>' + esc(fmtDay(r.created_at.slice(0, 10))) + '</td>' +
       '<td>' + plan + '</td>' +
       '<td>' + esc(r.pro_until ? fmtDay(r.pro_until.slice(0, 10)) : '–') + '</td>' +
+      '<td>' + planPill(r.plan) + '</td>' +
+      '<td class="num">' + (r.credit_balance === null ? '-' : fmtN(r.credit_balance)) + '</td>' +
+      '<td class="num">' + (r.credits_purchased_total === null ? '-' : fmtN(r.credits_purchased_total)) + '</td>' +
+      '<td class="num">' + fmtMoneyList(r.total_paid) + '</td>' +
+      '<td class="num">' + (r.free_projects_used === null ? '-' : fmtN(r.free_projects_used)) + '</td>' +
       '<td class="num">' + fmtN(r.llm_calls) + '</td>' +
       '<td class="num">' + fmtN(r.llm_prompt_tokens + r.llm_completion_tokens) + '</td>' +
       '<td class="ctls"><div class="ctls-stack">' + proBtn + susBtn + '</div></td></tr>';
@@ -1115,19 +1153,29 @@ function panelUsers(u) {
     return tr;
   }).join('');
 
+  var paying = u.rows.filter(function (r) { return r.plan && r.plan !== 'free'; }).length;
+
   return '<div class="card">' +
     '<h2>Users</h2>' +
     '<div class="stat-row">' +
       '<div class="stat"><div class="num mono">' + fmtN(u.total) + '</div><div class="label">accounts</div></div>' +
-      '<div class="stat"><div class="num mono">' + fmtN(u.pro) + '</div><div class="label">pro</div></div>' +
-      '<div class="stat"><div class="num mono">' + fmtN(u.free) + '</div><div class="label">free</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(u.pro) + '</div><div class="label">pro (comp)</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(u.free) + '</div><div class="label">free (comp)</div></div>' +
       (avail ? '<div class="stat"><div class="num mono">' + fmtN(u.suspended || 0) + '</div><div class="label">suspended</div></div>' : '') +
+      (entAvail ? '<div class="stat"><div class="num mono">' + fmtN(paying) + '</div><div class="label">paying (billing)</div></div>' : '') +
     '</div>' +
     (u.rows.length
-      ? '<div class="table-scroll"><table class="dtable"><thead><tr><th>Email</th><th>Created</th><th>Plan</th><th>Pro until</th><th class="num">LLM calls</th><th class="num">Tokens</th><th class="ctls-h">Controls</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+          '<th>Email</th><th>Created</th><th>Pro (comp)</th><th>Pro until</th><th>Billing</th>' +
+          '<th class="num">Credits</th><th class="num">Bought</th><th class="num">Paid</th><th class="num">Free used</th>' +
+          '<th class="num">LLM calls</th><th class="num">Tokens</th><th class="ctls-h">Controls</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<p class="empty">No accounts yet.</p>') +
     (u.rows.length > 200 ? '<p class="foot-note">Showing the first 200 of ' + fmtN(u.rows.length) + '.</p>' : '') +
-    '<p class="foot-note"><strong>Pro is granted by hand.</strong> Nothing is being sold yet, so every Pro account is one you made here. An expiry date is the last day the comp runs; leave it empty and it never lapses. Pro and credits are separate things: Pro is the old time-based comp, a credit unlocks one project forever. See Money below.</p>' +
+    '<p class="foot-note"><strong>Two different "Pro" columns, on purpose.</strong> "Pro (comp)" is the old time-based comp granted by hand below - an expiry date is the last day it runs, and empty means it never lapses. "Billing" is what the account is actually paying for right now: a live subscription shows the product it is billed for, "pay-per-job" means it has bought at least one credit and is not subscribed, "free" means it has paid nothing. The two can disagree, correctly - a hand-comped account with no purchase is Pro (comp) and Billing: free in the same row.</p>' +
+    (entAvail
+      ? '<p class="foot-note">"Credits" is the current spendable balance (<code>project_credits</code>) and "Bought" is every credit that account has ever purchased (<code>credits_purchased_total</code>) - the gap between them is credits already spent unlocking projects. "Paid" totals every purchase for that account, win or lose: a stuck payment (see Money below) still counts here, because the money still left their card.</p>'
+      : '<p class="foot-note"><strong>Credits, billing and paid totals are not readable yet.</strong> ' + esc(entWhy) + '</p>') +
     (avail
       ? '<p class="foot-note"><strong>Suspend blocks, it never deletes.</strong> A suspended account keeps every project and every take. It is refused Script Mode and gated exports, and gets both back the moment you undo it.</p>'
       : '<p class="foot-note"><strong>Suspend is disabled.</strong> ' + esc(why) + '</p>') +
@@ -1216,14 +1264,10 @@ function panelPurchases(p) {
     unknown_product: 'Paid for a price id this deploy does not know.',
   };
 
-  // Money is formatted here and never handed to renderRows: that helper runs
-  // fmtN() over the value, which turns "5.00 USD" into NaN and "21.00" into
-  // "21". Amounts are strings with a unit, so they get their own rows built
-  // from the same .row markup.
-  function money(minor, currency) {
-    if (minor === null || minor === undefined) return '-';
-    return (minor / 100).toFixed(2) + (currency ? ' ' + currency : '');
-  }
+  // Amounts are strings with a unit (fmtMoney, defined with the other
+  // formatters above), so they get their own rows built from the same .row
+  // markup rather than going through renderRows/fmtN, which would turn
+  // "5.00 USD" into NaN.
   function moneyRow(k, v, vsub) {
     return '<div class="row"><div class="k">' + esc(k) + '</div>' +
       '<div class="v mono">' + esc(v) + (vsub ? '<span class="sub">' + esc(vsub) + '</span>' : '') + '</div></div>';
@@ -1247,7 +1291,7 @@ function panelPurchases(p) {
       '<td><span class="pill pill--off">' + esc(r.status) + '</span></td>' +
       '<td>' + esc(r.product_key || '-') + '</td>' +
       '<td class="num">' + fmtN(r.credits) + '</td>' +
-      '<td class="num">' + esc(money(r.amount_cents, r.currency)) + '</td>' +
+      '<td class="num">' + esc(fmtMoney(r.amount_cents, r.currency)) + '</td>' +
     '</tr>';
   }).join('');
 
@@ -1256,25 +1300,41 @@ function panelPurchases(p) {
         'Every row below is somebody waiting. Look the transaction up at the gateway, then fix the account by hand.</div>' +
       '<div class="table-scroll"><table class="dtable"><thead><tr>' +
         '<th>Who</th><th>Seen</th><th>State</th><th>Product</th><th class="num">Credits</th><th class="num">Paid</th>' +
-      '</tr></thead><tbody>' + attRows + '</tbody></table></div>'
+      '</tr></thead><tbody>' + attRows + '</tbody></table></div>' +
+      (p.needs_attention_truncated ? '<p class="foot-note">Showing the first 200 stuck payments - there are more. Raise the limit in dashboard-api/index.ts.</p>' : '')
     : '<p class="empty">Nothing stuck. Every payment that arrived was granted.</p>';
 
   var byCur = (p.granted && p.granted.by_currency ? p.granted.by_currency : []);
   var curBlock = byCur.length
     ? '<div class="rows">' + byCur.map(function (c) {
-        return moneyRow(c.currency, money(c.minor_units, ''), fmtN(c.count) + ' payment(s)');
+        return moneyRow(c.currency, fmtMoney(c.minor_units, ''), fmtN(c.count) + ' payment(s)');
       }).join('') + '</div>'
     : '<p class="empty">Nothing sold yet.</p>';
 
-  var recent = p.recent || [];
-  var recentBlock = recent.length
-    ? '<div class="rows">' + recent.map(function (r) {
-        return moneyRow(
-          r.email || r.user_id || 'unknown',
-          fmtN(r.credits) + ' credit(s)',
-          money(r.amount_cents, r.currency) + ' \u00b7 ' + fmtDT(r.granted_at),
-        );
-      }).join('') + '</div>'
+  // EVERY granted purchase - who, what product, how much, which provider,
+  // and when - not a preview. Same table markup as the stuck-payments table
+  // above, on purpose: this and attBlock together ARE "every purchase", split
+  // into the two states a row can be in. Provider lives in the sub-line under
+  // Who, same reasoning as attRows above it: a dedicated column pushed the
+  // table wider than the card.
+  var all = p.all || [];
+  var allRows = all.map(function (r) {
+    var ref = (r.provider ? r.provider + ' \u00b7 ' : '') + (r.event_id || '');
+    return '<tr>' +
+      '<td class="who">' + esc(r.email || r.user_id || 'unknown') +
+        (ref ? '<span class="sub">' + esc(ref) + '</span>' : '') + '</td>' +
+      '<td>' + esc(fmtDT(r.created_at)) + '</td>' +
+      '<td><span class="pill pill--pro">GRANTED</span></td>' +
+      '<td>' + esc(r.product_key || '-') + '</td>' +
+      '<td class="num">' + fmtN(r.credits) + '</td>' +
+      '<td class="num">' + esc(fmtMoney(r.amount_cents, r.currency)) + '</td>' +
+    '</tr>';
+  }).join('');
+  var allBlock = all.length
+    ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+        '<th>Who</th><th>When</th><th>State</th><th>Product</th><th class="num">Credits</th><th class="num">Paid</th>' +
+      '</tr></thead><tbody>' + allRows + '</tbody></table></div>' +
+      (p.granted_truncated ? '<p class="foot-note">Showing the first 1,000 granted purchases - there are more. Raise the limit in dashboard-api/index.ts.</p>' : '')
     : '<p class="empty">No grants yet.</p>';
 
   var credits = p.credits || {};
@@ -1292,9 +1352,9 @@ function panelPurchases(p) {
     '</div>' +
     subscriptionsBlock(p.subscriptions) +
     '<h3 class="sub-h">Taken, by currency</h3>' + curBlock +
-    '<h3 class="sub-h">Last ten grants</h3>' + recentBlock +
+    '<h3 class="sub-h">All purchases (' + fmtN(all.length) + ' granted)</h3>' + allBlock +
     '<p class="foot-note"><strong>Totals are never summed across currencies.</strong> Each row holds what was actually charged, in the currency it was charged in, so an INR row and a USD row can sit side by side. One combined number would have no unit.</p>' +
-    '<p class="foot-note"><strong>These are gross, not yours.</strong> Stripe is not a merchant of record: on a Stripe sale you are the seller, so the figures above include any sales tax collected and that tax is your liability, not the gateway\u2019s. Paddle, which this replaced, took that on. Stripe fees are not deducted here either.</p>' +
+    '<p class="foot-note"><strong>These are gross, not yours.</strong> The gateway is not a merchant of record: on a live Razorpay or Stripe sale you are the seller, so the figures above include any tax collected and that tax is your liability, not the gateway\u2019s. Gateway fees are not deducted here either.</p>' +
     (credits.available
       ? '<p class="foot-note"><strong>' + fmtN(credits.outstanding) + '</strong> credit(s) bought and not yet spent, held by <strong>' + fmtN(credits.holders) + '</strong> account(s). A credit unlocks one project permanently.</p>'
       : '<p class="foot-note"><strong>Credit balances are not readable yet.</strong> profiles.project_credits arrives with supabase/migrations/20260826170000_entitlements.sql.</p>') +

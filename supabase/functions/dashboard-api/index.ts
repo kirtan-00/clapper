@@ -790,67 +790,6 @@ Deno.serve(async (req: Request) => {
       appControl.used_today = typeof dailyRow?.count === "number" ? dailyRow.count : 0;
     }
 
-    // ---- Users -------------------------------------------------------
-    // Suspension state is fetched in its own pass, and ONLY when the probe
-    // above said the column is there. It cannot be folded into the main
-    // profiles select at the top of this action for the same reason it had to
-    // be pulled out of breakdown and export-gate: naming a column PostgREST
-    // does not know fails the whole select, and that select is what every
-    // other panel's user attribution is built on. One missing column would
-    // take the entire dashboard down rather than one button.
-    const suspendedByUser = new Map<string, { is_suspended: boolean; suspended_at: string | null; suspended_reason: string | null }>();
-    if (suspendAvailable) {
-      const { data: susRows } = await admin
-        .from("profiles")
-        .select("user_id,is_suspended,suspended_at,suspended_reason")
-        .eq("is_suspended", true);
-      for (const r of (susRows ?? []) as { user_id: string; is_suspended: boolean; suspended_at: string | null; suspended_reason: string | null }[]) {
-        suspendedByUser.set(r.user_id, {
-          is_suspended: r.is_suspended === true,
-          suspended_at: r.suspended_at,
-          suspended_reason: r.suspended_reason,
-        });
-      }
-    }
-
-    const usersRows = liveProfileRows.map((p) => {
-      const agg = byUser.get(p.user_id) ?? emptyAgg();
-      const sus = suspendedByUser.get(p.user_id);
-      return {
-        user_id: p.user_id,
-        email: p.email,
-        created_at: p.created_at,
-        is_pro: p.is_pro,
-        pro_until: p.pro_until,
-        // Absent column and "not suspended" are deliberately the same false
-        // here. The page never has to reason about a third state: whether the
-        // control is usable at all is answered once, by suspend_available.
-        is_suspended: sus?.is_suspended === true,
-        suspended_at: sus?.suspended_at ?? null,
-        suspended_reason: sus?.suspended_reason ?? null,
-        llm_calls: agg.calls,
-        llm_prompt_tokens: agg.prompt_tokens,
-        llm_completion_tokens: agg.completion_tokens,
-      };
-    });
-    const users = {
-      total: usersRows.length,
-      pro: usersRows.filter((u) => u.is_pro).length,
-      free: usersRows.filter((u) => !u.is_pro).length,
-      rows: usersRows,
-      // Suspend availability is ASKED, not asserted. This used to be a
-      // hard-coded `false` with a hand-written sentence about which migration
-      // was unapplied - which was true on the day it was written and would
-      // have gone on claiming it the day after the owner applied the file.
-      // The probe above puts the actual database in charge of the answer, so
-      // the control turns itself on the moment the column lands and nobody
-      // has to remember to come back here and flip a constant. It is one
-      // cheap select against one row.
-      suspend_available: suspendAvailable,
-      suspend_unavailable_reason: suspendAvailable ? null : suspendUnavailableReason,
-      suspended: usersRows.filter((u) => u.is_suspended).length,
-    };
-
     // ---- Purchases: the reconciliation panel ----------------------------
     // THE QUESTION THIS ANSWERS: did anybody pay us and get nothing?
     //
@@ -931,6 +870,24 @@ Deno.serve(async (req: Request) => {
       agg.minor_units += typeof r.amount_cents === "number" ? r.amount_cents : 0;
       agg.count += 1;
       revenueByCurrency.set(cur, agg);
+    }
+
+    // Money paid, PER ACCOUNT, grouped by currency the same way the total
+    // above is - one number with no unit is worse than none. Feeds the "Paid"
+    // column on the Users table below. Built from BOTH lists just fetched,
+    // not from `grantedRows` alone: a stuck payment (`attentionRows`) still
+    // took the person's money, and "how much has this account paid" has to
+    // answer honestly even when nothing was granted for it - that is the
+    // entire point of the reconciliation panel this section belongs to.
+    const moneyPaidByUser = new Map<string, Map<string, number>>();
+    if (purchasesAvailable) {
+      for (const r of [...attentionRows, ...grantedRows]) {
+        if (!r.user_id) continue;
+        const cur = (r.currency ?? "unknown").toUpperCase();
+        const perUser = moneyPaidByUser.get(r.user_id) ?? new Map<string, number>();
+        perUser.set(cur, (perUser.get(cur) ?? 0) + (typeof r.amount_cents === "number" ? r.amount_cents : 0));
+        moneyPaidByUser.set(r.user_id, perUser);
+      }
     }
 
     // Credits outstanding: bought and not yet spent on a project. Its own
@@ -1031,10 +988,62 @@ Deno.serve(async (req: Request) => {
       })),
     };
 
+    // ---- Per-account entitlements: credit balance, plan, lifetime spend ----
+    // Feeds three of the five new columns on the Users table below (credit
+    // balance, plan, lifetime credits bought) plus free-project usage. Own
+    // probe, own pass - not folded into the main profiles select at the top
+    // of this action, same reasoning as the credits-outstanding and
+    // subscription blocks above: PostgREST refuses an ENTIRE select if any
+    // named column is unknown, and that top select is what every other
+    // panel's user attribution is built on.
+    const { data: entitlementRows, error: entitlementsProbeErr } = await admin
+      .from("profiles")
+      .select(
+        "user_id,project_credits,credits_purchased_total,subscription_status,subscription_product,free_projects_used",
+      );
+    const entitlementsAvailable = !entitlementsProbeErr;
+    const entitlementsUnavailableReason = !entitlementsProbeErr
+      ? null
+      : ((entitlementsProbeErr as { code?: string })?.code === "42703")
+      ? "Credit/subscription columns do not exist yet. Apply supabase/migrations/20260826170000_entitlements.sql, then reload this page - the Users table fills these in on its own."
+      : "Entitlements could not be read: " +
+        String((entitlementsProbeErr as { message?: string })?.message ?? "unknown error");
+
+    interface EntitlementRow {
+      user_id: string;
+      project_credits: number | null;
+      credits_purchased_total: number | null;
+      subscription_status: string | null;
+      subscription_product: string | null;
+      free_projects_used: number | null;
+    }
+    const entitlementsByUser = new Map<string, EntitlementRow>();
+    if (entitlementsAvailable) {
+      for (const r of (entitlementRows ?? []) as EntitlementRow[]) entitlementsByUser.set(r.user_id, r);
+    }
+
+    // What plan a person is actually ON, for the Users table - deliberately
+    // NOT the same question as is_pro. is_pro is the old time-based comp
+    // granted by hand (see the Users foot-note below); this is what the
+    // subscription columns say is live right now. Someone with an active
+    // subscription shows the product they were billed for; everyone else
+    // either has bought at least one credit ever (pay-per-job) or has not
+    // (free). The two can disagree - a hand-comped Pro account with no
+    // subscription and no purchase reads "free" here, correctly, because
+    // nobody has paid for it.
+    function planFor(status: string | null, product: string | null, creditsBought: number): string {
+      if (status && SUBSCRIPTION_ACTIVE.has(status)) return product || "subscribed (product unknown)";
+      return creditsBought > 0 ? "pay-per-job" : "free";
+    }
+
     const purchases = {
       available: purchasesAvailable,
       unavailable_reason: purchasesAvailable ? null : purchasesUnavailableReason,
       subscriptions,
+      // THE TOP OF THE PANEL. Every row here is a person who paid and got
+      // nothing - see the header comment on this whole section for why that
+      // is never hedged. `truncated` is honest about the same 200-row cap
+      // every other capped fetch in this file reports.
       needs_attention: attentionRows.map((r) => ({
         provider: r.provider,
         event_id: r.provider_event_id,
@@ -1051,6 +1060,7 @@ Deno.serve(async (req: Request) => {
         note: r.note,
         created_at: r.created_at,
       })),
+      needs_attention_truncated: attentionRows.length >= 200,
       granted: {
         count: grantedRows.length,
         credits: grantedRows.reduce((n, r) => n + (typeof r.credits === "number" ? r.credits : 0), 0),
@@ -1058,7 +1068,13 @@ Deno.serve(async (req: Request) => {
           .map(([currency, agg]) => ({ currency, ...agg }))
           .sort((a, b) => b.minor_units - a.minor_units),
       },
-      recent: grantedRows.slice(0, 10).map((r) => ({
+      // EVERY granted purchase, not a top-ten sample - "how much has Clapper
+      // made" and "did that person's payment actually grant" both need the
+      // whole ledger, not a preview of it. `status` is included on every row
+      // even though it is always "granted" here, so this list and
+      // needs_attention above share one row shape and the page can render
+      // them with the same table markup.
+      all: grantedRows.map((r) => ({
         provider: r.provider,
         event_id: r.provider_event_id,
         user_id: r.user_id,
@@ -1067,8 +1083,10 @@ Deno.serve(async (req: Request) => {
         credits: r.credits ?? 0,
         amount_cents: r.amount_cents,
         currency: r.currency,
-        granted_at: r.granted_at ?? r.created_at,
+        status: "granted",
+        created_at: r.granted_at ?? r.created_at,
       })),
+      granted_truncated: grantedRows.length >= 1000,
       credits: {
         available: creditsAvailable,
         outstanding: creditsOutstanding,
@@ -1076,12 +1094,95 @@ Deno.serve(async (req: Request) => {
       },
     };
 
+    // ---- Users -------------------------------------------------------
+    // Suspension state is fetched in its own pass, and ONLY when the probe
+    // above said the column is there. It cannot be folded into the main
+    // profiles select at the top of this action for the same reason it had to
+    // be pulled out of breakdown and export-gate: naming a column PostgREST
+    // does not know fails the whole select, and that select is what every
+    // other panel's user attribution is built on. One missing column would
+    // take the entire dashboard down rather than one button.
+    const suspendedByUser = new Map<string, { is_suspended: boolean; suspended_at: string | null; suspended_reason: string | null }>();
+    if (suspendAvailable) {
+      const { data: susRows } = await admin
+        .from("profiles")
+        .select("user_id,is_suspended,suspended_at,suspended_reason")
+        .eq("is_suspended", true);
+      for (const r of (susRows ?? []) as { user_id: string; is_suspended: boolean; suspended_at: string | null; suspended_reason: string | null }[]) {
+        suspendedByUser.set(r.user_id, {
+          is_suspended: r.is_suspended === true,
+          suspended_at: r.suspended_at,
+          suspended_reason: r.suspended_reason,
+        });
+      }
+    }
+
+    const usersRows = liveProfileRows.map((p) => {
+      const agg = byUser.get(p.user_id) ?? emptyAgg();
+      const sus = suspendedByUser.get(p.user_id);
+      const ent = entitlementsByUser.get(p.user_id);
+      const paidMap = moneyPaidByUser.get(p.user_id);
+      return {
+        user_id: p.user_id,
+        email: p.email,
+        created_at: p.created_at,
+        is_pro: p.is_pro,
+        pro_until: p.pro_until,
+        // Absent column and "not suspended" are deliberately the same false
+        // here. The page never has to reason about a third state: whether the
+        // control is usable at all is answered once, by suspend_available.
+        is_suspended: sus?.is_suspended === true,
+        suspended_at: sus?.suspended_at ?? null,
+        suspended_reason: sus?.suspended_reason ?? null,
+        llm_calls: agg.calls,
+        llm_prompt_tokens: agg.prompt_tokens,
+        llm_completion_tokens: agg.completion_tokens,
+        // What money actually did for this account, added for the pricing
+        // surface going live: a current balance, what plan they are actually
+        // on (see planFor above - distinct from the is_pro comp), lifetime
+        // credits bought, how many of their free projects they have used,
+        // and every rupee/cent that ever left their card, win or lose. `null`
+        // means "cannot be read" (entitlements/purchases probe failed), never
+        // a silent zero - a blank cell reads honestly as unknown.
+        credit_balance: ent && typeof ent.project_credits === "number" ? ent.project_credits : null,
+        plan: ent ? planFor(ent.subscription_status, ent.subscription_product, ent.credits_purchased_total ?? 0) : null,
+        credits_purchased_total:
+          ent && typeof ent.credits_purchased_total === "number" ? ent.credits_purchased_total : null,
+        free_projects_used: ent && typeof ent.free_projects_used === "number" ? ent.free_projects_used : null,
+        total_paid: paidMap ? [...paidMap.entries()].map(([currency, minor_units]) => ({ currency, minor_units })) : [],
+      };
+    });
+    const users = {
+      total: usersRows.length,
+      pro: usersRows.filter((u) => u.is_pro).length,
+      free: usersRows.filter((u) => !u.is_pro).length,
+      rows: usersRows,
+      // Suspend availability is ASKED, not asserted. This used to be a
+      // hard-coded `false` with a hand-written sentence about which migration
+      // was unapplied - which was true on the day it was written and would
+      // have gone on claiming it the day after the owner applied the file.
+      // The probe above puts the actual database in charge of the answer, so
+      // the control turns itself on the moment the column lands and nobody
+      // has to remember to come back here and flip a constant. It is one
+      // cheap select against one row.
+      suspend_available: suspendAvailable,
+      suspend_unavailable_reason: suspendAvailable ? null : suspendUnavailableReason,
+      suspended: usersRows.filter((u) => u.is_suspended).length,
+      // Same "ask, don't assert" posture as suspend_available - whether the
+      // five money columns on this table are readable is a live probe result
+      // computed above with the rest of the Purchases section, not a
+      // constant, so the page turns them on the moment the migration lands.
+      entitlements_available: entitlementsAvailable,
+      entitlements_unavailable_reason: entitlementsAvailable ? null : entitlementsUnavailableReason,
+    };
+
     // Pro upgrade/downgrade needs no schema at all - is_pro and pro_until are
     // both live and both already read above - so it is reported separately
     // from the suspension probe rather than sharing its verdict. Wiring them
     // to one flag would switch off the one control the owner needs most
-    // (Razorpay is not connected yet, so comping a user by hand is the only
-    // way anybody becomes Pro) over a column that has nothing to do with it.
+    // (Razorpay grants credits, never is_pro - see razorpay-verify's own
+    // header comment - so comping a user by hand is still the only way
+    // anybody becomes Pro) over a column that has nothing to do with it.
     const proControlsAvailable = true;
 
     return new Response(
