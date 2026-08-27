@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
 import { getProduct } from "../_shared/products.ts";
 import { isSuspended } from "../_shared/suspension.ts";
+import { isPromoProduct, readPromoState } from "../_shared/promo.ts";
 
 // UN-PARKED 2026-08-27. Razorpay is a SECOND provider, INR, alongside
 // Stripe/Paddle in USD - not a replacement for either. The file used to
@@ -196,6 +197,30 @@ Deno.serve(async (req: Request) => {
       }),
       { status: 403, headers },
     );
+  }
+
+  // 3c. THE LAUNCH OFFER'S CAP. Only jumpstart_5 is capped, and this is the
+  // only gate on it: the webhook grants whatever a paid order says it bought,
+  // deliberately, because refusing to deliver money we have already taken is
+  // worse than an over-sale. See _shared/promo.ts for why the count is
+  // approximate and why it errs toward refusing rather than accepting.
+  if (isPromoProduct(product.key)) {
+    const promo = await readPromoState(admin, user.id);
+    if (!promo.eligible) {
+      console.log(
+        `razorpay-order: promo refused for ${user.id} (claimed=${promo.alreadyClaimed}, remaining=${promo.remaining})`,
+      );
+      return new Response(
+        JSON.stringify({
+          error: promo.alreadyClaimed
+            ? "You have already used the jumpstart offer."
+            : "The jumpstart offer has gone. The regular packs are still there.",
+          code: "promo_unavailable",
+          already_claimed: promo.alreadyClaimed,
+        }),
+        { status: 409, headers },
+      );
+    }
   }
 
   // 4. Create the order at Razorpay.

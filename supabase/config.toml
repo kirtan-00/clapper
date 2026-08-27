@@ -49,3 +49,11 @@ verify_jwt = true
 # the function trusts `sub` as the subscriber.
 [functions.razorpay-subscription]
 verify_jwt = true
+
+# Display only: how many launch-offer slots are left. verify_jwt stays TRUE
+# even though it answers signed-out callers, because supabase-js sends the
+# anon key as the Authorization header either way - the gateway is satisfied
+# by the anon key and the function itself sees no user, which is exactly the
+# distinction it wants. It grants nothing and takes no money.
+[functions.promo-status]
+verify_jwt = true

@@ -146,6 +146,27 @@ export const PRODUCTS: Record<string, Product> = {
   // NEW 2026-08-27: the single-credit option that did not exist in the
   // previous catalogue (credits_1 was removed unsold; this is a fresh key,
   // not a revival of that one).
+  // THE LAUNCH OFFER, 2026-08-27. INR 100 for 5 credits, FIRST TEN PEOPLE
+  // ONLY, one each. That is INR 20 a project against a list price of INR 699,
+  // so the cap is load bearing and lives in _shared/promo.ts - this table
+  // says only what it costs and what it grants, exactly like every other key.
+  //
+  // WHY IT IS A SEPARATE KEY rather than a discount on bundle_5: the ledger
+  // has to be able to say, years later, which five credits were sold at
+  // launch prices and which were sold at list. A `purchases` row carries the
+  // product key, not the reasoning, so the reasoning has to BE the key. It
+  // is also what promo.ts counts to enforce the ten.
+  //
+  // APPEND ONLY, like everything here: once the ten are gone this stays in
+  // the table forever so a late webhook can still look up what it granted.
+  jumpstart_5: {
+    key: "jumpstart_5",
+    kind: "one_time",
+    credits: 5,
+    amountCents: 10000,
+    currency: "INR",
+    label: "Jumpstart, 5 project credits",
+  },
   credit_1: {
     key: "credit_1",
     kind: "one_time",
@@ -182,6 +203,7 @@ export const PRICE_ENV_SUFFIX_BY_PRODUCT: Record<string, string> = {
   studio_plus: "PRICE_STUDIO_PLUS",
   bundle_5: "PRICE_BUNDLE_5",
   credit_1: "PRICE_CREDIT_1",
+  jumpstart_5: "PRICE_JUMPSTART_5",
 };
 
 /** e.g. priceEnvName("bundle_5", "STRIPE") -> "STRIPE_PRICE_BUNDLE_5" */

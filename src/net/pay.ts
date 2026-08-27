@@ -370,3 +370,63 @@ export async function startSubscription(productKey: string, prefillEmail?: strin
       'The payment went through but the credits have not landed yet. Email us and we will sort it out.',
   };
 }
+
+// ===========================================================================
+// THE LAUNCH OFFER. Display only.
+//
+// Whether to show it, and how many are left, is decided by the server (see
+// supabase/functions/promo-status and _shared/promo.ts). Nothing here is a
+// gate: razorpay-order re-reads the same state and refuses on its own, so a
+// stale tab that still shows the offer simply gets a clean refusal at the
+// moment it tries to buy, rather than a charge that should not have happened.
+// ===========================================================================
+
+export interface PromoOffer {
+  product: string;
+  slots: number;
+  /** Null when signed out - eligibility and the count are per account. */
+  remaining: number | null;
+  credits: number | null;
+  /** Minor units (paise). */
+  amount: number | null;
+  currency: string | null;
+  label: string | null;
+  eligible: boolean;
+  alreadyClaimed: boolean;
+  signedIn: boolean;
+}
+
+/** Read the launch offer's state. Returns null when it cannot be read at all,
+ *  which callers should treat as "do not show the offer" - never as "the
+ *  offer is available". */
+export async function readPromoOffer(): Promise<PromoOffer | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      product: string;
+      slots: number;
+      remaining: number | null;
+      credits: number | null;
+      amount: number | null;
+      currency: string | null;
+      label: string | null;
+      eligible: boolean;
+      already_claimed: boolean;
+      signed_in: boolean;
+    }>('promo-status', { body: {} });
+    if (error || !data) return null;
+    return {
+      product: data.product,
+      slots: data.slots,
+      remaining: data.remaining,
+      credits: data.credits,
+      amount: data.amount,
+      currency: data.currency,
+      label: data.label,
+      eligible: data.eligible,
+      alreadyClaimed: data.already_claimed,
+      signedIn: data.signed_in,
+    };
+  } catch {
+    return null;
+  }
+}
