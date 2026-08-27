@@ -57,7 +57,6 @@ import { extractPdfText } from './pdftext';
 import { parseShotlist, shotlistToPack } from './shotlist';
 import { enrichShotMoments, SignInRequiredError } from './breakdown';
 import { SignInSheet } from './SignInSheet';
-import { ProCta } from './ProCta';
 import { useSession, signInWithGoogle } from '../net/auth';
 import { getEntitlements, FREE_PROJECT_LIMIT, type Entitlements } from '../net/quota';
 import { track } from '../net/analytics';
@@ -88,6 +87,13 @@ const STAGE_TITLE: Record<Stage, string> = {
 interface DocOverride {
   signedIn?: boolean;
   left?: number;
+  /**
+   * Seed the CAP-hit informational note on mount, for screenshotting that
+   * state without a real account that has actually spent its free grant.
+   * REWORKED 2026-08-27: this used to also LOCK the picker (`data-locked`,
+   * a disabled input) - that lock is gone (see read()'s own header on why),
+   * so this flag now only previews the note text, nothing it disables.
+   */
   capped?: boolean;
   /** Freeze the parse tally at a given moment. The counts move too fast to
    *  photograph and the server half needs a real account to be slow at all. */
@@ -117,6 +123,47 @@ function useDevDoc(): DocOverride | null {
     };
   }, []);
   return import.meta.env.DEV ? devDoc : null;
+}
+
+/**
+ * THE INFORMATIONAL LINE FOR A CAP HIT, in words, once. Read this and
+ * read() below's own header before touching either: the shot division that
+ * triggers this text is ALREADY on its way to props.onPack by the time this
+ * runs. Nothing is refused except the AI-written key-moment chips - never
+ * "upgrade now" marketing, always what actually happens next.
+ */
+function scriptCapNote(): string {
+  return `Free Script Mode access used up on ${FREE_PROJECT_LIMIT} projects. This shot division imports without key-moment chips - every scene and shot is in, roll now. Unlock this project for chips and for PDF or Premiere export.`;
+}
+
+/**
+ * THE WHOLE "CHIPS ARE A BONUS, NOT A GATE" DECISION, pulled out of read()
+ * below so a test can pin it directly. This suite runs DOM-less (see
+ * CONTEXT.md's own note on vitest here having no jsdom), so a component's
+ * inner closure is otherwise unreachable - exporting the decision itself,
+ * not just a predicate, is what makes "over the limit, the upload still
+ * succeeds" a fact a test can assert rather than only a comment.
+ *
+ * Given the pack the on-device parser already built, this asks the server
+ * for key-moment chips and:
+ *   - hands back the ENRICHED pack when the server grants them
+ *   - hands back the SAME pack, unchanged, plus a note, when the server
+ *     refuses for CAP (this account is out of free Script Mode projects) -
+ *     the upload still succeeds, only the chips are missing
+ *   - re-throws anything else (sign-in required, a genuine server error),
+ *     for read()'s own outer catch to handle exactly as it always has
+ */
+export async function enrichOrDegrade(
+  parsed: ScriptPack,
+  docName: string,
+): Promise<{ pack: ScriptPack; note: string | null }> {
+  try {
+    const enriched = await enrichShotMoments(parsed, docName);
+    return { pack: enriched, note: null };
+  } catch (err) {
+    if (!(err instanceof Error) || err.message !== 'CAP') throw err;
+    return { pack: parsed, note: scriptCapNote() };
+  }
 }
 
 // ===========================================================================
@@ -257,10 +304,13 @@ export function DocumentStage(props: {
   const dev = useDevDoc();
   const [phase, setPhase] = useState<'idle' | 'reading' | 'thinking'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Set once a real upload's CHIPS are refused for being out of free project
+  // slots. NEVER a reason to stop anything - see read()'s own header. Plain
+  // text, not `error`: nothing here failed, the shot division is already on
+  // its way to props.onPack by the time this is set.
+  const [note, setNote] = useState<string | null>(dev?.capped ? scriptCapNote() : null);
   const [signingIn, setSigningIn] = useState(false);
   const [ent, setEnt] = useState<Entitlements | null>(null);
-  // True once the breakdown is refused for being out of free project slots.
-  const [capped, setCapped] = useState(dev?.capped ?? false);
   const [over, setOver] = useState(false);
   // What has actually been found so far. Nulls are "not known yet" and render
   // as a dash, which is honest: pages tick as they are read, and the scene and
@@ -278,7 +328,6 @@ export function DocumentStage(props: {
   // on the id-less path - this upload is what creates the project, so
   // "breakdowns left" and "free projects left" are the same number here).
   const left = dev?.left ?? (ent ? Math.max(0, ent.freeProjectsLimit - ent.freeProjectsUsed) : undefined);
-  const showCap = dev?.capped ?? capped;
 
   useEffect(() => {
     if (!signedIn) {
@@ -294,6 +343,30 @@ export function DocumentStage(props: {
     };
   }, [signedIn]);
 
+  /**
+   * GETTING TO THE POINT OF ROLLING IS NEVER BLOCKED. The owner's own words,
+   * elsewhere, after reading an earlier version of this function: "shot
+   * division upload is gated" - and he was right. The parse (extractPdfText,
+   * parseShotlist, shotlistToPack) is on-device and free; it was never
+   * gated. What WAS gated, and until this rewrite treated as fatal, is
+   * enrichShotMoments' server call for key-moment chips - a bonus, not a
+   * gate, per that function's own header in breakdown.ts. A CAP answer used
+   * to be caught by the OUTER catch below, which threw the already-correct
+   * parse away and never called props.onPack at all: a DP handed a real
+   * shot division PDF got nothing, on the one screen whose entire job is to
+   * turn that PDF into a project.
+   *
+   * FIXED by pulling the chip call's own decision out into
+   * `enrichOrDegrade` (above): the outer try/catch here still owns real
+   * failures (a scanned PDF, sign-in required, a parser that cannot read
+   * the document) exactly as before. `enrichOrDegrade`'s one job is to make
+   * sure a CAP refusal - the SAME server-side gate as before, unchanged,
+   * still the only thing standing between a free account and unmetered Groq
+   * spend - degrades to "no chips" instead of "no project", by handing back
+   * the pack instead of throwing. Every other exception from the chip call
+   * (sign-in, a genuine server error) is re-thrown and falls through to the
+   * catch below unchanged, so nothing about THOSE paths moved.
+   */
   async function read(file: File) {
     // Fired the moment a file is picked, before we know if it's readable -
     // distinct from `shotlist_parsed` below on purpose. Without this the
@@ -301,7 +374,7 @@ export function DocumentStage(props: {
     // "people try and the parser rejects them"; those are different bugs.
     track('shotlist_uploaded', { surface: 'sheet' });
     setError(null);
-    setCapped(false);
+    setNote(null);
     setPages(null);
     setFound(null);
     try {
@@ -322,28 +395,24 @@ export function DocumentStage(props: {
       setFound({ scenes: parsed.scenes.length, shots: shotCount });
       track('shotlist_parsed', { scenes: parsed.scenes.length, shots: shotCount });
 
-      // The structure is already ours and already correct. Chips are the only
-      // thing left that can fail, so a refusal still hands the shots over —
-      // the operator gets their breakdown, just without the taps.
       setPhase('thinking');
-      const enriched = await enrichShotMoments(parsed, file.name);
+      const { pack: outPack, note: capNote } = await enrichOrDegrade(parsed, file.name);
+      if (capNote) {
+        track('cap_hit', { which: 'script' });
+        setNote(capNote);
+      }
       haptics.tap();
-      props.onPack(enriched);
+      // Enriched, or the pack the on-device parser already built, UNENRICHED
+      // - either way every scene and shot is intact. This line, reached on
+      // BOTH branches, is the whole fix: the one that used to be missing on
+      // the CAP branch.
+      props.onPack(outPack);
     } catch (err) {
       setPhase('idle');
       setPages(null);
       setFound(null);
       if (err instanceof SignInRequiredError) {
         props.onGated();
-        return;
-      }
-      if (err instanceof Error && err.message === 'CAP') {
-        track('cap_hit', { which: 'script' });
-        // Honest and final: this grant does not refill (see
-        // FREE_PROJECT_RESET_DAYS in net/quota.ts). No "more coming soon" -
-        // there is nothing coming, only a project to unlock.
-        setError(`That's Script Mode's free access on ${FREE_PROJECT_LIMIT} projects, used up. Unlock this project to continue.`);
-        setCapped(true);
         return;
       }
       setError(err instanceof Error ? err.message : 'Could not read that PDF.');
@@ -354,21 +423,13 @@ export function DocumentStage(props: {
     const file = e.target.files?.[0];
     e.target.value = ''; // let the same file be picked again after an error
     if (!file) return;
-    // LOCKED, NOT LIVE. `showCap` true means a real parse would only burn
-    // real seconds (extractPdfText, then a network round trip) before
-    // failing at the same server-side gate that set `capped` in the first
-    // place. `.sl-drop[data-locked]`'s `pointer-events: none` (see
-    // PricingRows.css) already stops a pointer from reaching this input, but
-    // this guard is the belt to that CSS's braces - nothing here should
-    // start a parse it already knows the answer to.
-    if (showCap) return;
     void read(file);
   }
 
   function onDrop(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault();
     setOver(false);
-    if (busy || showCap) return;
+    if (busy) return;
     const file = e.dataTransfer.files?.[0];
     if (file) void read(file);
   }
@@ -394,17 +455,15 @@ export function DocumentStage(props: {
         <Tally phase={phase} pages={pages} found={found} />
       ) : signedIn ? (
         <>
-          {/* LOCKED READS AS CLOSED, NOT BROKEN. `data-locked` (PricingRows.css
-              owns the rule: neutral, full-contrast ink, no pointer events)
-              replaces the box's normal accent wash the moment `showCap` is
-              true, rather than leaving the same barely-legible tinted panel
-              standing in front of a wall someone cannot act on from here -
-              the paywall right below it is the only thing that can. */}
+          {/* NEVER LOCKED. Picking or dropping a file always starts a real
+              parse - see read()'s own header for why an account out of free
+              Script Mode projects still gets a project out of this, just
+              without key-moment chips. The free-tier line below is
+              information about what happens next, not a reason to stop
+              anyone reaching for this box. */}
           <label
             className={`sl-drop${over ? ' sl-drop--over' : ''}`}
             data-testid="sl-drop"
-            data-locked={showCap ? '' : undefined}
-            aria-disabled={showCap || undefined}
             onDragOver={(e) => {
               e.preventDefault();
               setOver(true);
@@ -414,16 +473,14 @@ export function DocumentStage(props: {
           >
             <span className="sl-drop__title">Choose your shotlist PDF</span>
             <span className="sl-drop__sub">
-              {showCap
-                ? 'Locked until this project is unlocked - pick a plan below.'
-                : 'Every scene and numbered shot, read off the document on this phone.'}
+              Every scene and numbered shot, read off the document on this phone.
             </span>
-            <input type="file" accept="application/pdf,.pdf" hidden disabled={showCap} onChange={onPickPdf} />
+            <input type="file" accept="application/pdf,.pdf" hidden onChange={onPickPdf} />
           </label>
           {typeof left === 'number' && (
             <p className="camnote sl-quota">
               <span className="tnum">{left}</span> of <span className="tnum">{FREE_PROJECT_LIMIT}</span>{' '}
-              free projects left
+              free projects left for key-moment chips
             </p>
           )}
         </>
@@ -445,7 +502,11 @@ export function DocumentStage(props: {
       )}
 
       {error && <span className="tnum tnum--bad sp-error">{error}</span>}
-      {showCap && <ProCta gate="script" />}
+      {/* Plain text, not a paywall: nothing was refused here except a bonus
+          (see scriptCapNote's own header) - no sheet, no modal, no disabled
+          button, same standard the rolling screen holds for informing
+          rather than stopping. */}
+      {note && !error && <p className="camnote">{note}</p>}
 
       {!busy && !dev?.tally && (
         <>
