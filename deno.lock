@@ -1,0 +1,35 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@supabase/functions-js@*": "2.110.5",
+    "jsr:@supabase/supabase-js@2": "2.110.5"
+  },
+  "jsr": {
+    "@supabase/functions-js@2.110.5": {
+      "integrity": "8a74e819b14fac78f0e7987b255a71e400924be8a562bcdfc4ec9d420cd73bc4"
+    },
+    "@supabase/supabase-js@2.110.5": {
+      "integrity": "e59e1114bf13d4f47b9965b93c219137f82f6d23e3d2d4c2a37035f1193c0427"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@supabase/supabase-js@^2.110.5",
+        "npm:@types/react-dom@19",
+        "npm:@types/react@19",
+        "npm:@vitejs/plugin-react@^4.3.4",
+        "npm:idb@8",
+        "npm:pdf-lib@^1.17.1",
+        "npm:pdfjs-dist@^4.10.38",
+        "npm:react-dom@19",
+        "npm:react@19",
+        "npm:typescript@~5.7.2",
+        "npm:vite-plugin-pwa@0.21",
+        "npm:vite-plugin-singlefile@^2.3.3",
+        "npm:vite@6",
+        "npm:vitest@^4.1.10"
+      ]
+    }
+  }
+}

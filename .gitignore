@@ -39,4 +39,3 @@ _archive/
 
 # CDP harness scratch profiles
 .chrome-recovery-profile/
-deno.lock
