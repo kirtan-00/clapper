@@ -453,6 +453,22 @@ a{color:inherit}
 }
 .clapmark.clap-now .clapmark-stick{animation:clapDown 180ms both}
 @media(prefers-reduced-motion:reduce){ .clapmark.clap-now .clapmark-stick{animation:none} }
+
+/* ---- guides index (glinks-*). Scoped prefix so nothing above can collide. ---- */
+.glinks-sec{background:var(--stage);color:var(--ivory);padding:76px 0 64px;border-top:1px solid rgba(253,255,248,.10)}
+.glinks-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(253,255,248,.46);margin:0 0 14px}
+.glinks-h{font-family:var(--serif);font-weight:600;font-size:clamp(26px,3.4vw,40px);line-height:1.08;letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+.glinks-lede{color:rgba(253,255,248,.62);margin:0 0 40px;max-width:52ch;font-size:16px}
+.glinks-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:44px}
+.glinks-k{font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:rgba(253,255,248,.40);margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid rgba(253,255,248,.12)}
+.glinks-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+.glinks-list a{color:rgba(253,255,248,.88);text-decoration:none;font-size:15.5px;line-height:1.4;border-bottom:1px solid transparent;transition:border-color .18s var(--ease),color .18s var(--ease)}
+.glinks-list a:hover{color:var(--ivory);border-bottom-color:rgba(253,255,248,.55)}
+.glinks-foot{margin:44px 0 0;padding-top:22px;border-top:1px solid rgba(253,255,248,.12);display:flex;gap:26px;flex-wrap:wrap}
+.glinks-foot a{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:rgba(253,255,248,.62);text-decoration:none;border-bottom:1px solid rgba(253,255,248,.22)}
+.glinks-foot a:hover{color:var(--ivory);border-bottom-color:var(--ivory)}
+.glinks-sec a:focus-visible{outline:2px solid var(--ivory);outline-offset:3px;border-radius:2px}
+@media (max-width:640px){.glinks-sec{padding:56px 0 48px}.glinks-cols{gap:34px}}
 </style>
 
 <div class="clapper-page">
@@ -854,6 +870,53 @@ a{color:inherit}
       <p class="cta-fine">Free to start. Sign in with Google. Works offline.</p>
     </div>
   </section>
+
+
+  <!-- Guides index. Added for internal linking: the homepage is the strongest
+       page on this domain and it was linking to /articles/ alone, so all 21
+       guide and answer pages sat one hop further from it than they needed to.
+       Descriptive anchors, no keyword stuffing, no restyle of anything above. -->
+  <nav class="glinks-sec" aria-labelledby="glinks-h">
+    <div class="wrap">
+      <p class="glinks-eyebrow">Guides</p>
+      <h2 id="glinks-h" class="glinks-h">Everything we know about logging a take.</h2>
+      <p class="glinks-lede">Written for the person holding the phone on set. Free to read, nothing gated.</p>
+      <div class="glinks-cols">
+        <div class="glinks-col">
+          <p class="glinks-k">How to do the job</p>
+          <ul class="glinks-list">
+          <li><a href="/articles/how-to-log-takes-on-set/">How to log takes on set</a></li>
+          <li><a href="/articles/how-to-read-a-clapperboard/">How to read a clapperboard</a></li>
+          <li><a href="/articles/continuity-notes-guide/">Writing continuity notes the edit can use</a></li>
+          <li><a href="/articles/shot-log-to-premiere-xml/">From a shot log to a Premiere timeline</a></li>
+          <li><a href="/articles/camera-clip-naming-conventions/">Camera clip naming conventions</a></li>
+          <li><a href="/articles/circle-takes-explained/">What a circle take is</a></li>
+          <li><a href="/articles/what-is-a-tcr-sheet/">What a TCR sheet is</a></li>
+          <li><a href="/articles/mos-meaning-in-film/">What MOS means in film</a></li>
+          <li><a href="/articles/script-supervisor-duties/">What a script supervisor actually does</a></li>
+          </ul>
+        </div>
+        <div class="glinks-col">
+          <p class="glinks-k">Questions from set</p>
+          <ul class="glinks-list">
+          <li><a href="/answers/what-editor-actually-receives-at-wrap/">What the editor actually receives at wrap</a></li>
+          <li><a href="/answers/how-editor-finds-directors-favorite-take/">How the editor finds the director's favourite take</a></li>
+          <li><a href="/answers/two-cameras-same-clip-number/">Two cameras wrote the same clip number</a></li>
+          <li><a href="/answers/camera-rolled-without-a-log/">Camera rolled without a log</a></li>
+          <li><a href="/answers/camera-report-vs-script-supervisor-log-disagree/">When the camera report and the log disagree</a></li>
+          <li><a href="/answers/does-an-ng-take-still-use-a-clip-number/">Whether an NG take still burns a clip number</a></li>
+          <li><a href="/answers/script-supervisor-notes-to-premiere-markers/">Getting supervisor notes into Premiere as markers</a></li>
+          <li><a href="/answers/does-editor-need-special-software-for-shot-log-xml/">Whether your editor needs special software</a></li>
+          <li><a href="/answers/free-continuity-app-vs-paid-ipad-app/">Running continuity without an iPad</a></li>
+          <li><a href="/answers/free-alternative-to-shot-notes-x/">A free alternative to Shot Notes X</a></li>
+          <li><a href="/answers/shot-list-breakdown-accuracy/">How accurate automatic shot breakdown is</a></li>
+          <li><a href="/answers/does-ai-read-your-script-on-set/">Whether a set app uploads your script to an AI</a></li>
+          </ul>
+        </div>
+      </div>
+      <p class="glinks-foot"><a href="/articles/">All guides</a><a href="/pricing/">What Clapper costs</a></p>
+    </div>
+  </nav>
 
   <footer class="foot">
     <div class="phlaunch">
