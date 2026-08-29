@@ -74,11 +74,25 @@ function mediaCells(match: MediaMatch): [string, string, string] {
   ];
 }
 
+// Spreadsheet formula injection. A cell whose first character is one Excel or
+// Sheets reads as the start of a formula (= + - @, and a leading TAB or CR that
+// those apps strip before parsing) executes on open. `take.note` is typed by
+// the operator and `scene`/slate names can be lifted verbatim from an uploaded
+// shotlist PDF's sluglines (shotlist.ts -> scriptpack.ts), so both are
+// untrusted, and opening this CSV in a producer's Sheets is Clapper's own
+// stated workflow. Prefix such a cell with an apostrophe so the app renders it
+// as literal text. The apostrophe is the standard neutralisation and shows only
+// inside the spreadsheet; nothing in this app ever reads its own CSV back.
+function neutralizeFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 function csvField(value: string): string {
-  if (/[",\r\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  const v = neutralizeFormula(value);
+  if (/[",\r\n]/.test(v)) {
+    return `"${v.replace(/"/g, '""')}"`;
   }
-  return value;
+  return v;
 }
 
 function row(fields: string[]): string {

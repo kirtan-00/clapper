@@ -272,3 +272,31 @@ describe('csv.ts — studio column', () => {
     expect(moment[moment.length - 1]).toBe('Fourside');
   });
 });
+
+describe('csv.ts — spreadsheet formula injection', () => {
+  // A cell a spreadsheet reads as a formula executes on open. take.note is
+  // operator-typed and scene/slate names can come from an uploaded PDF, so a
+  // crafted value must reach Excel/Sheets as inert text, not a live formula.
+  async function noteCell(note: string): Promise<string> {
+    const t: Take = { id: 't1', slateId: 's1', projectId: 'p1', number: 1, clipName: 'C0001', note, status: 'good', startedAt: 0, durationMs: 1000, createdAt: 0, updatedAt: 0 };
+    const csv = await csvOf([t]);
+    const header = csv.trim().split('\r\n')[0].split(',');
+    const noteIdx = header.indexOf('note');
+    // note has no comma here, so a positional split is safe for these fixtures.
+    return csv.trim().split('\r\n')[1].split(',')[noteIdx];
+  }
+
+  it('prefixes a leading = so it is not a formula', async () => {
+    expect(await noteCell('=HYPERLINK("http://evil","click")')).toMatch(/^"?'=/);
+  });
+
+  it('neutralizes every dangerous leading character', async () => {
+    for (const ch of ['=', '+', '-', '@']) {
+      expect(await noteCell(`${ch}cmd`)).toContain(`'${ch}cmd`);
+    }
+  });
+
+  it('leaves an ordinary note untouched', async () => {
+    expect(await noteCell('take 3 was the one')).toBe('take 3 was the one');
+  });
+})
