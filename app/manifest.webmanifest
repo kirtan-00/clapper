@@ -1,0 +1,1 @@
+{"name":"Clapper","short_name":"Clapper","description":"On-set shot logger","start_url":"/app/","display":"standalone","background_color":"#e2f0cc","theme_color":"#e2f0cc","lang":"en","scope":"/app/","orientation":"portrait","icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png"}]}

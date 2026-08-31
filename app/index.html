@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- Was "black-translucent", which draws WHITE status-bar glyphs over the
+         page. That was right when the app was near-black and is unreadable now
+         that the default ground is ivory, and it cannot be switched at runtime.
+         WAS "default", which has iOS paint the bar ITSELF. That was confirmed
+         on a real iPhone and it is wrong: on a true-black app you get a white
+         band across the top of the screen that no CSS can reach, and the
+         rolling red ring stops short of it. "black-translucent" hands the whole
+         screen to the page, status bar included, so the ground and the ring
+         both run to the physical edge. The layout cost is that content would
+         slide under the clock: --safe-top / env(safe-area-inset-top) is already
+         load-bearing throughout the app and is what pays it. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Kept in sync with the theme by the script below and by src/ui/theme.ts.
+         Without that the iOS status bar and the PWA splash stay the other
+         theme's colour. -->
+    <meta name="theme-color" content="#e2f0cc" />
+
+    <!--
+      Theme, applied BEFORE first paint. Doing this in React means a white
+      flash into night mode at 4am, which is exactly the moment it is least
+      welcome. Kept deliberately tiny and dependency-free: it runs ahead of the
+      bundle on every cold start, including offline from the service worker.
+      Storage can throw outright (Safari private mode, blocked cookies), and
+      the failure mode has to be "light", never "no app".
+      The values here are --paper from src/styles.css. If you change one,
+      change all three: here, the :root token, and THEME_COLOR in src/ui/theme.ts.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('clapper.theme');
+          if (t !== 'night') return; // absent, 'light', or anything unexpected
+          document.documentElement.setAttribute('data-theme', 'night');
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', '#000000');
+        } catch (e) {
+          /* light is the default and is already in the markup */
+        }
+      })();
+    </script>
+
+    <link rel="icon" type="image/svg+xml" href="/app/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/app/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/app/apple-touch-icon.png" />
+
+    <title>Clapper: free take logger and continuity/TCR sheet app</title>
+    <meta name="description" content="Free phone-first take logger for film sets. Log takes, build continuity and TCR sheets, and export a Premiere-ready timeline, CSV, or PDF. Works offline on set." />
+    <meta name="keywords" content="script supervisor app, continuity sheet, TCR sheet, camera log sheet, take log app, shot logger, on set logging app, script breakdown app, Premiere timeline export, continuity software" />
+    <meta name="author" content="Clapper" />
+    <link rel="canonical" href="https://clapper.in/app/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Clapper" />
+    <meta property="og:title" content="Clapper: free take logger and continuity/TCR sheet app" />
+    <meta property="og:description" content="Log takes on set, build continuity and TCR sheets, and export a Premiere-ready timeline, CSV, or PDF. Free, phone-first, works offline." />
+    <meta property="og:url" content="https://clapper.in/app/" />
+    <meta property="og:image" content="https://clapper.in/og.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Clapper: free take logger and continuity/TCR sheet app" />
+    <meta name="twitter:description" content="Log takes on set, build continuity and TCR sheets, and export a Premiere-ready timeline, CSV, or PDF. Free, phone-first, works offline." />
+    <meta name="twitter:image" content="https://clapper.in/og.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Clapper",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Web / iOS / Android (PWA)",
+        "description": "Free phone-first take logger for film sets. Log takes, build continuity and TCR sheets, number camera clips, and export a Premiere-ready timeline, CSV, or PDF. Works offline on set.",
+        "url": "https://clapper.in/app/",
+        "image": "https://clapper.in/og.png",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+
+    <script type="module" crossorigin src="/app/assets/index-CP5QCbSO.js"></script>
+    <link rel="stylesheet" crossorigin href="/app/assets/index-D5p_NESt.css">
+  <link rel="manifest" href="/app/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/app/registerSW.js"></script></head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <h1>Clapper: free take logger and continuity sheet for film sets</h1>
+      <p>
+        Clapper is a phone-first app for script supervisors, ADs, and DITs. Log every
+        take on set, track continuity, and build continuity and TCR sheets as you shoot.
+        It numbers camera clips, keeps a running take log, and works offline so you never
+        lose a slate between setups.
+      </p>
+      <p>
+        When the day wraps, export a camera log sheet and continuity/TCR sheet as PDF,
+        a CSV of every take, or a Premiere-ready timeline (XML) so the editor opens the
+        cut with takes, scenes, and notes already in place. Free, no install required.
+      </p>
+    </noscript>
+  </body>
+</html>

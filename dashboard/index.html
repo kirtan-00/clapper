@@ -1,0 +1,1801 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<!-- Not linked from anywhere in the product, and the path is guessable (this
+     is a public repo) - which is exactly why every number on this page comes
+     from supabase/functions/dashboard-api, gated by a passphrase compared in
+     constant time, an escalating cooldown, and a hard lockout, all enforced
+     server-side. Nothing in THIS file is a secret: no service-role key, no
+     passphrase, no anon-key-shaped identity. See that function's header
+     comment for the full auth design. -->
+<meta name="theme-color" content="#000000" />
+<script>
+  // Pre-paint theme read, own key, own default - NIGHT here, unlike the app
+  // (src/ui/theme.ts), which defaults to day. This page is read by one
+  // person, usually at odd hours, and "night-first" was an explicit
+  // instruction for this build - see feedback_clapper_theme_locked.md. Kept
+  // as its OWN storage key rather than reading 'clapper.theme': that key only
+  // ever holds 'night' or is absent, and absent means "never touched the
+  // app's toggle", not "wants ivory here". A dedicated key with its own
+  // explicit day/night values is the only way to store an actual preference
+  // for THIS page. Storage can throw (Safari private mode); night stays the
+  // default either way, which the markup already is.
+  (function () {
+    try {
+      if (localStorage.getItem('clapper.dashboard.theme') === 'day') {
+        document.documentElement.setAttribute('data-theme', 'day');
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', '#fbfaf7');
+      }
+    } catch (e) { /* night stays the default */ }
+  })();
+</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<title>Clapper - Mission Control</title>
+<style>
+/* ============================================================================
+   TOKENS. Palette is LOCKED, night-first: true-black ground, acid-yellow
+   accent (#e6ff2b), ivory day variant. No green, no purple, no gradients, no
+   3D - see feedback_clapper_theme_locked.md.
+
+   The night values below are copied by hand from src/styles.css's own
+   [data-theme="night"] block (exact hex, not eyeballed): --paper #000000,
+   --paper-raised #161616, --paper-sunk #0e0e0e, --ink #ece9e1, --ink-dim
+   #999793, --ink-faint #615f5b, --rule #262626, the accent #e6ff2b / press
+   #c9e024 / ink-on-fill #000000, and --rec #ff3b30 for danger.
+
+   THE DAY VARIANT DOES NOT COME FROM THE CURRENT src/styles.css :root BLOCK.
+   That block is a pale-green day theme ("day moved onto it wholesale" per
+   its own second-pass comment) - the opposite of "no green, ivory day"
+   below. It comes from THIS PROJECT'S OWN earlier ivory theme instead
+   (commit a42214e, before the green repaint): --paper #fbfaf7, --paper-raised
+   #ffffff, --paper-sunk #f2f0ea, --ink #14151a, --ink-dim #5a5e68,
+   --ink-faint #7c808a, --rule #ddd9d0. Still an exact value lifted from this
+   codebase, just from the ivory pass rather than the green one, because the
+   instruction for this build ranks above the live file's second pass.
+   Spacing/radius/type/motion tokens below ARE identical between both passes
+   of styles.css, so those are copied straight from the live file. ========= */
+:root {
+  --paper: #000000;
+  --paper-raised: #161616;
+  --paper-sunk: #0e0e0e;
+  --ink: #ece9e1;
+  --ink-dim: #999793;
+  --ink-faint: #615f5b;
+  --rule: #262626;
+
+  --accent: #e6ff2b;
+  --accent-press: #c9e024;
+  --accent-ink: #000000;
+  --accent-text: #e6ff2b;      /* night: bright IS the legible type colour */
+  --accent-tint: color-mix(in srgb, #e6ff2b 14%, transparent);
+
+  --danger: #ff3b30;
+  --danger-text: #ff3b30;      /* night: bright is legible here too */
+  --danger-tint: color-mix(in srgb, #ff3b30 14%, transparent);
+
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Roboto Mono", monospace;
+
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 48px;
+
+  --t-caps: 11px; --t-caption: 12px; --t-secondary: 13px;
+  --t-body: 16px; --t-row: 17px; --t-title: 20px; --t-display: 28px;
+
+  --tap: 44px;
+  --dur-state: 120ms;
+  --ease-out: cubic-bezier(0.2, 0.85, 0.25, 1);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="day"] {
+  --paper: #fbfaf7;
+  --paper-raised: #ffffff;
+  --paper-sunk: #f2f0ea;
+  --ink: #14151a;
+  --ink-dim: #5a5e68;
+  --ink-faint: #7c808a;
+  --rule: #ddd9d0;
+
+  --accent: #e6ff2b;
+  --accent-press: #d8ec1f;
+  --accent-ink: #000000;
+  --accent-text: #5a6600;      /* day: acid on ivory reads ~1.9:1, so type/
+                                   borders use this deep form (5.27:1 on
+                                   ivory) - value lifted verbatim from the
+                                   live styles.css --brass-text */
+  --accent-tint: color-mix(in srgb, #5a6600 8%, transparent);
+
+  --danger: #ff3b30;
+  --danger-text: #c0261d;      /* day: same split, live styles.css --rec-text */
+  --danger-tint: color-mix(in srgb, #c0261d 8%, transparent);
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: dark; }
+[data-theme="day"] { color-scheme: light; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: var(--t-body)/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding:
+    calc(var(--safe-top) + var(--sp-5))
+    var(--sp-4)
+    calc(var(--safe-bottom) + var(--sp-8));
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+header.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+  flex-wrap: wrap;
+}
+header.top h1 {
+  font-size: var(--t-title);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+header.top .sub {
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+  margin: 2px 0 0;
+}
+.top-controls { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.top-controls[hidden] { display: none; }
+
+/* flat solid-fill buttons - no bevel, no gradient, no lift, matching src/styles.css's .btn rules */
+.btn {
+  appearance: none;
+  min-height: var(--tap);
+  padding: 0 var(--sp-5);
+  border-radius: var(--radius-sm);
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font: 600 var(--t-row)/1 var(--font-ui);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+  transition: background var(--dur-state) var(--ease-out);
+}
+.btn:active { background: var(--paper-sunk); }
+.btn--primary { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
+.btn--primary:active { background: var(--accent-press); }
+.btn--full { width: 100%; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn--sm { min-height: 36px; padding: 0 var(--sp-3); font-size: var(--t-secondary); }
+.btn--text {
+  background: transparent; box-shadow: none; color: var(--ink-dim);
+  font-weight: 600; font-size: var(--t-secondary); min-height: var(--tap); padding: 0 var(--sp-2);
+}
+.btn--text:active { color: var(--ink); }
+
+.toggle {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--t-secondary); color: var(--ink-dim); cursor: pointer;
+  min-height: var(--tap); padding: 0 var(--sp-1);
+}
+.toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.toggle .track {
+  width: 38px; height: 22px; border-radius: var(--radius-pill);
+  background: var(--paper-sunk); box-shadow: inset 0 0 0 1.5px var(--rule);
+  position: relative; flex: 0 0 auto; transition: background var(--dur-state) var(--ease-out);
+}
+.toggle .track::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--ink-faint); transition: transform var(--dur-state) var(--ease-out), background var(--dur-state) var(--ease-out);
+}
+.toggle input:checked + .track { background: var(--accent-tint); box-shadow: inset 0 0 0 1.5px var(--accent-text); }
+.toggle input:checked + .track::after { transform: translateX(16px); background: var(--accent-text); }
+.toggle .label strong { color: var(--ink); }
+
+.state { flex: 1; display: flex; flex-direction: column; }
+.state[hidden] { display: none; }
+
+.center-card {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: var(--sp-5); padding: var(--sp-6) 0;
+}
+.center-card p.lede { font-size: var(--t-row); color: var(--ink); max-width: 42ch; margin: 0; }
+.center-card p.note { font-size: var(--t-secondary); color: var(--ink-dim); max-width: 40ch; margin: 0; }
+.center-card .btn { min-width: 240px; }
+
+.mark { display: flex; gap: 3px; width: 64px; height: 18px; }
+.mark span { flex: 1; background: var(--ink); border-radius: 2px; }
+.mark span:nth-child(2n) { background: var(--accent); }
+
+.field {
+  width: 100%; max-width: 320px; min-height: var(--tap); padding: 0 var(--sp-4);
+  border-radius: var(--radius-sm); border: 0; box-shadow: inset 0 0 0 1.5px var(--rule);
+  background: var(--paper-raised); color: var(--ink); font: 600 var(--t-row)/1 var(--font-mono);
+  text-align: center; letter-spacing: 0.04em;
+}
+.field:focus { outline: 2px solid var(--accent-text); outline-offset: 1px; }
+.field::placeholder { color: var(--ink-faint); font-family: var(--font-ui); font-weight: 400; letter-spacing: 0; }
+
+.err-banner {
+  background: var(--danger-tint); border-radius: var(--radius-sm); padding: var(--sp-3);
+  color: var(--danger-text); font-size: var(--t-secondary); font-weight: 600; margin-top: var(--sp-3);
+  max-width: 320px;
+}
+
+.banner {
+  overflow-wrap: anywhere;
+  background: var(--paper-raised); border-radius: var(--radius); box-shadow: inset 0 0 0 1.5px var(--rule);
+  padding: var(--sp-4); margin-bottom: var(--sp-4); font-size: var(--t-secondary); color: var(--ink-dim);
+}
+.banner strong { color: var(--ink); }
+.banner .n { color: var(--accent-text); font-weight: 700; }
+.banner + .banner { margin-top: calc(-1 * var(--sp-3)); }
+.banner ul { margin: var(--sp-2) 0 0; padding-left: 1.1em; }
+.banner li { margin: var(--sp-1) 0; }
+
+.card {
+  background: var(--paper-raised); border-radius: var(--radius); box-shadow: inset 0 0 0 1.5px var(--rule);
+  padding: var(--sp-4) var(--sp-4) var(--sp-5); margin-bottom: var(--sp-4);
+}
+.card h2 {
+  font-size: var(--t-caps); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;
+  color: var(--ink-dim); margin: 0 0 var(--sp-3); display: flex; align-items: center; justify-content: space-between;
+}
+.card p.foot-note { font-size: var(--t-caption); color: var(--ink-faint); margin: var(--sp-3) 0 0; line-height: 1.5; overflow-wrap: anywhere; }
+.card p.foot-note strong { color: var(--ink-dim); }
+
+.stat-row { display: flex; gap: var(--sp-6); flex-wrap: wrap; }
+.stat .num { font-size: var(--t-display); font-weight: 700; line-height: 1; }
+.stat .label { font-size: var(--t-caption); color: var(--ink-dim); margin-top: var(--sp-1); }
+
+.rows { display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) 0; border-top: 1.5px solid var(--rule); }
+.row:first-child { border-top: 0; }
+.row .k { font-size: var(--t-row); color: var(--ink); }
+.row .k .sub { display: block; font-size: var(--t-caption); color: var(--ink-dim); font-weight: 400; }
+.row .v { font-size: var(--t-row); font-weight: 700; text-align: right; }
+.row .v .sub { display: block; font-size: var(--t-caption); color: var(--ink-dim); font-weight: 600; }
+.row--sm .k, .row--sm .v { font-size: var(--t-secondary); }
+
+.empty { font-size: var(--t-secondary); color: var(--ink-faint); padding: var(--sp-2) 0; }
+
+/* subsection heading inside a card */
+h3.sub-h {
+  font-size: var(--t-caption); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+  color: var(--ink-faint); margin: var(--sp-5) 0 var(--sp-2);
+}
+h3.sub-h:first-child { margin-top: 0; }
+
+/* bar chart (SVG) */
+.chart-svg { display: block; width: 100%; height: auto; margin-top: var(--sp-3); }
+.chart-svg .bar { fill: var(--accent); }
+.chart-svg .bar--dim { fill: var(--ink-faint); }
+.chart-svg .axis-label { fill: var(--ink-faint); font: 600 9px var(--font-mono); }
+.chart-legend { display: flex; gap: var(--sp-4); margin-top: var(--sp-2); font-size: var(--t-caption); color: var(--ink-dim); }
+.chart-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+/* funnel */
+.funnel { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-3); }
+.funnel-row { display: flex; flex-direction: column; gap: var(--sp-1); }
+.funnel-row .lbl { display: flex; justify-content: space-between; font-size: var(--t-secondary); }
+.funnel-row .lbl .name { color: var(--ink); font-weight: 600; }
+.funnel-row .lbl .val { color: var(--ink-dim); }
+.funnel-track { height: 22px; border-radius: var(--radius-sm); background: var(--paper-sunk); overflow: hidden; }
+.funnel-fill { height: 100%; background: var(--accent); border-radius: var(--radius-sm); min-width: 3px; transition: width var(--dur-state) var(--ease-out); }
+.funnel-rate { font-size: var(--t-caption); color: var(--ink-faint); }
+
+/* funnel v2 - stacked anon/signed-in bars. Same rhythm as .funnel-row above,
+   same two tokens as the rest of the page (--ink-faint for the anonymous
+   share, --accent for signed-in) - no new colour anywhere on this page. */
+.stack-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-top: 1.5px solid var(--rule); }
+.stack-row:first-child { border-top: 0; }
+.stack-row .lbl { display: flex; justify-content: space-between; font-size: var(--t-secondary); }
+.stack-row .lbl .name { color: var(--ink); font-weight: 600; }
+.stack-row .lbl .val { color: var(--ink-dim); font-family: var(--font-mono); }
+.stack-track { display: flex; height: 20px; border-radius: var(--radius-sm); overflow: hidden; background: var(--paper-sunk); }
+.stack-a { background: var(--ink-faint); }
+.stack-s { background: var(--accent); }
+.stack-legend { display: flex; gap: var(--sp-4); margin-top: var(--sp-2); font-size: var(--t-caption); color: var(--ink-dim); }
+.stack-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+/* A second line inside a stat, same reasoning as table.dtable td.who .sub -
+   without this the sub-line runs straight on from the number with no break. */
+.stat .label .sub { display: block; margin-top: 2px; }
+
+table.dtable { width: 100%; border-collapse: collapse; font-size: var(--t-secondary); }
+table.dtable th, table.dtable td { text-align: left; padding: var(--sp-2) var(--sp-2); border-top: 1.5px solid var(--rule); white-space: nowrap; }
+table.dtable th { color: var(--ink-faint); font-weight: 600; font-size: var(--t-caption); text-transform: uppercase; letter-spacing: 0.04em; }
+table.dtable td.num, table.dtable th.num { text-align: right; font-family: var(--font-mono); }
+.table-scroll { overflow-x: auto; margin-top: var(--sp-3); border-radius: var(--radius-sm); }
+.table-scroll::-webkit-scrollbar { height: 6px; }
+
+.pill {
+  display: inline-flex; align-items: center; font-size: var(--t-caption); font-weight: 700;
+  padding: 2px 8px; border-radius: var(--radius-pill); background: var(--paper-sunk); color: var(--ink-dim);
+}
+.pill--pro { background: var(--accent-tint); color: var(--accent-text); }
+
+footer.foot {
+  display: flex; align-items: center; justify-content: space-between; margin-top: var(--sp-5);
+  padding-top: var(--sp-4); border-top: 1.5px solid var(--rule); gap: var(--sp-3); flex-wrap: wrap;
+}
+footer.foot .gen { font-size: var(--t-caption); color: var(--ink-faint); }
+
+/* ============================================================================
+   ADMIN CONTROLS. Every value below is an existing token - not one new hex
+   enters the file. The palette here has exactly two accents (--accent, the
+   acid the tally lamp burns, and --danger, its red) and this page already
+   uses both: .btn--primary and .pill--pro on one, .err-banner on the other.
+   A consequential control is drawn from the red family and an ordinary one
+   from the raised-paper family, so nothing needed inventing.
+
+   Same flatness rule as src/styles.css's .btn, which .btn above already
+   follows: a solid fill or a 1.5px inset rule, and nothing else. No bevel,
+   no gradient, no shadow that implies height, no transform on press - a
+   button on this page changes its background colour and that is the whole
+   affordance. ======================================================== */
+.btn--danger {
+  background: var(--danger-tint);
+  color: var(--danger-text);
+  box-shadow: inset 0 0 0 1.5px var(--danger-text);
+}
+.btn--danger:active { background: var(--paper-sunk); }
+
+/* Left-aligned, small variant of .field. The login .field is centred and
+   letter-spaced because it holds one passphrase; a reason or a date is
+   ordinary text and reads wrong treated like a code. */
+.field--inline {
+  max-width: 230px; min-height: 36px; padding: 0 var(--sp-3);
+  text-align: left; letter-spacing: 0;
+  font: 600 var(--t-secondary)/1 var(--font-ui);
+}
+.field--num { max-width: 120px; font-family: var(--font-mono); }
+
+/* The armed half of every two-step control: a strip that appears in place,
+   says in a sentence what is about to happen, and carries the button that
+   does it. Nothing on this page commits on one tap. */
+/* The Users table is the only one on this page with buttons in it, and
+   table.dtable sets `white-space: nowrap` on every cell so numeric columns
+   never wrap mid-figure. That is right for numbers and wrong for an email
+   address next to a control: with nowrap on an 80-character uuid the table
+   grew past its own scroll container and the Controls column sat off the
+   right edge, reachable only by scrolling sideways to find it. The one
+   column the owner came here to press was the one hidden.
+
+   So the identity column - and only that column - is allowed to wrap and
+   break, with a ceiling on how much width it can claim. Everything else
+   keeps nowrap. The table then fits without a horizontal scroll at this
+   page's own max width, which is what makes the confirm strip below usable
+   too: it spans the full row, and a full row you cannot see the end of is
+   not a confirmation. */
+table.dtable td.who {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  /* Both bounds are load-bearing. `overflow-wrap: anywhere` tells the table
+     this column's minimum width is one character, so without a floor the
+     layout squeezes it and starts breaking ordinary addresses mid-word
+     ("manthan@example.c / om"), which reads like a rendering fault. The
+     floor fits an email on one line; the ceiling stops a raw uuid, which
+     genuinely has to break somewhere, from eating the row. */
+  min-width: 185px;
+  max-width: 215px;
+}
+
+/* Stacked on purpose, not wrapped by accident. Two buttons of different
+   widths left to wrap land ragged and centred, which looks like a bug; a
+   column with stretch makes them one block the eye reads as a single
+   control set belonging to that row.
+
+   PINNED TO THE RIGHT EDGE. Controls is the last column, so on any screen
+   narrow enough for .table-scroll to actually scroll - a phone, mostly - it
+   would sit permanently past the right edge and you would have to swipe to
+   find the button you came for. Sticky costs nothing at laptop width, where
+   the table already fits and there is no scroll for it to resist. */
+/* A second line inside a cell. `.row .k .sub` above only styles the sub in a
+   .rows list, not in a table, so without this the note runs straight on from
+   the email: "manthan@example.comno profile row for that account". Same
+   tokens, no new colour. */
+table.dtable td.who .sub {
+  display: block;
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+  font-weight: 400;
+  margin-top: 2px;
+}
+table.dtable td.ctls, table.dtable th.ctls-h {
+  white-space: normal;
+  position: sticky;
+  right: 0;
+  background: var(--paper-raised);
+  box-shadow: inset 1.5px 0 0 var(--rule);
+}
+.ctls-stack { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
+.ctls-stack .btn { width: 100%; }
+
+tr.confirm-row > td { background: var(--paper-sunk); white-space: normal; }
+/* Pinned to the LEFT edge, for the mirror of the reason the Controls column
+   is pinned to the right. This cell spans all seven columns, so on a
+   scrolling table it is as wide as the table and its buttons sit off-screen
+   - a confirmation you cannot see the buttons of is not a confirmation. The
+   width is the smaller of "the cell" and "what the viewport can show inside
+   this card", so at laptop width it is simply the full row and sticky never
+   engages. */
+.confirm {
+  position: sticky; left: 0;
+  width: min(100%, calc(100vw - 5rem));
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0;
+}
+.confirm .say { flex: 1 1 240px; font-size: var(--t-secondary); color: var(--ink); }
+.confirm .say strong { color: var(--ink); font-weight: 700; }
+
+/* App-control rows: same rhythm as .row, but the right-hand side holds
+   controls rather than a number. */
+.ctl {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-3) 0;
+  border-top: 1.5px solid var(--rule);
+}
+.ctl:first-of-type { border-top: 0; }
+.ctl .ctl-k { flex: 1 1 240px; font-size: var(--t-row); color: var(--ink); }
+.ctl .ctl-k .sub { display: block; font-size: var(--t-caption); color: var(--ink-dim); font-weight: 400; }
+.ctl .ctl-do { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); }
+/* A button label is never a paragraph. Without this the flex row shrinks
+   "Save cap" to two stacked words the moment the description beside it gets
+   long, and a two-line button reads as broken. */
+.ctl .ctl-do .btn, .confirm .btn { flex: 0 0 auto; white-space: nowrap; }
+.ctl-confirm { padding: var(--sp-3); border-radius: var(--radius-sm); background: var(--paper-sunk); margin-top: var(--sp-2); }
+
+.pill--off { background: var(--danger-tint); color: var(--danger-text); }
+.pill--sus { background: var(--danger-tint); color: var(--danger-text); }
+
+/* One line, bottom centre, gone in a few seconds. It says the same word the
+   button said, in past tense, and nothing else. */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + var(--sp-5));
+  max-width: min(92vw, 440px);
+  background: var(--paper-raised); color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--rule);
+  border-radius: var(--radius-sm); padding: var(--sp-3) var(--sp-4);
+  font-size: var(--t-secondary); font-weight: 600; z-index: 10;
+}
+.toast[hidden] { display: none; }
+.toast--bad { color: var(--danger-text); box-shadow: inset 0 0 0 1.5px var(--danger-text); }
+
+/* Narrow screens: let the Users table WRAP instead of scroll.
+   .table-scroll is the right answer for a wide table of numbers you only
+   read - you swipe it sideways and nothing is lost. It is the wrong answer
+   for a table you press: the Controls column is the last one, so on a phone
+   it sits permanently off the right edge and the confirm strip that opens
+   under a row is wider than the screen it opens on. Below this width every
+   cell is allowed to wrap, the table fits, and both stay reachable.
+   Figures survive it - "116,100" has no space in it to break at. */
+@media (max-width: 620px) {
+  table.dtable th, table.dtable td { white-space: normal; }
+  /* Lower than the desktop floor, but not zero. At zero the table squeezes
+     this column to about eighty pixels and shreds an ordinary address across
+     four lines ("chirag / @exa / mple. / com"), which reads as broken type.
+     The table is scrolling at this width regardless, so buying the column
+     enough room to hold a name costs a little more sideways scroll through
+     the middle number columns and nothing else - and the two things you
+     press, the identity and the controls, are both pinned in view. */
+  table.dtable td.who { min-width: 130px; }
+}
+
+.skeleton { opacity: 0.5; }
+@media (max-width: 520px) {
+  .stat-row { gap: var(--sp-4); }
+  .stat .num { font-size: 22px; }
+  header.top { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Mission Control</h1>
+      <p class="sub">Clapper - private dashboard</p>
+    </div>
+    <div class="top-controls" id="topControls" hidden>
+      <label class="toggle" id="excludeToggleWrap">
+        <input type="checkbox" id="excludeToggle" checked />
+        <span class="track"></span>
+        <span class="label">Exclude my traffic</span>
+      </label>
+      <button type="button" class="btn btn--sm" id="themeBtn">Day</button>
+      <button type="button" class="btn btn--text" id="signOutBtn">Sign out</button>
+    </div>
+  </header>
+
+  <!-- STATE 1: login -->
+  <section id="stateLogin" class="state center-card">
+    <div class="mark"><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="lede">Enter the passphrase to see live numbers.</p>
+    <form id="loginForm" style="display:flex; flex-direction:column; align-items:center; gap: var(--sp-3); width: 100%;">
+      <input class="field" id="passInput" type="password" placeholder="Passphrase" autocomplete="current-password" />
+      <button type="submit" class="btn btn--primary" id="loginBtn" style="min-width:240px;">Sign in</button>
+    </form>
+    <p class="note" id="loginNote"></p>
+    <div class="err-banner" id="loginErr" hidden></div>
+  </section>
+
+  <!-- STATE 2: loading -->
+  <section id="stateLoading" class="state center-card" hidden>
+    <p class="lede skeleton">Loading numbers&hellip;</p>
+  </section>
+
+  <!-- STATE 3: offline/error -->
+  <section id="stateOffline" class="state center-card" hidden>
+    <p class="lede">Couldn't reach the server.</p>
+    <p class="note" id="offlineNote">Check the connection and try again.</p>
+    <button type="button" class="btn btn--primary" id="retryBtn">Try again</button>
+  </section>
+
+  <!-- STATE 4: dashboard -->
+  <section id="stateDashboard" class="state" hidden>
+    <div id="dashBody"></div>
+    <footer class="foot">
+      <span class="gen mono" id="generatedAt"></span>
+    </footer>
+  </section>
+
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+// No supabase-js, no CDN, no external script of any kind - CSP on this site
+// blocks external scripts, and this page needs none: a passphrase POST and a
+// couple of JSON fetches to one edge function is the entire client.
+var FN_URL = 'https://sqqdivfgdfaztfzrzkhu.supabase.co/functions/v1/dashboard-api';
+// The SAME public anon key already shipped in this repo's own source
+// (landing/admin/index.html, landing/beacon.html) - it carries no privilege
+// beyond "is a Supabase-issued JWT". It is sent as Authorization ONLY to
+// satisfy the Supabase platform's own default edge-function gate, which
+// checks that header for a real Supabase JWT before a request reaches this
+// project's code at all - independent of anything in dashboard-api/index.ts.
+// It is NOT this page's identity and dashboard-api never reads it as one:
+// the real session token issued by /login lives in the JSON body of every
+// request instead (see that function's own comment on this).
+var ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxcWRpdmZnZGZhenRmenJ6a2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTA2NTYsImV4cCI6MjA5OTU4NjY1Nn0.MUhO3nmPg4gmQI5vLK5LGpOMIzrcA_j9ZDj8sp8ftH4';
+
+var TOKEN_KEY = 'clapper.dashboard.token';
+var TOKEN_EXP_KEY = 'clapper.dashboard.token_exp';
+var THEME_KEY = 'clapper.dashboard.theme';
+var EXCLUDE_KEY = 'clapper.dashboard.exclude_self';
+
+var el = {
+  topControls: document.getElementById('topControls'),
+  excludeToggle: document.getElementById('excludeToggle'),
+  themeBtn: document.getElementById('themeBtn'),
+  signOutBtn: document.getElementById('signOutBtn'),
+  login: document.getElementById('stateLogin'),
+  loading: document.getElementById('stateLoading'),
+  offline: document.getElementById('stateOffline'),
+  offlineNote: document.getElementById('offlineNote'),
+  dashboard: document.getElementById('stateDashboard'),
+  dashBody: document.getElementById('dashBody'),
+  generatedAt: document.getElementById('generatedAt'),
+  loginForm: document.getElementById('loginForm'),
+  passInput: document.getElementById('passInput'),
+  loginBtn: document.getElementById('loginBtn'),
+  loginNote: document.getElementById('loginNote'),
+  loginErr: document.getElementById('loginErr'),
+  retryBtn: document.getElementById('retryBtn'),
+  toast: document.getElementById('toast'),
+};
+
+function showOnly(node) {
+  for (var s of [el.login, el.loading, el.offline, el.dashboard]) s.hidden = s !== node;
+  el.topControls.hidden = node !== el.dashboard;
+}
+
+/* ---------------------------------------------------------------- theme -- */
+function paintTheme(theme) {
+  if (theme === 'day') document.documentElement.setAttribute('data-theme', 'day');
+  else document.documentElement.removeAttribute('data-theme');
+  var m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', theme === 'day' ? '#fbfaf7' : '#000000');
+  el.themeBtn.textContent = theme === 'day' ? 'Night' : 'Day';
+}
+function currentTheme() {
+  try { return localStorage.getItem(THEME_KEY) === 'day' ? 'day' : 'night'; } catch (e) { return 'night'; }
+}
+paintTheme(currentTheme());
+el.themeBtn.addEventListener('click', function () {
+  var next = currentTheme() === 'day' ? 'night' : 'day';
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+  paintTheme(next);
+});
+
+/* -------------------------------------------------------------- session -- */
+function readSession() {
+  try {
+    var token = sessionStorage.getItem(TOKEN_KEY);
+    var exp = Number(sessionStorage.getItem(TOKEN_EXP_KEY));
+    if (!token || !exp || exp * 1000 <= Date.now()) return null;
+    return { token: token, exp: exp };
+  } catch (e) { return null; }
+}
+function writeSession(token, exp) {
+  try { sessionStorage.setItem(TOKEN_KEY, token); sessionStorage.setItem(TOKEN_EXP_KEY, String(exp)); } catch (e) {}
+}
+function clearSession() {
+  try { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_EXP_KEY); } catch (e) {}
+}
+
+function readClientVid() {
+  // Same-origin, same key the app and the landing beacon already write
+  // (src/net/analytics.ts, landing/beacon.html) - reading it lets "exclude my
+  // traffic" cover the browser sitting on this exact dashboard too, not just
+  // whatever the owner has separately configured server-side.
+  try { return localStorage.getItem('clapper.vid'); } catch (e) { return null; }
+}
+function readExcludeSelf() {
+  try { var v = localStorage.getItem(EXCLUDE_KEY); return v === null ? true : v === '1'; } catch (e) { return true; }
+}
+function writeExcludeSelf(v) {
+  try { localStorage.setItem(EXCLUDE_KEY, v ? '1' : '0'); } catch (e) {}
+}
+
+/* ---------------------------------------------------------------- fetch -- */
+function apiPost(payload) {
+  return fetch(FN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + ANON_KEY, 'apikey': ANON_KEY },
+    body: JSON.stringify(payload),
+  }).then(function (res) {
+    return res.json().catch(function () { return {}; }).then(function (json) { return { status: res.status, json: json }; });
+  });
+}
+
+var countdownTimer = null;
+function startCountdown(seconds, prefix) {
+  if (countdownTimer) clearInterval(countdownTimer);
+  var remaining = seconds;
+  el.loginBtn.disabled = true;
+  function tick() {
+    if (remaining <= 0) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      el.loginBtn.disabled = false;
+      el.loginErr.hidden = true;
+      return;
+    }
+    el.loginErr.hidden = false;
+    el.loginErr.textContent = prefix + ' Try again in ' + remaining + 's.';
+    remaining--;
+  }
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+
+el.loginForm.addEventListener('submit', function (e) {
+  e.preventDefault();
+  var pass = el.passInput.value;
+  if (!pass) return;
+  el.loginBtn.disabled = true;
+  el.loginErr.hidden = true;
+  apiPost({ action: 'login', passphrase: pass }).then(function (r) {
+    if (r.status === 200 && r.json.token) {
+      el.passInput.value = '';
+      writeSession(r.json.token, r.json.expires_at);
+      loadDashboard();
+      return;
+    }
+    el.loginBtn.disabled = false;
+    if (r.status === 429) {
+      var prefix = r.json.locked ? 'Locked - too many failed attempts.' : 'Too fast.';
+      startCountdown(Number(r.json.retry_after) || 10, prefix);
+      return;
+    }
+    el.loginErr.hidden = false;
+    el.loginErr.textContent = r.json.error || 'Sign-in failed.';
+  }).catch(function () {
+    el.loginBtn.disabled = false;
+    el.loginErr.hidden = false;
+    el.loginErr.textContent = "Couldn't reach the server.";
+  });
+});
+
+el.signOutBtn.addEventListener('click', function () {
+  clearSession();
+  showOnly(el.login);
+});
+el.retryBtn.addEventListener('click', function () { loadDashboard(); });
+el.excludeToggle.addEventListener('change', function () {
+  writeExcludeSelf(el.excludeToggle.checked);
+  loadDashboard();
+});
+
+function loadDashboard() {
+  var session = readSession();
+  if (!session) { showOnly(el.login); return; }
+  // Every load starts from the database's version of things: nothing stays
+  // armed across a refetch, and no half-typed value survives to be mistaken
+  // for a saved one.
+  armed = null;
+  capDraft = null;
+  showOnly(el.loading);
+  el.excludeToggle.checked = readExcludeSelf();
+  apiPost({
+    action: 'stats',
+    token: session.token,
+    exclude_self: readExcludeSelf(),
+    client_vid: readClientVid(),
+  }).then(function (r) {
+    if (r.status === 401) {
+      clearSession();
+      showOnly(el.login);
+      el.loginErr.hidden = false;
+      el.loginErr.textContent = 'Session expired - sign in again.';
+      return;
+    }
+    if (r.status !== 200) {
+      showOnly(el.offline);
+      el.offlineNote.textContent = r.json.error || "The server refused that request.";
+      return;
+    }
+    renderDashboard(r.json);
+    showOnly(el.dashboard);
+  }).catch(function () {
+    showOnly(el.offline);
+    el.offlineNote.textContent = "Check the connection and try again.";
+  });
+}
+
+/* ============================================================================
+   ADMIN WRITES.
+
+   This page stays exactly as dumb as it was for reads. It does not decide
+   who may do any of this, it does not know the passphrase, and it cannot
+   check anything: it posts an action and the session token to the same edge
+   function, and that function re-verifies the token on every single write
+   the same way it does on every read. Everything below is presentation. The
+   two-step confirms are here to stop a misclick, not to stop an attacker -
+   an attacker would not be running this file.
+
+   After a successful write the page RELOADS from the server rather than
+   patching the row it just changed. A control that redraws itself from what
+   it hoped happened is how a kill switch ends up looking flipped when it is
+   not; the numbers on this page are only worth anything if they came back
+   from the database.
+   ========================================================================== */
+
+var lastData = null;
+
+/* The armed half of a two-step control. One at a time, by construction -
+ * arming anything disarms whatever was armed before, so there is never a
+ * second primed button waiting off-screen. */
+var armed = null;
+/* A half-typed day cap, kept across the re-render that arming the kill
+ * switch causes. Without it, typing a new cap and then reaching for the
+ * switch above it silently throws the number away, and the next thing you
+ * see is the old value looking like it saved. Cleared on every load, so the
+ * field always falls back to what the database actually says. */
+var capDraft = null;
+function isArmed(kind, id) {
+  return !!armed && armed.kind === kind && (armed.id || null) === (id || null);
+}
+function arm(kind, id) { armed = { kind: kind, id: id || null }; rerender(); }
+function disarm() { armed = null; rerender(); }
+function rerender() { if (lastData) renderDashboard(lastData); }
+
+var toastTimer = null;
+/* Says what happened in the same word the button said. No "successfully",
+ * no exclamation mark. */
+function toast(msg, bad) {
+  el.toast.textContent = msg;
+  el.toast.className = bad ? 'toast toast--bad' : 'toast';
+  el.toast.hidden = false;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.toast.hidden = true; }, bad ? 7000 : 4000);
+}
+
+var writing = false;
+/** Posts one admin action. `done` is the past tense of the button that was
+ * pressed - "Suspended" for Suspend - so the answer uses the reader's own
+ * word rather than a generic one. */
+function apiWrite(payload, done) {
+  if (writing) return;
+  var session = readSession();
+  if (!session) { showOnly(el.login); return; }
+  writing = true;
+  payload.token = session.token;
+  apiPost(payload).then(function (r) {
+    writing = false;
+    if (r.status === 401) {
+      clearSession();
+      showOnly(el.login);
+      el.loginErr.hidden = false;
+      el.loginErr.textContent = 'Session expired - sign in again.';
+      return;
+    }
+    if (r.status !== 200 || !r.json.ok) {
+      // The server's own sentence, not a rewrite of it. It knows things this
+      // page does not, like which migration is missing.
+      toast(r.json.error || 'The server refused that.', true);
+      return;
+    }
+    armed = null;
+    // An audit row that failed to save is said out loud. The change itself
+    // went through - the server does not roll a correct write back because
+    // the note about it failed - so this is a warning, not an error, and it
+    // has to be visible or the trail quietly stops being a trail.
+    if (r.json.audit_logged === false) toast(done + ' The audit row did not save.', true);
+    else toast(done);
+    loadDashboard();
+  }).catch(function () {
+    writing = false;
+    toast("Couldn't reach the server.", true);
+  });
+}
+
+function inputValue(id) {
+  var n = document.getElementById(id);
+  return n ? String(n.value || '').trim() : '';
+}
+
+/* One delegated listener for every control on the page. The panels are
+ * rendered as HTML strings and replaced wholesale on each load, so per-node
+ * listeners would have to be re-attached every time and one missed
+ * re-attachment is a dead button. Delegation cannot drift. */
+el.dashBody.addEventListener('click', function (e) {
+  var t = e.target && e.target.closest ? e.target.closest('[data-arm],[data-cancel],[data-do]') : null;
+  if (!t || t.disabled) return;
+
+  // Read before anything re-renders the node out from under us.
+  var capNode = document.getElementById('capInput');
+  if (capNode) capDraft = String(capNode.value || '').trim();
+
+  if (t.hasAttribute('data-cancel')) { disarm(); return; }
+  if (t.hasAttribute('data-arm')) { arm(t.getAttribute('data-arm'), t.getAttribute('data-user')); return; }
+
+  var doWhat = t.getAttribute('data-do');
+  var uid = t.getAttribute('data-user');
+
+  if (doWhat === 'set_pro') {
+    apiWrite({ action: 'set_pro', user_id: uid, pro_until: inputValue('armInput') || null }, 'Made Pro.');
+  } else if (doWhat === 'set_free') {
+    apiWrite({ action: 'set_free', user_id: uid }, 'Moved to free.');
+  } else if (doWhat === 'suspend') {
+    var why = inputValue('armInput');
+    if (!why) { toast('Say why. A reason is required.', true); return; }
+    apiWrite({ action: 'suspend', user_id: uid, reason: why }, 'Suspended.');
+  } else if (doWhat === 'unsuspend') {
+    var whyBack = inputValue('armInput');
+    if (!whyBack) { toast('Say why. A reason is required.', true); return; }
+    apiWrite({ action: 'unsuspend', user_id: uid, reason: whyBack }, 'Unsuspended.');
+  } else if (doWhat === 'kill_off') {
+    apiWrite({ action: 'set_config', key: 'script_mode_enabled', value: false }, 'Script Mode is off.');
+  } else if (doWhat === 'kill_on') {
+    apiWrite({ action: 'set_config', key: 'script_mode_enabled', value: true }, 'Script Mode is on.');
+  } else if (doWhat === 'set_cap') {
+    // Typing a number IS the deliberate step, so the cap saves on one press.
+    // It is also the one control here that cannot lock anyone out of
+    // anything permanently: the wrong number is fixed by typing another.
+    var raw = inputValue('capInput');
+    if (!/^\d{1,6}$/.test(raw)) { toast('The day cap is a whole number.', true); return; }
+    apiWrite({ action: 'set_config', key: 'script_mode_daily_cap', value: Number(raw) }, 'Day cap saved.');
+  }
+});
+
+/* ============================================================================
+   RENDERING - pure functions of whatever dashboard-api's 'stats' action
+   returned. Nothing here is hardcoded; every number came back from this
+   call, on this load, for this signed-in session.
+   ========================================================================== */
+
+var DAY_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+var DT_FMT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+function fmtDay(iso) { return DAY_FMT.format(new Date(iso + 'T00:00:00Z')); }
+function fmtDT(iso) { return DT_FMT.format(new Date(iso)); }
+function fmtN(n) { return Number(n || 0).toLocaleString(); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function pct(a, b) { return b > 0 ? Math.round((a / b) * 1000) / 10 : 0; }
+// Money is smallest-unit-in, real-unit-out, divided by 100 in exactly ONE
+// place. Never handed to fmtN(): that helper runs Number() over the value,
+// which turns "5.00 USD" into NaN - an amount is a string with a unit, and
+// every panel on this page that shows money (Users, Purchases) calls this
+// same function so the division only ever happens here.
+function fmtMoney(minorUnits, currency) {
+  if (minorUnits === null || minorUnits === undefined) return '-';
+  return (minorUnits / 100).toFixed(2) + (currency ? ' ' + currency : '');
+}
+// A user can, in principle, have paid in more than one currency - fmtMoney
+// takes one amount, this joins however many a person actually has, and never
+// adds them together (same rule as "Taken, by currency" in Money below).
+function fmtMoneyList(entries) {
+  if (!entries || !entries.length) return '-';
+  return entries.map(function (e) { return fmtMoney(e.minor_units, e.currency); }).join(', ');
+}
+
+var SCREEN_LABEL = {
+  home: 'Home', projects: 'Projects list', project: 'A project', shots: 'Shot list',
+  cliplog: 'Clip log', rolling: 'Rolling', settings: 'Settings', account: 'Account', how_to: 'How-to guide',
+};
+var SECTION_LABEL = { landing: 'Landing page', articles: 'Guides', templates: 'Templates', other: 'Other' };
+var FUNNEL_LABEL = {
+  landing_view: 'Landed', landing_cta_click: 'Clicked into app', app_open: 'Opened the app',
+  project_created: 'Created a project', roll: 'Pressed roll', cut: 'Pressed cut',
+};
+// Funnel v2 (data.funnel.core / .anonymous / .signedIn) - a separate label
+// map because it covers three stages the older funnel above does not
+// (onboarding, tag/mark, checkout) and names them slightly differently on
+// purpose ("Rolled a take" reads better as a funnel step than "Pressed roll").
+var FUNNEL_V2_LABEL = {
+  landing_view: 'Landed', landing_cta_click: 'Clicked CTA', app_open: 'Opened app',
+  onboarding: 'Onboarding', project_created: 'Created project', roll: 'Rolled a take',
+  cut: 'Cut a take', moment_marked_or_tag_used: 'Tagged / marked a moment', checkout_started: 'Started checkout',
+};
+var FUNNEL_V2_RANK_LABEL = {
+  no_funnel_event_reached: 'No funnel event at all',
+  landing_view: 'Landed, no further', landing_cta_click: 'Clicked CTA, no further',
+  app_open: 'Opened app, no further', onboarding: 'Onboarding, no further',
+  project_created: 'Created project, no further', roll: 'Rolled, no further',
+  cut: 'Cut, no further', moment_marked_or_tag_used: 'Tagged/marked, no further',
+  checkout_started: 'Reached checkout',
+};
+var EVENT_LABEL = {
+  app_open: 'App opens', roll: 'Roll', cut: 'Cut', moment_marked: 'Moments marked (MARK IN/OUT)',
+  tag_used: 'Quick tags used', clip_number_edited: 'Clip numbers fixed', wrap_day: 'Wrap day presses',
+  project_created: 'Projects created', persist: 'Local backups written', onboarding: 'Onboarding steps seen',
+  install_nudge: 'Install prompts shown', example_loaded: 'Example project loaded', error: 'Errors logged',
+};
+
+function renderRows(list, mapRow) {
+  if (!list || !list.length) return '<p class="empty">Nothing yet in this window.</p>';
+  return '<div class="rows">' + list.map(function (raw) {
+    var r = mapRow(raw);
+    return '<div class="row"><div class="k">' + esc(r.k) + (r.sub ? '<span class="sub">' + esc(r.sub) + '</span>' : '') +
+      '</div><div class="v mono">' + fmtN(r.v) + (r.vsub ? '<span class="sub">' + esc(r.vsub) + '</span>' : '') + '</div></div>';
+  }).join('') + '</div>';
+}
+
+/** Hand-rolled inline SVG bar chart. `series` is [{label, value}], values
+ * scaled to the series' own max. No axis library, no canvas dependency - a
+ * handful of <rect>s and <text>s is the whole chart. */
+function svgBars(series, opts) {
+  opts = opts || {};
+  var w = opts.width || 640, h = opts.height || 96, pad = 18;
+  if (!series.length) return '<p class="empty">No days in this window yet.</p>';
+  var max = 1;
+  for (var mi = 0; mi < series.length; mi++) max = Math.max(max, Number(series[mi].value) || 0);
+  var barW = (w - pad) / series.length;
+  var gap = Math.min(6, barW * 0.25);
+  var bars = series.map(function (s, i) {
+    var v = Number(s.value) || 0;
+    var bh = Math.max(2, Math.round((v / max) * (h - 20)));
+    var x = pad + i * barW;
+    var y = h - 20 - bh;
+    var showEvery = series.length > 14 ? Math.ceil(series.length / 10) : 1;
+    var label = i % showEvery === 0 ? esc(fmtDay(s.day)) : '';
+    return '<rect class="bar" x="' + (x + gap / 2).toFixed(1) + '" y="' + y + '" width="' + Math.max(1, barW - gap).toFixed(1) +
+      '" height="' + bh + '"><title>' + esc(fmtDay(s.day)) + ': ' + fmtN(s.value) + '</title></rect>' +
+      (label ? '<text class="axis-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle">' + label + '</text>' : '');
+  }).join('');
+  return '<svg class="chart-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" role="img">' + bars + '</svg>';
+}
+/** Two-series version of svgBars, for the funnel's daily landed-vs-opened
+ * chart. Reuses the same .bar / .bar--dim classes svgBars already defines
+ * (accent for the primary series, ink-faint for the second) rather than
+ * inventing a new colour - this is simply their first second-series user. */
+function svgDualBars(series) {
+  if (!series || !series.length) return '<p class="empty">No days in this window yet.</p>';
+  var w = 640, h = 110, pad = 4;
+  var max = 1;
+  for (var mi = 0; mi < series.length; mi++) max = Math.max(max, Number(series[mi].landing_view) || 0, Number(series[mi].app_open) || 0);
+  var n = series.length;
+  var groupW = (w - pad * 2) / n;
+  var barW = Math.max(1, (groupW - 2) / 2);
+  var showEvery = n > 14 ? Math.ceil(n / 8) : 2;
+  var parts = series.map(function (s, i) {
+    var x = pad + i * groupW;
+    var vL = Number(s.landing_view) || 0, vA = Number(s.app_open) || 0;
+    var hL = Math.max(1, Math.round((vL / max) * (h - 20)));
+    var hA = Math.max(1, Math.round((vA / max) * (h - 20)));
+    var yL = h - 18 - hL, yA = h - 18 - hA;
+    var label = i % showEvery === 0
+      ? '<text class="axis-label" x="' + (x + groupW / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle">' + esc(fmtDay(s.day)) + '</text>'
+      : '';
+    return '<rect class="bar" x="' + x.toFixed(1) + '" y="' + yL + '" width="' + barW.toFixed(1) + '" height="' + hL +
+      '"><title>' + esc(fmtDay(s.day)) + ' landed: ' + fmtN(vL) + '</title></rect>' +
+      '<rect class="bar bar--dim" x="' + (x + barW + 1).toFixed(1) + '" y="' + yA + '" width="' + barW.toFixed(1) + '" height="' + hA +
+      '"><title>' + esc(fmtDay(s.day)) + ' opened app: ' + fmtN(vA) + '</title></rect>' + label;
+  }).join('');
+  return '<svg class="chart-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" role="img" aria-label="Daily landing views and app opens, last 30 days">' + parts + '</svg>' +
+    '<div class="chart-legend"><span><span class="dot" style="background:var(--accent)"></span>Landed</span><span><span class="dot" style="background:var(--ink-faint)"></span>Opened app</span></div>';
+}
+
+/** Shared funnel-bar renderer for funnel v2 (core / anonymous / signed-in).
+ * `steps` are objects with {stage, devices, retention_pct_from_prev,
+ * dropoff_pct_from_prev}, the exact shape dashboard-api's funnel-v2 section
+ * returns for all three of its funnels - one renderer, three callers. */
+function funnelBadge(step, isFirst) {
+  if (isFirst) return '';
+  var d = step.dropoff_pct_from_prev;
+  if (d < 0) return ' <span class="pill pill--pro">grows</span>';
+  if (d >= 50) return ' <span class="pill pill--sus">−' + d + '%</span>';
+  return ' <span class="pill">−' + d + '%</span>';
+}
+function funnelStepsBlock(steps) {
+  if (!steps || !steps.length) return '<p class="empty">No data yet.</p>';
+  var first = steps[0] ? steps[0].devices : 0;
+  return '<div class="funnel">' + steps.map(function (s, i) {
+    var width = first > 0 ? Math.max(2, Math.round((s.devices / first) * 100)) : 0;
+    var rate = i > 0
+      ? pct(s.devices, steps[i - 1].devices) + '% of previous · ' + pct(s.devices, first) + '% of top'
+      : '100% · start of funnel';
+    return '<div class="funnel-row">' +
+      '<div class="lbl"><span class="name">' + esc(FUNNEL_V2_LABEL[s.stage] || s.stage) + '</span>' +
+        '<span class="val mono">' + fmtN(s.devices) + '</span>' + funnelBadge(s, i === 0) + '</div>' +
+      '<div class="funnel-track"><div class="funnel-fill" style="width:' + width + '%"></div></div>' +
+      '<div class="funnel-rate">' + rate + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+function stackBarsBlock(rows) {
+  return rows.map(function (r) {
+    var total = r.a + r.s;
+    var ap = total ? (r.a / total * 100) : 0;
+    var sp = 100 - ap;
+    return '<div class="stack-row">' +
+      '<div class="lbl"><span class="name">' + esc(r.label) + '</span><span class="val">' + fmtN(total) + '</span></div>' +
+      '<div class="stack-track"><div class="stack-a" style="width:' + ap + '%"></div><div class="stack-s" style="width:' + sp + '%"></div></div>' +
+    '</div>';
+  }).join('');
+}
+
+/** Acquisition funnel (data.funnel.core, .dropoffCliffs, .sources,
+ * .dailySeries, .revenue) - the whole ip_hash-keyed, all-time device funnel.
+ * See dashboard-api's own header comment on FUNNEL_V2_STAGES for why this is
+ * a separate, wider-history funnel from the vid-based one panelFunnel()
+ * already renders above it, rather than a replacement for it. Rendered only
+ * when dashboard-api sent the deep fields (data.funnel.core) - a page newer
+ * than the deployed function must say so, not show a card full of undefined. */
+function panelFunnelCore(f) {
+  if (!f) return '';
+  if (!f.core) {
+    return '<div class="card"><h2>Acquisition funnel</h2>' +
+      '<p class="empty">' + esc(f.deep_unavailable_reason || 'Not available on this deploy yet - redeploy dashboard-api.') + '</p></div>';
+  }
+  var rev = f.revenue || {};
+  var real = rev.real || {};
+  var byCur = real.by_currency || [];
+  var revenueLine = byCur.length
+    ? byCur.map(function (c) { return fmtMoney(c.minor_units, c.currency); }).join(', ')
+    : (real.purchases_available === false ? 'not readable yet' : 'nothing sold yet');
+  var subsLine = real.subscriptions_available
+    ? fmtN(real.subscriptions_active) + ' of ' + fmtN(real.subscriptions_total)
+    : 'not readable yet';
+
+  var cliffs = (f.dropoffCliffs || []).map(function (c) {
+    return '<div class="stat"><div class="num mono">' + c.dropoff_pct + '%</div>' +
+      '<div class="label">' + esc(FUNNEL_V2_LABEL[c.from] || c.from) + ' → ' + esc(FUNNEL_V2_LABEL[c.to] || c.to) +
+      '<span class="sub">' + fmtN(c.from_devices) + ' → ' + fmtN(c.to_devices) + ' devices</span></div></div>';
+  }).join('');
+
+  var anomalies = (f.core.growth_anomalies || []).map(function (a) {
+    return '<p class="foot-note"><strong>' + esc(FUNNEL_V2_LABEL[a.to] || a.to) + '</strong> reads higher than <strong>' +
+      esc(FUNNEL_V2_LABEL[a.from] || a.from) + '</strong> (' + fmtN(a.from_devices) + ' → ' + fmtN(a.to_devices) +
+      ') — devices reach it a different way (a direct or bookmarked app open, a take rolled on the built-in example project) rather than through the step before it, so this is not a real funnel gain.</p>';
+  }).join('');
+
+  var sourceRows = ((f.sources && f.sources.conversion) || []).map(function (s) {
+    return {
+      k: s.ref, v: s.landing_devices,
+      sub: s.app_open_conv_pct + '% → app · ' + s.project_created_conv_pct + '% → project',
+    };
+  });
+
+  return '<div class="card">' +
+    '<h2>Acquisition funnel</h2>' +
+    '<div class="stat-row" style="margin-bottom:var(--sp-4)">' +
+      '<div class="stat"><div class="num mono">' + esc(revenueLine) + '</div><div class="label">real revenue, granted<span class="sub">' + fmtN(real.granted_purchase_count || 0) + ' payment(s)</span></div></div>' +
+      '<div class="stat"><div class="num mono">' + esc(subsLine) + '</div><div class="label">real subscriptions, active of total</div></div>' +
+    '</div>' +
+    '<p class="foot-note">Every device that ever touched Clapper, by distinct IP, since launch — not restricted to the dev-gate cutoff above, because this funnel needs the full history to be honest. checkout_started / checkout_subscription_started below are analytics <strong>intent</strong> (a logged button click), never revenue - the two numbers above are the only real money and real subscriptions on this page.</p>' +
+    funnelStepsBlock(f.core.steps) +
+    anomalies +
+    '<h3 class="sub-h">Where you bleed the most</h3><div class="stat-row">' + cliffs + '</div>' +
+    '<h3 class="sub-h">Daily, last 30 days</h3>' + svgDualBars(f.dailySeries || []) +
+    '<h3 class="sub-h">Where they come from</h3>' + renderRows(sourceRows, function (r) { return r; }) +
+    '<p class="foot-note"><code>ref</code> on the landing URL. Untagged (“(none)”) means direct, dark-social or an untagged outreach link - most of this project’s traffic today.</p>' +
+  '</div>';
+}
+
+/** Anonymous vs signed-in split (data.funnel.anonymous). */
+function panelFunnelSplit(f) {
+  if (!f || !f.anonymous) return '';
+  var a = f.anonymous;
+  var stackRows = (a.anonVsSignedByStage || []).map(function (s) {
+    return { label: FUNNEL_V2_LABEL[s.stage] || s.stage, a: s.anonymous_devices, s: s.signed_in_devices };
+  });
+  var furthest = ((a.furthestStage && a.furthestStage.distribution) || []).filter(function (d) { return d.devices > 0; });
+  var fmax = furthest.reduce(function (m, d) { return Math.max(m, d.devices); }, 1);
+  var furthestRows = furthest.map(function (d) {
+    var width = Math.max(2, Math.round((d.devices / fmax) * 100));
+    return '<div class="funnel-row">' +
+      '<div class="lbl"><span class="name">' + esc(FUNNEL_V2_RANK_LABEL[d.furthest_stage] || d.furthest_stage) + '</span>' +
+        '<span class="val mono">' + fmtN(d.devices) + ' (' + d.pct_of_anonymous + '%)</span></div>' +
+      '<div class="funnel-track"><div class="funnel-fill" style="width:' + width + '%"></div></div>' +
+    '</div>';
+  }).join('');
+  var conv = a.appOpenToProject || {};
+
+  return '<div class="card">' +
+    '<h2>Anonymous vs signed-in</h2>' +
+    '<div class="stat-row" style="margin-bottom:var(--sp-4)">' +
+      '<div class="stat"><div class="num mono">' + fmtN(a.total_anonymous_devices) + '</div><div class="label">never signed in<span class="sub">' + a.pct_of_all_devices + '% of ' + fmtN(a.total_devices_with_ip_hash) + ' devices</span></div></div>' +
+      '<div class="stat"><div class="num mono">' + (conv.conversion_pct != null ? conv.conversion_pct : 0) + '%</div><div class="label">anon app-open → project<span class="sub">' + fmtN(conv.anon_then_project_created_devices || 0) + ' of ' + fmtN(conv.anon_app_open_devices || 0) + '</span></div></div>' +
+    '</div>' +
+    '<h3 class="sub-h">Who is at each stage</h3>' + stackBarsBlock(stackRows) +
+    '<div class="stack-legend"><span><span class="dot" style="background:var(--ink-faint)"></span>Anonymous</span><span><span class="dot" style="background:var(--accent)"></span>Signed in</span></div>' +
+    '<h3 class="sub-h">Where anonymous devices stop</h3>' + (furthestRows || '<p class="empty">No anonymous activity yet.</p>') +
+    '<p class="foot-note"><strong>' + fmtN(a.total_anonymous_devices) + '</strong> of ' + fmtN(a.total_devices_with_ip_hash) + ' devices (' + a.pct_of_all_devices + '%) never signed in. “No funnel event at all” means the device fired something (a backup, an error, an install prompt) but never a funnel-stage event.</p>' +
+  '</div>';
+}
+
+/** Signed-in funnel + per-account activity (data.funnel.signedIn). Keyed by
+ * user_id, not ip_hash - a signed-in person can cross devices, so this is
+ * the one funnel-v2 table where "device" is the wrong unit. */
+function panelFunnelUsers(f) {
+  if (!f || !f.signedIn) return '';
+  var si = f.signedIn;
+  var rows = (si.users && si.users.rows) || [];
+  var trs = rows.map(function (r) {
+    return '<tr>' +
+      '<td class="who">' + esc(r.email || r.user_id) + '</td>' +
+      '<td>' + esc(FUNNEL_V2_LABEL[r.furthest_stage] || r.furthest_stage) + '</td>' +
+      '<td>' + esc(fmtDT(r.last_seen)) + '</td>' +
+      '<td class="num">' + fmtN(r.roll_count) + '</td>' +
+      '<td class="num">' + fmtN(r.cut_count) + '</td>' +
+      '<td class="num">' + fmtN(r.checkout_started_count) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<div class="card">' +
+    '<h2>Signed-in — what they do</h2>' +
+    funnelStepsBlock(si.funnel ? si.funnel.steps : []) +
+    '<h3 class="sub-h">Every signed-in account with events (' + fmtN((si.users && si.users.total_users_with_events) || 0) + ')</h3>' +
+    (rows.length
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+          '<th>Who</th><th>Furthest stage</th><th>Last seen</th><th class="num">Rolls</th><th class="num">Cuts</th><th class="num">Checkouts</th>' +
+        '</tr></thead><tbody>' + trs + '</tbody></table></div>'
+      : '<p class="empty">No signed-in activity yet.</p>') +
+    (si.users && si.users.truncated
+      ? '<p class="foot-note">Showing the ' + fmtN(rows.length) + ' most recently active of ' + fmtN(si.users.total_users_with_events) + '.</p>'
+      : '') +
+  '</div>';
+}
+
+function panelTraffic(t, meta) {
+  var uniqueNote = 'Unique visitors only count from <strong>' + fmtDay(meta.vid_cutoff.slice(0, 10)) +
+    '</strong> onward - the anonymous visitor id (<code>vid</code>) is absent on every row before that date, so it reads honestly as zero rather than a misleading ramp. ' +
+    'Clearing storage or a private window mints a fresh id, so uniques run HIGH and returning visitors run LOW.';
+
+  var guideRows = t.guides.map(function (g) { return { k: '/articles/' + g.slug + '/', v: g.views, vsub: g.unique + ' unique' }; });
+  var templateRows = t.templates.map(function (g) { return { k: '/templates/' + g.slug + '/', v: g.views, vsub: g.unique + ' unique' }; });
+  var sectionRows = t.by_section.map(function (s) { return { k: SECTION_LABEL[s.section] || s.section, v: s.views, vsub: s.unique + ' unique' }; });
+
+  return '<div class="card">' +
+    '<h2>Traffic</h2>' +
+    '<div class="stat-row">' +
+      '<div class="stat"><div class="num mono">' + fmtN(t.total_views) + '</div><div class="label">landing views</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(t.unique_visitors) + '</div><div class="label">unique visitors (since ' + fmtDay(meta.vid_cutoff.slice(0, 10)) + ')</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(t.cta_clicks) + '</div><div class="label">clicked into the app</div></div>' +
+    '</div>' +
+    svgBars(t.by_day.map(function (d) { return { day: d.day, value: d.views }; }), {}) +
+    '<h3 class="sub-h">By section</h3>' + renderRows(sectionRows, function (r) { return r; }) +
+    '<h3 class="sub-h">The nine guides</h3>' + renderRows(guideRows, function (r) { return r; }) +
+    '<h3 class="sub-h">The five templates</h3>' + renderRows(templateRows, function (r) { return r; }) +
+    '<p class="foot-note">' + uniqueNote + '</p>' +
+  '</div>';
+}
+
+function panelFunnel(f) {
+  // "Clicked into app" (landing CTA) is a leaky intermediate: app opens also come
+  // from bookmarks, installed PWAs and direct /app/ links, so app_open routinely
+  // exceeds cta_click. A linear funnel would then WIDEN at that step and show a
+  // ">100% of previous" rate, which reads as broken. Pull the CTA bar out into a
+  // side-note so the funnel stays a real, monotonic funnel:
+  // Landed -> Opened the app -> Created a project -> Pressed roll -> Pressed cut.
+  var ctaStage = null;
+  var stages = f.stages.filter(function (s) {
+    if (s.name === 'landing_cta_click') { ctaStage = s; return false; }
+    return true;
+  });
+  var first = stages[0] ? stages[0].unique : 0;
+  var rowsHtml = stages.map(function (s, i) {
+    var prev = i > 0 ? stages[i - 1].unique : s.unique;
+    var width = first > 0 ? Math.max(2, Math.round((s.unique / first) * 100)) : 0;
+    var rate = i > 0 ? pct(s.unique, prev) + '% of previous, ' + pct(s.unique, first) + '% of landed' : '100% (start of funnel)';
+    return '<div class="funnel-row">' +
+      '<div class="lbl"><span class="name">' + esc(FUNNEL_LABEL[s.name] || s.name) + '</span><span class="val mono">' + fmtN(s.unique) + '</span></div>' +
+      '<div class="funnel-track"><div class="funnel-fill" style="width:' + width + '%"></div></div>' +
+      '<div class="funnel-rate">' + rate + '</div>' +
+    '</div>';
+  }).join('');
+  var ctaNote = ctaStage ? '<p class="foot-note">' + fmtN(ctaStage.unique) + ' visitors also tapped the landing button into the app. It sits outside the funnel because app opens also come from bookmarks, installed apps and the direct /app/ links in outreach, so it is not a clean step.</p>' : '';
+  return '<div class="card"><h2>Funnel</h2><div class="funnel">' + rowsHtml + '</div>' + ctaNote +
+    '<p class="foot-note">Counted by distinct visitor id, so it only reflects visits since ' +
+    '<strong>vid</strong> began recording. Every stage before that date reads as zero, not as no traffic.</p>' +
+  '</div>';
+}
+
+function panelAppUsage(a) {
+  var eventRows = a.event_counts.map(function (e) { return { k: EVENT_LABEL[e.name] || e.name, v: e.count }; });
+  var screenRows = a.screens.map(function (s) { return { k: SCREEN_LABEL[s.screen] || s.screen, v: s.count }; });
+  var endRows = a.session_ends.by_screen.map(function (s) { return { k: SCREEN_LABEL[s.screen] || s.screen, v: s.count }; });
+  return '<div class="card">' +
+    '<h2>App usage</h2>' +
+    '<h3 class="sub-h">Events</h3>' + renderRows(eventRows, function (r) { return r; }) +
+    '<h3 class="sub-h">Screens reached</h3>' + renderRows(screenRows, function (r) { return r; }) +
+    '<h3 class="sub-h">Where sessions end</h3>' +
+    '<div class="stat-row" style="margin-bottom:var(--sp-3)"><div class="stat"><div class="num mono">' + fmtN(a.session_ends.total) + '</div><div class="label">times the app went to background</div></div></div>' +
+    renderRows(endRows, function (r) { return r; }) +
+    '<p class="foot-note"><strong>Not a session count.</strong> On set the phone locks between takes constantly, so one real sitting can appear here several times. Read this only as "which screen tends to be up when the app leaves the foreground" - never total it as "how many sessions happened".</p>' +
+  '</div>';
+}
+
+function panelLlm(l) {
+  var byModelRows = l.by_model.map(function (m) {
+    return { k: m.model, v: m.calls, sub: fmtN(m.ok) + ' ok, ' + fmtN(m.failed) + ' failed, ' + fmtN(m.rate_limited) + ' rate-limited', vsub: fmtN(m.prompt_tokens + m.completion_tokens) + ' tokens' };
+  });
+  var byUserRows = l.by_user.slice(0, 25).map(function (u) {
+    return { k: u.email || (u.user_id === 'anon' ? 'Unattributed' : u.user_id), v: u.calls, vsub: fmtN(u.prompt_tokens + u.completion_tokens) + ' tokens' };
+  });
+  return '<div class="card">' +
+    '<h2>LLM (Script Mode)</h2>' +
+    '<div class="stat-row">' +
+      '<div class="stat"><div class="num mono">' + fmtN(l.totals.calls) + '</div><div class="label">requests</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(l.totals.ok) + '</div><div class="label">succeeded</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(l.totals.failed) + '</div><div class="label">failed</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(l.totals.rate_limited) + '</div><div class="label">rate-limited</div></div>' +
+    '</div>' +
+    '<div class="stat-row" style="margin-top:var(--sp-3)">' +
+      '<div class="stat"><div class="num mono">' + fmtN(l.totals.prompt_tokens) + '</div><div class="label">prompt tokens</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(l.totals.completion_tokens) + '</div><div class="label">completion tokens</div></div>' +
+    '</div>' +
+    svgBars(l.by_day.map(function (d) { return { day: d.day, value: d.calls }; }), {}) +
+    '<h3 class="sub-h">By model</h3>' + renderRows(byModelRows, function (r) { return r; }) +
+    '<h3 class="sub-h">By user (top 25 by requests)</h3>' + renderRows(byUserRows, function (r) { return r; }) +
+    '<p class="foot-note">Counts every Groq request, including ones that failed - a 429 or a 502 still costs input tokens and still counts against the rate limit, so a quiet "successes" number on an expensive day is exactly the lie this meter exists to catch.</p>' +
+  '</div>';
+}
+
+/** The armed half of a two-step control, as a table row spanning the whole
+ * table. `say` is the sentence naming exactly what the next press does, in
+ * the present tense, about the specific account it will do it to - never
+ * "Are you sure?", which tells a reader nothing they did not already know.
+ * `say` is pre-escaped by the caller because it interpolates a name. */
+function confirmRow(say, o) {
+  return '<tr class="confirm-row"><td colspan="12"><div class="confirm">' +
+    '<span class="say">' + say + '</span>' +
+    (o.input
+      ? '<input class="field field--inline' + (o.input.num ? ' field--num' : '') + '" id="armInput" type="' + o.input.type +
+        '" placeholder="' + esc(o.input.placeholder) + '"' + (o.input.max ? ' maxlength="' + o.input.max + '"' : '') + ' />'
+      : '') +
+    '<button type="button" class="btn btn--sm ' + (o.danger ? 'btn--danger' : 'btn--primary') +
+      '" data-do="' + esc(o.act) + '" data-user="' + esc(o.user) + '">' + esc(o.verb) + '</button>' +
+    '<button type="button" class="btn btn--sm" data-cancel="1">Cancel</button>' +
+  '</div></td></tr>';
+}
+
+// Plan text -> pill, matching the vocabulary planFor() in dashboard-api
+// writes: a live subscription's own product name, "pay-per-job" for anyone
+// who has bought a credit without subscribing, "free" for everyone else. Not
+// the same pill as the PRO/free one below it - see the Users foot-note.
+function planPill(plan) {
+  if (plan === null || plan === undefined) return '<span class="pill">-</span>';
+  if (plan === 'free') return '<span class="pill">free</span>';
+  if (plan === 'pay-per-job') return '<span class="pill pill--pro">PAY-PER-JOB</span>';
+  return '<span class="pill pill--pro">' + esc(plan.toUpperCase()) + '</span>';
+}
+
+function panelUsers(u) {
+  var avail = u.suspend_available;
+  var why = u.suspend_unavailable_reason || '';
+  var entAvail = u.entitlements_available;
+  var entWhy = u.entitlements_unavailable_reason || '';
+  var rows = u.rows.slice(0, 200).map(function (r) {
+    var uid = esc(r.user_id);
+    var who = esc(r.email || r.user_id);
+
+    var plan = r.is_pro ? '<span class="pill pill--pro">PRO</span>' : '<span class="pill">free</span>';
+    if (r.is_suspended) plan += ' <span class="pill pill--sus">SUSPENDED</span>';
+
+    // Each button names the state it moves the account TO, so the label and
+    // the toast that follows it are the same word.
+    var proBtn = r.is_pro
+      ? '<button type="button" class="btn btn--sm" data-arm="set_free" data-user="' + uid + '">Make free</button>'
+      : '<button type="button" class="btn btn--sm" data-arm="set_pro" data-user="' + uid + '">Make Pro</button>';
+
+    // Disabled, with the server's own sentence as the tooltip, whenever the
+    // column is not there. The reason travels from the database probe, so it
+    // stops being shown the moment the migration is applied - nothing in this
+    // file has to be edited for that to happen.
+    var susBtn = !avail
+      ? '<button type="button" class="btn btn--sm" disabled title="' + esc(why) + '">Suspend</button>'
+      : r.is_suspended
+        ? '<button type="button" class="btn btn--sm" data-arm="unsuspend" data-user="' + uid + '">Unsuspend</button>'
+        : '<button type="button" class="btn btn--sm btn--danger" data-arm="suspend" data-user="' + uid + '">Suspend</button>';
+
+    // Money columns read '-' when entitlements/purchases could not be probed
+    // (r.credit_balance etc. arrive as null in that case) rather than a bare
+    // 0, which would look like "this account has nothing" instead of "this
+    // page could not check".
+    var tr = '<tr><td class="who">' + who + '</td>' +
+      '<td>' + esc(fmtDay(r.created_at.slice(0, 10))) + '</td>' +
+      '<td>' + plan + '</td>' +
+      '<td>' + esc(r.pro_until ? fmtDay(r.pro_until.slice(0, 10)) : '–') + '</td>' +
+      '<td>' + planPill(r.plan) + '</td>' +
+      '<td class="num">' + (r.credit_balance === null ? '-' : fmtN(r.credit_balance)) + '</td>' +
+      '<td class="num">' + (r.credits_purchased_total === null ? '-' : fmtN(r.credits_purchased_total)) + '</td>' +
+      '<td class="num">' + fmtMoneyList(r.total_paid) + '</td>' +
+      '<td class="num">' + (r.free_projects_used === null ? '-' : fmtN(r.free_projects_used)) + '</td>' +
+      '<td class="num">' + fmtN(r.llm_calls) + '</td>' +
+      '<td class="num">' + fmtN(r.llm_prompt_tokens + r.llm_completion_tokens) + '</td>' +
+      '<td class="ctls"><div class="ctls-stack">' + proBtn + susBtn + '</div></td></tr>';
+
+    if (isArmed('set_pro', r.user_id)) {
+      tr += confirmRow(
+        '<strong>' + who + '</strong> becomes Pro. Leave the date empty for no expiry, or set the last day the comp runs.',
+        { act: 'set_pro', user: r.user_id, verb: 'Make Pro', input: { type: 'date', placeholder: 'Pro until' } },
+      );
+    } else if (isArmed('set_free', r.user_id)) {
+      tr += confirmRow(
+        '<strong>' + who + '</strong> drops to free limits now, and any expiry date is cleared.',
+        { act: 'set_free', user: r.user_id, verb: 'Make free', danger: true },
+      );
+    } else if (isArmed('suspend', r.user_id)) {
+      tr += confirmRow(
+        '<strong>' + who + '</strong> loses Script Mode and every gated export until you undo it. Nothing is deleted.',
+        { act: 'suspend', user: r.user_id, verb: 'Suspend', danger: true, input: { type: 'text', placeholder: 'Why', max: 200 } },
+      );
+    } else if (isArmed('unsuspend', r.user_id)) {
+      tr += confirmRow(
+        '<strong>' + who + '</strong> gets Script Mode and exports back.',
+        { act: 'unsuspend', user: r.user_id, verb: 'Unsuspend', input: { type: 'text', placeholder: 'Why', max: 200 } },
+      );
+    }
+    return tr;
+  }).join('');
+
+  var paying = u.rows.filter(function (r) { return r.plan && r.plan !== 'free'; }).length;
+
+  return '<div class="card">' +
+    '<h2>Users</h2>' +
+    '<div class="stat-row">' +
+      '<div class="stat"><div class="num mono">' + fmtN(u.total) + '</div><div class="label">accounts</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(u.pro) + '</div><div class="label">pro (comp)</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(u.free) + '</div><div class="label">free (comp)</div></div>' +
+      (avail ? '<div class="stat"><div class="num mono">' + fmtN(u.suspended || 0) + '</div><div class="label">suspended</div></div>' : '') +
+      (entAvail ? '<div class="stat"><div class="num mono">' + fmtN(paying) + '</div><div class="label">paying (billing)</div></div>' : '') +
+    '</div>' +
+    (u.rows.length
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+          '<th>Email</th><th>Created</th><th>Pro (comp)</th><th>Pro until</th><th>Billing</th>' +
+          '<th class="num">Credits</th><th class="num">Bought</th><th class="num">Paid</th><th class="num">Free used</th>' +
+          '<th class="num">LLM calls</th><th class="num">Tokens</th><th class="ctls-h">Controls</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="empty">No accounts yet.</p>') +
+    (u.rows.length > 200 ? '<p class="foot-note">Showing the first 200 of ' + fmtN(u.rows.length) + '.</p>' : '') +
+    '<p class="foot-note"><strong>Two different "Pro" columns, on purpose.</strong> "Pro (comp)" is the old time-based comp granted by hand below - an expiry date is the last day it runs, and empty means it never lapses. "Billing" is what the account is actually paying for right now: a live subscription shows the product it is billed for, "pay-per-job" means it has bought at least one credit and is not subscribed, "free" means it has paid nothing. The two can disagree, correctly - a hand-comped account with no purchase is Pro (comp) and Billing: free in the same row.</p>' +
+    (entAvail
+      ? '<p class="foot-note">"Credits" is the current spendable balance (<code>project_credits</code>) and "Bought" is every credit that account has ever purchased (<code>credits_purchased_total</code>) - the gap between them is credits already spent unlocking projects. "Paid" totals every purchase for that account, win or lose: a stuck payment (see Money below) still counts here, because the money still left their card.</p>'
+      : '<p class="foot-note"><strong>Credits, billing and paid totals are not readable yet.</strong> ' + esc(entWhy) + '</p>') +
+    (avail
+      ? '<p class="foot-note"><strong>Suspend blocks, it never deletes.</strong> A suspended account keeps every project and every take. It is refused Script Mode and gated exports, and gets both back the moment you undo it.</p>'
+      : '<p class="foot-note"><strong>Suspend is disabled.</strong> ' + esc(why) + '</p>') +
+  '</div>';
+}
+
+/** Money. Rendered only when dashboard-api sent a `purchases` block, same
+ * reason as App control below: this page and that edge function deploy on
+ * completely separate schedules, and a page newer than the function must show
+ * nothing rather than a panel full of undefined.
+ *
+ * THE TOP OF THIS PANEL IS THE ONLY PART THAT MATTERS. Every row in "needs
+ * attention" is a person who paid and got nothing. There is no
+ * abandoned-checkout state in that table - a row is only written once a
+ * signed webhook arrives, which is after the money moved - so the list is
+ * never padded with people who simply closed a tab, and it does not need to
+ * be read with a pinch of salt. Zero rows is the only acceptable number. */
+/** Subscriptions, at a glance: active, past due (a failed payment that has
+ * not lapsed yet) and cancelled are three different pills, never folded into
+ * one "subscribed" number - that is the whole point Kirtan asked for. Own
+ * probe, same reasoning as the credits-outstanding foot-note below: a
+ * migration landing without the other must not blank the rest of the panel. */
+function subscriptionsBlock(s) {
+  if (!s) return '';
+
+  if (!s.available) {
+    return '<h3 class="sub-h">Subscriptions</h3>' +
+      '<p class="empty">' + esc(s.unavailable_reason || 'Subscription status is not readable yet.') + '</p>';
+  }
+
+  var STATUS_PILL = {
+    active: '<span class="pill pill--pro">ACTIVE</span>',
+    trialing: '<span class="pill pill--pro">TRIALING</span>',
+    past_due: '<span class="pill pill--sus">PAST DUE</span>',
+    unpaid: '<span class="pill pill--sus">FAILED PAYMENT</span>',
+    incomplete: '<span class="pill pill--sus">INCOMPLETE</span>',
+    incomplete_expired: '<span class="pill pill--off">EXPIRED</span>',
+    canceled: '<span class="pill pill--off">CANCELLED</span>',
+    paused: '<span class="pill pill--off">PAUSED</span>',
+  };
+  function statusPill(status) {
+    return STATUS_PILL[status] || '<span class="pill">' + esc(status || 'unknown') + '</span>';
+  }
+
+  var att = s.needs_attention || [];
+  var rows = att.slice(0, 100).map(function (r) {
+    return '<tr>' +
+      '<td class="who">' + esc(r.email || r.user_id) +
+        (r.subscription_id ? '<span class="sub">' + esc(r.subscription_id) + '</span>' : '') + '</td>' +
+      '<td>' + statusPill(r.status) + '</td>' +
+      '<td>' + esc(r.current_period_end ? fmtDT(r.current_period_end) : '-') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<h3 class="sub-h">Subscriptions</h3>' +
+    '<div class="stat-row">' +
+      '<div class="stat"><div class="num mono">' + fmtN(s.active) + '</div><div class="label">active</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(s.past_due) + '</div><div class="label">past due</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(s.canceled) + '</div><div class="label">cancelled</div></div>' +
+      (s.other ? '<div class="stat"><div class="num mono">' + fmtN(s.other) + '</div><div class="label">other</div></div>' : '') +
+    '</div>' +
+    (att.length
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+          '<th>Who</th><th>State</th><th>Renews / ended</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="empty">Nobody past due or cancelled.</p>') +
+    '<p class="foot-note">A cancelled or past-due subscription stops future credits. It never takes back a credit already spent or a project already unlocked - those stay unlocked forever, exactly like a bundle purchase.</p>';
+}
+
+function panelPurchases(p) {
+  if (!p) return '';
+
+  if (!p.available) {
+    return '<div class="card">' +
+      '<h2>Money</h2>' +
+      '<p class="empty">' + esc(p.unavailable_reason || 'The purchases table could not be read.') + '</p>' +
+    '</div>';
+  }
+
+  var att = p.needs_attention || [];
+  var STATUS_SAY = {
+    received: 'Webhook arrived, credits never applied.',
+    granting: 'Grant started and did not finish.',
+    grant_failed: 'Credit write failed. Money taken.',
+    user_unknown: 'Paid, but no account on the transaction.',
+    unknown_product: 'Paid for a price id this deploy does not know.',
+  };
+
+  // Amounts are strings with a unit (fmtMoney, defined with the other
+  // formatters above), so they get their own rows built from the same .row
+  // markup rather than going through renderRows/fmtN, which would turn
+  // "5.00 USD" into NaN.
+  function moneyRow(k, v, vsub) {
+    return '<div class="row"><div class="k">' + esc(k) + '</div>' +
+      '<div class="v mono">' + esc(v) + (vsub ? '<span class="sub">' + esc(vsub) + '</span>' : '') + '</div></div>';
+  }
+
+  var attRows = att.slice(0, 100).map(function (r) {
+    // The note goes UNDER the person, not in a second list below the table.
+    // One row per stuck payment, carrying everything needed to act on it.
+    // Everything needed to act on this row lives in the one cell: who to
+    // email, which transaction to look up at the gateway, and what went
+    // wrong. The transaction id had its own column and pushed the table wider
+    // than the card.
+    var why = r.note || STATUS_SAY[r.status] || '';
+    // The gateway is named because the ledger holds more than one: the owner
+    // has changed provider twice, and `purchases` is keyed on (provider, event).
+    var ref = (r.provider ? r.provider + ' \u00b7 ' : '') + (r.txn_id || r.event_id || '') + (why ? ' \u00b7 ' + why : '');
+    return '<tr>' +
+      '<td class="who">' + esc(r.email || r.user_id || 'unknown') +
+        (ref ? '<span class="sub">' + esc(ref) + '</span>' : '') + '</td>' +
+      '<td>' + esc(fmtDT(r.created_at)) + '</td>' +
+      '<td><span class="pill pill--off">' + esc(r.status) + '</span></td>' +
+      '<td>' + esc(r.product_key || '-') + '</td>' +
+      '<td class="num">' + fmtN(r.credits) + '</td>' +
+      '<td class="num">' + esc(fmtMoney(r.amount_cents, r.currency)) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var attBlock = att.length
+    ? '<div class="banner"><strong class="n">' + fmtN(att.length) + '</strong> payment(s) took money and granted nothing. ' +
+        'Every row below is somebody waiting. Look the transaction up at the gateway, then fix the account by hand.</div>' +
+      '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+        '<th>Who</th><th>Seen</th><th>State</th><th>Product</th><th class="num">Credits</th><th class="num">Paid</th>' +
+      '</tr></thead><tbody>' + attRows + '</tbody></table></div>' +
+      (p.needs_attention_truncated ? '<p class="foot-note">Showing the first 200 stuck payments - there are more. Raise the limit in dashboard-api/index.ts.</p>' : '')
+    : '<p class="empty">Nothing stuck. Every payment that arrived was granted.</p>';
+
+  var byCur = (p.granted && p.granted.by_currency ? p.granted.by_currency : []);
+  var curBlock = byCur.length
+    ? '<div class="rows">' + byCur.map(function (c) {
+        return moneyRow(c.currency, fmtMoney(c.minor_units, ''), fmtN(c.count) + ' payment(s)');
+      }).join('') + '</div>'
+    : '<p class="empty">Nothing sold yet.</p>';
+
+  // EVERY granted purchase - who, what product, how much, which provider,
+  // and when - not a preview. Same table markup as the stuck-payments table
+  // above, on purpose: this and attBlock together ARE "every purchase", split
+  // into the two states a row can be in. Provider lives in the sub-line under
+  // Who, same reasoning as attRows above it: a dedicated column pushed the
+  // table wider than the card.
+  var all = p.all || [];
+  var allRows = all.map(function (r) {
+    var ref = (r.provider ? r.provider + ' \u00b7 ' : '') + (r.event_id || '');
+    return '<tr>' +
+      '<td class="who">' + esc(r.email || r.user_id || 'unknown') +
+        (ref ? '<span class="sub">' + esc(ref) + '</span>' : '') + '</td>' +
+      '<td>' + esc(fmtDT(r.created_at)) + '</td>' +
+      '<td><span class="pill pill--pro">GRANTED</span></td>' +
+      '<td>' + esc(r.product_key || '-') + '</td>' +
+      '<td class="num">' + fmtN(r.credits) + '</td>' +
+      '<td class="num">' + esc(fmtMoney(r.amount_cents, r.currency)) + '</td>' +
+    '</tr>';
+  }).join('');
+  var allBlock = all.length
+    ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+        '<th>Who</th><th>When</th><th>State</th><th>Product</th><th class="num">Credits</th><th class="num">Paid</th>' +
+      '</tr></thead><tbody>' + allRows + '</tbody></table></div>' +
+      (p.granted_truncated ? '<p class="foot-note">Showing the first 1,000 granted purchases - there are more. Raise the limit in dashboard-api/index.ts.</p>' : '')
+    : '<p class="empty">No grants yet.</p>';
+
+  var credits = p.credits || {};
+
+  return '<div class="card">' +
+    '<h2>Money</h2>' +
+    attBlock +
+    '<div class="stat-row" style="margin-top: var(--sp-5);">' +
+      '<div class="stat"><div class="num mono">' + fmtN(att.length) + '</div><div class="label">stuck</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(p.granted ? p.granted.count : 0) + '</div><div class="label">granted</div></div>' +
+      '<div class="stat"><div class="num mono">' + fmtN(p.granted ? p.granted.credits : 0) + '</div><div class="label">credits sold</div></div>' +
+      (credits.available
+        ? '<div class="stat"><div class="num mono">' + fmtN(credits.outstanding) + '</div><div class="label">unspent</div></div>'
+        : '') +
+    '</div>' +
+    subscriptionsBlock(p.subscriptions) +
+    '<h3 class="sub-h">Taken, by currency</h3>' + curBlock +
+    '<h3 class="sub-h">All purchases (' + fmtN(all.length) + ' granted)</h3>' + allBlock +
+    '<p class="foot-note"><strong>Totals are never summed across currencies.</strong> Each row holds what was actually charged, in the currency it was charged in, so an INR row and a USD row can sit side by side. One combined number would have no unit.</p>' +
+    '<p class="foot-note"><strong>These are gross, not yours.</strong> The gateway is not a merchant of record: on a live Razorpay or Stripe sale you are the seller, so the figures above include any tax collected and that tax is your liability, not the gateway\u2019s. Gateway fees are not deducted here either.</p>' +
+    (credits.available
+      ? '<p class="foot-note"><strong>' + fmtN(credits.outstanding) + '</strong> credit(s) bought and not yet spent, held by <strong>' + fmtN(credits.holders) + '</strong> account(s). A credit unlocks one project permanently.</p>'
+      : '<p class="foot-note"><strong>Credit balances are not readable yet.</strong> profiles.project_credits arrives with supabase/migrations/20260826170000_entitlements.sql.</p>') +
+  '</div>';
+}
+
+function campaignLabel(c) {
+  if (c === 'warm-thankyou') return 'Warm thank-you';
+  if (c === 'cold-outreach') return 'Cold outreach';
+  return c;
+}
+
+/** Email (data.email) - Brevo sends joined to Clapper accounts. Answers two
+ * questions: how much lands (Brevo's own delivered/opened/clicked, pulled
+ * per message id rather than Brevo's own tag filter - see dashboard-api's
+ * comment on why that filter cannot be trusted for this account) and how
+ * many recipients became real, active users. Rendered only when
+ * dashboard-api sent an `email` block - same "page newer than the deployed
+ * function" reasoning as every other optional panel on this page. */
+function panelEmail(e) {
+  if (!e) return '';
+  if (!e.available) {
+    return '<div class="card"><h2>Email</h2>' +
+      '<p class="empty">' + esc(e.unavailable_reason || 'Not available on this deploy yet - redeploy dashboard-api.') + '</p></div>';
+  }
+
+  var campaigns = e.campaigns || [];
+  var campaignBlocks = campaigns.map(function (c) {
+    var brevoBlock;
+    if (c.brevo) {
+      brevoBlock = '<div class="stat-row" style="margin-top:var(--sp-3)">' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.brevo.requests) + '</div><div class="label">sent (Brevo)</div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.brevo.delivered) + '</div><div class="label">delivered</div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.brevo.opened) + '</div><div class="label">opened</div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.brevo.clicked) + '</div><div class="label">clicked</div></div>' +
+      '</div>';
+    } else {
+      brevoBlock = '<p class="foot-note">' +
+        esc((e.brevo && e.brevo.unavailable_reason) || 'No Brevo delivery data for this campaign yet.') +
+      '</p>';
+    }
+    return '<h3 class="sub-h">' + esc(campaignLabel(c.campaign)) + '</h3>' +
+      '<div class="stat-row">' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.recipients) + '</div><div class="label">recipients<span class="sub">' + fmtN(c.sent_count) + ' sent, ' + fmtN(c.failed_count) + ' failed</span></div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.have_account) + '</div><div class="label">have a Clapper account</div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.activated) + '</div><div class="label">activated<span class="sub">rolled or cut a take</span></div></div>' +
+      '</div>' + brevoBlock;
+  }).join('');
+
+  var recips = (e.recipients && e.recipients.rows) || [];
+  var rows = recips.map(function (r) {
+    var acct = !r.has_account
+      ? 'No account'
+      : (r.furthest_stage ? esc(FUNNEL_V2_LABEL[r.furthest_stage] || r.furthest_stage) : 'Account, no funnel event');
+    return '<tr>' +
+      '<td class="who">' + esc(r.email) + '</td>' +
+      '<td>' + esc(campaignLabel(r.campaign)) + '</td>' +
+      '<td>' + esc(fmtDT(r.last_sent_at)) + (r.failed_count ? '<span class="sub">' + fmtN(r.failed_count) + ' failed</span>' : '') + '</td>' +
+      '<td>' + acct + '</td>' +
+      '<td>' + (r.last_seen ? esc(fmtDT(r.last_seen)) : '–') + '</td>' +
+      '<td>' + (r.activated ? '<span class="pill pill--pro">YES</span>' : '<span class="pill">no</span>') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<div class="card">' +
+    '<h2>Email</h2>' +
+    '<p class="foot-note">Every send this project has logged, joined to Clapper accounts by email. Brevo delivery numbers are pulled per message id, not per Brevo tag - Brevo’s own tag filter does not work reliably for this account.</p>' +
+    campaignBlocks +
+    '<h3 class="sub-h">Every recipient (' + fmtN((e.recipients && e.recipients.total) || 0) + ')</h3>' +
+    (rows.length
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+          '<th>Email</th><th>Campaign</th><th>Last sent</th><th>Account</th><th>Last seen</th><th>Activated</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="empty">No sends logged yet.</p>') +
+    (e.recipients && e.recipients.truncated
+      ? '<p class="foot-note">Showing the ' + fmtN(recips.length) + ' most recently sent of ' + fmtN(e.recipients.total) + '.</p>'
+      : '') +
+  '</div>';
+}
+
+/** App control. Rendered only when dashboard-api sent an `app_control` block:
+ * this static page and that edge function deploy on completely separate
+ * schedules, so a page that is newer than the function must show nothing
+ * here rather than a panel full of undefined. */
+function panelAppControl(c) {
+  if (!c) return '';
+
+  var on = c.script_mode_enabled === true;
+  var killPill = on ? '<span class="pill pill--pro">ON</span>' : '<span class="pill pill--off">OFF</span>';
+  var killBtn = on
+    ? '<button type="button" class="btn btn--sm btn--danger" data-arm="kill">Turn off</button>'
+    : '<button type="button" class="btn btn--sm" data-arm="kill">Turn on</button>';
+
+  var killConfirm = '';
+  if (isArmed('kill', null)) {
+    killConfirm = '<div class="ctl-confirm"><div class="confirm"><span class="say">' +
+      (on
+        ? 'Every Script Mode request from every account stops, straight away. Exports and the rest of the app keep working.'
+        : 'Script Mode starts answering again for every account, up to the day cap below.') +
+      '</span>' +
+      '<button type="button" class="btn btn--sm ' + (on ? 'btn--danger' : 'btn--primary') + '" data-do="' + (on ? 'kill_off' : 'kill_on') + '">' +
+        (on ? 'Turn off' : 'Turn on') + '</button>' +
+      '<button type="button" class="btn btn--sm" data-cancel="1">Cancel</button>' +
+    '</div></div>';
+  }
+
+  var cap = c.script_mode_daily_cap;
+  var capValue = capDraft !== null ? capDraft : (cap === null ? '' : String(cap));
+  var capSub = cap === null
+    ? 'No cap is set in config, so the gate reads it as zero and refuses everything.'
+    : fmtN(c.used_today) + ' used today of ' + fmtN(cap) + '.';
+
+  var warn = '';
+  if (c.malformed && c.malformed.length) {
+    warn = '<p class="foot-note"><strong>Bad value in config.</strong> ' + esc(c.malformed.join(', ')) +
+      ' is not the shape the gate expects. Saving it again from here rewrites it correctly.</p>';
+  }
+
+  return '<div class="card">' +
+    '<h2>App control</h2>' +
+    '<div class="ctl">' +
+      '<div class="ctl-k">Script Mode<span class="sub">The global Groq gate. Off refuses every request from every account.</span></div>' +
+      '<div class="ctl-do">' + killPill + killBtn + '</div>' +
+    '</div>' + killConfirm +
+    '<div class="ctl">' +
+      '<div class="ctl-k">Groq calls a day<span class="sub">' + esc(capSub) + '</span></div>' +
+      '<div class="ctl-do">' +
+        '<input class="field field--inline field--num" id="capInput" type="number" min="0" max="100000" step="1" value="' + esc(capValue) + '" />' +
+        '<button type="button" class="btn btn--sm" data-do="set_cap">Save cap</button>' +
+      '</div>' +
+    '</div>' +
+    warn +
+    '<p class="foot-note">Both settings are rows in the <code>config</code> table, read by <code>script_mode_gate()</code> on every request. The counter resets at midnight UTC, not IST, because that is the day the gate counts.</p>' +
+  '</div>';
+}
+
+function renderDashboard(data) {
+  // Kept so arming a control can redraw the page it is already looking at
+  // without asking the server again. It is the last answer received, never a
+  // patched-up version of one - every write refetches.
+  lastData = data;
+  var meta = data.meta;
+  var excludeBits = [];
+  if (meta.exclude_self) {
+    excludeBits.push('<strong>' + fmtN(meta.excluded_rows_count) + '</strong> row(s) matching your own traffic excluded from every number below.');
+    if (!meta.owner_user_id_configured) excludeBits.push('Owner user_id not configured (see dashboard-api/index.ts footer for the SQL) - only the current browser\'s vid and any configured excluded vids are being filtered.');
+    if (!meta.excluded_vids_configured) excludeBits.push('No excluded-vid list configured - only the owner user_id and this browser\'s own vid are being filtered.');
+  } else {
+    excludeBits.push('Exclusion is OFF - every row, including your own testing, is counted below.');
+  }
+
+  // Global honesty banner - covers EVERY panel below, not just Traffic. Every
+  // count and chart on this page (Traffic, Funnel, App usage, LLM) is already
+  // filtered server-side to dev_gate_cutoff; this is where that filter and
+  // what it silently drops gets said out loud, once, in the one place a
+  // reader can't miss it before scrolling into any specific panel.
+  var cutoffBanner = '<div class="banner">' +
+    'Every number on this page (Traffic, Funnel, App usage, LLM) counts only events from <strong>' + esc(fmtDay(meta.dev_gate_cutoff.slice(0, 10))) + '</strong> onward. ' +
+    '<strong>' + fmtN(meta.pre_cutoff_events_excluded) + '</strong> earlier event(s) are excluded: a hostname gate that fixed real vs. dev-server traffic landed 20 Aug (commit <code>92c31ac</code>), and roughly 4 in 5 events recorded before it were automated dev traffic, not real use - see src/net/analytics.ts. They are dropped, not charted as if real.' +
+  '</div>';
+
+  el.dashBody.innerHTML =
+    cutoffBanner +
+    '<div class="banner">' + excludeBits.join(' ') + '</div>' +
+    (meta.events_truncated ? '<div class="banner">Event fetch hit its row cap (' + fmtN(meta.events_fetched) + ' rows) - counts below may undercount. Raise EVENTS_ROW_CAP in dashboard-api/index.ts.</div>' : '') +
+    panelTraffic(data.traffic, meta) +
+    panelFunnel(data.funnel) +
+    panelFunnelCore(data.funnel) +
+    panelFunnelSplit(data.funnel) +
+    panelFunnelUsers(data.funnel) +
+    panelEmail(data.email) +
+    panelAppUsage(data.app_usage) +
+    panelLlm(data.llm) +
+    panelUsers(data.users) +
+    panelPurchases(data.purchases) +
+    panelAppControl(data.app_control);
+
+  el.generatedAt.textContent = 'Updated ' + fmtDT(meta.generated_at);
+}
+
+/* Testability hook - lets the populated dashboard be screenshotted with
+ * fixture JSON, no live token or passphrase involved, same pattern as
+ * landing/admin/index.html's own __clapperAdmin hook. */
+window.__dashboard = {
+  renderDashboard: renderDashboard,
+  showOnly: showOnly,
+  el: el,
+  // `arm` is exposed so the armed half of a two-step control can be
+  // screenshotted. It is the same function the click handler calls, not a
+  // stand-in for it, so what a shot shows is what a press produces.
+  arm: arm,
+  disarm: disarm,
+  showFixture: function (data) {
+    renderDashboard(data);
+    el.topControls.hidden = false;
+    showOnly(el.dashboard);
+  },
+};
+
+/* ------------------------------------------------------------------ boot */
+el.excludeToggle.checked = readExcludeSelf();
+loadDashboard();
+</script>
+</body>
+</html>

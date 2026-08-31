@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="refresh" content="0; url=/dashboard/" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="canonical" href="https://clapper.in/dashboard/" />
+<title>Clapper - Admin moved</title>
+<!-- /admin/ was a half-built analytics dashboard (Supabase Google-OAuth +
+     public.admins, both never applied - the migration this page's old
+     comment pointed to, 20260824090000_admin_analytics.sql, is still
+     unapplied today). Everything worth keeping from it was folded into
+     /dashboard/ (supabase/functions/dashboard-api + landing/dashboard/),
+     which uses a passphrase gate instead since there was never a second
+     Supabase Auth account to sign in with. This file is now just a redirect
+     so there is exactly ONE dashboard, not two half-maintained ones. Kept as
+     a real page (not a 30x server redirect) because GitHub Pages serves
+     static files only - there is no server to issue one. -->
+<script>location.replace('/dashboard/');</script>
+</head>
+<body>
+<p><a href="/dashboard/">Continue to the dashboard</a></p>
+</body>
+</html>

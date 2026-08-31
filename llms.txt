@@ -1,0 +1,89 @@
+# Clapper
+
+Free, phone-first take logger and continuity / TCR sheet app for film sets. Tap what happens during a take and Clapper writes the shot log your editor actually needs.
+
+## What it is
+
+Clapper is a free web app (PWA) that runs on the phone already in your pocket. During the take you tap coverage, beats, and the keeper; Clapper timecode-stamps every tap and builds the shot log, continuity notes, and take report for you. At wrap it exports a Premiere-ready timeline plus plain PDF and CSV files. It works offline on set and needs no signup to log takes, so there is nothing to install from an app store and no account to create.
+
+## Features
+
+- Log takes with one tap: ROLL arms the log, chips flash as you tag coverage (WIDE, CU) and beats (door slam, she laughs, glass breaks).
+- Circle / GOLD selects: star the keeper take and it carries through to every export.
+- Timecode on every tap, so each moment is stamped with when it happened.
+- Shot list mode: upload a shot division PDF (a numbered table of setups, not a screenplay) and Clapper reads the scene/shot table on your phone, free, instant, offline, and exact, with no account and no quota used. Sign in once to add tappable key-moment chips per shot; that step sends only the already-parsed shot codes and action lines to the server, never the PDF itself, and draws on a free quota of 1.
+- Call-sheet load: hand Clapper today's call sheet and it works out which of the project's known scenes are shooting, so the shoot order matches the day. Sign in to use it; free accounts get 5.
+- Auto camera-clip numbering: matches how Sony, iPhone, RED, ARRI, or GoPro names files, so the log lines up with the cards with no drift. Clip patterns are editable.
+- Export a Premiere-ready XML (legacy FCP7 xmeml) with takes named (e.g. SC12_T04_CU) and brass markers placed at your taps. This is a separate log file; it never embeds anything into the camera's original footage, never touches the camera's own timecode, and never renames the footage files.
+- Export a PDF shot log with GOLD takes highlighted, and a CSV of every take, tag, and timecode.
+- Works offline on set, including locations with no network.
+- Camera-agnostic and editor-agnostic: plain files your tools already read, nothing proprietary.
+
+## Who it's for
+
+- Script supervisors and continuity crew who need a fast, accurate log.
+- 1st ADs running the floor who want the paper log to disappear.
+- 2nd ACs already holding the phone at the camera cart.
+- Indie, no-budget, and student filmmakers shooting without a dedicated script supervisor.
+- Editors (including podcast editors) who receive the log and want takes named and moments marked before they open the timeline.
+
+## How it works
+
+1. On set: tap ROLL, tag coverage and beats as they happen, and flag the keeper as GOLD. Clapper stamps the timecode for every tap.
+2. Clip numbers: pick your camera body and Clapper numbers each clip the way that camera does, so the log matches the cards.
+3. At wrap: export a Premiere XML with takes named and markers placed, a PDF shot log with GOLD highlighted, and a CSV of every take, each pulled separately from the same shot log.
+
+## Pricing
+
+Two full projects are free forever, no card required: unlimited take logging, tagging, GOLD flags, offline use, and unlimited CSV export on every project, paid or not. Past the first two projects, a credit unlocks the PDF shot log and the Premiere or Resolve export: Rs 699 for one project credit, or Rs 2,399 for five. For crews shooting constantly, Clapper Studio subscribes at Rs 999/month (6 project credits or 20 podcast hours a month) and Clapper Studio Plus at Rs 2,499/month (20 project credits or 60 podcast hours a month, plus your own logo on every export). All prices are in INR and include GST. Full pricing: https://clapper.in/pricing/
+
+## Free templates
+
+Clapper also publishes free, print-ready PDF templates for the paper-and-clipboard version of this workflow, no email required to download:
+
+- Continuity sheet template: https://clapper.in/templates/continuity-sheet-template/
+- Camera log sheet: https://clapper.in/templates/camera-log-sheet/
+- Script supervisor daily report: https://clapper.in/templates/script-supervisor-daily-report/
+- Production sound report: https://clapper.in/templates/sound-report-template/
+- Shot list template: https://clapper.in/templates/shot-list-template/
+
+## Guides
+
+Reference articles on on-set logging practice. Written to be useful on their own, not as product pages:
+
+- How to log takes on set: https://clapper.in/articles/how-to-log-takes-on-set/ (the slate-to-editor chain, and why three separate logs share one number)
+- How to read a clapperboard: https://clapper.in/articles/how-to-read-a-clapperboard/ (every field on the slate, and why scene number and slate number are not the same thing)
+- Script supervisor duties: https://clapper.in/articles/script-supervisor-duties/ (what the job actually covers, including how it differs by territory)
+- How to write continuity notes: https://clapper.in/articles/continuity-notes-guide/ (with real note examples rather than categories)
+- Camera clip naming conventions: https://clapper.in/articles/camera-clip-naming-conventions/ (Sony, RED, ARRI, iPhone, and the cross-day filename collision nobody warns about)
+- Shot log to Premiere XML: https://clapper.in/articles/shot-log-to-premiere-xml/ (how the export actually works, and why duplicate clips happen)
+- What is a circle take: https://clapper.in/articles/circle-takes-explained/ (traced to 35mm lab print costs, which explains why a flawed take still gets circled)
+- MOS meaning in film: https://clapper.in/articles/mos-meaning-in-film/ (why the "mit out sound" story does not survive contact with German)
+- What is a TCR sheet: https://clapper.in/articles/what-is-a-tcr-sheet/ (timecode logging on set, including an honest note that the term is used inconsistently)
+
+## Answers
+
+Short, specific answers to questions people actually search, each a single self-contained page:
+
+- Camera report and script supervisor log disagree, now what: https://clapper.in/answers/camera-report-vs-script-supervisor-log-disagree/
+- Camera rolled without a log, what happens to the clip numbers: https://clapper.in/answers/camera-rolled-without-a-log/
+- Does a set-logging app upload your script to an AI: https://clapper.in/answers/does-ai-read-your-script-on-set/
+- If a take is no good, does the clip number still count: https://clapper.in/answers/does-an-ng-take-still-use-a-clip-number/
+- Does the editor need special software to open a shot log XML: https://clapper.in/answers/does-editor-need-special-software-for-shot-log-xml/
+- Is there a free alternative to Shot Notes X: https://clapper.in/answers/free-alternative-to-shot-notes-x/
+- Do you need an iPad and a paid app for continuity: https://clapper.in/answers/free-continuity-app-vs-paid-ipad-app/
+- How does the editor know which take the director wanted: https://clapper.in/answers/how-editor-finds-directors-favorite-take/
+- Getting script supervisor notes into Premiere as markers: https://clapper.in/answers/script-supervisor-notes-to-premiere-markers/
+- How accurate is automatic shot list breakdown: https://clapper.in/answers/shot-list-breakdown-accuracy/
+- Two cameras, same clip number, how the editor tells them apart: https://clapper.in/answers/two-cameras-same-clip-number/
+- What does the editor actually receive at wrap: https://clapper.in/answers/what-editor-actually-receives-at-wrap/
+
+## Links
+
+- Landing page: https://clapper.in/
+- App: https://clapper.in/app/
+- Pricing: https://clapper.in/pricing/
+- Free templates index: https://clapper.in/templates/continuity-sheet-template/
+- Guides index: https://clapper.in/articles/
+- Relink (rewrite media paths in a Premiere/FCP7 XML, runs in-browser): https://clapper.in/relink/
+- Privacy Policy & Terms: https://clapper.in/legal/
