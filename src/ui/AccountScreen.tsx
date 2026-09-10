@@ -36,7 +36,7 @@ import * as haptics from './haptics';
 // prices - see products.ts's own closing note: enterprise is a "contact us"
 // link, negotiated by hand, and never reaches a payment gateway.
 const ENTERPRISE_MAILTO =
-  'mailto:purohit.krick@gmail.com?subject=' +
+  'mailto:app@clapper.in?subject=' +
   encodeURIComponent('Clapper Enterprise') +
   '&body=' +
   encodeURIComponent('Tell us about your team and how many projects a month:\n\n');

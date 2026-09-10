@@ -38,7 +38,7 @@ const APP_VERSION = '0.1.0';
 // prefilled mailto is enough. The body seeds the prompt; the trailing newlines
 // drop the cursor onto a blank line ready to type.
 const FEEDBACK_MAILTO =
-  'mailto:purohit.krick@gmail.com?subject=' +
+  'mailto:app@clapper.in?subject=' +
   encodeURIComponent('Clapper feedback') +
   '&body=' +
   encodeURIComponent(
