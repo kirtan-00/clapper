@@ -42,9 +42,18 @@ export function SignInSheet(props: { onClose: () => void }) {
 
   return (
     <Sheet title="Sign in" onClose={props.onClose}>
+      {/* VALUE, NOT A WALL (see Onboarding.tsx's SignInStage comment for the
+          same rule). Reworded 2026-08-30: the old line said "PDF export are
+          always free," which `exportGated` contradicts — PDF is project-locked
+          like Premiere/Resolve. This sheet also fronts shotlist and call-sheet
+          import, so the copy stays true for all three by leading with what the
+          account BUYS: your work saved, and a CSV you hand straight to your
+          editor. CSV is the one export any signed-in account keeps forever;
+          logging takes and Backup never need an account at all. */}
       <p className="camnote" style={{ marginTop: 0 }}>
-        Shotlist import and Premiere/CSV exports need a free account. Logging takes and
-        PDF export are always free.
+        Sign in with a free account to save your work and hand it to your editor. Your
+        CSV export — a clean spreadsheet of every take — is free forever, ready to drop
+        into any edit. Logging takes and Backup never need an account.
       </p>
 
       <p className="camnote" style={{ marginTop: 0 }}>

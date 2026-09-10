@@ -24,6 +24,7 @@ import './skin/roll.css';
 import './skin/projects.css';
 import './skin/shell.css';
 import './skin/detail.css';
+import './skin/tour.css';
 
 /**
  * What a screen is CALLED when it is the thing you are going back to. iOS

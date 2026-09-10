@@ -23,6 +23,7 @@ import { TabTray } from './TabTray';
 import { Onboarding } from './Onboarding';
 import { RollRecovery } from './RollRecovery';
 import { StudioPrompt } from './StudioSheet';
+import { TourController } from './tour/TourController';
 import { trackScreenView } from '../net/analytics';
 import { bumpSafeBottomFloor } from './safeBottomFloor';
 
@@ -124,6 +125,16 @@ export function AppShell(props: { render: (route: Route, nav: Nav) => ReactNode 
           than a form, and StudioPrompt's own `rolling` check keeps it away
           from the screen the recovery lands on. */}
       <StudioPrompt rolling={route.name === 'rolling'} />
+      {/* THE GUIDED TOUR. Mounted last of the four self-deciding overlays
+          on purpose - it is the one a person asks for (Settings' "Take the
+          tour" row) rather than one the app decides to show, and its own
+          dark-by-default first-open offer (TOUR_AUTOSTART, see
+          TourController.tsx) must never stack on top of Onboarding,
+          RollRecovery or StudioPrompt settling their own questions first.
+          Owns nothing about the route itself - it reads `nav`/`route` only
+          to navigate the demo shoot it starts and to refuse to start one
+          while a REAL roll is up. */}
+      <TourController nav={nav} route={route} />
     </div>
   );
 }

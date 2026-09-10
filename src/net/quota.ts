@@ -38,6 +38,21 @@ import { supabase } from './supabase';
 export const FREE_PROJECT_LIMIT = 2;
 
 /**
+ * FREE PREMIERE TASTE, mirrored from _shared/gate.ts for display/messaging
+ * ONLY. An account gets Premiere/Resolve XML export free on its first
+ * FREE_PREMIERE_PROJECTS projects - the same projects its free Script Mode
+ * grant already covered - so it can feel the format that drops straight into
+ * an editor before the paywall. The SERVER (FREE_PREMIERE_PROJECTS in
+ * supabase/functions/_shared/gate.ts) is the ONLY thing that grants this;
+ * nothing here is trusted for entitlement. This copy exists purely so the
+ * Account/Project screens can say "free on your first 2 projects" without a
+ * round trip. Kept in sync by hand, same posture as FREE_PROJECT_LIMIT: if the
+ * two drift, the server wins. 0 on the server disables the giveaway; mirror it
+ * here so the copy stays honest.
+ */
+export const FREE_PREMIERE_PROJECTS = 2;
+
+/**
  * THE ONE-LINE FLIP, mirrored from products.ts for display purposes only.
  * 0 = the free grant never refills (today's setting). See that file's own
  * comment on FREE_PROJECT_RESET_DAYS for the full reasoning - this constant
@@ -220,6 +235,14 @@ export interface GateResult {
   reason?: string;
   /** HTTP status the function responded with. Only set when reason is 'http_error'. */
   status?: number;
+  /** Only present (and only on allow:true) when the server granted this export
+   *  through the free-premiere taste rather than a paid unlock: the string
+   *  'free_premiere'. Absent otherwise, so a caller that ignores it is
+   *  unaffected. Lets the UI say "free Premiere export - one of your first
+   *  FREE_PREMIERE_PROJECTS projects" honestly, distinct from an unlock the
+   *  user paid for. DISPLAY ONLY - it grants nothing; the server already
+   *  decided `allow`. */
+  via?: string;
 }
 
 /**

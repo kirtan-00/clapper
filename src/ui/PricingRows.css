@@ -1,103 +1,223 @@
 /* PricingRows.tsx's own styles - owned here, not in the shared list.css or
    the central styles.css, per this task's file-ownership split.
 
-   ONE JOB: let SubscriptionRow's label be TWO lines (the plan name, then,
-   for Studio Plus only, a dim caption naming what the extra money buys)
-   without breaking `.grow-label`'s normal single-line contract that every
-   other row in the app still relies on. `.grow-label` (list.css) is
-   `overflow:hidden; white-space:nowrap; text-overflow:ellipsis` because it
-   holds plain text everywhere else; `.pr-subrow__label` opts THIS row back
-   out of that so its child spans lay out as a column instead of one
-   truncating line.
+   BLOCKY, 2026-08-31 (second pass, same day). The first cut of this screen
+   reused the app's grouped-inset LIST vocabulary (list.css's `.grow-label`
+   nowrap contract, hairline rows sharing one `.glist-card`) - it read as an
+   editorial list, and the owner said so: "this looks bad, the UI needs to
+   be blocky like an app." Everything below `.pr-card` is new: every tier is
+   its own rounded, filled, padded block, with a real gap between blocks,
+   built on the exact SECONDARY/PRIMARY surface-and-press vocabulary `.btn`
+   already uses (styles.css, ~line 1385) for "a control you press" - flat,
+   no bevel, no gradient, no lift, rank carried by fill. `.pr-wraprow` and
+   `.sl-drop[data-locked]` further down are UNTOUCHED and still load-bearing
+   for other screens - see each block's own header for why. */
 
-   CORRECTED 2026-08-27: the line that stood here used to claim "two classes
-   on the element beats list.css's one-class rule on specificity" - that is
-   wrong, and the bug it hid shipped for a while before this task's own
-   render caught it. `.pr-subrow__label { white-space: normal }` and
-   list.css's `.grow-label { white-space: nowrap }` are BOTH single-class
-   selectors - identical (0,1,0) specificity - so at a tie the LATER rule in
-   the actual stylesheet order wins, not the element with more classes on it.
-   Vite loads list.css's giant combined sheet after this file's, so
-   list.css's `nowrap` was winning silently on every row this rule touches.
-   It stayed invisible for a long time because `display: flex` below (which
-   list.css never contests) still stacked the name and the perk line
-   correctly, and because no name/value pair got tight enough to need real
-   wrapping until Studio Plus actually scaled to 1.3x (see `SubscriptionRow`'s
-   own header on the cyclic `--t-row` bug that had suppressed that scale) and
-   met its OWN `current`-branch value ("Your plan") at 320px - see that
-   branch in PricingRows.tsx for the actual fix, which is the SAME technique
-   list.css already has a name for: `.pr-wraprow .grow-label` is a genuine
-   descendant selector, (0,2,0), which beats a same-specificity sibling
-   regardless of load order. This rule alone was never enough. */
+/* ---- the card ----------------------------------------------------------
+   `PlanCard` (PricingRows.tsx) renders every tier through this one shape -
+   SECONDARY by default (an unfilled surface with an inset hairline, exactly
+   `.btn`'s own "border that doesn't eat the content box" trick, so the
+   card's inner width never depends on whether the browser rounds the
+   border differently than the radius), PRIMARY when `solid` (a solid fill
+   of the app's one accent colour, `.pr-card--solid` below).
 
-.pr-subrow__label {
+   `--radius-lg` (20px), not `--radius` (14px, what `.glist-card` and every
+   settings row already use) or `--radius-sm` (10px, what `.btn` itself
+   uses) - a bigger, chunkier corner is part of what "blocky like an app"
+   asked for; the settings/list screens keep their own tighter radius, this
+   screen is now visually its own register on purpose.
+
+   `min-height` is a floor, not a target - real content (a name, a subline,
+   a two-line price) runs taller than this on every card that has a
+   subline, but the Free card (name + a short value, no subline) still
+   needs to read as chunky rather than as a settings row that happened to
+   get rounder corners. `--tap` (44px) is the app's own minimum tap target;
+   `* 1.6` is a deliberate step up from "technically tappable" to "reads as
+   a thumb-sized control", the same instinct `.bigbtn` (the physical roll/
+   cut controls) already acts on elsewhere, without borrowing that
+   component's hardware well-and-shadow treatment - this stays flat. */
+.pr-card {
+  display: block;
+  width: 100%;
+  min-height: calc(var(--tap) * 1.6);
+  padding: var(--sp-5);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  /* Inset, not a real border - see `.btn`'s own comment on why: a border
+     grows the box, an inset shadow paints inside it, so the card's content
+     width never has to know whether it has a hairline or not. */
+  box-shadow: inset 0 0 0 1.5px var(--hairline);
+  transition: background var(--dur-state) var(--ease-out);
+}
+/* `<button>`-only: `isStatic` cards (Free, an already-claimed launch offer,
+   an account's own current plan) render a `<div>`, which this selector
+   simply never matches - no press feedback on a card there is nothing to
+   press. */
+button.pr-card {
+  cursor: pointer;
+  border: none;
+}
+button.pr-card:active {
+  background: var(--surface-sunk);
+}
+.pr-card:disabled {
+  opacity: 0.4;
+}
+/* Static cards (Free, an already-claimed launch offer, an account's own
+   current plan) drop the hairline and settle onto the app's own SUNK
+   surface step instead - the same colour a pressed `.btn` steps to, at
+   rest, so a card that cannot be pressed reads as already-settled rather
+   than as a fourth identical-looking button that happens not to respond to
+   a tap. Still flat, still no shadow: a colour step, not a shape change. */
+.pr-card[data-static] {
+  cursor: default;
+  box-shadow: none;
+  background: var(--surface-sunk);
+}
+
+/* PRIMARY - the one solid-filled card on the screen at a time (Studio, or
+   the launch offer while it is actually buyable - see PricingRows.tsx's own
+   header on the hand-off between the two). `var(--m-accent)` is teal on
+   day, acid on night; `var(--m-accent-ink)` is the ink built to sit on it
+   (pale-on-teal, black-on-acid, both already tuned elsewhere in this app -
+   see the `--m-accent-ink` note in styles.css). No inset hairline here: the
+   fill IS the rank signal, and a border under a solid slab reads as the
+   slab fighting itself - `.btn--go`'s own comment, unchanged for a card. */
+.pr-card--solid {
+  background: var(--m-accent);
+  color: var(--m-accent-ink);
+  box-shadow: none;
+}
+button.pr-card--solid:active {
+  background: var(--m-accent-press);
+}
+
+/* ---- inside the card -----------------------------------------------------
+   Name and price share the top line, space-between; the subline (when
+   there is one) runs the full width underneath. `.pr-card__name` is the
+   flexible side (a long name still has somewhere to go before it fights
+   the price for room); `.pr-card__value` stays a fixed, auto-width column
+   so every price's digits still land on a shared right edge, the same
+   alignment discipline the row-era ladder had, just inside one card
+   instead of across a shared one. */
+.pr-card__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.pr-card__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--t-title);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.pr-card__value {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: var(--t-row);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.pr-card--solid .pr-card__value {
+  color: var(--m-accent-ink);
+}
+
+/* "Our pick" - a coloured word after the name, never a pill or a badge: the
+   card's own solid fill already carries the "this is the one" signal (see
+   `.pr-card--solid` above), this only makes sure that signal is not colour
+   alone (a11y) and gives it a name a screen reader also gets. Inherits its
+   colour from `.pr-card--solid`'s own `color: var(--m-accent-ink)` by
+   nesting inside `.pr-card__name` - only its opacity is its own, so it
+   reads as a caption next to the name rather than a second name. Only ever
+   rendered when the card is also solid (`PlanCard`'s own `pick` prop is
+   always passed alongside `solid` - see `SubscriptionCard`), so there is no
+   "coloured word on a plain card" state to guard against separately. */
+.pr-card__pick {
+  display: inline-block;
+  margin-left: var(--sp-2);
+  font-size: var(--t-caps);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.pr-card__subline {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--t-secondary);
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+.pr-card--solid .pr-card__subline {
+  color: var(--m-accent-ink);
+  opacity: 0.85;
+}
+
+/* The sticker price and its qualifier, stacked and right-aligned inside
+   `.pr-card__value` - see `PriceStack` (PricingRows.tsx) for the busy-state
+   swap this exists to support. `.pr-card__sticker` stays `nowrap`: a price
+   is one unbreakable run regardless of how much room a card has. */
+.pr-card__stack {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  overflow: visible;
-  white-space: normal;
-  text-overflow: clip;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+.pr-card__sticker {
+  font-size: var(--t-title);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pr-card__qualifier {
+  margin-top: 2px;
+  font-size: var(--t-caption);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.pr-card--solid .pr-card__qualifier {
+  color: var(--m-accent-ink);
+  opacity: 0.78;
 }
 
-.pr-subrow__name {
-  max-width: 100%;
+/* ---- the stack, not a shared card ---------------------------------------
+   `Group` (PricingRows.tsx) renders `.glist-hdr` / `.glist-note` (list.css)
+   for the caption and footnote - those two are still the right typographic
+   voice for "a label above a group of controls" - but the MIDDLE is new:
+   `.pr-stack` is a plain flex column with a real gap between children,
+   replacing `.glist-card`'s single bordered surface with hairline rules
+   between rows. Each child is a full `.pr-card` with its own fill, its own
+   border, its own corners - nothing here draws a shared background or
+   radius of its own, because there is no longer a shared surface to draw. */
+.pr-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
 }
 
-/* Supporting text, not a second product - never the row's own bold weight.
-   USED TO BE `--t-caption` in `--text-faint` - the faintest text on the
-   screen, naming the one reason to pay 2.5x more for Studio Plus. Bumped one
-   step to `--t-secondary` in `--text-dim`, the same pairing `.glist-note`
-   (list.css) uses for "a sentence somebody has to read outdoors" - a claim
-   this important cannot be the least legible thing on a screen asking for
-   money. Deliberately NOT tied to `.pr-subplus` below: this has to read
-   whether or not the promo happens to be live right now (see PricingRows.tsx
-   for why the accent moves), not just once the accent lands here. */
-.pr-subrow__perks {
+/* Enterprise - a contact link, not a priced tier, so it does not get a
+   `.pr-card` of its own (see `PricingLadder`'s own comment on why a sixth
+   card here would be selling a product that does not exist in the
+   catalogue). A small, quiet text link under the cards: the accent colour
+   as TEXT (`--m-accent-text`, the deep/legible form, not the bright fill -
+   see that token's own note in styles.css on why the two are kept apart),
+   `ExternalMark` (glist.tsx) as the same "this leaves the app" glyph every
+   other outbound link in this app already uses. */
+.pr-enterprise {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+  padding: var(--sp-3);
   font-size: var(--t-secondary);
-  font-weight: 500;
-  line-height: 1.3;
-  color: var(--text-dim);
-  white-space: normal;
-}
-
-/* ---- the scale fix ----------------------------------------------------
-   `SubscriptionRow` (PricingRows.tsx) sets `--pr-row-scale` as an inline
-   style on THIS wrapper - a plain number, 1.12 or 1.3, never itself a
-   `--t-row`-shaped value - and this is the one rule that turns it into a
-   bigger row. `--t-row` on the right is read fresh off the row's real
-   ancestor (the section's card, still 17px): it is never redeclared inside
-   this wrapper, which is the whole fix - see that component's own header
-   for the cyclic-reference bug this replaces, where redeclaring `--t-row` by
-   reading `--t-row` on the SAME element made the "bigger" rows render at the
-   browser's UA default instead, silently, smaller than a plain row. */
-.pr-subrow-scale > .grow {
-  font-size: calc(var(--t-row) * var(--pr-row-scale, 1));
-}
-
-/* ---- the one accent that survives the promo ---------------------------
-   `.pr-subplus`, applied to the Studio Plus row's own `.grow` only when
-   `SubscriptionRow`'s `accent` prop is on (gated in `PricingLadder` so this
-   and the launch offer's `primary` row never both fire - see both of their
-   own headers). Same GOLD vocabulary `procta__btn`, `.goldbtn` and
-   `.camcount__opt--on` already use elsewhere in this app for "the one that
-   matters" (styles.css) - a tint, an edge, coloured type. No shadow, no
-   gradient, no radius of its own: `--brass-tint` is a flat colour that
-   composites onto whatever surface it lands on (see that token's own
-   comment in styles.css), so it is safe as a full-bleed background on
-   whichever row happens to be last in the Subscribe section - ProCta's
-   cap-hit paywall never renders Enterprise, so Studio Plus IS the last row
-   there, and a full ALL-ROUND border would visibly mismatch the card's own
-   rounded bottom corner in that position. A LEFT edge only (3px, the same
-   width `.momentrow--gold` already uses in styles.css) never has that
-   problem, because a border-left never touches the corner. */
-.pr-subplus {
-  background: var(--brass-tint);
-  border-left: 3px solid var(--brass-edge);
-  padding-left: calc(var(--sp-4) - 3px);
-}
-.pr-subplus .pr-subrow__name {
-  color: var(--brass-text);
+  font-weight: 600;
+  color: var(--m-accent-text);
+  text-decoration: none;
 }
 
 /* ---- the shotlist drop zone, LOCKED ---------------------------------
@@ -117,7 +237,7 @@
    reads `--m-accent` for both its border and its type, and `--m-accent` ON
    NIGHT IS THE APP'S ONE ACID. Leaving that inherited here would put acid
    on two surfaces of the same screen at once - this locked box AND the
-   launch offer's primary row - when the palette reserves it for the launch
+   launch offer's solid card - when the palette reserves it for the launch
    offer alone. Both rules use the attribute selector (`.sl-drop[data-locked]`,
    `[data-theme='night'] .sl-drop[data-locked]`) rather than relying on
    cascade order to beat styles.css's own selectors of equal specificity. */
@@ -139,16 +259,17 @@
 }
 
 /* ---- rows that opt OUT of the one-line contract ----------------------
+   NOT CONSUMED BY THIS FILE'S OWN MARKUP ANY MORE. `PricingRows.tsx`'s
+   cards (`.pr-card`) wrap text by default - a block has room, so nothing
+   here needed the opt-in the row-era ladder did. This rule stays because
+   AccountScreen.tsx still reaches for it directly on two of its own rows
+   (the spent-grant notice and the export line, both outside the ladder) -
    `.grow-label` / `.grow-value` (list.css) are nowrap + ellipsis, correct
-   for the settings/counter rows they were built for. Three rows this task
-   touches carry text that rule was never built for - the launch offer's
-   "N of M left" (the one number that makes the offer legible, PricingRows.tsx),
-   and two pre-existing Account rows whose value is a full sentence, not a
-   number (AccountScreen.tsx's spent-grant notice and its export line). At
-   390px, and worse at 320px, ellipsis on the label crushed it to one letter
-   while the un-shrinking, un-wrapping value still overran the card's right
-   edge past the viewport - text lost AND a card wider than the screen. Two
-   bugs, one cause.
+   for the settings/counter rows they were built for, and those two rows
+   carry a full sentence instead of a short label. Owned here rather than
+   moved into list.css because this file already had it and AccountScreen.tsx
+   is not this task's file to restructure - see that file's own comments at
+   each call site.
 
    `className` on `Row`/`ReadRow` (glist.tsx) is the opt-in - it merges this
    class onto the SAME element as `.grow`, so `.pr-wraprow .grow-label` is a
@@ -183,4 +304,31 @@
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+}
+
+/* ---- the lede, above the ladder ----------------------------------------
+   `PricingLede` (PricingRows.tsx): two plain paragraphs, the same
+   `--t-title` / `--t-secondary` pairing `.ltitle` and `.glist-note` already
+   use, not a card. `--inset` padding, no `.pr-card` background or radius -
+   the moment this got a card it would read as a sixth product for sale
+   rather than the sentence that explains why anyone should buy the other
+   five, and `.glist`'s own header already establishes that pattern (a
+   caption outside the controls, not one of them) - this is closer kin to
+   that caption than to a card. */
+.pr-lede {
+  padding: 0 var(--inset);
+  margin: 0 0 var(--sp-6);
+}
+.pr-lede__head {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--t-title);
+  font-weight: 650;
+  letter-spacing: var(--track-tighter);
+  color: var(--text);
+}
+.pr-lede__body {
+  margin: 0;
+  font-size: var(--t-secondary);
+  line-height: 1.45;
+  color: var(--text-dim);
 }

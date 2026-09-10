@@ -50,22 +50,8 @@ import { useSession } from '../net/auth';
 import { startCheckout } from '../net/pay';
 import { track } from '../net/analytics';
 import { PRODUCTS, type Product } from '../../supabase/functions/_shared/products';
+import { formatPrice } from './pricing';
 import * as haptics from './haptics';
-
-/** amountCents is the smallest unit of `currency` (cents for USD, paise for
- *  INR) - see products.ts's own note on why one field name serves both.
- *  Intl.NumberFormat wants the MAJOR unit, so this divides by 100 once,
- *  here, and nowhere else: the server never sees the result of this
- *  division, only the raw integer it sent. */
-function formatPrice(product: Product): string {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currency }).format(
-      product.amountCents / 100,
-    );
-  } catch {
-    return `${product.amountCents / 100} ${product.currency}`;
-  }
-}
 
 const SELLABLE: Product[] = Object.values(PRODUCTS).filter((p) => p.kind === 'one_time');
 

@@ -36,7 +36,7 @@ import { track } from '../net/analytics';
 import { usePurchase, usePromoOffer, type Purchase } from './pricing';
 import { PricingLadder } from './PricingRows';
 
-// Where the tap came from. The first three are cap-hits; 'account' is the
+// Where the tap came from. The first four are cap-hits; 'account' is the
 // standing CTA on the Account tab, which is interest with no wall behind it
 // and is worth counting separately rather than mislabelling as a cap. This is
 // an ANALYTICS label only — it gates nothing and the server never sees it.
@@ -44,7 +44,10 @@ import { PricingLadder } from './PricingRows';
 // its own counter instead of spending the shotlist import's. Folding the two
 // cap-hits back together in the analytics would hide the one thing this split
 // was made to find out: which of the two walls people actually hit.
-export type ProGate = 'script' | 'callsheet' | 'premiere' | 'csv' | 'account';
+// 'pdf' added 2026-08-30: PDF export is a real cap-hit too, and ProjectScreen
+// used to fold it onto 'csv' for lack of this case — which quietly reported
+// every capped PDF as a capped CSV in the pro_interest funnel.
+export type ProGate = 'script' | 'callsheet' | 'premiere' | 'csv' | 'pdf' | 'account';
 
 export function ProCta(props: { gate: ProGate }) {
   const logged = useRef(false);

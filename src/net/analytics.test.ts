@@ -10,6 +10,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   currentScreen,
+  firstTouchRef,
+  resolveFirstTouchRef,
   resolveVisitorId,
   restoreScreen,
   shouldFireSessionEnd,
@@ -88,5 +90,37 @@ describe('visitorId', () => {
     // inflate the unique count by one per page load — the same class of bug
     // that made 79% of this table dev traffic. Null means UNATTRIBUTED.
     expect(visitorId()).toBeNull();
+  });
+});
+
+// Traffic-source attribution — first-source-wins, the same discipline
+// resolveVisitorId() already applies, tested the same pure/DOM-free way.
+describe('resolveFirstTouchRef', () => {
+  it('keeps a stored source even when the current URL carries a different one', () => {
+    // A returning visitor who now has no ref, or a different one (a bare
+    // revisit, an internal link, a second campaign), must never have their
+    // original acquisition source overwritten.
+    expect(resolveFirstTouchRef('ig', null)).toBe('ig');
+    expect(resolveFirstTouchRef('ig', 'newsletter')).toBe('ig');
+  });
+
+  it('falls back to the URL only when nothing has ever been captured', () => {
+    expect(resolveFirstTouchRef(null, 'ig')).toBe('ig');
+  });
+
+  it('returns null when there is nothing stored and nothing in the URL', () => {
+    expect(resolveFirstTouchRef(null, null)).toBeNull();
+  });
+
+  it('treats an empty-string URL value as absent rather than a real source', () => {
+    // `?ref=` with no value — params.get() returns '' rather than null.
+    expect(resolveFirstTouchRef(null, '')).toBeNull();
+  });
+});
+
+describe('firstTouchRef', () => {
+  it('returns null rather than inventing one when storage is unavailable', () => {
+    // No `window` here either — same UNATTRIBUTED contract as visitorId().
+    expect(firstTouchRef()).toBeNull();
   });
 });

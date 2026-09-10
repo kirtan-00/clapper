@@ -80,6 +80,29 @@ export function perProjectCost(product: Product): number {
   return Math.round(product.amountCents / product.credits / 100);
 }
 
+/**
+ * How much cheaper a multi-credit tier's per-project rate is than the
+ * single-credit rate (`credit_1`, Rs 699) - the number the 2026-08-31 plans
+ * redesign uses to anchor the Subscribe section against the Pay-per-job
+ * one, per the owner's own "show the saving vs the Rs 699 one-off" brief.
+ * `undefined` for `credit_1` itself (nothing to save against) and for
+ * anything display doesn't have a fixed per-project figure for.
+ *
+ * NOT INDEPENDENTLY INVENTED. Feeding bundle_5's own numbers through this
+ * formula lands on 31%, which is the exact figure launch/PRICE-SHEET.md's
+ * separate bundle-discount research pass argued for by hand ("Rs 2,399 for
+ * five... lands at 31%, which reads as a genuine deal"). That agreement is
+ * the check that this is reading the intended pricing, not just doing
+ * arithmetic that happens to look plausible.
+ */
+export function savingsPercent(product: Product): number | undefined {
+  if (product.key === 'credit_1') return undefined;
+  const base = PER_PROJECT_DISPLAY.credit_1;
+  const per = PER_PROJECT_DISPLAY[product.key];
+  if (per === undefined || !base) return undefined;
+  return Math.round((1 - per / base) * 100);
+}
+
 function creditsWord(n: number): string {
   return `${n} credit${n === 1 ? '' : 's'}`;
 }

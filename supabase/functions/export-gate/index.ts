@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cors } from "../_shared/cors.ts";
 import { isSuspended } from "../_shared/suspension.ts";
-import { decideExport, type ExportFormat } from "../_shared/gate.ts";
+import { decideExport, FREE_PREMIERE_PROJECTS, type ExportFormat } from "../_shared/gate.ts";
 
 // Clapper export gate. REWORKED 2026-08-27: this used to consume a
 // per-format lifetime counter (Premiere/Resolve FCP7 XML 2, PDF 5, CSV 5)
@@ -143,14 +143,44 @@ Deno.serve(async (req: Request) => {
   // simple. An absent/empty projectId reads as NOT unlocked (a client asking
   // for pdf/premiere with no project named has nothing to be unlocked).
   let projectUnlocked = false;
+  let projectFreeGranted = false;
   if (projectId) {
     const { data: entitlement } = await admin
       .from("project_entitlements")
-      .select("unlocked_at")
+      .select("unlocked_at, free_at")
       .eq("user_id", userId)
       .eq("project_id", projectId)
       .maybeSingle();
     projectUnlocked = entitlement?.unlocked_at != null;
+    projectFreeGranted = entitlement?.free_at != null;
+  }
+
+  // 5b. FREE PREMIERE TASTE (toggle: FREE_PREMIERE_PROJECTS in _shared/gate.ts;
+  // 0 disables). Rank THIS project among the account's free-granted projects,
+  // oldest first, so the single constant controls a REAL count and not just an
+  // on/off. Read-only: this looks at free_at, which claim_project_access
+  // already wrote when the project spent its free Script Mode slot - the export
+  // path never sets it, spends nothing, and touches no credit or unlock. The
+  // `.limit(FREE_PREMIERE_PROJECTS)` enforces the cap in SQL: a project sitting
+  // beyond the first N free-granted rows is absent from the list, so findIndex
+  // returns -1 and rank stays 0 (no taste). Computed only when it can matter
+  // (premiere, this project is free-granted, giveaway enabled); 0 otherwise,
+  // which decideExport treats as "not free-granted" and falls straight through
+  // to the existing paywall.
+  let freePremiereRank = 0;
+  if (
+    format === "premiere" && projectId && projectFreeGranted &&
+    FREE_PREMIERE_PROJECTS > 0
+  ) {
+    const { data: freeRows } = await admin
+      .from("project_entitlements")
+      .select("project_id")
+      .eq("user_id", userId)
+      .not("free_at", "is", null)
+      .order("free_at", { ascending: true })
+      .limit(FREE_PREMIERE_PROJECTS);
+    const idx = (freeRows ?? []).findIndex((r) => r.project_id === projectId);
+    freePremiereRank = idx >= 0 ? idx + 1 : 0;
   }
 
   const verdict = decideExport({
@@ -158,6 +188,7 @@ Deno.serve(async (req: Request) => {
     isSuspended: false, // already checked and returned above
     pro: { isPro: profile?.is_pro === true, proUntil: (profile?.pro_until as string | null) ?? null },
     projectUnlocked,
+    freePremiereRank,
   });
 
   if (!verdict.allow) {
@@ -173,13 +204,30 @@ Deno.serve(async (req: Request) => {
       name: "export",
       props: {
         format,
-        tier: profile?.is_pro === true ? "pro" : projectUnlocked ? "unlocked" : "free",
+        // `free_premiere` is the giveaway (see 5b) - kept distinct from `free`
+        // (csv) so the owner can count how many free Premiere tastes were
+        // served. Additive: only the label set changed, existing values did
+        // not.
+        tier: profile?.is_pro === true
+          ? "pro"
+          : projectUnlocked
+          ? "unlocked"
+          : freePremiereRank >= 1
+          ? "free_premiere"
+          : "free",
       },
       ip_hash: ipHash,
     });
   } catch (_) { /* analytics is non-fatal */ }
 
-  return new Response(JSON.stringify({ allow: true }), { headers });
+  // `via` lets the client message an allowed export honestly: 'free_premiere'
+  // means the giveaway granted it, not an unlock the user paid for. Additive
+  // and optional - JSON.stringify drops it when undefined, so a client that
+  // ignores it behaves exactly as before.
+  return new Response(
+    JSON.stringify({ allow: true, via: freePremiereRank >= 1 ? "free_premiere" : undefined }),
+    { headers },
+  );
 });
 
 async function sha256Hex(s: string): Promise<string> {

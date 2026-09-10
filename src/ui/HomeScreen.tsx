@@ -6,26 +6,28 @@
 // grouped inset list under a hero, the iOS shape, so the eye lands on the one
 // thing worth landing on at 5am with a slate in the other hand.
 //
-// The hero opens a picker sheet with the two ways a shoot starts, and BOTH now
-// open the ONE staged sheet the Projects tab's own "New project" button opens
-// (NewProjectSheet.tsx), told which road to walk via its `flow` prop:
+// The hero opens a picker sheet with the two ways a shoot starts, framed by
+// what they DO rather than who does them:
 //
-//   DIRECTOR MODE opens the six-stage road (name, frame rate, cameras, sound,
-//     shot list, ready). The shot list PDF upload is stage five now, and it
-//     is skippable, not a gate. This used to hand straight off to
-//     ShotlistSheet; it no longer does (see pickDirector below), because the
-//     six-stage road mounts ShotlistSheet's own picker AS that stage instead
-//     of routing to a whole separate sheet for it.
-//   PODCAST MODE opens the four-stage road (name, cameras, sound, ready): no
-//     frame rate stage (inherited from the most recent podcast project, 24
-//     otherwise) and no shot list (a podcast has no scenes). It used to
-//     create a project synchronously on the tap itself (`startPodcastRoll` in
-//     newRoll.ts, now unwired); now the tap opens the sheet, and the sheet's
-//     own "Recording" slate creation on completion is what this screen waits
-//     for before pushing the roll (see pickPodcast's onCreated handling).
+//   START ROLLING NOW is the loud one, and the reason this screen exists. It
+//     scratches a fresh project and its one "Scene 1" on the tap itself
+//     (`startNewRoll` in newRoll.ts) and pushes STRAIGHT to a live rolling
+//     screen — no stages, no wizard, no empty project screen in between. The
+//     blank roll: roll long, tap markers as it happens (see startRolling).
+//   SET UP WITH A SHOT LIST opens the ONE staged sheet the Projects tab's own
+//     "New project" button opens (NewProjectSheet.tsx) on its Director road:
+//     name, frame rate, cameras, sound, shot list, ready. The shot list PDF
+//     upload is stage five, skippable, not a gate; the road mounts
+//     ShotlistSheet's own picker AS that stage rather than routing to a
+//     separate sheet (see pickShotlist). It lands on the project screen, with
+//     the projects, not on a roll.
 //
 // The tray unmounts itself on `rolling` (see AppShell), so pushing straight to
-// a roll from here needs no special handling.
+// a roll from here needs no special handling. Both blank-roll pushes go onto
+// the HOME stack, project UNDER rolling — the same two-push shape the retired
+// podcast road used: RollingScreen's next-scene move is a `popTo('project')`
+// then a push, which on a stack with no project screen beneath the roll would
+// grow sideways forever.
 
 import { useEffect, useState } from 'react';
 import type { Project } from '../types';
@@ -33,7 +35,7 @@ import type { Nav } from './nav';
 import { Rail, Sheet, SheetClose } from './common';
 import { useScrolled, ScreenMark } from './glist';
 import { NewProjectSheet, type NewProjectFlow } from './NewProjectSheet';
-import { readResume, type ResumeInfo } from './newRoll';
+import { readResume, startNewRoll, type ResumeInfo } from './newRoll';
 import * as haptics from './haptics';
 
 // One weight, one 24 grid, round caps and joins, currentColor: the same hand
@@ -70,15 +72,14 @@ function ListMark() {
   );
 }
 
-/** A microphone — closed capsule, stand and base, one weight with every other
- *  mark in this file. Podcast mode's own icon, beside ListMark's page-of-rows
- *  for Director mode, in the picker sheet. */
-function PodcastMark() {
+/** The lens again, at row size: the "Start rolling now" road, drawn in the
+ *  same hand as the hero's RollMark but on the shared `home-mark` grid the
+ *  ListMark beside it uses. Stroked, never a filled dot — a filled dot is REC. */
+function RollRowMark() {
   return (
     <svg {...SVG} className="home-mark">
-      <rect x="9" y="3.5" width="6" height="11" rx="3" {...STROKE} />
-      <path d="M6 11v1.5a6 6 0 0 0 12 0V11" {...STROKE} />
-      <path d="M12 18.5V21M9 21h6" {...STROKE} />
+      <circle cx="12" cy="12" r="8.5" {...STROKE} />
+      <circle cx="12" cy="12" r="3.4" {...STROKE} />
     </svg>
   );
 }
@@ -117,16 +118,15 @@ export function HomeScreen(props: { nav: Nav }) {
   const { nav } = props;
   // undefined = still reading the store, null = nothing on this phone yet.
   const [resume, setResume] = useState<ResumeInfo | null | undefined>(undefined);
-  // The picker sheet the hero opens: Director or Podcast.
+  // The picker sheet the hero opens: start rolling now, or set up with a list.
   const [showPicker, setShowPicker] = useState(false);
-  // Guards the Podcast row against a double tap opening two staged sheets,
-  // the same guard this row has always carried, back when the tap itself did
-  // the async CREATE (see startPodcastRoll's now-unwired header note); now it
-  // guards against two NewProjectSheet mounts racing instead.
-  const [startingPodcast, setStartingPodcast] = useState(false);
+  // Guards "Start rolling now" against a double tap writing two scratch
+  // projects for one press: startNewRoll's own header is explicit that the
+  // caller's busy guard is what stops that, not a check inside it.
+  const [starting, setStarting] = useState(false);
   // Which road the staged sheet is walking, if it is open at all. null means
-  // closed. Director just opens it; Podcast owns its own async orchestration
-  // once the sheet reports a project back (see pickPodcast and onCreated).
+  // closed. Only the Director road reaches it now (the shot-list setup); the
+  // blank roll never opens a sheet, it rolls on the tap.
   const [newProjectFlow, setNewProjectFlow] = useState<NewProjectFlow | null>(null);
   // The title bar is sticky material and the large title shrinks into it, the
   // same contract the Settings and Account headers run on.
@@ -146,21 +146,30 @@ export function HomeScreen(props: { nav: Nav }) {
     };
   }, []);
 
-  /** Director row: open the staged sheet on its six-stage road. */
-  function pickDirector() {
+  /** "Start rolling now": scratch a fresh project + "Scene 1" and push STRAIGHT
+   *  to the roll, project under it so RollingScreen's next-scene popTo has a
+   *  floor. Guarded against a double tap writing two projects; state is reset
+   *  before the pushes so nothing sets state on the unmounting Home. */
+  async function startRolling() {
+    if (starting) return;
+    setStarting(true);
+    haptics.tap();
+    setShowPicker(false);
+    try {
+      const target = await startNewRoll();
+      setStarting(false);
+      nav.push({ name: 'project', project: target.project });
+      nav.push({ name: 'rolling', project: target.project, slate: target.slate, shot: target.shot });
+    } catch {
+      setStarting(false);
+    }
+  }
+
+  /** "Set up with a shot list": open the staged sheet on its Director road. */
+  function pickShotlist() {
     haptics.tap();
     setShowPicker(false);
     setNewProjectFlow('director');
-  }
-
-  /** Podcast row: open the staged sheet on its four-stage road. Guarded
-   *  against a double tap opening two sheets for one session. */
-  function pickPodcast() {
-    if (startingPodcast) return;
-    setStartingPodcast(true);
-    haptics.tap();
-    setShowPicker(false);
-    setNewProjectFlow('podcast');
   }
 
   function openProject(project: Project) {
@@ -196,7 +205,7 @@ export function HomeScreen(props: { nav: Nav }) {
         <RollMark />
         <span className="home-hero__text">
           <span className="home-hero__title">New roll</span>
-          <span className="home-hero__sub">A shot list, or a blank roll with markers</span>
+          <span className="home-hero__sub">A blank roll with markers, or a shot list</span>
         </span>
       </button>
 
@@ -250,27 +259,27 @@ export function HomeScreen(props: { nav: Nav }) {
       {showPicker && (
         <Sheet title="New roll" onClose={() => setShowPicker(false)}>
           <div className="modepick-list">
-            <button type="button" className="btn sp-example modepick" onClick={pickDirector}>
+            <button
+              type="button"
+              className="btn sp-example modepick"
+              disabled={starting}
+              onClick={startRolling}
+            >
+              <span className="modepick__icon">
+                <RollRowMark />
+              </span>
+              <span className="modepick__text">
+                <b>Start rolling now</b>
+                <span>{starting ? 'Rolling…' : 'A blank roll — roll long, tap markers'}</span>
+              </span>
+            </button>
+            <button type="button" className="btn sp-example modepick" onClick={pickShotlist}>
               <span className="modepick__icon">
                 <ListMark />
               </span>
               <span className="modepick__text">
-                <b>Director mode</b>
+                <b>Set up with a shot list</b>
                 <span>Upload a shot list PDF</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              className="btn sp-example modepick"
-              disabled={startingPodcast}
-              onClick={pickPodcast}
-            >
-              <span className="modepick__icon">
-                <PodcastMark />
-              </span>
-              <span className="modepick__text">
-                <b>Podcast mode</b>
-                <span>{startingPodcast ? 'Opening…' : 'Roll long, tap markers as it happens'}</span>
               </span>
             </button>
           </div>
@@ -285,28 +294,13 @@ export function HomeScreen(props: { nav: Nav }) {
       {newProjectFlow && (
         <NewProjectSheet
           flow={newProjectFlow}
-          onClose={() => {
+          onClose={() => setNewProjectFlow(null)}
+          onCreated={(project) => {
             setNewProjectFlow(null);
-            setStartingPodcast(false);
-          }}
-          onCreated={(project, slate) => {
-            const wasPodcast = newProjectFlow === 'podcast';
-            setNewProjectFlow(null);
-            setStartingPodcast(false);
-            if (wasPodcast && slate) {
-              // Pushes TWO screens, project then rolling, rather than jumping
-              // straight to the roll: the rolling screen's "next scene" move
-              // is a `popTo('project')` followed by a push (see App.tsx),
-              // which on a stack with no project screen under it would
-              // quietly grow sideways forever.
-              nav.push({ name: 'project', project });
-              nav.push({ name: 'rolling', project, slate });
-              return;
-            }
-            // Director mode's project belongs with the projects. Reset that
-            // tab first so BACK out of it is the list, not wherever the
-            // Projects stack happened to be left: same contract ShotlistSheet's
-            // own onImported used to keep.
+            // The shot-list road's project belongs with the projects, not on a
+            // roll. Reset that tab first so BACK out of it is the list, not
+            // wherever the Projects stack happened to be left: same contract
+            // ShotlistSheet's own onImported used to keep.
             nav.switchTab('projects', { reset: true });
             nav.push({ name: 'project', project });
           }}

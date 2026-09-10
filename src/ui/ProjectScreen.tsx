@@ -29,6 +29,7 @@ import { breakdownCallSheet, SignInRequiredError } from './breakdown';
 import { TagEditor } from './TagEditor';
 import { getDefaultTags } from './tagdefaults';
 import type { ProjectMode } from './newRoll';
+import { useSetupSheetOpenRequests, useExportSheetOpenRequests } from './tour/TourController';
 
 // Vertical gap between scene cards — must match `.stack`'s `gap` in
 // styles.css. Used to size the "make room" shift while dragging.
@@ -94,6 +95,34 @@ function MoreMark() {
   );
 }
 
+/** A small padlock for the export sheet's paid formats. Same geometry as
+ *  ProjectsScreen's LockMark, inlined here because marks.tsx doesn't export
+ *  its STROKE constant and ProjectsScreen's copy isn't exported either.
+ *  `currentColor` so it takes the description line's dimmed ink in both
+ *  themes; it flags "this format needs the project unlocked" without a word. */
+function LockMark() {
+  const stroke = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.75,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="12"
+      height="12"
+      aria-hidden="true"
+      focusable="false"
+      style={{ verticalAlign: '-1px', marginRight: 5 }}
+    >
+      <rect x="5" y="10.3" width="14" height="9.2" rx="2.2" {...stroke} />
+      <path d="M8 10.3V7.8a4 4 0 0 1 8 0v2.5" {...stroke} />
+    </svg>
+  );
+}
+
 export function ProjectScreen(props: {
   project: Project;
   /** The name of the screen BACK lands on. The router knows it; this does not. */
@@ -119,6 +148,13 @@ export function ProjectScreen(props: {
   // every time you open the project. See the SETUP sheet render below for
   // what actually lives in here and why, in order.
   const [setupOpen, setSetupOpen] = useState(false);
+  // The Setup chapter's own door — its first step is 'on-action' on the
+  // button below, so the real tap already opens this. What it CANNOT do on
+  // its own is the Export chapter's borrow of this same sheet for
+  // 'export-folder' (see TourController.tsx's 'export' branch in `advance`),
+  // which is why this subscribes to the tour's own open/close signal rather
+  // than only ever being set from inside this file.
+  useSetupSheetOpenRequests(setSetupOpen);
   const [hintSeen, setHintSeen] = useState<boolean>(() => rollHintSeen());
   const [liveMsg, setLiveMsg] = useState('');
   // Takes logged against the currently OPEN shoot day — what the "DAY 3 · 31
@@ -127,6 +163,11 @@ export function ProjectScreen(props: {
   // undo, never derived from `slates` (those stats are ALL-TIME per scene,
   // not scoped to one day).
   const [dayTakeCount, setDayTakeCount] = useState(0);
+  // A bump-counter, not a boolean: wrapping the day fires the handoff prompt,
+  // and tapping that prompt increments this to ask ExportBar (a sibling built
+  // in the `tiles` prop below) to open its own Export sheet. Starts at 0 so
+  // ExportBar's open-on-change effect never fires on mount.
+  const [exportSignal, setExportSignal] = useState(0);
 
   // ------------------------------------------------------ call sheet ------
   // Loading today's call sheet reorders this project's scenes so today's shoot
@@ -406,6 +447,11 @@ export function ProjectScreen(props: {
         <button
           type="button"
           className="iconbtn"
+          // The Setup chapter's own door (see src/ui/tour/tourSteps.ts,
+          // TOUR_IDS.setupDoor / SETUP_STEPS' 'setup-door'). 'on-action': the
+          // real tap below is what opens the sheet, same as every other
+          // on-action step in this tour.
+          data-tour="tour-setup-door"
           aria-label="Project setup"
           onClick={() => {
             haptics.tap();
@@ -447,6 +493,27 @@ export function ProjectScreen(props: {
           <div className="pj-empty">
             <b>No scenes yet</b>
             <span>Add your first setup below. Day 1 opens itself with your first take.</span>
+            {/* ONE-TAP FIRST ROLL. The manual addline below still lets you name
+                the scene yourself (14A, INT-KITCHEN, whatever); this is the
+                shortcut for the commonest first move — Scene 1, straight into
+                rolling — because the whole funnel stalls if a fresh project
+                never reaches a take. Names the slate "1" to match the
+                scene-number convention the addline placeholder shows, and
+                openSlate clears the roll hint on the way out. */}
+            <button
+              type="button"
+              className="btn btn--go btn--full"
+              style={{ marginTop: 'var(--sp-4)' }}
+              onClick={() => {
+                void (async () => {
+                  haptics.tap();
+                  const slate = await store.createSlate(project.id, '1');
+                  openSlate(slate);
+                })();
+              }}
+            >
+              Add Scene 1 and roll
+            </button>
           </div>
         ) : (
           <>
@@ -511,6 +578,12 @@ export function ProjectScreen(props: {
                   <button
                     type="button"
                     className={`card${goodCount > 0 ? ' card--done' : ''}`}
+                    // The tour's "This is your set" step targets the FIRST
+                    // scene in shooting order (see src/ui/tour/tourSteps.ts,
+                    // TOUR_IDS.sceneFirst) — the same one TourController's
+                    // own `sortForDisplay` pick lands on, so its "Next"
+                    // pushes into the exact scene this card opens.
+                    data-tour={i === 0 ? 'tour-scene-first' : undefined}
                     onClick={() => openSlate(slate)}
                   >
                     <div className="card__row">
@@ -598,10 +671,14 @@ export function ProjectScreen(props: {
             full weight beside it.
 
             STILL THE ONE PRIMARY CONTROL now that Setup and Export have moved
-            off this screen: it is the only `.btn--go` fill anywhere on it.
-            Wrap day, Clip log, Export and Backup all stay the outlined
-            SECONDARY face - each is pressed once a day at most, none of them
-            is what gets a brand new project moving. */}
+            off this screen: it is the only standing `.btn--go` fill on it.
+            (The one exception is the first-run empty state above, whose "Add
+            Scene 1 and roll" also wears the go face — but that button only
+            exists while there are zero scenes, and this addline is what
+            remains once there are, so the two never read as competing
+            primaries at rest.) Wrap day, Clip log, Export and Backup all stay
+            the outlined SECONDARY face - each is pressed once a day at most,
+            none of them is what gets a brand new project moving. */}
         <div className="addline addline--scene">
           <input
             className="field"
@@ -635,6 +712,7 @@ export function ProjectScreen(props: {
         onCommit={commitProject}
         onWrapped={() => setDayTakeCount(0)}
         onUndone={(openDay) => void refreshDayCount(openDay)}
+        onHandoff={() => setExportSignal((s) => s + 1)}
         tiles={
           <>
             <button type="button" className="tile tile--rolled" onClick={props.onOpenClipLog}>
@@ -643,7 +721,7 @@ export function ProjectScreen(props: {
               </span>
               <span className="tile__label">All rolled</span>
             </button>
-            <ExportBar project={project} />
+            <ExportBar project={project} openSignal={exportSignal} />
           </>
         }
       />
@@ -839,6 +917,12 @@ export function ProjectScreen(props: {
       setCsPhase('idle');
       setCsNote(`Today: ${matched.length} scene${matched.length === 1 ? '' : 's'}`);
       setLiveMsg(`Loaded today's call sheet: ${matched.length} scenes moved to the top`);
+      // The call-sheet parse is a second Groq/LLM path and, until now, only
+      // its cap-hit was measured (`cap_hit` in the catch below) — a success
+      // left no event, so there was no way to see how often the feature
+      // actually delivered. Symmetric with that cap_hit, keyed by how many
+      // scenes it matched today.
+      track('callsheet_used', { scenes: matched.length });
     } catch (err) {
       setCsPhase('idle');
       if (err instanceof SignInRequiredError) {
@@ -939,6 +1023,10 @@ function ShootDaySection(props: {
   onCommit: (patch: Partial<Project>) => Promise<void>;
   onWrapped: () => void;
   onUndone: (openDay: Project['openShootDay']) => void;
+  /** Fired when the operator taps the post-wrap handoff prompt. The parent
+   *  answers by signalling ExportBar (a sibling in `tiles`) to open its
+   *  Export sheet — this component can't reach it directly. */
+  onHandoff: () => void;
   /** All rolled, Export and Backup, pre-built as three tile buttons in that
    *  order. Rendered under the same "Shoot day" head as Wrap day — see the
    *  call site's comment for why none of the four get their own section
@@ -951,8 +1039,16 @@ function ShootDaySection(props: {
   const [confirming, setConfirming] = useState(false);
   const [wrapped, setWrapped] = useState(false);
   const [undoError, setUndoError] = useState<string | null>(null);
+  // The take count captured AT the wrap, kept on its own state rather than
+  // read live: `props.onWrapped` resets dayTakeCount to 0 in the same tick, so
+  // the number is grabbed before that. Separate from `wrapped` on purpose —
+  // that flag self-clears after 1400ms, which would yank the handoff prompt
+  // away before anyone could tap it. This one persists until tapped or undone.
+  const [handoffTakes, setHandoffTakes] = useState<number | null>(null);
 
   async function doWrap() {
+    // Grab the day's take count before onWrapped() below resets it to 0.
+    const wrappedTakes = props.dayTakeCount;
     const { project: next } = wrapShootDay(project, Date.now());
     await props.onCommit(next);
     // A PRESS count, never presented as "shoot days": a crew that forgets to
@@ -964,6 +1060,11 @@ function ShootDaySection(props: {
     setConfirming(false);
     setWrapped(true);
     props.onWrapped();
+    // The one export nudge: wrapping the day is the natural end-of-shoot
+    // moment, and export is the whole product yet almost nobody reaches it.
+    // Only when the day actually had takes — a wrap with nothing logged has
+    // nothing to hand off.
+    if (wrappedTakes > 0) setHandoffTakes(wrappedTakes);
     window.setTimeout(() => setWrapped(false), 1400);
   }
 
@@ -976,6 +1077,8 @@ function ShootDaySection(props: {
     }
     await props.onCommit(result.project);
     track('wrap_day', { action: 'undo' });
+    // The day is un-wrapped again, so the "hand these off" line no longer fits.
+    setHandoffTakes(null);
     props.onUndone(result.project.openShootDay);
   }
 
@@ -1053,6 +1156,25 @@ function ShootDaySection(props: {
         )}
         {undoError && <span className="shoottiles__extra tnum tnum--bad">{undoError}</span>}
       </div>
+      {/* THE HANDOFF NUDGE. Only surfaces right after a wrap that had takes,
+          and only points at the one thing the day was for: getting those
+          takes to the editor. Outlined face, not the green `.btn--go` fill —
+          it's a prompt, not a primary control, and the tiles above it are all
+          secondary too. Tapping it hands off to ExportBar's sheet via the
+          parent (see onHandoff) and clears itself. */}
+      {handoffTakes !== null && (
+        <button
+          type="button"
+          className="btn btn--full"
+          style={{ marginTop: 12 }}
+          onClick={() => {
+            setHandoffTakes(null);
+            props.onHandoff();
+          }}
+        >
+          Hand these {handoffTakes} {handoffTakes === 1 ? 'take' : 'takes'} to your editor → Export
+        </button>
+      )}
       {confirming && (
         <Confirm
           title={`Wrap ${dayLabel}?`}
@@ -1368,7 +1490,10 @@ function ClipCounterSection(props: {
 
       <div className="formrow" style={{ marginBottom: 14 }}>
         <span className="label">Cameras</span>
-        <div className="camcount" role="group" aria-label="Number of cameras">
+        {/* Setup chapter's 'setup-cameras' step (see src/ui/tour/tourSteps.ts,
+            TOUR_IDS.setupCameras). Only mounted while the Setup sheet is
+            open, which the chapter's own 'setup-door' step already arranged. */}
+        <div className="camcount" role="group" aria-label="Number of cameras" data-tour="tour-setup-cameras">
           {[1, 2, 3, 4].map((n) => (
             <button
               key={n}
@@ -1687,7 +1812,10 @@ function QuickTagsSection(props: {
   const mode: ProjectMode = project.mode === 'podcast' ? 'podcast' : 'video';
 
   return (
-    <section className="section">
+    // Setup chapter's 'setup-tags' step (see src/ui/tour/tourSteps.ts,
+    // TOUR_IDS.setupTags) — the project's own house tag vocabulary. Only
+    // mounted while the Setup sheet is open.
+    <section className="section" data-tour="tour-setup-tags">
       <div className="section__head">
         <span className="label">Quick tags</span>
         <span className="section__note tnum">{project.tags.length}</span>
@@ -1855,7 +1983,12 @@ function FootageFolderSection(props: {
   }
 
   return (
-    <section className="section">
+    // Export chapter's 'export-folder' step (see src/ui/tour/tourSteps.ts,
+    // TOUR_IDS.exportFolder). Lives inside the SETUP sheet — TourController's
+    // 'export' branch in `advance` closes Export and opens Setup right
+    // before this step so the target is real and unobstructed here, not
+    // stacked behind the Export sheet it conceptually belongs to.
+    <section className="section" data-tour="tour-export-folder">
       <div className="section__head">
         <span className="label">Footage folder</span>
         <span className="section__note">{project.mediaRoot ? 'set' : 'optional'}</span>
@@ -2177,7 +2310,7 @@ export function exportBuildFailureMessage(kind: 'pdf' | 'xml' | 'resolve' | 'csv
   return `Could not build the ${BUILD_LABEL[kind]} file.`;
 }
 
-function ExportBar(props: { project: Project }) {
+function ExportBar(props: { project: Project; openSignal?: number }) {
   const { session } = useSession();
   const [busy, setBusy] = useState<string | null>(null);
   // PDF/Premiere/Resolve/CSV now live inside the Export sheet, so their error
@@ -2189,12 +2322,26 @@ function ExportBar(props: { project: Project }) {
   const [backupError, setBackupError] = useState<string | null>(null);
   const [showSignIn, setShowSignIn] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // The Export chapter's own door — its first step is 'on-action' on
+  // `tour-export-tile` below, so the real tap already opens this. This
+  // subscribes to the tour's own signal too, purely so 'export-folder' (its
+  // target lives in ProjectScreen's Setup sheet, not here — see
+  // TourController.tsx's 'export' branch in `advance`) can close this sheet
+  // back down again on its way past.
+  useExportSheetOpenRequests(setExportOpen);
   // Which export got refused for being out of free uses — drives the "go Pro"
-  // CTA. Widened to include 'pdf' now that PDF is gated too; ProCta.tsx's
-  // `ProGate` union (outside this lane) doesn't have a 'pdf' case yet, so the
-  // render below maps it onto 'csv' — same upsell, an analytics label one
-  // bucket off until ProCta picks up 'pdf'.
+  // CTA. Every GatedFormat ('csv' | 'pdf' | 'premiere') is now a case in
+  // ProCta's `ProGate` union (fixed 2026-08-30), so the value passes straight
+  // through and a capped PDF logs as 'pdf', not 'csv'.
   const [capped, setCapped] = useState<GatedFormat | null>(null);
+
+  // Open the Export sheet on demand from outside — the wrap-day handoff prompt
+  // (ShootDaySection, a sibling that can't reach this state directly) bumps
+  // `openSignal`. It starts at 0/undefined, so this never fires on mount; each
+  // increment reopens the sheet.
+  useEffect(() => {
+    if (props.openSignal) setExportOpen(true);
+  }, [props.openSignal]);
 
   // The one export that MUST work signed out, offline, free — never gateExport,
   // never getUsage, never Supabase. It is the whole point of this button: the
@@ -2340,6 +2487,10 @@ function ExportBar(props: { project: Project }) {
         type="button"
         className="tile tile--export"
         disabled={busy !== null}
+        // Export chapter's 'export-tile' step (src/ui/tour/tourSteps.ts,
+        // TOUR_IDS.exportTile). 'on-action' — the real tap here is what
+        // opens the sheet below.
+        data-tour="tour-export-tile"
         onClick={() => {
           haptics.tap();
           setExportOpen(true);
@@ -2372,7 +2523,39 @@ function ExportBar(props: { project: Project }) {
 
       {exportOpen && (
         <Sheet title="Export" onClose={() => setExportOpen(false)}>
+          {/* CSV FIRST, and tagged Free. It is the one format any signed-in
+              account exports forever (the paid three need the project
+              unlocked), so it leads: a first-timer's first tap lands on a
+              file that actually comes out, not a wall. The paid three keep
+              their PDF→Premiere→Resolve order and carry a small padlock so
+              the gating reads at a glance instead of only after a tap. */}
           <div className="stack">
+            <button
+              type="button"
+              className="btn sp-example btn--full"
+              disabled={busy !== null}
+              // Export chapter's 'export-formats' step, "CSV is free"
+              // (src/ui/tour/tourSteps.ts, TOUR_IDS.exportCsv).
+              data-tour="tour-export-csv"
+              onClick={() => void exportGated('csv')}
+            >
+              <b>
+                {busy === 'csv' ? '...' : 'CSV'}
+                <span
+                  style={{
+                    marginLeft: 6,
+                    fontSize: 'var(--t-caps)',
+                    fontWeight: 600,
+                    letterSpacing: 'var(--track-caps)',
+                    textTransform: 'uppercase',
+                    color: 'var(--chalk-dim)',
+                  }}
+                >
+                  Free
+                </span>
+              </b>
+              <span>Spreadsheet. Ready for your editor.</span>
+            </button>
             <button
               type="button"
               className="btn sp-example btn--full"
@@ -2380,7 +2563,7 @@ function ExportBar(props: { project: Project }) {
               onClick={() => void exportGated('pdf')}
             >
               <b>{busy === 'pdf' ? '...' : 'PDF'}</b>
-              <span>Print and hand round on set.</span>
+              <span><LockMark />Print and hand round on set.</span>
             </button>
             <button
               type="button"
@@ -2389,7 +2572,7 @@ function ExportBar(props: { project: Project }) {
               onClick={() => void exportGated('xml')}
             >
               <b>{busy === 'xml' ? '...' : 'Premiere'}</b>
-              <span>Timeline, XML.</span>
+              <span><LockMark />Timeline, XML.</span>
             </button>
             <button
               type="button"
@@ -2398,16 +2581,7 @@ function ExportBar(props: { project: Project }) {
               onClick={() => void exportGated('resolve')}
             >
               <b>{busy === 'resolve' ? '...' : 'Resolve'}</b>
-              <span>Timeline, FCPXML.</span>
-            </button>
-            <button
-              type="button"
-              className="btn sp-example btn--full"
-              disabled={busy !== null}
-              onClick={() => void exportGated('csv')}
-            >
-              <b>{busy === 'csv' ? '...' : 'CSV'}</b>
-              <span>Spreadsheet.</span>
+              <span><LockMark />Timeline, FCPXML.</span>
             </button>
           </div>
           {error && (
@@ -2415,11 +2589,11 @@ function ExportBar(props: { project: Project }) {
               {error}
             </span>
           )}
-          {/* ProCta's ProGate union has no 'pdf' case (ProCta.tsx is outside this
-              lane), so map it onto 'csv' so the upsell still renders. Only the
-              `pro_interest` analytics label is affected; the plans/checkout it
-              opens are format-agnostic. */}
-          {capped && <ProCta gate={capped === 'pdf' ? 'csv' : capped} />}
+          {/* ProCta's ProGate union carries a 'pdf' case as of 2026-08-30, so
+              the format passes straight through: a capped PDF now logs
+              `pro_interest` as 'pdf' rather than being mislabelled 'csv'. The
+              plans/checkout it opens stay format-agnostic. */}
+          {capped && <ProCta gate={capped} />}
           {note && !error && (
             <span className="section__note" style={{ display: 'block', marginTop: 12 }}>
               {note}

@@ -47,6 +47,32 @@ export function proBypass(pro: ProAccess, now: number = Date.now()): boolean {
 
 export type ExportFormat = "csv" | "pdf" | "premiere";
 
+// ---------------------------------------------------------------------------
+// FREE PREMIERE TASTE. The one giveaway rule, and its single toggle.
+//
+// Premiere/Resolve XML is the format 9 of 11 real exporters actually chose -
+// the timeline that drops straight into their editor - so a brand-new account
+// never feels the killer format before hitting the paywall. This lets an
+// account export Premiere XML for FREE on its first projects: the SAME
+// projects its free Script Mode grant already paid for
+// (project_entitlements.free_at is set). Every project beyond that falls
+// through to the normal unlock paywall, exactly as pdf does.
+//
+// THE TOGGLE - ONE NUMBER. Set FREE_PREMIERE_PROJECTS to 0 to disable the
+// giveaway entirely (Premiere reverts to unlock-only, identical to pdf). The
+// EFFECTIVE cap is min(this, FREE_PROJECT_LIMIT): free_at rows can never
+// exceed the free project grant (claim_project_access enforces
+// FREE_PROJECT_LIMIT), so this can only ever NARROW that set, never widen it.
+// Mirrored DISPLAY-ONLY in src/net/quota.ts; this server copy is the only one
+// that grants anything.
+//
+// NOT A COUNTER, NOT A CONSUMPTION. The allowance is read purely off free_at,
+// which is permanent - a qualifying project keeps its free Premiere export
+// forever, bounded to at most FREE_PROJECT_LIMIT projects per account. This
+// rule WRITES nothing, SPENDS nothing, and touches no credit, unlock, or
+// webhook path.
+export const FREE_PREMIERE_PROJECTS = 2;
+
 export interface ExportDecisionInput {
   format: ExportFormat;
   isSuspended: boolean;
@@ -55,6 +81,15 @@ export interface ExportDecisionInput {
    *  Irrelevant for csv. Ignored (treated as false) when the format needs a
    *  project id and none was supplied - an absent id can never mean yes. */
   projectUnlocked: boolean;
+  /** 1-based rank of THIS project among the account's free-granted projects
+   *  (project_entitlements.free_at, ordered oldest first). 0 or absent means
+   *  this project is not free-granted (or the giveaway is off) - the safe
+   *  default that leaves the gate EXACTLY as it was before the free-premiere
+   *  taste existed, which is what keeps every pre-existing decideExport caller
+   *  (and gate.test.ts) compiling and unchanged. Only ever consulted for the
+   *  premiere format. The server (export-gate) derives this from free_at; a
+   *  client never supplies it and is never trusted for it. */
+  freePremiereRank?: number;
   now?: number;
 }
 
@@ -75,6 +110,17 @@ export function decideExport(input: ExportDecisionInput): ExportVerdict {
   if (input.format === "csv") return { allow: true };
   if (proBypass(input.pro, input.now)) return { allow: true };
   if (input.projectUnlocked) return { allow: true };
+  // FREE PREMIERE TASTE - the one added giveaway rule. Toggle:
+  // FREE_PREMIERE_PROJECTS above (0 disables). An account may export Premiere
+  // XML for free on its first FREE_PREMIERE_PROJECTS free-granted projects;
+  // every later project (rank 0, i.e. not among them, or not free-granted at
+  // all) falls straight through to the paywall below, unchanged.
+  {
+    const rank = input.freePremiereRank ?? 0;
+    if (input.format === "premiere" && rank >= 1 && rank <= FREE_PREMIERE_PROJECTS) {
+      return { allow: true };
+    }
+  }
   return { allow: false, reason: "project_locked" };
 }
 

@@ -2739,7 +2739,15 @@ export function RollingScreen(props: {
                 truncated group gets a MORE tile instead of an overflow - see
                 the block comment above the component for the mechanism and
                 the measurement that motivated it. */}
-            <div className="roll__pads" ref={padsRef}>
+            <div
+              className="roll__pads"
+              ref={padsRef}
+              // THE TOUR'S OWN ANCHOR — the Director chapter's "tags" step
+              // (see src/ui/tour/tourSteps.ts, TOUR_IDS.tags). Present only
+              // while `rolling`, exactly like the two markers below it, which
+              // is why that step has to run before CUT rather than after.
+              data-tour="tour-tags"
+            >
             {editingTags ? (
               // Long-press landed. Same box, a different job: this project's
               // live vocabulary instead of the keys that tap it. TagEditor
@@ -2829,6 +2837,10 @@ export function RollingScreen(props: {
                   <button
                     type="button"
                     className={`markbtn${markInMs !== null ? ' markbtn--armed' : ''}`}
+                    // The tour's "Mark it live" step (see src/ui/tour/tourSteps.ts,
+                    // TOUR_IDS.markIn) — only mounted while `rolling`, which is
+                    // exactly when that step is ever the active one.
+                    data-tour="tour-mark-in"
                     onClick={markInOut}
                   >
                     {markInMs !== null ? (
@@ -2871,7 +2883,17 @@ export function RollingScreen(props: {
             </div>
 
             {rangeLabelTarget !== null && (
-              <div className="addline" style={{ marginTop: 0 }}>
+              <div
+                className="addline"
+                style={{ marginTop: 0 }}
+                // THE TOUR'S OWN ANCHOR — the Director chapter's "name-range"
+                // step (see src/ui/tour/tourSteps.ts, TOUR_IDS.rangeName).
+                // This box only exists for the instant `rangeLabelTarget` is
+                // set — MARK OUT opens it automatically (see `markInOut`
+                // above) — so the tour's ring lands on it unprompted, no
+                // extra tap needed to make it appear.
+                data-tour="tour-range-name"
+              >
                 <input
                   className="field"
                   autoFocus
@@ -2902,6 +2924,12 @@ export function RollingScreen(props: {
           // defence: there is never a frame where both CUT and a delete
           // control are on screen, because CUT simply is not rendered.
           className={`bigbtn hw${editingTags ? ' hw--done' : bigButtonCutMode ? ' hw--cut' : ' hw--go'}`}
+          // THE TOUR'S OWN ANCHOR — same physical button for both the ROLL
+          // and the CUT steps of the core-loop chapter (see
+          // src/ui/tour/tourSteps.ts, TOUR_IDS.rollCut). Nothing else here
+          // reads this attribute; TourSpotlight finds it by
+          // `getBoundingClientRect()` and listens for a real click on it.
+          data-tour="tour-roll-cut"
           aria-label={
             editingTags
               ? 'Done editing tags - the take keeps rolling'
@@ -3356,7 +3384,16 @@ function PostCutSheet(props: {
             Discard take {props.take.number}
           </button>
         </div>
-        <button type="button" className="resumerow" onClick={() => setAsking(false)}>
+        <button
+          type="button"
+          className="resumerow"
+          // The tour's "Keep it" step lands here too when a tour take gets
+          // cut inside FALSE_START_MS — see tourSteps.ts's own comment on
+          // TOUR_IDS.keep for why the same id is safe on both this button
+          // and the real Keep below (only one of the two ever mounts).
+          data-tour="tour-keep"
+          onClick={() => setAsking(false)}
+        >
           Stop rolling &middot; {tc.msToClock(props.take.durationMs)} on the board
         </button>
       </Sheet>
@@ -3465,6 +3502,9 @@ function PostCutSheet(props: {
         <button
           type="button"
           className="btn btn--go"
+          // The tour's "Keep it" step (src/ui/tour/tourSteps.ts,
+          // TOUR_IDS.keep).
+          data-tour="tour-keep"
           onClick={() => props.onKeep(savedTC, savedNote)}
         >
           Keep

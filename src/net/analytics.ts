@@ -135,13 +135,81 @@ export function visitorId(): string | null {
   return vidCache;
 }
 
+// ============================================================================
+// TRAFFIC-SOURCE ATTRIBUTION. `ref` (or `utm_source`) used to be logged on
+// `landing_view` alone and die there the moment someone crossed into the app
+// - every later event (app_open, project_created, roll, cut, export, a
+// purchase) was unattributed, so "which channel actually produces paying
+// users" could never be answered past the first pageview.
+//
+// Fixed the same way `vid` already is: FIRST-TOUCH-WINS, persisted in
+// localStorage under its own key, and attached automatically to every event
+// via `track()` below - no call site has to remember to pass it. Landing and
+// app share this origin (clapper.in/ and clapper.in/app/), so the same key
+// written by landing/beacon.html is read straight back here; kept in step
+// with `REF_KEY` there deliberately, the same way VID_KEY already is.
+// ============================================================================
+
+const REF_KEY = 'clapper.ref';
+
+/**
+ * Pure decision, split out so it is testable without a DOM: first source
+ * wins. Returns whatever is already stored, whatever the URL says right now;
+ * only falls back to the URL when nothing has ever been captured. A later
+ * visit with a different (or no) ref must never clobber the original source.
+ */
+export function resolveFirstTouchRef(
+  stored: string | null,
+  urlRef: string | null,
+): string | null {
+  if (stored) return stored;
+  return urlRef || null;
+}
+
+// Resolved once per page load, same reasoning as vidCache above.
+let refCache: string | null | undefined;
+
+/**
+ * The first-touch acquisition source for this browser: whatever `?ref=` (or
+ * `?utm_source=` as a fallback) was present the FIRST time this origin was
+ * ever visited - landing page or app, whichever came first - persisted so it
+ * rides every event afterward. Never throws; returns null when storage is
+ * unavailable or nothing was ever captured, same UNATTRIBUTED contract
+ * `visitorId()` uses and for the same reason: inventing a value here would
+ * misattribute traffic, not just miscount it.
+ */
+export function firstTouchRef(): string | null {
+  if (refCache !== undefined) return refCache;
+  try {
+    const stored = window.localStorage.getItem(REF_KEY);
+    let urlRef: string | null = null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      urlRef = params.get('ref') || params.get('utm_source') || null;
+    } catch {
+      urlRef = null;
+    }
+    const resolved = resolveFirstTouchRef(stored, urlRef);
+    if (resolved !== null && resolved !== stored) {
+      window.localStorage.setItem(REF_KEY, resolved);
+    }
+    refCache = resolved;
+  } catch {
+    // Private mode, blocked storage, no window at all. Stay null rather than
+    // re-reading the URL on every call - see the UNATTRIBUTED note above.
+    refCache = null;
+  }
+  return refCache;
+}
+
 /**
  * Record an analytics event. Attaches the current user's id when signed in,
- * otherwise inserts a null-user row, plus the anonymous `vid` on every event
- * so any question ("how many people rolled", "how many reached settings") can
- * be answered per-person and not just per-tap. Uses `return=minimal` (no
- * `.select()`) so the client never needs read access to `events`. Swallows
- * every error.
+ * otherwise inserts a null-user row, plus the anonymous `vid` and first-touch
+ * `ref` on every event so any question ("how many people rolled", "which
+ * channel's visitors actually export", "did the ig push convert") can be
+ * answered per-person and per-source, not just per-tap. Uses `return=minimal`
+ * (no `.select()`) so the client never needs read access to `events`.
+ * Swallows every error.
  */
 export function track(name: string, props?: Record<string, unknown>): void {
   // Off the live site this is a no-op, including the ad pixel: a dev session
@@ -158,17 +226,21 @@ export function track(name: string, props?: Record<string, unknown>): void {
     try {
       const { data } = await supabase.auth.getSession();
       const userId = data.session?.user.id ?? null;
-      // `vid` rides in props rather than in a column of its own, on purpose:
-      // `events.props` is jsonb, so this needs NO migration and starts
-      // collecting the moment it deploys. Three migrations are already written
-      // and unapplied on this project; making the one number the owner asked
-      // for depend on a fourth would mean it measures nothing until somebody
-      // remembers to run it. `count(distinct props->>'vid')` is the query.
-      // Note it is spread FIRST so an explicit prop can never be silently
-      // overwritten by it, and the pixel above deliberately never sees it.
-      await supabase
-        .from('events')
-        .insert({ name, props: { vid: visitorId(), ...(props ?? {}) }, user_id: userId });
+      // `vid` and `ref` ride in props rather than columns of their own, on
+      // purpose: `events.props` is jsonb, so this needs NO migration and
+      // starts collecting the moment it deploys. Three migrations are already
+      // written and unapplied on this project; making the numbers the owner
+      // asked for depend on a fourth would mean they measure nothing until
+      // somebody remembers to run it. `count(distinct props->>'vid')` and
+      // `props->>'ref'` (e.g. `... where props->>'ref' = 'ig'`) are the
+      // queries. Both are spread FIRST so an explicit prop can never be
+      // silently overwritten by them, and the pixel above deliberately never
+      // sees either.
+      await supabase.from('events').insert({
+        name,
+        props: { vid: visitorId(), ref: firstTouchRef(), ...(props ?? {}) },
+        user_id: userId,
+      });
     } catch {
       /* analytics is best-effort; never surface */
     }
@@ -178,19 +250,18 @@ export function track(name: string, props?: Record<string, unknown>): void {
 let appOpenFired = false;
 
 /**
- * Fire the `app_open` event once per page load, capturing the `?ref=` acquisition
- * source and whether we're running as an installed PWA (standalone display mode).
+ * Fire the `app_open` event once per page load - the earliest event the app
+ * fires (called at boot in main.tsx), which is what makes it the entry point
+ * that captures `ref` for a visitor who lands directly on `/app/?ref=...`
+ * rather than via the landing page: `track()` below calls `firstTouchRef()`
+ * for every event including this one, and that first call is what stashes
+ * the URL's `ref` into localStorage if nothing was captured yet. Also
+ * records whether we're running as an installed PWA (standalone display
+ * mode).
  */
 export function trackAppOpen(): void {
   if (appOpenFired) return;
   appOpenFired = true;
-
-  let ref: string | null = null;
-  try {
-    ref = new URLSearchParams(window.location.search).get('ref');
-  } catch {
-    ref = null;
-  }
 
   const standalone =
     (typeof window.matchMedia === 'function' &&
@@ -198,7 +269,7 @@ export function trackAppOpen(): void {
     // iOS Safari legacy flag
     (window.navigator as unknown as { standalone?: boolean }).standalone === true;
 
-  track('app_open', { ref, standalone });
+  track('app_open', { standalone });
 }
 
 // Keep inserted error payloads small. `events.props` is JSON — an uncaught

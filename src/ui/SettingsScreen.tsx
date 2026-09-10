@@ -26,6 +26,7 @@ import { GoProRow } from './GoProRow';
 import type { Nav } from './nav';
 import { track } from '../net/analytics';
 import * as haptics from './haptics';
+import { requestTourStart, TOUR_ENTRY_ENABLED } from './tour/TourController';
 
 // Kept in step with package.json by hand. A build-time define would be tidier
 // but would mean editing vite.config.ts, and the PWA manifest in there is
@@ -147,6 +148,16 @@ export function SettingsScreen(props: { nav: Nav }) {
       <GoProRow nav={props.nav} />
 
       <Section title="Help">
+        {/* Always available, whatever the tour's own first-open offer is
+            doing (see TourController.tsx's TOUR_AUTOSTART) - this is the one
+            entry point that never depends on that flag. requestTourStart()
+            asks the TourController mounted at the shell to start; it refuses
+            on its own if a real roll is somehow up (it cannot be reached
+            from here anyway - this tab is unmounted on that route, see
+            AppShell.tsx's `tray` calc). */}
+        {TOUR_ENTRY_ENABLED && (
+          <Row label="Take the tour" value="~2 min" push onClick={() => { haptics.tap(); requestTourStart(); }} />
+        )}
         <Row label="How to use" value="9 sections" push onClick={openGuide} />
       </Section>
 

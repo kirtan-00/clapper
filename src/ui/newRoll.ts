@@ -1,16 +1,17 @@
 // NEW ROLL. Resume logic for Home, plus the picking Home's rolling target uses.
 //
-// STALE AS OF THE STAGED PODCAST FLOW: this file's header used to say Director
-// mode was "entirely ShotlistSheet's job" and Podcast mode was "this file's
-// other job, startPodcastRoll()". Neither is true anymore. Both of Home's
-// picker rows now open NewProjectSheet (see HomeScreen.tsx's pickDirector and
-// pickPodcast). Director walks its six-stage road with the shot list folded
-// in as a skippable stage; Podcast walks its own four-stage road and hands
-// HomeScreen back a project AND a "Recording" slate to roll straight onto.
-// `startPodcastRoll` and `startNewRoll` below are UNWIRED as of that change,
-// kept because they are still correct, still tested indirectly through the
-// pure functions they call, and are the shape a future no-ceremony "just
-// start rolling" entry point would want back. Nothing currently calls them.
+// Home's two picker rows split by ACTION, not role. "Start rolling now" calls
+// `startNewRoll` below on the tap and pushes straight to a live roll — the
+// no-ceremony blank roll this file always held the shape for, now WIRED (see
+// HomeScreen.tsx's startRolling). "Set up with a shot list" opens
+// NewProjectSheet on its Director road (name, frame rate, cameras, sound, shot
+// list, ready), which lands on the project screen, not a roll (see pickShotlist).
+//
+// `startPodcastRoll` stays UNWIRED: the Podcast picker row it fed was retired
+// with the reframe, and NewProjectSheet's podcast road is no longer reachable
+// from Home either. It is kept because it is still correct, still exercises the
+// pure functions below, and is the shape a future podcast entry point would
+// want back. Nothing currently calls it.
 //
 // What is still this file's live job:
 //
@@ -211,10 +212,10 @@ async function resolveRoll(
   return { project, slate, shot: undefined, scratched: true };
 }
 
-/** Director mode's video maker: always scratches a fresh VIDEO project.
- *  Director mode itself never calls this (it always reads a fresh PDF via
- *  ShotlistSheet); this exists for a plain "just start shooting" roll with
- *  no shot list at all. */
+/** The blank-roll maker: always scratches a fresh VIDEO project and its one
+ *  "Scene 1", never reuses one already on the phone. This is Home's "Start
+ *  rolling now" fast path — a plain "just start shooting" roll with no shot
+ *  list at all, pushed straight onto the rolling screen (see HomeScreen.tsx). */
 export async function startNewRoll(): Promise<RollTarget> {
   return resolveRoll(
     () =>

@@ -11,6 +11,7 @@ import {
   decideExport,
   decideProjectAccess,
   proBypass,
+  FREE_PREMIERE_PROJECTS,
   type ProAccess,
 } from '../../supabase/functions/_shared/gate.ts';
 
@@ -83,6 +84,43 @@ describe('decideExport', () => {
       projectUnlocked: true,
     });
     expect(result).toEqual({ allow: false, reason: 'suspended' });
+  });
+});
+
+describe('decideExport - free Premiere taste (first FREE_PREMIERE_PROJECTS projects)', () => {
+  const base = { isSuspended: false, pro: NOT_PRO, projectUnlocked: false } as const;
+
+  it('the first free-granted project (rank 1) gets Premiere for free', () => {
+    expect(decideExport({ ...base, format: 'premiere', freePremiereRank: 1 })).toEqual({ allow: true });
+  });
+
+  it('the last free-granted project (rank === FREE_PREMIERE_PROJECTS) gets Premiere for free', () => {
+    expect(decideExport({ ...base, format: 'premiere', freePremiereRank: FREE_PREMIERE_PROJECTS })).toEqual({
+      allow: true,
+    });
+  });
+
+  it('one project past the cap is walled', () => {
+    expect(
+      decideExport({ ...base, format: 'premiere', freePremiereRank: FREE_PREMIERE_PROJECTS + 1 }),
+    ).toEqual({ allow: false, reason: 'project_locked' });
+  });
+
+  it('a project that is not free-granted (no rank) is walled', () => {
+    expect(decideExport({ ...base, format: 'premiere' })).toEqual({ allow: false, reason: 'project_locked' });
+  });
+
+  it('the free-Premiere rank never leaks to PDF', () => {
+    expect(decideExport({ ...base, format: 'pdf', freePremiereRank: 1 })).toEqual({
+      allow: false,
+      reason: 'project_locked',
+    });
+  });
+
+  it('suspension still outranks a free-Premiere rank', () => {
+    expect(
+      decideExport({ ...base, isSuspended: true, format: 'premiere', freePremiereRank: 1 }),
+    ).toEqual({ allow: false, reason: 'suspended' });
   });
 });
 

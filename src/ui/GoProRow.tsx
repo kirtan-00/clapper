@@ -64,7 +64,7 @@ export function GoProRow(props: { nav: Nav }) {
   const selling = !entitlements?.subscriptionActive;
 
   return (
-    <Section title="Plan" note="Rolling and the PDF shot log stay free. Credits unlock exports.">
+    <Section title="Plan" note="Rolling and the CSV shot log stay free. Credits unlock PDF and Premiere exports.">
       <Row
         label="Go Pro"
         value={standing(entitlements)}

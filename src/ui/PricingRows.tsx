@@ -1,37 +1,50 @@
-// The row-level furniture for "what does Clapper cost" - shared by ProCta's
-// inline paywall and AccountScreen's standing pricing table so the two
-// surfaces are, structurally, the same list rendered in two places. Rows in
-// sections, hairline rules between them, one tabular figure per row that
-// shares a right edge with every other price on the screen - the same
-// vernacular Account and Settings already use for everything else. No
-// cards, no "recommended" pill: the ladder is supposed to argue itself, via
-// the per-project figure in every row's value column, not via a badge on
-// one of them.
+// The block-level furniture for "what does Clapper cost" - shared by
+// ProCta's inline paywall and AccountScreen's standing pricing table so the
+// two surfaces are, structurally, the same list of plan blocks rendered in
+// two places.
 //
-// ACID YELLOW, EXACTLY ONCE - BUT NEVER ZERO TIMES. `Row`'s existing
-// `primary` prop already reads `--m-accent-text` (acid on night, the day
-// accent on day) - see its own comment in styles.css ("the one row on a
-// screen that is the reason you opened it"). The launch offer is `primary`
-// here for as long as it is actually buyable. That offer is capped at ten
-// accounts, though (see `pricing.ts`'s own header on `jumpstart_5`), and
-// for the entire rest of this product's life after that this screen would
-// otherwise have nothing for the eye to land on - a defect named directly:
-// "a screen whose only job is to take money must have one deliberate focal
-// point that survives the promo ending." Studio Plus (`SubscriptionRow`'s
-// `accent` prop, gated in `PricingLadder`) is that permanent focal point,
-// carrying the SAME brass vocabulary the rest of this app already uses for
-// "the one that matters" - never both at once, see `PricingLadder`'s own
-// header for the hand-off rule. Every other row stays plain weight, plain
-// colour.
+// TWO CORRECTIONS, SAME DAY (2026-08-31). The owner saw a first pass built
+// on this app's existing grouped-inset LIST vocabulary (hairline rows
+// inside one shared card, `glist.tsx`'s `Row`/`ReadRow`) and said "I don't
+// think even I would pay with that UI" - a complaint about persuasion, not
+// shape, and that pass fixed the WORDS: a lede up top (wedge, permanence,
+// generosity), the hero moved from Studio Plus to Studio, savings stated
+// against the Rs 699 anchor. The words are unchanged here.
+//
+// The owner then saw THAT and said it a second time, differently: "this
+// looks bad, the UI needs to be blocky like an app." That is a complaint
+// about SHAPE - thin divider rows sharing one bordered container reads as
+// an editorial list (a webpage), not as the app. This file answers that:
+// every tier is now its OWN rounded, filled, padded block (`PlanCard`
+// below), with a real gap between blocks, built on the EXACT surface/press
+// vocabulary `.btn` already uses elsewhere in this app for "a control you
+// press" (styles.css, ~line 1385: SECONDARY is an unfilled surface with an
+// inset hairline; PRIMARY is a solid slab in the one accent colour; flat,
+// no bevel, no gradient, no lift; rank is carried by FILL, not by a shape
+// nobody else on the screen has). The recommended tier (Studio, "Our pick")
+// takes the PRIMARY treatment - a solid accent fill, teal on day / acid on
+// night - exactly the way this app's own "Start shoot" / "Create project"
+// buttons already read as the one thing to press. Every other tier takes
+// the SECONDARY treatment: the app's own surface, a hairline, full-strength
+// ink.
+//
+// THE SELL ITSELF DID NOT CHANGE. `PricingLede` (the wedge - Premiere XML -
+// and the permanence pitch - unlock once, own it forever), the savings
+// numbers against the Rs 699 anchor, "Pay per job" vs "Subscribe & save",
+// and the trust line are all the same copy this file shipped a few hours
+// earlier in the day. Only the CONTAINER changed.
 
-import type { CSSProperties } from 'react';
-import { Row, ReadRow, Section, LinkRow, Chevron } from './glist';
+import { ExternalMark } from './glist';
+import type { ReactNode } from 'react';
 import type { Product } from '../../supabase/functions/_shared/products';
 import type { PromoOffer } from '../net/pay';
+import { FREE_PROJECT_LIMIT, FREE_PREMIERE_PROJECTS } from '../net/quota';
 import {
   tierLabel,
   tierValue,
   showPromo,
+  savingsPercent,
+  perProjectCost,
   ONE_TIME_PRODUCTS,
   SUBSCRIPTION_PRODUCTS,
   JUMPSTART_PRODUCT_KEY,
@@ -41,277 +54,210 @@ import {
 import './PricingRows.css';
 
 /**
- * Two right-aligned lines in the one tabular value column: the sticker
- * price, and, muted underneath, the qualifier plus (when the tier buys more
- * than one credit) the per-project cost. Went through one failed cut first -
- * a single line concatenating everything ("Rs 2,499/mo (Rs 125/ea)") ran
- * wide enough on a 375-390px row to force every subscription LABEL into an
- * ellipsis, which is the exact "figures do not share a baseline" complaint
- * this was meant to fix, just moved to the other column. Splitting across
- * two short lines instead of one long one leaves the label whole and still
- * puts both numbers "next to" the option, stacked rather than side by side.
- *
- * MONO ON THE STICKER ONLY, not the whole stack. `mono` used to sit on the
- * outer `Row`/`button`, which put `.tnum` (list.css's tabular/monospace
- * class) on the detail line too - and the detail line is a PHRASE ("once,
- * Rs 480 each"), not a number. A sentence set in the app's number font is
- * exactly the machine-written register this screen keeps getting rejected
- * for; `glist.tsx`'s own `RowFace` comment already says words stay in the
- * UI face. So callers now pass `mono={false}` on the row and this component
- * puts `.tnum` on the sticker span by hand - the money is still tabular,
- * the sentence around it reads like English.
- *
- * Sits inside `SubscriptionRow`'s scaled wrapper without any scale prop of
- * its own - the row's own font-size carries the scale (see `SubscriptionRow`
- * for how, and for the self-reference bug that used to make the "bigger"
- * rows render smaller), and this inherits it like any other text.
- *
- * BOTH LINES `nowrap`, FOUND ON THE RENDER, NOT IN THE SOURCE. `pr-wraprow`
- * (PricingRows.css) puts `white-space: normal` on `.grow-value` so a long
- * VALUE never truncates - correct for `TierRow`, where the value is one
- * short line. At Studio Plus's 1.3x scale that same rule let the flex
- * layout starve the value column for space and wrap "Rs 2,499" as "Rs" /
- * "2,499" on two lines - the sticker literally split its own digits, which
- * is the "figures do not share a right edge" defect all over again, just
- * inside one row instead of across four. Both lines here opt back OUT of
- * that inherited wrapping: a price is one unbreakable run, so if something
- * has to give up width to the label at this scale, it has to be the label
- * (which has real word-break points) and never the money.
+ * The sticker price and its qualifier, stacked and right-aligned inside a
+ * card's value column - "Rs 999" over "per month, Rs 166 each". Unchanged
+ * in substance from the row-era `ValueStack` this replaces: same swap-only-
+ * the-top-line busy state (a card must not change height the instant
+ * someone taps it), same tabular sticker. Restyled through CSS classes
+ * (`.pr-card__sticker` / `.pr-card__qualifier`) instead of inline styles
+ * because a card has room to let the qualifier wrap if it ever needs to -
+ * the old inline `whiteSpace: 'nowrap'` was a fix for a THIN ROW running out
+ * of width next to a label fighting it for space, which is not a problem a
+ * generously padded, full-width block has. The sticker line stays `nowrap`
+ * in CSS regardless (a price is one unbreakable run), it just no longer
+ * needs an inline escape hatch to say so.
  */
-function ValueStack(props: { value: TierValue }) {
+function PriceStack(props: { value: TierValue; busy?: boolean }) {
   return (
-    <span
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        lineHeight: 1.3,
-      }}
-    >
-      <span className="tnum" style={{ whiteSpace: 'nowrap' }}>{props.value.sticker}</span>
-      <span style={{ fontSize: 'var(--t-caption)', color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
-        {props.value.detail}
+    <span className="pr-card__stack">
+      <span className={props.busy ? 'pr-card__sticker' : 'pr-card__sticker tnum'}>
+        {props.busy ? 'Working…' : props.value.sticker}
       </span>
+      <span className="pr-card__qualifier">{props.value.detail}</span>
     </span>
   );
 }
 
-/** A standard priced tier: name + what it gets you on the left, the sticker
- *  price and (when it buys more than one credit) the per-project cost on
- *  the right, tabular. Used for the "pay per job" one-off ladder, kept
- *  deliberately plain and compact next to `SubscriptionRow`.
+/**
+ * ONE BLOCK, EVERY TIER. Free, 1 credit, 5 credits, Studio, Studio Plus and
+ * the launch offer all render through this - the shape is identical, only
+ * the face (`solid`) and the interactivity (`onClick` vs `isStatic`)
+ * change. That sameness is the point: five separately-styled cards would
+ * have drifted the moment one of them needed a fix, the same failure mode
+ * the row-era `Row`/`ReadRow`/`SubscriptionRow` split was already correcting
+ * for once, just at the wrong altitude.
  *
- *  `push` (the chevron `Row` already draws for anything that acts - see
- *  AccountScreen.tsx's own "Sign in with Google" row for the same pairing)
- *  is the fix for a row that priced itself correctly but never looked
- *  tappable: name and a number read as a table row, not a control, with
- *  nothing to tell a buyer a tap does anything. This is the app's own
- *  vocabulary for "this row acts," not a new affordance invented here. */
-export function TierRow(props: { product: Product; purchase: Purchase }) {
+ * TWO FACES, BORROWED FROM `.btn` (styles.css), NOT INVENTED HERE:
+ *   SECONDARY (default) - `var(--surface)` fill, an inset hairline
+ *     (`box-shadow: inset 0 0 0 1.5px var(--hairline)`, the same "border
+ *     that does not eat the content box" trick `.btn` uses), full ink.
+ *   PRIMARY (`solid`) - a solid slab of `var(--m-accent)` (teal on day,
+ *     acid on night), `var(--m-accent-ink)` type, no hairline - the fill
+ *     IS the rank signal, a border under it would read as a hairline
+ *     fighting its own slab, which is `.btn--go`'s own comment, verbatim.
+ * Press steps the fill one shade (`--surface-sunk` / `--m-accent-press`),
+ * nothing moves, nothing lifts - `.btn`'s own "FLAT. No 3D, no bevel, no
+ * gradient" rule, unchanged for a bigger control.
+ *
+ * `isStatic` renders a `<div>`, not a `<button>` - for the Free tier
+ * (nothing to tap), an already-claimed launch offer, and an account's own
+ * current subscription ("Your plan"). No press state, no disabled dimming,
+ * because none of those three are ever mid-purchase.
+ */
+function PlanCard(props: {
+  name: string;
+  /** "Our pick" - a small word after the name, never a pill: the card's
+   *  own solid fill already carries the "this is the one" signal, this
+   *  only makes sure that signal is not colour-alone (a11y) and gives it a
+   *  name a screen reader also gets. */
+  pick?: boolean;
+  subline?: string;
+  value: ReactNode;
+  solid?: boolean;
+  isStatic?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  const { name, pick, subline, value, solid, isStatic, disabled, onClick } = props;
+  const className = solid ? 'pr-card pr-card--solid' : 'pr-card';
+
+  const face = (
+    <>
+      <div className="pr-card__row">
+        <span className="pr-card__name">
+          {name}
+          {pick && <span className="pr-card__pick">Our pick</span>}
+        </span>
+        <span className="pr-card__value">{value}</span>
+      </div>
+      {subline && <p className="pr-card__subline">{subline}</p>}
+    </>
+  );
+
+  if (isStatic || !onClick) {
+    return (
+      <div className={className} data-static="">
+        {face}
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" className={className} disabled={disabled} onClick={onClick}>
+      {face}
+    </button>
+  );
+}
+
+/** Just "Studio" / "Studio Plus" - the plan name and nothing else, the
+ *  credit count carried in the subline instead (see `subscriptionSubline`).
+ *  A card has room for a longer name than a 320px row ever did, but there
+ *  is still nothing this name needs to say that the subline says better. */
+function subscriptionName(product: Product): string {
+  return product.key === 'studio_plus' ? 'Studio Plus' : 'Studio';
+}
+
+/**
+ * The one prose line under a subscription's name: what the money buys, said
+ * the same way for both tiers so the ladder frames its value evenly rather
+ * than only one tier earning a subline. One or two sentences, never a
+ * bulleted feature list - the dash-bulleted look is named by hand in
+ * ProCta.tsx's header as the AI-default this must not read as.
+ *
+ * THE SAVING NUMBER. `savingsPercent` (pricing.ts) reads the same
+ * `PER_PROJECT_DISPLAY` table `tierValue`'s own per-project figure already
+ * does, so a subscriber sees the ANCHOR ("what a one-off costs") and the
+ * ARGUMENT ("how much less this is than that") on the same card.
+ *
+ * `accent`: the one sentence that explains WHY this is the recommended
+ * card, not just what it costs - only ever true for whichever product
+ * `PricingLadder` has handed the accent to, so this never says it twice.
+ */
+function subscriptionSubline(product: Product, accent: boolean): string {
+  const credits = `${product.credits} project credits`;
+  const savings = savingsPercent(product);
+  const rate = savings !== undefined ? `, about ${savings}% cheaper than paying per project` : '';
+  if (product.key === 'studio_plus') {
+    return `${credits}${rate}. Plus your own logo on every export.`;
+  }
+  const why = accent ? ' Built for a normal month of shoots.' : '';
+  return `${credits}${rate}.${why}`;
+}
+
+/** The subline for a one-time credit pack - "About 31% cheaper than paying
+ *  one at a time" for anything that buys more than one credit, nothing for
+ *  `credit_1` itself (there is nothing to save against the thing that IS
+ *  the reference rate). `savingsPercent` returns `undefined` for exactly
+ *  that case, which is what makes this a plain pass-through rather than a
+ *  second place that has to know which key is the baseline. */
+function oneTimeSubline(product: Product): string | undefined {
+  const savings = savingsPercent(product);
+  if (savings === undefined) return undefined;
+  return `About ${savings}% cheaper than paying one at a time.`;
+}
+
+/** A one-time credit pack: `credit_1` or `bundle_5`, plain SECONDARY cards -
+ *  the "pay per job" ladder is deliberately the quieter half of the screen,
+ *  see `PricingLadder`'s own header. */
+function TierCard(props: { product: Product; purchase: Purchase }) {
   const { product, purchase } = props;
   const busy = purchase.busyKey === product.key;
   return (
-    <Row
-      label={tierLabel(product)}
-      value={busy ? 'Working…' : <ValueStack value={tierValue(product)} />}
-      // NOT `mono`: that puts `.tnum` on the whole value slot, and
-      // `ValueStack`'s detail line is a phrase ("once, Rs 480 each"), not a
-      // number - see that component's own header. `ValueStack` puts `.tnum`
-      // on the sticker span itself, so the money still reads tabular
-      // without setting a sentence in the mono face.
-      // Same opt-out as the launch offer row, for the same reason and one
-      // width down: at 320px, the narrowest phone this app supports, "5
-      // project credits" lost its last word to ellipsis while the price
-      // beside it kept every digit. A price is never a reason to make the
-      // thing being priced unreadable.
-      className="pr-wraprow"
-      push
+    <PlanCard
+      name={tierLabel(product)}
+      subline={oneTimeSubline(product)}
+      value={<PriceStack value={tierValue(product)} busy={busy} />}
       disabled={purchase.busyKey !== null}
       onClick={() => void purchase.buy(product)}
     />
   );
 }
 
-/** "Studio · 6/mo" - short on purpose. `RowFace.label` is a plain string
- *  (glist.tsx, not mine to widen to ReactNode), and at the scaled-up size
- *  `SubscriptionRow` renders this at, the longer "Studio Plus, 20 credits"
- *  this file used at 1x truncated - see ValueStack's own note on the same
- *  problem hitting the value column first. */
-function subscriptionLabel(product: Product): string {
-  const name = product.key === 'studio_plus' ? 'Studio Plus' : 'Studio';
-  return `${name} · ${product.credits}/mo`;
-}
-
-/** The one thing Studio Plus buys beyond more credits. Built by other agents
- *  (src/ui/studio.ts, src/export/pdf.ts) - this only names it so the row
- *  that costs more explains why.
- *
- *  REWORKED 2026-08-27: this used to be TWO lines, "Plus: your own logo on
- *  every export" and "Plus: folders, by client or show", each its own
- *  ReadRow under the Studio Plus row at full row weight - a buyer counting
- *  rows saw seven products for sale, not five. Folders is gone from here
- *  entirely now: it turned out to already ship free, live, for every
- *  account (verified against the deployed bundle), so advertising it as a
- *  Studio Plus perk would have been selling something the buyer already
- *  owns. What is left is the one claim that is actually true of Studio Plus
- *  and nothing else - the logo - carried as supporting text INSIDE the row
- *  (see `SubscriptionLabel` below), at caption weight, directly under the
- *  name it explains.
- *
- *  LEGIBILITY FIXED 2026-08-27, SEPARATELY FROM THE ACCENT. This line used
- *  to sit at `--t-caption` in `--text-faint` - the faintest text on the
- *  screen, naming the one reason to pay 2.5x more. `.pr-subrow__perks`
- *  (PricingRows.css) now sets it at `--t-secondary` in `--text-dim`,
- *  unconditionally, whether or not the row also carries the one accent this
- *  task adds (see `SubscriptionRow`'s own header) - a claim this important
- *  has to read whether or not the launch offer happens to be live, not only
- *  once the promo is gone and the accent lands here. */
-const STUDIO_PLUS_PERK = 'Your own logo on every export.';
-
-/** `SubscriptionRow`'s label, shared between its buyable branch (a real
- *  `<button>`) and its `current` branch (a static row someone already
- *  subscribed to) so both render the EXACT same two-line markup - same
- *  `.grow-label pr-subrow__label` structure, same `.pr-subrow__perks`
- *  caption. Also why the `current` branch is a hand-rolled `.grow` row
- *  rather than a `ReadRow` plus a trailing `<p>`: a `<p>` sibling would sit
- *  between two `.grow` elements and break `.grow + .grow::before`'s
- *  adjacency, silently dropping the hairline above whatever row comes
- *  after (Enterprise, on the standing pricing table). One `.grow` per row,
- *  always, keeps that CSS rule true without either branch having to know
- *  about the other. */
-function SubscriptionLabel(props: { product: Product; big?: boolean }) {
+/** The always-free tier. A card because everything on this screen is a
+ *  card now, `isStatic` because there is nothing to tap - free is not a
+ *  purchase decision. */
+function FreeCard() {
   return (
-    <span className="grow-label pr-subrow__label">
-      <span className="pr-subrow__name">{subscriptionLabel(props.product)}</span>
-      {props.big && <span className="pr-subrow__perks">{STUDIO_PLUS_PERK}</span>}
-    </span>
+    <PlanCard
+      name="Free"
+      // `FREE_PROJECT_LIMIT` is a literal-typed const, so the pluralize
+      // guard is read through a `number` widening rather than compared
+      // against the literal (which TS rightly calls a dead branch). This
+      // replaced a hardcoded "2 projects" that would have quietly lied the
+      // day that constant changed.
+      value={`${FREE_PROJECT_LIMIT} project${(FREE_PROJECT_LIMIT as number) === 1 ? '' : 's'}, once`}
+      isStatic
+    />
   );
 }
 
-/**
- * A subscription tier, deliberately heavier than `TierRow` - bigger type,
- * more room, per the owner's own correction: "a buyer is not choosing
- * between five things, they are answering one question: pay per job, or
- * subscribe". Size carries the weight, not a badge - `big` (Studio Plus
- * only) scales further still than plain Studio, so the row that carries
- * the logo visibly outweighs the one that is just more credits.
- *
- * THE SCALE USED TO BE A NO-OP, AND WORSE - MADE THE ROW SMALLER. The first
- * cut wrote `'--t-row': calc(var(--t-row) * ${scale})` as an inline style on
- * this SAME wrapping div. That is a custom property referencing itself: CSS
- * calls that a cyclic reference, and a cyclic custom property is invalid at
- * computed-value time - not "falls back to the old value", INVALID, full
- * stop. Every descendant's `font-size: var(--t-row)` then went invalid too
- * and fell all the way back to the browser's own default (16px), which is
- * SMALLER than the app's own 17px row type - so the row the owner asked to
- * look heavier rendered lighter than an ordinary row, silently, because
- * nothing throws for an invalid custom property, it just quietly stops
- * being it. Caught by reading the rows' own computed `font-size` in a live
- * page, not by reading this file - the bug was invisible in the source.
- *
- * THE FIX IS A SECOND VARIABLE, NOT A BIGGER MULTIPLIER. `--pr-row-scale`
- * (below, and in PricingRows.css) is a NEW custom property, never redefined
- * by anything that also reads it, so there is no cycle: `--t-row` is read
- * fresh off this row's actual ancestor (the section's card, still 17px),
- * multiplied by `--pr-row-scale`, and the result becomes THIS row's own
- * `font-size` - one CSS rule, `.pr-subrow-scale > .grow`, in PricingRows.css.
- * Label and value both inherit that computed font-size normally, so it is
- * still one scaling mechanism doing both, exactly as the original comment
- * intended - it just cannot be an override of the same name it reads.
- *
- * NOT `Row` FOR EITHER BRANCH. `Row`'s `label` is a plain string (glist.tsx,
- * RowFace), which is right for every other row in the app but cannot carry
- * Studio Plus's second, dimmer line. So both branches compose the same
- * `.grow` markup `Row`/`ReadRow` render (icon slot unused, label, tabular
- * value, chevron only on the buyable one) by hand, sharing `SubscriptionLabel`
- * above so the two-line label is byte-identical either way. Same CSS
- * classes, same tap target, same hairline and press state as every other
- * row - only the label grew a second line. The chevron (`push`, same as
- * `TierRow`) is what makes the buyable branch read as tappable rather than
- * a priced table row.
- *
- * `accent`: THE ONE FOCAL POINT THIS SCREEN KEEPS ONCE THE PROMO IS GONE.
- * `PricingRows.css`'s own header names the defect - the launch offer's
- * `primary` (Row's own prop) is correct while ten slots last, and then this
- * screen has nothing left for the eye. `accent` is true only when the
- * caller (`PricingLadder`, below) has decided the promo is NOT currently
- * showing its own `primary` row - passing both at once would put two acid
- * moments on the same night screen at once (`--brass-text` and
- * `--m-accent-text` are the identical #e6ff2b there), which is the one
- * thing "exactly one" rules out. It only ever does anything when `big` is
- * also true: Studio Plus, the top of the ladder, is the row built to carry
- * it permanently. See `.pr-subplus` in PricingRows.css for the treatment -
- * the same GOLD vocabulary (`--brass-tint`, `--brass-edge`, `--brass-text`)
- * `procta__btn`, `.goldbtn` and `.camcount__opt--on` already use elsewhere
- * in this app for "the one that matters", not a new colour.
- */
-export function SubscriptionRow(props: {
+/** A subscription tier - Studio or Studio Plus. `accent` gives it the
+ *  PRIMARY (solid-fill) face and the "Our pick" marker together, always
+ *  paired (see `PlanCard`'s own header on why a border-only accent was
+ *  never really the plan once the container itself became a card: a solid
+ *  fill IS what "the one that matters" looks like in this app's own button
+ *  language). `current` swaps the value column for a static "Your plan" and
+ *  renders the whole card as non-interactive, whichever face it would
+ *  otherwise have worn. */
+function SubscriptionCard(props: {
   product: Product;
   purchase: Purchase;
-  big?: boolean;
-  current?: boolean;
   accent?: boolean;
+  current?: boolean;
 }) {
-  const { product, purchase, big, current, accent } = props;
+  const { product, purchase, accent, current } = props;
   const busy = purchase.busyKey === product.key;
-  const scale = big ? 1.3 : 1.12;
-  const rawStyle: Record<string, string | number> = {
-    '--pr-row-scale': scale,
-    fontWeight: big ? 700 : 600,
-  };
-  const accentOn = !!(big && accent);
-  const growClass = (base: string) => (accentOn ? `${base} pr-subplus` : base);
-
-  if (current) {
-    return (
-      <div className="pr-subrow-scale" style={rawStyle as CSSProperties}>
-        {/* `pr-wraprow` HERE TOO, found missing on the render, not in review.
-            Without it, "Studio Plus · 20/mo" next to this branch's own fixed-
-            width "Your plan" value has nothing beating `.grow-label`'s plain
-            `white-space: nowrap` (list.css) at equal (0,1,0) specificity to
-            `.pr-subrow__label`'s own `white-space: normal` - and since
-            list.css loads after this file in the cascade, list.css's nowrap
-            silently won every time, on every branch, even before this task.
-            It only became visible once Studio Plus actually scaled to 1.3x
-            (see this component's own header on the cyclic `--t-row` bug) and
-            212px stopped being wide enough at 320px: the overflowing nowrap
-            name painted straight through "Your plan" rather than wrapping
-            under it. `.pr-wraprow .grow-label` (PricingRows.css) is a
-            descendant selector at (0,2,0), which is the one thing that
-            reliably beats list.css regardless of stylesheet load order - the
-            buyable branch below already carries it for the same reason. */}
-        <div className={growClass('grow pr-wraprow')} data-static="">
-          <SubscriptionLabel product={product} big={big} />
-          <span className="grow-value">Your plan</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="pr-subrow-scale" style={rawStyle as CSSProperties}>
-      <button
-        type="button"
-        // `pr-wraprow` has to sit on the SAME element as `grow` (see that
-        // class's comment). This row hand-builds its markup instead of
-        // going through `Row`, so it does not inherit the opt-out and has
-        // to name it: at 320px "Studio Plus · 20/mo" was truncating.
-        className={growClass('grow pr-wraprow')}
-        disabled={purchase.busyKey !== null}
-        onClick={() => void purchase.buy(product)}
-      >
-        <SubscriptionLabel product={product} big={big} />
-        {/* NOT `.tnum` on this outer span - see `ValueStack`'s own header.
-            The sticker span inside it carries the tabular class itself; this
-            span just holds whichever of the two the row is showing. */}
-        <span className="grow-value">
-          {busy ? 'Working…' : <ValueStack value={tierValue(product)} />}
-        </span>
-        <span className="grow-chev">
-          <Chevron />
-        </span>
-      </button>
-    </div>
+    <PlanCard
+      name={subscriptionName(product)}
+      pick={!!accent}
+      subline={subscriptionSubline(product, !!accent)}
+      value={current ? 'Your plan' : <PriceStack value={tierValue(product)} busy={busy} />}
+      solid={!!accent}
+      isStatic={current}
+      disabled={purchase.busyKey !== null}
+      onClick={current ? undefined : () => void purchase.buy(product)}
+    />
   );
 }
 
@@ -335,18 +281,20 @@ function jumpstartProduct(offer: PromoOffer): Product {
 }
 
 /**
- * The launch offer row, or nothing. `null` from the promo read, or a state
+ * The launch offer card, or nothing. `null` from the promo read, or a state
  * where the ten are gone and this account never had one, both render
  * nothing - see `showPromo`'s own note on why a button guaranteed to fail
- * is worse than no button.
- */
-export function PromoRow(props: { offer: PromoOffer | null; purchase: Purchase }) {
+ * is worse than no button. Solid-filled while it is actually buyable, the
+ * same PRIMARY face `SubscriptionCard` gives Studio - this and Studio's
+ * accent are handed off, never both live at once, see `PricingLadder`'s own
+ * header for the rule. */
+function PromoCard(props: { offer: PromoOffer | null; purchase: Purchase }) {
   const { offer, purchase } = props;
   if (!showPromo(offer)) return null;
   const o = offer!;
 
   if (o.alreadyClaimed) {
-    return <ReadRow label="Launch offer" value="Already used" />;
+    return <PlanCard name="Launch offer" value="Already used" isStatic />;
   }
 
   const label = !o.signedIn
@@ -357,25 +305,10 @@ export function PromoRow(props: { offer: PromoOffer | null; purchase: Purchase }
   const product = jumpstartProduct(o);
 
   return (
-    <Row
-      label={label}
-      value={busy ? 'Working…' : <ValueStack value={tierValue(product)} />}
-      // NOT `mono` - see `ValueStack`'s own header on why the whole value
-      // slot no longer takes the tabular class; the sticker span inside
-      // carries it by itself now.
-      // `pr-wraprow` (PricingRows.css): the one number that makes this row
-      // legible - "N of M left" - must never lose a digit to ellipsis. See
-      // that class's own comment for why this needs the opt-in rather than
-      // list.css's normal one-line row.
-      className="pr-wraprow"
-      primary
-      // primary + push together, same pairing AccountScreen.tsx's own
-      // "Sign in with Google" row uses for the one action a screen most
-      // wants tapped: the accent carries the eye, the chevron confirms
-      // there is something to press. It is the only row on the ladder that
-      // gets both, which is what makes it read as the most pressable thing
-      // on the screen rather than just the most colourful one.
-      push
+    <PlanCard
+      name={label}
+      value={<PriceStack value={tierValue(product)} busy={busy} />}
+      solid
       disabled={purchase.busyKey !== null}
       onClick={() =>
         void purchase.buy(product, {
@@ -389,37 +322,119 @@ export function PromoRow(props: { offer: PromoOffer | null; purchase: Purchase }
 }
 
 /**
- * THE WHOLE LADDER, grouped rather than a flat five-row list. The owner's
- * own correction, after seeing the flat version: a buyer is not choosing
- * between five things, they are answering one question - pay per job, or
- * subscribe - so the surface should ask it that way. Three groups, in the
- * order a reader should consider them:
+ * THE SELL, BEFORE THE PRICES. Nobody reads a price ladder as a reason to
+ * buy; they read it to check the number against a decision they have
+ * already half-made. This makes that decision for them, in three short
+ * sentences, before the ladder gets a chance to look like a bill:
+ *
+ *   1. THE WEDGE. Premiere XML is the format the app's own gate logic
+ *      already treats as the killer feature - see gate.ts's
+ *      FREE_PREMIERE_PROJECTS header ("the format... real exporters
+ *      actually chose"), which is WHY it is free on an account's first
+ *      projects at all. Leading with it here says the same thing to a
+ *      human that the free taste already says to the product.
+ *   2. THE PERMANENCE. "Unlock once, own it forever" is the single most
+ *      underused fact in the catalogue - see products.ts's own "WHAT A
+ *      CREDIT IS" header. A buyer comparing this to a subscription-only
+ *      competitor needs to hear it before the price, not discover it by
+ *      reading the fine print after paying.
+ *   3. THE GENEROSITY. Rolling and the CSV shot log are unlimited and free
+ *      for everyone, unlock or not - true on this screen exactly as it is
+ *      on GoProRow's own note in Settings. Saying it here reframes every
+ *      card below as "unlock more," not "pay to use the app at all," which
+ *      matters most on ProCta's cap-hit paywall, the one place this text
+ *      also renders to someone who just got told no.
+ *
+ * PROSE, NOT A CARD. No icon, no illustration, no gradient panel - the
+ * `--t-title` / `--t-secondary` pairing `.ltitle` and `.glist-note` already
+ * use elsewhere in this app, stacked as two plain paragraphs above the
+ * first block. The screen below is now all rounded blocks; the one sales
+ * pitch above them stays plain text on purpose, so it reads as the app
+ * talking to you rather than as a sixth thing for sale.
+ *
+ * RENDERED UNCONDITIONALLY, both call sites (ProCta's cap-hit gate and
+ * AccountScreen's standing ladder) - the wedge and the permanence pitch are
+ * true regardless of which counter someone just ran out of. */
+function PricingLede() {
+  return (
+    <div className="pr-lede">
+      <p className="pr-lede__head">Premiere XML, straight onto your timeline.</p>
+      <p className="pr-lede__body">
+        Free on your first {FREE_PREMIERE_PROJECTS} projects. After that, one credit unlocks a
+        project for good - PDF, Premiere, Resolve, the folder, all of it - so you can reopen it
+        and export again months later at no extra cost. Rolling and the CSV shot log never cost
+        anything, unlocked or not.
+      </p>
+    </div>
+  );
+}
+
+/** One labelled group of cards - a header outside the stack, a real gap
+ *  (`.pr-stack`) between the cards inside it, an optional footnote under
+ *  it. Replaces the row-era `Section` (glist.tsx) for this screen only:
+ *  `Section` wraps its children in ONE shared `.glist-card` with hairline
+ *  rules between them, which is exactly the "one bordered container" shape
+ *  the owner rejected. `glist.tsx` itself is untouched - Settings, Home and
+ *  every other grouped-inset list in the app still wants that shape, this
+ *  screen no longer does. `.glist-hdr` / `.glist-note` (list.css) are still
+ *  the right typographic voice for a caption above and a footnote below a
+ *  group of controls, so those two classes carry over unchanged; only the
+ *  middle - what actually holds the controls - is new. */
+function Group(props: { title?: string; note?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="glist">
+      {props.title && <h2 className="glist-hdr">{props.title}</h2>}
+      <div className="pr-stack">{props.children}</div>
+      {props.note && <p className="glist-note">{props.note}</p>}
+    </section>
+  );
+}
+
+/**
+ * THE WHOLE LADDER, as blocks in two labelled groups rather than a flat
+ * list or one shared card. A buyer is not choosing between five things,
+ * they are answering one question - pay per job, or subscribe - so the
+ * surface still asks it that way; only the container under each answer
+ * changed shape today. Order a reader should consider them, unchanged:
  *
  *   1. The launch offer, ABOVE EVERYTHING, only while it is actually
  *      buyable for this viewer (see `showPromo` - null and "the ten are
- *      gone" both render nothing here, same as `PromoRow` alone).
- *   2. "Pay per job" - Free, 1 credit, 5 credits. Tight, factual,
- *      `TierRow`'s compact size. No subscription, so it stays first for
- *      anyone who came here undecided.
- *   3. "Subscribe" - Studio, then Studio Plus larger still, `Row`s not
- *      cards, deliberately outsized against group 2 so the two questions
- *      ("per job" vs "subscribe") read as two different weights of
- *      decision rather than five equal options in a row.
+ *      gone" both render nothing here, same as `PromoCard` alone).
+ *   2. "Pay per job" - Free, 1 credit, 5 credits. Plain SECONDARY cards,
+ *      no subscription, so it stays first for anyone who came here
+ *      undecided, AND it is what puts the Rs 699 anchor in front of a
+ *      reader before Studio's Rs 166 reveal one group down - the saving
+ *      argument needs something to save against.
+ *   3. "Subscribe & save" - Studio, then Studio Plus. The section title
+ *      itself carries half the pitch: a reader who has just seen Rs 699
+ *      and Rs 480 lands on a heading that tells them, before a single
+ *      card, that what follows is cheaper still.
  *
  * `currentSubscriptionKey` is AccountScreen-only (it has entitlements to
  * check); ProCta's cap-hit paywall omits it; passing nothing here just
- * means no row ever renders as "Your plan", never a wrong one.
+ * means no card ever renders as "Your plan", never a wrong one.
  *
- * THE ONE ACCENT, HANDED OFF RATHER THAN DOUBLED. `PromoRow` already takes
- * `primary` for as long as the launch offer is actually buyable - see its
- * own comment. `studioPlusAccent` below is true exactly when that is NOT
- * happening: `showPromo(offer)` false (no offer, or the ten are gone and
- * this account never had one), or true but `alreadyClaimed` (the offer
- * renders as a plain "Already used" `ReadRow`, no `primary`, nothing
- * accented). Only one of "the promo row" and "the Studio Plus row" is ever
- * the accent at a time - see `SubscriptionRow`'s own header for why
- * stacking both would put two acid moments on the same night screen, since
- * `--m-accent-text` and `--brass-text` are the identical colour there. */
+ * THE ONE ACCENT, HANDED OFF RATHER THAN DOUBLED, POINTED AT STUDIO.
+ * `PromoCard` already takes the solid PRIMARY face for as long as the
+ * launch offer is actually buyable - see its own comment. `heroAccent`
+ * below is true exactly when that is NOT happening: `showPromo(offer)`
+ * false (no offer, or the ten are gone and this account never had one), or
+ * true but `alreadyClaimed` (the offer renders as a plain "Already used"
+ * static card, no fill, nothing accented). Only one of "the promo card" and
+ * "the Studio card" is ever solid-filled at a time - stacking both would
+ * put two acid slabs on the same night screen at once (`--m-accent` and
+ * `--brass`-derived fills are the identical hue there), which is the one
+ * thing "exactly one" rules out.
+ *
+ * WHY STUDIO, NOT STUDIO PLUS. The brief's own instruction is to anchor on
+ * the tier that "covers the median user" (Rs 166/project, six projects a
+ * month), which launch/PRICE-SHEET.md's own research independently names
+ * as the plan sized for a regular working crew member, with Studio Plus
+ * reserved for the smaller ad-circuit slice doing fifteen to twenty jobs a
+ * month. Recommending the cheaper, broader-fit plan by default is also the
+ * honest read of "chosen, on-brand" rather than "whichever costs more" -
+ * Studio Plus is still one card down, still real, still explains its own
+ * one true differentiator (the logo) in its own subline. */
 export function PricingLadder(props: {
   offer: PromoOffer | null;
   purchase: Purchase;
@@ -428,36 +443,83 @@ export function PricingLadder(props: {
   currentSubscriptionKey?: string | null;
 }) {
   const { offer, purchase, includeFree, enterpriseHref, currentSubscriptionKey } = props;
-  const studioPlusAccent = !(showPromo(offer) && !offer?.alreadyClaimed);
+  const heroAccent = !(showPromo(offer) && !offer?.alreadyClaimed);
+
+  // The Rs 699 anchor, spent a second time. `ONE_TIME_PRODUCTS` is
+  // `[credit_1, bundle_5]` (DISPLAY_ORDER, pricing.ts) - this finds
+  // whichever one buys more than one credit rather than hardcoding the key,
+  // so a future third pack does not silently fall out of this sentence.
+  // Reads the same `savingsPercent`/`perProjectCost` the Subscribe group's
+  // sublines do, so the two halves of the page can never disagree with each
+  // other about what a bundle actually saves.
+  const bundle = ONE_TIME_PRODUCTS.find((p) => p.credits > 1);
+  const payPerJobNote = bundle
+    ? `No subscription. Credits never expire, and an unlocked project stays unlocked forever. Buy ${bundle.credits} at once and it works out to Rs ${perProjectCost(bundle)} a project, about ${savingsPercent(bundle)}% less than one at a time.`
+    : 'No subscription. Credits never expire, and an unlocked project stays unlocked forever.';
 
   return (
     <>
+      <PricingLede />
+
       {showPromo(offer) && (
-        <Section title="Launch offer">
-          <PromoRow offer={offer} purchase={purchase} />
-        </Section>
+        <Group title="Launch offer">
+          <PromoCard offer={offer} purchase={purchase} />
+        </Group>
       )}
 
-      <Section title="Pay per job" note="No subscription. Credits never expire.">
-        {includeFree && <ReadRow label="Free" value="2 projects, once" />}
+      <Group title="Pay per job" note={payPerJobNote}>
+        {includeFree && <FreeCard />}
         {ONE_TIME_PRODUCTS.map((product) => (
-          <TierRow key={product.key} product={product} purchase={purchase} />
+          <TierCard key={product.key} product={product} purchase={purchase} />
         ))}
-      </Section>
+      </Group>
 
-      <Section title="Subscribe" note="Cancel anytime.">
+      {/* The trust cue rides the Subscribe note - a group footnote, under
+          the cards, that adds no card of its own. One quiet line naming who
+          takes the money is what turns a stack of tappable prices into
+          something that reads as a real checkout rather than raw buttons;
+          it shows on the standing pricing table and on ProCta's cap-hit
+          paywall alike, since both render this same group. No logo, no
+          badge - the app draws none of its own chrome and a payment-brand
+          lockup would be the first.
+
+          "Even if you cancel" - the two facts most competitors let a buyer
+          assume are the same thing and are not: cancelling a subscription
+          stops the NEXT charge, it does not repossess a project already
+          unlocked with a credit that subscription paid for (see
+          products.ts's own header: "once spent on a project, the
+          subscription's own state... never touches that project again").
+          Saying it here removes the one objection a burst-shaped buyer (see
+          launch/PRICING-PSYCHOLOGY.md's own section on this product's
+          bursty usage) would otherwise have to go dig for in a FAQ. */}
+      <Group
+        title="Subscribe & save"
+        note="Cancel anytime. Projects you have already unlocked stay unlocked, even after you cancel. Payments are handled securely by Razorpay."
+      >
         {SUBSCRIPTION_PRODUCTS.map((product) => (
-          <SubscriptionRow
+          <SubscriptionCard
             key={product.key}
             product={product}
             purchase={purchase}
-            big={product.key === 'studio_plus'}
+            accent={product.key === 'pro_monthly' && heroAccent}
             current={currentSubscriptionKey === product.key}
-            accent={product.key === 'studio_plus' && studioPlusAccent}
           />
         ))}
-        {enterpriseHref && <LinkRow label="Enterprise" value="Email us" href={enterpriseHref} />}
-      </Section>
+        {/* Enterprise is not a fifth block: it is a contact link, not a
+            priced tier, and giving it the same rounded-card weight as
+            Studio or Studio Plus would sell a product that does not exist
+            in this table (see products.ts's own "Enterprise is not a
+            product" closing note). A small text link under the cards, the
+            same `ExternalMark` glyph every other outbound link in this app
+            uses (glist.tsx), says "there is one more option" without
+            pretending it is priced the same way the two above it are. */}
+        {enterpriseHref && (
+          <a className="pr-enterprise" href={enterpriseHref} target="_blank" rel="noopener">
+            Enterprise, email us
+            <ExternalMark />
+          </a>
+        )}
+      </Group>
 
       {purchase.status && (
         <p

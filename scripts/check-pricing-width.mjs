@@ -14,9 +14,19 @@
 // THE RULE: a label may wrap and make its row taller. A label may never be
 // truncated to make room for a price.
 //
+// UPDATED 2026-08-31 FOR THE BLOCKY REDESIGN. The pricing ladder itself no
+// longer renders `.grow`/`.grow-label`/`.grow-value` rows at all - every
+// tier is now a `.pr-card` block (PricingRows.tsx/css) with its own
+// `.pr-card__name` / `.pr-card__value`. The rule this script checks did not
+// change (a label may wrap, never truncate), only the class names it has to
+// look at to check it - `.grow*` selectors stayed in the union rather than
+// being replaced, because AccountScreen.tsx's own non-ladder rows (Signed
+// in, Director mode, Always free, Session) are still real `.grow` rows this
+// script should keep covering.
+//
 // Usage: start a dev server first (the account seam is DEV only), then
 //   PORT=5199 node scripts/check-pricing-width.mjs
-// Exits non-zero on any clipped row or any horizontal overflow.
+// Exits non-zero on any clipped row/card or any horizontal overflow.
 
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readdirSync, existsSync } from 'node:fs';
@@ -156,13 +166,13 @@ const SEED = `
 // names the row rather than a selector.
 const MEASURE = `
   (() => {
-    const clipped = [...document.querySelectorAll('.grow-label, .grow-value, .pr-subrow__name')]
+    const clipped = [...document.querySelectorAll('.grow-label, .grow-value, .pr-card__name, .pr-card__value, .pr-card__sticker, .pr-card__subline')]
       .filter((el) => el.scrollWidth > el.clientWidth + 1)
       .map((el) => ({ text: el.textContent.trim().slice(0, 60), scrollW: el.scrollWidth, clientW: el.clientWidth }));
     return {
       innerWidth: window.innerWidth,
       scrollWidth: document.documentElement.scrollWidth,
-      rows: document.querySelectorAll('.grow').length,
+      rows: document.querySelectorAll('.grow, .pr-card').length,
       route: location.hash,
       bodyText: (document.body.innerText || '').replace(/\s+/g, ' ').trim(),
       clipped,
