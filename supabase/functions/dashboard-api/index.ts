@@ -176,6 +176,54 @@ const APP_ACTION_EVENTS = [
 const FUNNEL_STAGES = ["landing_view", "landing_cta_click", "app_open", "project_created", "roll", "cut"];
 
 // ----------------------------------------------------------------------------
+// FUNNEL v2 - the whole acquisition funnel, keyed by distinct ip_hash
+// ("device"), all-time, not the DEV_GATE_CUTOFF / VID_CUTOFF-restricted view
+// FUNNEL_STAGES above builds. That older funnel is deliberately narrow (vid
+// only exists since VID_CUTOFF, so anything before 2026-08-25 reads as zero);
+// this one exists to answer "the whole funnel, since the app has existed"
+// honestly, which needs a device key that has been on every row since day
+// one. ip_hash is that key - see EventRow's own comment on the same point.
+// ----------------------------------------------------------------------------
+const FUNNEL_V2_STAGES = [
+  "landing_view",
+  "landing_cta_click",
+  "app_open",
+  "onboarding",
+  "project_created",
+  "roll",
+  "cut",
+  "moment_marked_or_tag_used",
+  "checkout_started",
+] as const;
+// moment_marked and tag_used are two distinct event names that both count as
+// the same funnel stage (a device did SOMETHING with a moment/tag), so they
+// share one rank rather than each getting their own step.
+const FUNNEL_V2_STAGE_RANK: Record<string, number> = {
+  landing_view: 1,
+  landing_cta_click: 2,
+  app_open: 3,
+  onboarding: 4,
+  project_created: 5,
+  roll: 6,
+  cut: 7,
+  moment_marked: 8,
+  tag_used: 8,
+  checkout_started: 9,
+};
+const FUNNEL_V2_RANK_TO_STAGE: Record<number, string> = {
+  0: "no_funnel_event_reached",
+  1: "landing_view",
+  2: "landing_cta_click",
+  3: "app_open",
+  4: "onboarding",
+  5: "project_created",
+  6: "roll",
+  7: "cut",
+  8: "moment_marked_or_tag_used",
+  9: "checkout_started",
+};
+
+// ----------------------------------------------------------------------------
 // Crypto helpers
 // ----------------------------------------------------------------------------
 
@@ -292,7 +340,18 @@ function clientIp(req: Request): string {
 // number this dashboard exists to stop shipping.
 // ----------------------------------------------------------------------------
 
-type EventRow = { name: string | null; props: Record<string, unknown> | null; user_id: string | null; created_at: string };
+type EventRow = {
+  name: string | null;
+  props: Record<string, unknown> | null;
+  user_id: string | null;
+  // Added for the funnel-v2 section below (see FUNNEL_V2_STAGES). Distinct
+  // from `vid` (the anonymous per-browser id, only present since VID_CUTOFF):
+  // ip_hash has been written on every row since this table's first migration
+  // (20260715120000_accounts_quotas.sql), so it is the only device key that
+  // can answer "the whole funnel, all-time" honestly.
+  ip_hash: string | null;
+  created_at: string;
+};
 type ProfileRow = { user_id: string; email: string | null; is_pro: boolean; pro_until: string | null; created_at: string };
 
 async function fetchAllPaginated<T>(
@@ -352,6 +411,53 @@ function distinctVidCount(rows: EventRow[]): number {
     if (v) s.add(v);
   }
   return s.size;
+}
+
+// ---- Funnel v2 helpers -------------------------------------------------
+function distinctIpCount(rows: EventRow[]): number {
+  const s = new Set<string>();
+  for (const r of rows) {
+    if (r.ip_hash) s.add(r.ip_hash);
+  }
+  return s.size;
+}
+function eventsForFunnelV2Stage(rows: EventRow[], stage: string): EventRow[] {
+  if (stage === "moment_marked_or_tag_used") {
+    return rows.filter((r) => r.name === "moment_marked" || r.name === "tag_used");
+  }
+  return rows.filter((r) => r.name === stage);
+}
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+// Per-user funnel progress, keyed by user_id (not ip_hash - a signed-in
+// person can cross devices). Shared by funnel-v2's signed-in table and the
+// Email tab's per-recipient table below, so the two panels can never
+// disagree about what "furthest stage" or "last seen" means for the same
+// account. Pure and cheap (one pass over rows already in memory), so it is
+// computed once, unconditionally, rather than behind either panel's own
+// try/catch.
+type FunnelUserAgg = { maxRank: number; lastSeen: string; roll: number; cut: number; checkout: number };
+function buildUserFunnelAgg(rows: EventRow[]): Map<string, FunnelUserAgg> {
+  const map = new Map<string, FunnelUserAgg>();
+  for (const r of rows) {
+    if (!r.user_id) continue;
+    let agg = map.get(r.user_id);
+    if (!agg) {
+      agg = { maxRank: 0, lastSeen: r.created_at, roll: 0, cut: 0, checkout: 0 };
+      map.set(r.user_id, agg);
+    }
+    if (r.created_at > agg.lastSeen) agg.lastSeen = r.created_at;
+    if (r.name) {
+      const rank = FUNNEL_V2_STAGE_RANK[r.name];
+      if (rank && rank > agg.maxRank) agg.maxRank = rank;
+      if (r.name === "roll") agg.roll++;
+      else if (r.name === "cut") agg.cut++;
+      else if (r.name === "checkout_started") agg.checkout++;
+    }
+  }
+  return map;
 }
 
 // ----------------------------------------------------------------------------
@@ -537,7 +643,7 @@ Deno.serve(async (req: Request) => {
     // ---- Load base rows ------------------------------------------------
     const [{ rows: eventRows, truncated: eventsTruncated }, { rows: profileRows, truncated: profilesTruncated }] =
       await Promise.all([
-        fetchAllPaginated<EventRow>(admin, "events", "name,props,user_id,created_at", EVENTS_ROW_CAP, (q) =>
+        fetchAllPaginated<EventRow>(admin, "events", "name,props,user_id,ip_hash,created_at", EVENTS_ROW_CAP, (q) =>
           q.order("created_at", { ascending: true })),
         fetchAllPaginated<ProfileRow>(
           admin,
@@ -1176,6 +1282,637 @@ Deno.serve(async (req: Request) => {
       entitlements_unavailable_reason: entitlementsAvailable ? null : entitlementsUnavailableReason,
     };
 
+    // Computed once, unconditionally (pure, cheap, no I/O) - see
+    // buildUserFunnelAgg's own comment for why funnel-v2's signed-in table
+    // and the Email tab's per-recipient table both read this same map rather
+    // than each building their own.
+    const userFunnelAgg = buildUserFunnelAgg(liveEventRows);
+
+    // ---- Funnel v2: the whole acquisition funnel, by device -------------
+    // Everything below is derived from `liveEventRows` - full history (Jul
+    // 2026 onward), minus the owner's own traffic when exclude_self is on -
+    // deliberately NOT filtered to DEV_GATE_CUTOFF like `rows` above. That
+    // cutoff exists to keep dev-server noise out of TRAFFIC and APP-USAGE
+    // trend lines; this funnel exists to answer "the whole acquisition
+    // story, since launch" and would lie by omission if it dropped six of
+    // its seven weeks of history to match a different panel's honesty rule.
+    //
+    // Wrapped in one try/catch: this is a lot of new aggregation over rows
+    // already in memory (no new query, since ip_hash rides on the same
+    // events fetch as everything above it), and a bug in it should degrade
+    // this one section of the payload, not 500 the entire dashboard - same
+    // posture as every probed panel above (suspend, purchases, entitlements,
+    // subscriptions).
+    let funnelDeep: Record<string, unknown> | null = null;
+    let funnelDeepUnavailableReason: string | null = null;
+    try {
+      const allRows = liveEventRows;
+      const nowMs = Date.now();
+      const cutoff7 = new Date(nowMs - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const cutoff30 = new Date(nowMs - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      // 1. Core funnel: distinct ip_hash per stage, all devices, all-time --
+      const coreStepsRaw = FUNNEL_V2_STAGES.map((stage) => ({
+        stage,
+        devices: distinctIpCount(eventsForFunnelV2Stage(allRows, stage)),
+      }));
+      const coreSteps = coreStepsRaw.map((s, i) => {
+        if (i === 0) return { ...s, retention_pct_from_prev: 100, dropoff_pct_from_prev: 0 };
+        const prev = coreStepsRaw[i - 1].devices;
+        const retention = prev > 0 ? round2((s.devices / prev) * 100) : 0;
+        return { ...s, retention_pct_from_prev: retention, dropoff_pct_from_prev: round2(100 - retention) };
+      });
+      // Step-to-step pairs, built once and reused for both drop-off cliffs
+      // and the growth-anomaly flags (a stage reading HIGHER than the one
+      // before it - e.g. app_open exceeding landing_cta_click, because most
+      // app opens are direct/bookmarked, not landing-button clicks).
+      const stepPairs = coreSteps.slice(1).map((s, i) => ({
+        from: coreSteps[i].stage,
+        to: s.stage,
+        from_devices: coreSteps[i].devices,
+        to_devices: s.devices,
+        retention_pct: s.retention_pct_from_prev,
+        dropoff_pct: s.dropoff_pct_from_prev,
+      }));
+      const growthAnomalies = stepPairs.filter((p) => p.dropoff_pct < 0);
+      const dropoffCliffs = stepPairs
+        .filter((p) => p.dropoff_pct > 0)
+        .sort((a, b) => b.dropoff_pct - a.dropoff_pct)
+        .slice(0, 3);
+
+      const exportRows = allRows.filter((r) => r.name === "export");
+      const exportsByFormatMap = new Map<string, { cnt: number; devices: Set<string> }>();
+      for (const r of exportRows) {
+        const format = propStr(r, "format") ?? "unknown";
+        const agg = exportsByFormatMap.get(format) ?? { cnt: 0, devices: new Set<string>() };
+        agg.cnt++;
+        if (r.ip_hash) agg.devices.add(r.ip_hash);
+        exportsByFormatMap.set(format, agg);
+      }
+      const exportersCore = {
+        all_time_devices: distinctIpCount(exportRows),
+        last_7d_devices: distinctIpCount(exportRows.filter((r) => r.created_at >= cutoff7)),
+        last_30d_devices: distinctIpCount(exportRows.filter((r) => r.created_at >= cutoff30)),
+        by_format: [...exportsByFormatMap.entries()]
+          .map(([format, agg]) => ({ format, cnt: agg.cnt, devices: agg.devices.size }))
+          .sort((a, b) => b.cnt - a.cnt),
+      };
+
+      // 6/byWindow: all_time / last_7d / last_30d per stage --------------
+      const byWindow: Record<string, { all_time: number; last_7d: number; last_30d: number }> = {};
+      for (const stage of FUNNEL_V2_STAGES) {
+        const srows = eventsForFunnelV2Stage(allRows, stage);
+        byWindow[stage] = {
+          all_time: distinctIpCount(srows),
+          last_7d: distinctIpCount(srows.filter((r) => r.created_at >= cutoff7)),
+          last_30d: distinctIpCount(srows.filter((r) => r.created_at >= cutoff30)),
+        };
+      }
+      byWindow["exporters"] = {
+        all_time: exportersCore.all_time_devices,
+        last_7d: exportersCore.last_7d_devices,
+        last_30d: exportersCore.last_30d_devices,
+      };
+
+      // 6. Daily series, last 30d: distinct devices per day for the four
+      // stages that make a readable trend line (the rest are too sparse to
+      // chart daily).
+      const DAILY_NAMES = ["landing_view", "app_open", "project_created", "roll"];
+      const dailyMap = new Map<string, Record<string, Set<string>>>();
+      for (const r of allRows) {
+        if (r.created_at < cutoff30 || !r.name || DAILY_NAMES.indexOf(r.name) === -1 || !r.ip_hash) continue;
+        const day = dayKey(r.created_at);
+        let cell = dailyMap.get(day);
+        if (!cell) {
+          cell = { landing_view: new Set(), app_open: new Set(), project_created: new Set(), roll: new Set() };
+          dailyMap.set(day, cell);
+        }
+        cell[r.name].add(r.ip_hash);
+      }
+      const dailySeries = [...dailyMap.entries()]
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([day, cell]) => ({
+          day,
+          landing_view: cell.landing_view.size,
+          app_open: cell.app_open.size,
+          project_created: cell.project_created.size,
+          roll: cell.roll.size,
+        }));
+
+      // 5. Sources: props->>'ref' on landing_view, + conversion of that
+      // same device set into app_open / project_created, anywhere in its
+      // history (not just same-session).
+      const landingByRef = new Map<string, Set<string>>();
+      for (const r of allRows) {
+        if (r.name !== "landing_view" || !r.ip_hash) continue;
+        const ref = propStr(r, "ref") ?? "(none)";
+        let s = landingByRef.get(ref);
+        if (!s) {
+          s = new Set();
+          landingByRef.set(ref, s);
+        }
+        s.add(r.ip_hash);
+      }
+      const appOpenDeviceSet = new Set(
+        eventsForFunnelV2Stage(allRows, "app_open").map((r) => r.ip_hash).filter((v): v is string => !!v),
+      );
+      const projectCreatedDeviceSet = new Set(
+        eventsForFunnelV2Stage(allRows, "project_created").map((r) => r.ip_hash).filter((v): v is string => !!v),
+      );
+      const sourceConversion = [...landingByRef.entries()]
+        .map(([ref, devSet]) => {
+          let appOpenN = 0;
+          let projN = 0;
+          for (const d of devSet) {
+            if (appOpenDeviceSet.has(d)) appOpenN++;
+            if (projectCreatedDeviceSet.has(d)) projN++;
+          }
+          const landing = devSet.size;
+          return {
+            ref,
+            landing_devices: landing,
+            app_open_devices: appOpenN,
+            project_created_devices: projN,
+            app_open_conv_pct: round2(landing > 0 ? (appOpenN / landing) * 100 : 0),
+            project_created_conv_pct: round2(landing > 0 ? (projN / landing) * 100 : 0),
+          };
+        })
+        .sort((a, b) => b.landing_devices - a.landing_devices);
+      const sources = {
+        by_landing_devices: sourceConversion.map((s) => ({ ref: s.ref, devices: s.landing_devices })),
+        conversion: sourceConversion,
+        top_by_conversion_min2_devices: sourceConversion
+          .filter((s) => s.landing_devices >= 2)
+          .slice()
+          .sort((a, b) => b.app_open_conv_pct - a.app_open_conv_pct)
+          .slice(0, 15),
+      };
+
+      // 7. Activation totals + error correlation --------------------------
+      const errorRows = allRows.filter((r) => r.name === "error");
+      const errorDeviceSet = new Set(errorRows.map((r) => r.ip_hash).filter((v): v is string => !!v));
+      const msgAgg = new Map<string, { cnt: number; devices: Set<string> }>();
+      for (const r of errorRows) {
+        const msg = propStr(r, "message") ?? "(unknown)";
+        const agg = msgAgg.get(msg) ?? { cnt: 0, devices: new Set<string>() };
+        agg.cnt++;
+        if (r.ip_hash) agg.devices.add(r.ip_hash);
+        msgAgg.set(msg, agg);
+      }
+      const withErrAppOpen = [...appOpenDeviceSet].filter((d) => errorDeviceSet.has(d));
+      const withoutErrAppOpen = [...appOpenDeviceSet].filter((d) => !errorDeviceSet.has(d));
+      const withErrToProj = withErrAppOpen.filter((d) => projectCreatedDeviceSet.has(d)).length;
+      const withoutErrToProj = withoutErrAppOpen.filter((d) => projectCreatedDeviceSet.has(d)).length;
+
+      const activation = {
+        ever_rolled_devices: byWindow["roll"].all_time,
+        ever_cut_devices: byWindow["cut"].all_time,
+        ever_checkout_started_devices: byWindow["checkout_started"].all_time,
+        ever_checkout_subscription_started_devices: distinctIpCount(
+          allRows.filter((r) => r.name === "checkout_subscription_started"),
+        ),
+        ever_credits_purchased_devices: distinctIpCount(allRows.filter((r) => r.name === "credits_purchased")),
+        project_created_total_events: allRows.filter((r) => r.name === "project_created").length,
+        project_created_distinct_devices: byWindow["project_created"].all_time,
+        errors: {
+          total_error_events: errorRows.length,
+          devices_with_errors: errorDeviceSet.size,
+          top_messages: [...msgAgg.entries()]
+            .map(([message, agg]) => ({ message, cnt: agg.cnt, devices: agg.devices.size }))
+            .sort((a, b) => b.cnt - a.cnt)
+            .slice(0, 10),
+          correlation_with_dropoff: {
+            app_open_devices_with_error: withErrAppOpen.length,
+            project_created_devices_with_error: withErrToProj,
+            app_open_to_project_created_conv_pct_with_error: round2(
+              withErrAppOpen.length > 0 ? (withErrToProj / withErrAppOpen.length) * 100 : 0,
+            ),
+            app_open_devices_without_error: withoutErrAppOpen.length,
+            project_created_devices_without_error: withoutErrToProj,
+            app_open_to_project_created_conv_pct_without_error: round2(
+              withoutErrAppOpen.length > 0 ? (withoutErrToProj / withoutErrAppOpen.length) * 100 : 0,
+            ),
+          },
+        },
+        exporters: exportersCore,
+      };
+
+      // ---- Device signed-in state, shared by anonymous + signed-in below --
+      const deviceEverSigned = new Map<string, boolean>();
+      for (const r of allRows) {
+        if (!r.ip_hash) continue;
+        if (r.user_id) deviceEverSigned.set(r.ip_hash, true);
+        else if (!deviceEverSigned.has(r.ip_hash)) deviceEverSigned.set(r.ip_hash, false);
+      }
+      const anonymousDeviceSet = new Set(
+        [...deviceEverSigned.entries()].filter(([, signed]) => !signed).map(([ip]) => ip),
+      );
+      const totalDeviceWithIpSet = new Set(deviceEverSigned.keys());
+      const signedInDeviceSet = new Set([...totalDeviceWithIpSet].filter((d) => !anonymousDeviceSet.has(d)));
+
+      const rowsForDeviceSet = (rowsList: EventRow[], deviceSet: Set<string>): EventRow[] =>
+        rowsList.filter((r) => r.ip_hash !== null && deviceSet.has(r.ip_hash));
+      const funnelForDeviceSet = (deviceSet: Set<string>) => {
+        const raw = FUNNEL_V2_STAGES.map((stage) => ({
+          stage,
+          devices: distinctIpCount(eventsForFunnelV2Stage(rowsForDeviceSet(allRows, deviceSet), stage)),
+        }));
+        return raw.map((s, i) => {
+          if (i === 0) return { ...s, retention_pct_from_prev: 100, dropoff_pct_from_prev: 0 };
+          const prev = raw[i - 1].devices;
+          const retention = prev > 0 ? round2((s.devices / prev) * 100) : 0;
+          return { ...s, retention_pct_from_prev: retention, dropoff_pct_from_prev: round2(100 - retention) };
+        });
+      };
+
+      // 2 + 3. Anonymous furthest-stage distribution -----------------------
+      const deviceMaxRank = new Map<string, number>();
+      for (const r of allRows) {
+        if (!r.ip_hash || !r.name || !anonymousDeviceSet.has(r.ip_hash)) continue;
+        const rank = FUNNEL_V2_STAGE_RANK[r.name];
+        if (!rank) continue;
+        const cur = deviceMaxRank.get(r.ip_hash) ?? 0;
+        if (rank > cur) deviceMaxRank.set(r.ip_hash, rank);
+      }
+      const rankCounts = new Map<number, number>();
+      for (const d of anonymousDeviceSet) {
+        const rk = deviceMaxRank.get(d) ?? 0;
+        rankCounts.set(rk, (rankCounts.get(rk) ?? 0) + 1);
+      }
+      const anonTotal = anonymousDeviceSet.size;
+      const furthestDistribution = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((rank) => ({
+        furthest_stage: FUNNEL_V2_RANK_TO_STAGE[rank],
+        rank,
+        devices: rankCounts.get(rank) ?? 0,
+        pct_of_anonymous: round2(anonTotal > 0 ? ((rankCounts.get(rank) ?? 0) / anonTotal) * 100 : 0),
+      }));
+      // Cumulative "got no further than X", up to the six stages this reads
+      // meaningfully for - mirrors the reference analysis exactly.
+      const CUMULATIVE_UP_TO = [1, 3, 4, 5, 6, 7];
+      const cumulativeNoFurther = CUMULATIVE_UP_TO.map((upToRank) => {
+        let n = 0;
+        for (const [rk, cnt] of rankCounts.entries()) if (rk <= upToRank) n += cnt;
+        return {
+          no_further_than: FUNNEL_V2_RANK_TO_STAGE[upToRank],
+          devices: n,
+          pct_of_anonymous: round2(anonTotal > 0 ? (n / anonTotal) * 100 : 0),
+        };
+      });
+
+      // Anon vs signed-in split per stage ----------------------------------
+      const anonVsSignedByStage = FUNNEL_V2_STAGES.map((stage) => {
+        const allSet = new Set(
+          eventsForFunnelV2Stage(allRows, stage).map((r) => r.ip_hash).filter((v): v is string => !!v),
+        );
+        let anonN = 0;
+        for (const d of allSet) if (anonymousDeviceSet.has(d)) anonN++;
+        const total = allSet.size;
+        return {
+          stage,
+          anonymous_devices: anonN,
+          signed_in_devices: total - anonN,
+          total_devices: total,
+          pct_anonymous: round2(total > 0 ? (anonN / total) * 100 : 0),
+        };
+      });
+
+      const anonAppOpenSet = new Set(
+        eventsForFunnelV2Stage(rowsForDeviceSet(allRows, anonymousDeviceSet), "app_open")
+          .map((r) => r.ip_hash).filter((v): v is string => !!v),
+      );
+      const anonProjSet = new Set(
+        eventsForFunnelV2Stage(rowsForDeviceSet(allRows, anonymousDeviceSet), "project_created")
+          .map((r) => r.ip_hash).filter((v): v is string => !!v),
+      );
+      let anonThenProj = 0;
+      for (const d of anonAppOpenSet) if (anonProjSet.has(d)) anonThenProj++;
+
+      const anonSourcesMap = new Map<string, number>();
+      for (const [ref, devSet] of landingByRef.entries()) {
+        let n = 0;
+        for (const d of devSet) if (anonymousDeviceSet.has(d)) n++;
+        if (n > 0) anonSourcesMap.set(ref, n);
+      }
+
+      const anonymous = {
+        definition:
+          "distinct ip_hash that never fired an event with a non-null user_id (never signed in / created an account), across full events history",
+        total_anonymous_devices: anonymousDeviceSet.size,
+        total_devices_with_ip_hash: totalDeviceWithIpSet.size,
+        pct_of_all_devices: round2(
+          totalDeviceWithIpSet.size > 0 ? (anonymousDeviceSet.size / totalDeviceWithIpSet.size) * 100 : 0,
+        ),
+        funnel: { order: FUNNEL_V2_STAGES, steps: funnelForDeviceSet(anonymousDeviceSet) },
+        furthestStage: { distribution: furthestDistribution, cumulative_no_further_than: cumulativeNoFurther },
+        anonVsSignedByStage,
+        appOpenToProject: {
+          anon_app_open_devices: anonAppOpenSet.size,
+          anon_then_project_created_devices: anonThenProj,
+          conversion_pct: round2(anonAppOpenSet.size > 0 ? (anonThenProj / anonAppOpenSet.size) * 100 : 0),
+          bounced_devices: anonAppOpenSet.size - anonThenProj,
+          bounced_pct: round2(
+            anonAppOpenSet.size > 0 ? ((anonAppOpenSet.size - anonThenProj) / anonAppOpenSet.size) * 100 : 0,
+          ),
+        },
+        sources: [...anonSourcesMap.entries()]
+          .map(([ref, devices]) => ({ ref, devices }))
+          .sort((a, b) => b.devices - a.devices),
+      };
+
+      // 4a. Signed-in-only funnel ------------------------------------------
+      const signedInFunnel = { order: FUNNEL_V2_STAGES, steps: funnelForDeviceSet(signedInDeviceSet) };
+
+      // 4b. Signed-in people, per user: furthest stage + last_seen + counts.
+      // Keyed by user_id (not ip_hash) because a signed-in person can cross
+      // devices - the whole point of this table is "what does THIS PERSON
+      // do", which ip_hash cannot answer once they are logged in. Shares
+      // userFunnelAgg with the Email tab's per-recipient table below.
+      const userRowsAll = [...userFunnelAgg.entries()]
+        .map(([user_id, agg]) => ({
+          user_id,
+          email: emailByUser.get(user_id) ?? null,
+          furthest_stage: FUNNEL_V2_RANK_TO_STAGE[agg.maxRank] ?? "no_funnel_event_reached",
+          last_seen: agg.lastSeen,
+          roll_count: agg.roll,
+          cut_count: agg.cut,
+          checkout_started_count: agg.checkout,
+        }))
+        .sort((a, b) => (a.last_seen < b.last_seen ? 1 : a.last_seen > b.last_seen ? -1 : 0));
+      const FUNNEL_USER_TABLE_CAP = 150;
+      const signedInUsers = {
+        rows: userRowsAll.slice(0, FUNNEL_USER_TABLE_CAP),
+        total_users_with_events: userRowsAll.length,
+        truncated: userRowsAll.length > FUNNEL_USER_TABLE_CAP,
+      };
+
+      // 8. Revenue tie-in: REAL money (the purchases ledger + live
+      // subscription status), kept visibly separate from checkout_started /
+      // checkout_subscription_started above, which are analytics INTENT - a
+      // button click logged client-side, not proof money moved. Reuses
+      // revenueByCurrency and the subscription counts already computed above
+      // for the Money panel, rather than re-deriving them, so the two panels
+      // can never quietly disagree.
+      const revenue = {
+        real: {
+          granted_purchase_count: grantedRows.length,
+          by_currency: [...revenueByCurrency.entries()].map(([currency, agg]) => ({
+            currency,
+            minor_units: agg.minor_units,
+            count: agg.count,
+          })),
+          purchases_available: purchasesAvailable,
+          subscriptions_active: subscriptionAvailable ? subActive : null,
+          subscriptions_total: subscriptionAvailable ? subActive + subPastDue + subCanceled + subOther : null,
+          subscriptions_available: subscriptionAvailable,
+        },
+        intent: {
+          checkout_started_devices: byWindow["checkout_started"].all_time,
+          checkout_subscription_started_devices: activation.ever_checkout_subscription_started_devices,
+          credits_purchased_devices: activation.ever_credits_purchased_devices,
+        },
+        note:
+          "checkout_started and checkout_subscription_started are ANALYTICS INTENT - a button click logged " +
+          "client-side, never confirmation money moved. The only real revenue is `real`, sourced from the " +
+          "purchases ledger (status='granted') and profiles.subscription_status - the same source of truth the " +
+          "Money panel above uses.",
+      };
+
+      funnelDeep = {
+        core: { order: FUNNEL_V2_STAGES, steps: coreSteps, growth_anomalies: growthAnomalies, exporters: exportersCore },
+        byWindow,
+        dailySeries,
+        sources,
+        dropoffCliffs,
+        activation,
+        anonymous,
+        signedIn: { funnel: signedInFunnel, users: signedInUsers },
+        revenue,
+      };
+    } catch (err) {
+      funnelDeep = null;
+      funnelDeepUnavailableReason = "Funnel could not be computed: " +
+        String((err as { message?: string })?.message ?? "unknown error");
+    }
+
+    // ---- Email: Brevo sends -> account -> activation --------------------
+    // THE QUESTION THIS ANSWERS: how much of the email spend actually landed
+    // a real account, and did that account go on to touch the product.
+    // email_sends is a brand-new table (20260831120000_email_sends.sql) -
+    // same "ask, don't assert" probe posture as purchases/entitlements
+    // above, because this migration is not guaranteed applied.
+    const { error: emailSendsProbeErr } = await admin.from("email_sends").select("email").limit(1);
+    const emailSendsAvailable = !emailSendsProbeErr;
+    const emailSendsUnavailableReason = !emailSendsProbeErr
+      ? null
+      : (((emailSendsProbeErr as { code?: string })?.code === "42P01") ||
+          (emailSendsProbeErr as { code?: string })?.code === "PGRST205")
+      ? "The email_sends table does not exist yet. Apply supabase/migrations/20260831120000_email_sends.sql, then reload this page - this tab turns itself on."
+      : "email_sends could not be read: " +
+        String((emailSendsProbeErr as { message?: string })?.message ?? "unknown error");
+
+    interface EmailSendRow {
+      email: string;
+      campaign: string;
+      message_id: string | null;
+      status: string;
+      sent_at: string;
+    }
+    let emailSendRows: EmailSendRow[] = [];
+    if (emailSendsAvailable) {
+      const { rows } = await fetchAllPaginated<EmailSendRow>(
+        admin,
+        "email_sends",
+        "email,campaign,message_id,status,sent_at",
+        20000,
+        (q) => q.order("sent_at", { ascending: false }),
+      );
+      emailSendRows = rows;
+    }
+
+    let email: Record<string, unknown> = {
+      available: emailSendsAvailable,
+      unavailable_reason: emailSendsAvailable ? null : emailSendsUnavailableReason,
+      campaigns: [],
+      recipients: { rows: [], total: 0, truncated: false },
+      brevo: { connected: false, unavailable_reason: emailSendsAvailable ? null : "email_sends not available." },
+    };
+    if (emailSendsAvailable) {
+      try {
+        // profiles by lower(email) - the join key from a send to an account.
+        // liveProfileRows (not the raw fetch) so this respects exclude_self
+        // the same way every other panel does.
+        const profileByEmail = new Map<string, ProfileRow>();
+        for (const p of liveProfileRows) {
+          if (p.email) profileByEmail.set(p.email.toLowerCase(), p);
+        }
+
+        // One row per (campaign, email) - a recipient who was sent the same
+        // campaign twice (a resend, a second cold-outreach pass) collapses
+        // into one recipient row with sent_count 2, not two separate rows.
+        // "How many distinct people did this land" is the question the
+        // per-campaign summary needs; email_sends itself (one row per send)
+        // stays the source of truth for "how many sends happened".
+        type RecipientAgg = {
+          campaign: string;
+          email: string;
+          sentCount: number;
+          failedCount: number;
+          firstSentAt: string;
+          lastSentAt: string;
+        };
+        const recipientMap = new Map<string, RecipientAgg>();
+        for (const r of emailSendRows) {
+          const key = r.campaign + "|" + r.email.toLowerCase();
+          let agg = recipientMap.get(key);
+          if (!agg) {
+            agg = { campaign: r.campaign, email: r.email, sentCount: 0, failedCount: 0, firstSentAt: r.sent_at, lastSentAt: r.sent_at };
+            recipientMap.set(key, agg);
+          }
+          if (r.status === "sent") agg.sentCount++;
+          else agg.failedCount++;
+          if (r.sent_at < agg.firstSentAt) agg.firstSentAt = r.sent_at;
+          if (r.sent_at > agg.lastSentAt) agg.lastSentAt = r.sent_at;
+        }
+        const recipients = [...recipientMap.values()];
+
+        // ---- "How much lands", by campaign, from Brevo -------------------
+        // aggregatedReport's own `tags` filter does not work for this
+        // account (verified live against the real API: identical numbers
+        // for two different tag values, and the singular `tag` param
+        // returns zero for both) - Brevo's event objects do not carry the
+        // tag back either. So instead: pull raw events (no tag filter
+        // needed) and join by messageId against email_sends.message_id,
+        // which already carries the correct campaign at send time. That
+        // join is exact where a tag-string guess would not be.
+        const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
+        const brevoByCampaign = new Map<
+          string,
+          { requests: number; delivered: number; opened: Set<string>; clicked: Set<string>; hard_bounces: number }
+        >();
+        let brevoConnected = false;
+        let brevoUnavailableReason: string | null = "BREVO_API_KEY is not set on this function.";
+        if (!BREVO_API_KEY) {
+          // stays disconnected, reason above
+        } else if (recipients.length === 0) {
+          brevoUnavailableReason = "No email_sends rows to match Brevo events against yet.";
+        } else {
+          try {
+            const messageIdToCampaign = new Map<string, string>();
+            for (const r of emailSendRows) if (r.message_id) messageIdToCampaign.set(r.message_id, r.campaign);
+
+            const BREVO_EVENT_CAP = 1000;
+            let events: { messageId?: string; event?: string }[] = [];
+            for (let offset = 0; offset < BREVO_EVENT_CAP; offset += 100) {
+              const res = await fetch(
+                `https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=${offset}&sort=desc`,
+                { headers: { "api-key": BREVO_API_KEY, accept: "application/json" } },
+              );
+              if (!res.ok) break;
+              const json = await res.json();
+              const page = Array.isArray(json?.events) ? json.events : [];
+              events = events.concat(page);
+              if (page.length < 100) break;
+            }
+            for (const ev of events) {
+              const campaign = ev.messageId ? messageIdToCampaign.get(ev.messageId) : undefined;
+              if (!campaign || !ev.messageId) continue;
+              let agg = brevoByCampaign.get(campaign);
+              if (!agg) {
+                agg = { requests: 0, delivered: 0, opened: new Set(), clicked: new Set(), hard_bounces: 0 };
+                brevoByCampaign.set(campaign, agg);
+              }
+              if (ev.event === "requests") agg.requests++;
+              else if (ev.event === "delivered") agg.delivered++;
+              else if (ev.event === "opened" || ev.event === "loadedByProxy") agg.opened.add(ev.messageId);
+              else if (ev.event === "click" || ev.event === "clicks") agg.clicked.add(ev.messageId);
+              else if (ev.event === "hardBounces") agg.hard_bounces++;
+            }
+            brevoConnected = true;
+            brevoUnavailableReason = null;
+          } catch (err) {
+            brevoConnected = false;
+            brevoUnavailableReason = "Brevo lookup failed: " +
+              String((err as { message?: string })?.message ?? "unknown error");
+          }
+        }
+
+        // ---- Per-campaign summary -----------------------------------------
+        const campaignNames = [...new Set(emailSendRows.map((r) => r.campaign))].sort();
+        const campaigns = campaignNames.map((campaign) => {
+          const recips = recipients.filter((r) => r.campaign === campaign);
+          let haveAccount = 0;
+          let activated = 0;
+          for (const r of recips) {
+            const profile = profileByEmail.get(r.email.toLowerCase());
+            if (!profile) continue;
+            haveAccount++;
+            const agg = userFunnelAgg.get(profile.user_id);
+            if (agg && (agg.roll > 0 || agg.cut > 0)) activated++;
+          }
+          const brevoAgg = brevoByCampaign.get(campaign);
+          return {
+            campaign,
+            recipients: recips.length,
+            sent_count: recips.reduce((n, r) => n + r.sentCount, 0),
+            failed_count: recips.reduce((n, r) => n + r.failedCount, 0),
+            have_account: haveAccount,
+            activated,
+            brevo: brevoConnected && brevoAgg
+              ? {
+                requests: brevoAgg.requests,
+                delivered: brevoAgg.delivered,
+                opened: brevoAgg.opened.size,
+                clicked: brevoAgg.clicked.size,
+                hard_bounces: brevoAgg.hard_bounces,
+              }
+              : null,
+          };
+        });
+
+        // ---- Per-recipient activity table, capped ~150 ---------------------
+        const EMAIL_RECIPIENT_CAP = 150;
+        const recipientRowsAll = recipients
+          .sort((a, b) => (a.lastSentAt < b.lastSentAt ? 1 : a.lastSentAt > b.lastSentAt ? -1 : 0))
+          .map((r) => {
+            const profile = profileByEmail.get(r.email.toLowerCase());
+            const agg = profile ? userFunnelAgg.get(profile.user_id) : undefined;
+            return {
+              email: r.email,
+              campaign: r.campaign,
+              sent_count: r.sentCount,
+              failed_count: r.failedCount,
+              last_sent_at: r.lastSentAt,
+              has_account: !!profile,
+              user_id: profile ? profile.user_id : null,
+              furthest_stage: agg ? (FUNNEL_V2_RANK_TO_STAGE[agg.maxRank] ?? "no_funnel_event_reached") : null,
+              last_seen: agg ? agg.lastSeen : null,
+              activated: agg ? agg.roll > 0 || agg.cut > 0 : false,
+            };
+          });
+
+        email = {
+          available: true,
+          unavailable_reason: null,
+          campaigns,
+          recipients: {
+            rows: recipientRowsAll.slice(0, EMAIL_RECIPIENT_CAP),
+            total: recipientRowsAll.length,
+            truncated: recipientRowsAll.length > EMAIL_RECIPIENT_CAP,
+          },
+          brevo: { connected: brevoConnected, unavailable_reason: brevoUnavailableReason },
+        };
+      } catch (err) {
+        email = {
+          available: false,
+          unavailable_reason: "Email could not be computed: " +
+            String((err as { message?: string })?.message ?? "unknown error"),
+          campaigns: [],
+          recipients: { rows: [], total: 0, truncated: false },
+          brevo: { connected: false, unavailable_reason: null },
+        };
+      }
+    }
+
     // Pro upgrade/downgrade needs no schema at all - is_pro and pro_until are
     // both live and both already read above - so it is reported separately
     // from the suspension probe rather than sharing its verdict. Wiring them
@@ -1202,11 +1939,16 @@ Deno.serve(async (req: Request) => {
           excluded_rows_count: excludedCount,
         },
         traffic,
-        funnel: { stages: funnelStages },
+        funnel: {
+          stages: funnelStages,
+          ...(funnelDeep ?? {}),
+          deep_unavailable_reason: funnelDeepUnavailableReason,
+        },
         app_usage: appUsage,
         llm,
         users,
         app_control: { ...appControl, pro_controls_available: proControlsAvailable },
+        email,
         purchases,
       }),
       { headers },

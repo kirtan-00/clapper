@@ -311,6 +311,23 @@ h3.sub-h:first-child { margin-top: 0; }
 .funnel-fill { height: 100%; background: var(--accent); border-radius: var(--radius-sm); min-width: 3px; transition: width var(--dur-state) var(--ease-out); }
 .funnel-rate { font-size: var(--t-caption); color: var(--ink-faint); }
 
+/* funnel v2 - stacked anon/signed-in bars. Same rhythm as .funnel-row above,
+   same two tokens as the rest of the page (--ink-faint for the anonymous
+   share, --accent for signed-in) - no new colour anywhere on this page. */
+.stack-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-top: 1.5px solid var(--rule); }
+.stack-row:first-child { border-top: 0; }
+.stack-row .lbl { display: flex; justify-content: space-between; font-size: var(--t-secondary); }
+.stack-row .lbl .name { color: var(--ink); font-weight: 600; }
+.stack-row .lbl .val { color: var(--ink-dim); font-family: var(--font-mono); }
+.stack-track { display: flex; height: 20px; border-radius: var(--radius-sm); overflow: hidden; background: var(--paper-sunk); }
+.stack-a { background: var(--ink-faint); }
+.stack-s { background: var(--accent); }
+.stack-legend { display: flex; gap: var(--sp-4); margin-top: var(--sp-2); font-size: var(--t-caption); color: var(--ink-dim); }
+.stack-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+/* A second line inside a stat, same reasoning as table.dtable td.who .sub -
+   without this the sub-line runs straight on from the number with no break. */
+.stat .label .sub { display: block; margin-top: 2px; }
+
 table.dtable { width: 100%; border-collapse: collapse; font-size: var(--t-secondary); }
 table.dtable th, table.dtable td { text-align: left; padding: var(--sp-2) var(--sp-2); border-top: 1.5px solid var(--rule); white-space: nowrap; }
 table.dtable th { color: var(--ink-faint); font-weight: 600; font-size: var(--t-caption); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -932,6 +949,23 @@ var FUNNEL_LABEL = {
   landing_view: 'Landed', landing_cta_click: 'Clicked into app', app_open: 'Opened the app',
   project_created: 'Created a project', roll: 'Pressed roll', cut: 'Pressed cut',
 };
+// Funnel v2 (data.funnel.core / .anonymous / .signedIn) - a separate label
+// map because it covers three stages the older funnel above does not
+// (onboarding, tag/mark, checkout) and names them slightly differently on
+// purpose ("Rolled a take" reads better as a funnel step than "Pressed roll").
+var FUNNEL_V2_LABEL = {
+  landing_view: 'Landed', landing_cta_click: 'Clicked CTA', app_open: 'Opened app',
+  onboarding: 'Onboarding', project_created: 'Created project', roll: 'Rolled a take',
+  cut: 'Cut a take', moment_marked_or_tag_used: 'Tagged / marked a moment', checkout_started: 'Started checkout',
+};
+var FUNNEL_V2_RANK_LABEL = {
+  no_funnel_event_reached: 'No funnel event at all',
+  landing_view: 'Landed, no further', landing_cta_click: 'Clicked CTA, no further',
+  app_open: 'Opened app, no further', onboarding: 'Onboarding, no further',
+  project_created: 'Created project, no further', roll: 'Rolled, no further',
+  cut: 'Cut, no further', moment_marked_or_tag_used: 'Tagged/marked, no further',
+  checkout_started: 'Reached checkout',
+};
 var EVENT_LABEL = {
   app_open: 'App opens', roll: 'Roll', cut: 'Cut', moment_marked: 'Moments marked (MARK IN/OUT)',
   tag_used: 'Quick tags used', clip_number_edited: 'Clip numbers fixed', wrap_day: 'Wrap day presses',
@@ -972,6 +1006,199 @@ function svgBars(series, opts) {
   }).join('');
   return '<svg class="chart-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" role="img">' + bars + '</svg>';
 }
+/** Two-series version of svgBars, for the funnel's daily landed-vs-opened
+ * chart. Reuses the same .bar / .bar--dim classes svgBars already defines
+ * (accent for the primary series, ink-faint for the second) rather than
+ * inventing a new colour - this is simply their first second-series user. */
+function svgDualBars(series) {
+  if (!series || !series.length) return '<p class="empty">No days in this window yet.</p>';
+  var w = 640, h = 110, pad = 4;
+  var max = 1;
+  for (var mi = 0; mi < series.length; mi++) max = Math.max(max, Number(series[mi].landing_view) || 0, Number(series[mi].app_open) || 0);
+  var n = series.length;
+  var groupW = (w - pad * 2) / n;
+  var barW = Math.max(1, (groupW - 2) / 2);
+  var showEvery = n > 14 ? Math.ceil(n / 8) : 2;
+  var parts = series.map(function (s, i) {
+    var x = pad + i * groupW;
+    var vL = Number(s.landing_view) || 0, vA = Number(s.app_open) || 0;
+    var hL = Math.max(1, Math.round((vL / max) * (h - 20)));
+    var hA = Math.max(1, Math.round((vA / max) * (h - 20)));
+    var yL = h - 18 - hL, yA = h - 18 - hA;
+    var label = i % showEvery === 0
+      ? '<text class="axis-label" x="' + (x + groupW / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle">' + esc(fmtDay(s.day)) + '</text>'
+      : '';
+    return '<rect class="bar" x="' + x.toFixed(1) + '" y="' + yL + '" width="' + barW.toFixed(1) + '" height="' + hL +
+      '"><title>' + esc(fmtDay(s.day)) + ' landed: ' + fmtN(vL) + '</title></rect>' +
+      '<rect class="bar bar--dim" x="' + (x + barW + 1).toFixed(1) + '" y="' + yA + '" width="' + barW.toFixed(1) + '" height="' + hA +
+      '"><title>' + esc(fmtDay(s.day)) + ' opened app: ' + fmtN(vA) + '</title></rect>' + label;
+  }).join('');
+  return '<svg class="chart-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" role="img" aria-label="Daily landing views and app opens, last 30 days">' + parts + '</svg>' +
+    '<div class="chart-legend"><span><span class="dot" style="background:var(--accent)"></span>Landed</span><span><span class="dot" style="background:var(--ink-faint)"></span>Opened app</span></div>';
+}
+
+/** Shared funnel-bar renderer for funnel v2 (core / anonymous / signed-in).
+ * `steps` are objects with {stage, devices, retention_pct_from_prev,
+ * dropoff_pct_from_prev}, the exact shape dashboard-api's funnel-v2 section
+ * returns for all three of its funnels - one renderer, three callers. */
+function funnelBadge(step, isFirst) {
+  if (isFirst) return '';
+  var d = step.dropoff_pct_from_prev;
+  if (d < 0) return ' <span class="pill pill--pro">grows</span>';
+  if (d >= 50) return ' <span class="pill pill--sus">−' + d + '%</span>';
+  return ' <span class="pill">−' + d + '%</span>';
+}
+function funnelStepsBlock(steps) {
+  if (!steps || !steps.length) return '<p class="empty">No data yet.</p>';
+  var first = steps[0] ? steps[0].devices : 0;
+  return '<div class="funnel">' + steps.map(function (s, i) {
+    var width = first > 0 ? Math.max(2, Math.round((s.devices / first) * 100)) : 0;
+    var rate = i > 0
+      ? pct(s.devices, steps[i - 1].devices) + '% of previous · ' + pct(s.devices, first) + '% of top'
+      : '100% · start of funnel';
+    return '<div class="funnel-row">' +
+      '<div class="lbl"><span class="name">' + esc(FUNNEL_V2_LABEL[s.stage] || s.stage) + '</span>' +
+        '<span class="val mono">' + fmtN(s.devices) + '</span>' + funnelBadge(s, i === 0) + '</div>' +
+      '<div class="funnel-track"><div class="funnel-fill" style="width:' + width + '%"></div></div>' +
+      '<div class="funnel-rate">' + rate + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+function stackBarsBlock(rows) {
+  return rows.map(function (r) {
+    var total = r.a + r.s;
+    var ap = total ? (r.a / total * 100) : 0;
+    var sp = 100 - ap;
+    return '<div class="stack-row">' +
+      '<div class="lbl"><span class="name">' + esc(r.label) + '</span><span class="val">' + fmtN(total) + '</span></div>' +
+      '<div class="stack-track"><div class="stack-a" style="width:' + ap + '%"></div><div class="stack-s" style="width:' + sp + '%"></div></div>' +
+    '</div>';
+  }).join('');
+}
+
+/** Acquisition funnel (data.funnel.core, .dropoffCliffs, .sources,
+ * .dailySeries, .revenue) - the whole ip_hash-keyed, all-time device funnel.
+ * See dashboard-api's own header comment on FUNNEL_V2_STAGES for why this is
+ * a separate, wider-history funnel from the vid-based one panelFunnel()
+ * already renders above it, rather than a replacement for it. Rendered only
+ * when dashboard-api sent the deep fields (data.funnel.core) - a page newer
+ * than the deployed function must say so, not show a card full of undefined. */
+function panelFunnelCore(f) {
+  if (!f) return '';
+  if (!f.core) {
+    return '<div class="card"><h2>Acquisition funnel</h2>' +
+      '<p class="empty">' + esc(f.deep_unavailable_reason || 'Not available on this deploy yet - redeploy dashboard-api.') + '</p></div>';
+  }
+  var rev = f.revenue || {};
+  var real = rev.real || {};
+  var byCur = real.by_currency || [];
+  var revenueLine = byCur.length
+    ? byCur.map(function (c) { return fmtMoney(c.minor_units, c.currency); }).join(', ')
+    : (real.purchases_available === false ? 'not readable yet' : 'nothing sold yet');
+  var subsLine = real.subscriptions_available
+    ? fmtN(real.subscriptions_active) + ' of ' + fmtN(real.subscriptions_total)
+    : 'not readable yet';
+
+  var cliffs = (f.dropoffCliffs || []).map(function (c) {
+    return '<div class="stat"><div class="num mono">' + c.dropoff_pct + '%</div>' +
+      '<div class="label">' + esc(FUNNEL_V2_LABEL[c.from] || c.from) + ' → ' + esc(FUNNEL_V2_LABEL[c.to] || c.to) +
+      '<span class="sub">' + fmtN(c.from_devices) + ' → ' + fmtN(c.to_devices) + ' devices</span></div></div>';
+  }).join('');
+
+  var anomalies = (f.core.growth_anomalies || []).map(function (a) {
+    return '<p class="foot-note"><strong>' + esc(FUNNEL_V2_LABEL[a.to] || a.to) + '</strong> reads higher than <strong>' +
+      esc(FUNNEL_V2_LABEL[a.from] || a.from) + '</strong> (' + fmtN(a.from_devices) + ' → ' + fmtN(a.to_devices) +
+      ') — devices reach it a different way (a direct or bookmarked app open, a take rolled on the built-in example project) rather than through the step before it, so this is not a real funnel gain.</p>';
+  }).join('');
+
+  var sourceRows = ((f.sources && f.sources.conversion) || []).map(function (s) {
+    return {
+      k: s.ref, v: s.landing_devices,
+      sub: s.app_open_conv_pct + '% → app · ' + s.project_created_conv_pct + '% → project',
+    };
+  });
+
+  return '<div class="card">' +
+    '<h2>Acquisition funnel</h2>' +
+    '<div class="stat-row" style="margin-bottom:var(--sp-4)">' +
+      '<div class="stat"><div class="num mono">' + esc(revenueLine) + '</div><div class="label">real revenue, granted<span class="sub">' + fmtN(real.granted_purchase_count || 0) + ' payment(s)</span></div></div>' +
+      '<div class="stat"><div class="num mono">' + esc(subsLine) + '</div><div class="label">real subscriptions, active of total</div></div>' +
+    '</div>' +
+    '<p class="foot-note">Every device that ever touched Clapper, by distinct IP, since launch — not restricted to the dev-gate cutoff above, because this funnel needs the full history to be honest. checkout_started / checkout_subscription_started below are analytics <strong>intent</strong> (a logged button click), never revenue - the two numbers above are the only real money and real subscriptions on this page.</p>' +
+    funnelStepsBlock(f.core.steps) +
+    anomalies +
+    '<h3 class="sub-h">Where you bleed the most</h3><div class="stat-row">' + cliffs + '</div>' +
+    '<h3 class="sub-h">Daily, last 30 days</h3>' + svgDualBars(f.dailySeries || []) +
+    '<h3 class="sub-h">Where they come from</h3>' + renderRows(sourceRows, function (r) { return r; }) +
+    '<p class="foot-note"><code>ref</code> on the landing URL. Untagged (“(none)”) means direct, dark-social or an untagged outreach link - most of this project’s traffic today.</p>' +
+  '</div>';
+}
+
+/** Anonymous vs signed-in split (data.funnel.anonymous). */
+function panelFunnelSplit(f) {
+  if (!f || !f.anonymous) return '';
+  var a = f.anonymous;
+  var stackRows = (a.anonVsSignedByStage || []).map(function (s) {
+    return { label: FUNNEL_V2_LABEL[s.stage] || s.stage, a: s.anonymous_devices, s: s.signed_in_devices };
+  });
+  var furthest = ((a.furthestStage && a.furthestStage.distribution) || []).filter(function (d) { return d.devices > 0; });
+  var fmax = furthest.reduce(function (m, d) { return Math.max(m, d.devices); }, 1);
+  var furthestRows = furthest.map(function (d) {
+    var width = Math.max(2, Math.round((d.devices / fmax) * 100));
+    return '<div class="funnel-row">' +
+      '<div class="lbl"><span class="name">' + esc(FUNNEL_V2_RANK_LABEL[d.furthest_stage] || d.furthest_stage) + '</span>' +
+        '<span class="val mono">' + fmtN(d.devices) + ' (' + d.pct_of_anonymous + '%)</span></div>' +
+      '<div class="funnel-track"><div class="funnel-fill" style="width:' + width + '%"></div></div>' +
+    '</div>';
+  }).join('');
+  var conv = a.appOpenToProject || {};
+
+  return '<div class="card">' +
+    '<h2>Anonymous vs signed-in</h2>' +
+    '<div class="stat-row" style="margin-bottom:var(--sp-4)">' +
+      '<div class="stat"><div class="num mono">' + fmtN(a.total_anonymous_devices) + '</div><div class="label">never signed in<span class="sub">' + a.pct_of_all_devices + '% of ' + fmtN(a.total_devices_with_ip_hash) + ' devices</span></div></div>' +
+      '<div class="stat"><div class="num mono">' + (conv.conversion_pct != null ? conv.conversion_pct : 0) + '%</div><div class="label">anon app-open → project<span class="sub">' + fmtN(conv.anon_then_project_created_devices || 0) + ' of ' + fmtN(conv.anon_app_open_devices || 0) + '</span></div></div>' +
+    '</div>' +
+    '<h3 class="sub-h">Who is at each stage</h3>' + stackBarsBlock(stackRows) +
+    '<div class="stack-legend"><span><span class="dot" style="background:var(--ink-faint)"></span>Anonymous</span><span><span class="dot" style="background:var(--accent)"></span>Signed in</span></div>' +
+    '<h3 class="sub-h">Where anonymous devices stop</h3>' + (furthestRows || '<p class="empty">No anonymous activity yet.</p>') +
+    '<p class="foot-note"><strong>' + fmtN(a.total_anonymous_devices) + '</strong> of ' + fmtN(a.total_devices_with_ip_hash) + ' devices (' + a.pct_of_all_devices + '%) never signed in. “No funnel event at all” means the device fired something (a backup, an error, an install prompt) but never a funnel-stage event.</p>' +
+  '</div>';
+}
+
+/** Signed-in funnel + per-account activity (data.funnel.signedIn). Keyed by
+ * user_id, not ip_hash - a signed-in person can cross devices, so this is
+ * the one funnel-v2 table where "device" is the wrong unit. */
+function panelFunnelUsers(f) {
+  if (!f || !f.signedIn) return '';
+  var si = f.signedIn;
+  var rows = (si.users && si.users.rows) || [];
+  var trs = rows.map(function (r) {
+    return '<tr>' +
+      '<td class="who">' + esc(r.email || r.user_id) + '</td>' +
+      '<td>' + esc(FUNNEL_V2_LABEL[r.furthest_stage] || r.furthest_stage) + '</td>' +
+      '<td>' + esc(fmtDT(r.last_seen)) + '</td>' +
+      '<td class="num">' + fmtN(r.roll_count) + '</td>' +
+      '<td class="num">' + fmtN(r.cut_count) + '</td>' +
+      '<td class="num">' + fmtN(r.checkout_started_count) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<div class="card">' +
+    '<h2>Signed-in — what they do</h2>' +
+    funnelStepsBlock(si.funnel ? si.funnel.steps : []) +
+    '<h3 class="sub-h">Every signed-in account with events (' + fmtN((si.users && si.users.total_users_with_events) || 0) + ')</h3>' +
+    (rows.length
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+          '<th>Who</th><th>Furthest stage</th><th>Last seen</th><th class="num">Rolls</th><th class="num">Cuts</th><th class="num">Checkouts</th>' +
+        '</tr></thead><tbody>' + trs + '</tbody></table></div>'
+      : '<p class="empty">No signed-in activity yet.</p>') +
+    (si.users && si.users.truncated
+      ? '<p class="foot-note">Showing the ' + fmtN(rows.length) + ' most recently active of ' + fmtN(si.users.total_users_with_events) + '.</p>'
+      : '') +
+  '</div>';
+}
+
 function panelTraffic(t, meta) {
   var uniqueNote = 'Unique visitors only count from <strong>' + fmtDay(meta.vid_cutoff.slice(0, 10)) +
     '</strong> onward - the anonymous visitor id (<code>vid</code>) is absent on every row before that date, so it reads honestly as zero rather than a misleading ramp. ' +
@@ -997,9 +1224,20 @@ function panelTraffic(t, meta) {
 }
 
 function panelFunnel(f) {
-  var first = f.stages[0] ? f.stages[0].unique : 0;
-  var rowsHtml = f.stages.map(function (s, i) {
-    var prev = i > 0 ? f.stages[i - 1].unique : s.unique;
+  // "Clicked into app" (landing CTA) is a leaky intermediate: app opens also come
+  // from bookmarks, installed PWAs and direct /app/ links, so app_open routinely
+  // exceeds cta_click. A linear funnel would then WIDEN at that step and show a
+  // ">100% of previous" rate, which reads as broken. Pull the CTA bar out into a
+  // side-note so the funnel stays a real, monotonic funnel:
+  // Landed -> Opened the app -> Created a project -> Pressed roll -> Pressed cut.
+  var ctaStage = null;
+  var stages = f.stages.filter(function (s) {
+    if (s.name === 'landing_cta_click') { ctaStage = s; return false; }
+    return true;
+  });
+  var first = stages[0] ? stages[0].unique : 0;
+  var rowsHtml = stages.map(function (s, i) {
+    var prev = i > 0 ? stages[i - 1].unique : s.unique;
     var width = first > 0 ? Math.max(2, Math.round((s.unique / first) * 100)) : 0;
     var rate = i > 0 ? pct(s.unique, prev) + '% of previous, ' + pct(s.unique, first) + '% of landed' : '100% (start of funnel)';
     return '<div class="funnel-row">' +
@@ -1008,7 +1246,8 @@ function panelFunnel(f) {
       '<div class="funnel-rate">' + rate + '</div>' +
     '</div>';
   }).join('');
-  return '<div class="card"><h2>Funnel</h2><div class="funnel">' + rowsHtml + '</div>' +
+  var ctaNote = ctaStage ? '<p class="foot-note">' + fmtN(ctaStage.unique) + ' visitors also tapped the landing button into the app. It sits outside the funnel because app opens also come from bookmarks, installed apps and the direct /app/ links in outreach, so it is not a clean step.</p>' : '';
+  return '<div class="card"><h2>Funnel</h2><div class="funnel">' + rowsHtml + '</div>' + ctaNote +
     '<p class="foot-note">Counted by distinct visitor id, so it only reflects visits since ' +
     '<strong>vid</strong> began recording. Every stage before that date reads as zero, not as no traffic.</p>' +
   '</div>';
@@ -1361,6 +1600,80 @@ function panelPurchases(p) {
   '</div>';
 }
 
+function campaignLabel(c) {
+  if (c === 'warm-thankyou') return 'Warm thank-you';
+  if (c === 'cold-outreach') return 'Cold outreach';
+  return c;
+}
+
+/** Email (data.email) - Brevo sends joined to Clapper accounts. Answers two
+ * questions: how much lands (Brevo's own delivered/opened/clicked, pulled
+ * per message id rather than Brevo's own tag filter - see dashboard-api's
+ * comment on why that filter cannot be trusted for this account) and how
+ * many recipients became real, active users. Rendered only when
+ * dashboard-api sent an `email` block - same "page newer than the deployed
+ * function" reasoning as every other optional panel on this page. */
+function panelEmail(e) {
+  if (!e) return '';
+  if (!e.available) {
+    return '<div class="card"><h2>Email</h2>' +
+      '<p class="empty">' + esc(e.unavailable_reason || 'Not available on this deploy yet - redeploy dashboard-api.') + '</p></div>';
+  }
+
+  var campaigns = e.campaigns || [];
+  var campaignBlocks = campaigns.map(function (c) {
+    var brevoBlock;
+    if (c.brevo) {
+      brevoBlock = '<div class="stat-row" style="margin-top:var(--sp-3)">' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.brevo.requests) + '</div><div class="label">sent (Brevo)</div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.brevo.delivered) + '</div><div class="label">delivered</div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.brevo.opened) + '</div><div class="label">opened</div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.brevo.clicked) + '</div><div class="label">clicked</div></div>' +
+      '</div>';
+    } else {
+      brevoBlock = '<p class="foot-note">' +
+        esc((e.brevo && e.brevo.unavailable_reason) || 'No Brevo delivery data for this campaign yet.') +
+      '</p>';
+    }
+    return '<h3 class="sub-h">' + esc(campaignLabel(c.campaign)) + '</h3>' +
+      '<div class="stat-row">' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.recipients) + '</div><div class="label">recipients<span class="sub">' + fmtN(c.sent_count) + ' sent, ' + fmtN(c.failed_count) + ' failed</span></div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.have_account) + '</div><div class="label">have a Clapper account</div></div>' +
+        '<div class="stat"><div class="num mono">' + fmtN(c.activated) + '</div><div class="label">activated<span class="sub">rolled or cut a take</span></div></div>' +
+      '</div>' + brevoBlock;
+  }).join('');
+
+  var recips = (e.recipients && e.recipients.rows) || [];
+  var rows = recips.map(function (r) {
+    var acct = !r.has_account
+      ? 'No account'
+      : (r.furthest_stage ? esc(FUNNEL_V2_LABEL[r.furthest_stage] || r.furthest_stage) : 'Account, no funnel event');
+    return '<tr>' +
+      '<td class="who">' + esc(r.email) + '</td>' +
+      '<td>' + esc(campaignLabel(r.campaign)) + '</td>' +
+      '<td>' + esc(fmtDT(r.last_sent_at)) + (r.failed_count ? '<span class="sub">' + fmtN(r.failed_count) + ' failed</span>' : '') + '</td>' +
+      '<td>' + acct + '</td>' +
+      '<td>' + (r.last_seen ? esc(fmtDT(r.last_seen)) : '–') + '</td>' +
+      '<td>' + (r.activated ? '<span class="pill pill--pro">YES</span>' : '<span class="pill">no</span>') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<div class="card">' +
+    '<h2>Email</h2>' +
+    '<p class="foot-note">Every send this project has logged, joined to Clapper accounts by email. Brevo delivery numbers are pulled per message id, not per Brevo tag - Brevo’s own tag filter does not work reliably for this account.</p>' +
+    campaignBlocks +
+    '<h3 class="sub-h">Every recipient (' + fmtN((e.recipients && e.recipients.total) || 0) + ')</h3>' +
+    (rows.length
+      ? '<div class="table-scroll"><table class="dtable"><thead><tr>' +
+          '<th>Email</th><th>Campaign</th><th>Last sent</th><th>Account</th><th>Last seen</th><th>Activated</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="empty">No sends logged yet.</p>') +
+    (e.recipients && e.recipients.truncated
+      ? '<p class="foot-note">Showing the ' + fmtN(recips.length) + ' most recently sent of ' + fmtN(e.recipients.total) + '.</p>'
+      : '') +
+  '</div>';
+}
+
 /** App control. Rendered only when dashboard-api sent an `app_control` block:
  * this static page and that edge function deploy on completely separate
  * schedules, so a page that is newer than the function must show nothing
@@ -1448,6 +1761,10 @@ function renderDashboard(data) {
     (meta.events_truncated ? '<div class="banner">Event fetch hit its row cap (' + fmtN(meta.events_fetched) + ' rows) - counts below may undercount. Raise EVENTS_ROW_CAP in dashboard-api/index.ts.</div>' : '') +
     panelTraffic(data.traffic, meta) +
     panelFunnel(data.funnel) +
+    panelFunnelCore(data.funnel) +
+    panelFunnelSplit(data.funnel) +
+    panelFunnelUsers(data.funnel) +
+    panelEmail(data.email) +
     panelAppUsage(data.app_usage) +
     panelLlm(data.llm) +
     panelUsers(data.users) +

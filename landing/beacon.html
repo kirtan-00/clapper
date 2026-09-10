@@ -89,6 +89,30 @@
       var ref = null;
       try { ref = new URLSearchParams(window.location.search).get('ref'); } catch (e) { ref = null; }
 
+      /* FIRST-TOUCH ATTRIBUTION STASH. `ref` above only ever described THIS
+         page view, and died the moment someone crossed into the app - every
+         later event (app_open, project_created, a purchase) was unattributed,
+         so "which channel actually produces paying users" could never be
+         answered past the first pageview. Fixed the same way `clapper.vid`
+         above already is: written here under its own key, first source wins
+         (never overwrite an existing value), and read back by
+         `firstTouchRef()` in src/net/analytics.ts once this visitor crosses
+         into /app/ - same origin, same localStorage. `utm_source` is accepted
+         as a fallback for links that only carry that param (e.g. the Product
+         Hunt badge). Keep this key in step with REF_KEY in analytics.ts, the
+         same discipline this file already applies to `clapper.vid`. Does NOT
+         change what `landing_view` below sends - that keeps logging the raw
+         per-pageview `ref` it always has. */
+      try {
+        var existingRef = window.localStorage.getItem('clapper.ref');
+        if (!existingRef) {
+          var utmSource = null;
+          try { utmSource = new URLSearchParams(window.location.search).get('utm_source'); } catch (e3) { utmSource = null; }
+          var firstTouch = ref || utmSource || null;
+          if (firstTouch) window.localStorage.setItem('clapper.ref', firstTouch);
+        }
+      } catch (e) { /* private mode or blocked storage; never surface */ }
+
       /* `path` is what makes this worth injecting everywhere: it is the only
          field that can tell a guide apart from the landing page or a
          template. `section` saves the dashboard from having to parse paths to

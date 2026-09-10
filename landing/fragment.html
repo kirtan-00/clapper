@@ -101,6 +101,14 @@ a{color:inherit}
   line-height:1.1;letter-spacing:-.03em;margin:0 auto 26px;max-width:1160px}
 .hero .sub{margin-bottom:0}
 .hero .cta-row{margin-top:34px}
+.scrollhint{position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;
+  color:var(--grey);font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:3}
+.scrollhint.show{opacity:1}
+.scrollhint svg{animation:sh-bob 1.7s ease-in-out infinite}
+@keyframes sh-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+@media(prefers-reduced-motion:reduce){.scrollhint{transition:none}.scrollhint svg{animation:none}}
 @media(min-width:900px){
   .topbar .wrap{height:72px}
   .hero{padding:15vh 0 13vh}
@@ -336,9 +344,10 @@ a{color:inherit}
 .close-cap{color:#9a9da7;font-size:14px;margin:16px 0 44px}
 .cta-big{font-family:var(--serif);font-weight:300;letter-spacing:-.03em;font-size:clamp(32px,6.4vw,56px);
   line-height:1.08;max-width:18ch;margin:0 auto 30px;color:var(--a-chalk)}
-.close .btn-lg{min-height:62px;font-size:18px;padding:0 34px;border-radius:999px}
-.cta-fine{color:#8a8d96;font-size:13px;margin-top:24px;font-family:var(--mono);letter-spacing:.04em}
-@media(min-width:760px){ .close .btn-lg{min-height:74px;font-size:21px;padding:0 46px} }
+.btn-lg{min-height:62px;font-size:18px;padding:0 34px;border-radius:999px}
+.cta-fine{color:var(--grey);font-size:13px;margin-top:24px;font-family:var(--mono);letter-spacing:.04em}
+.close .cta-fine{color:#8a8d96}
+@media(min-width:760px){ .btn-lg{min-height:74px;font-size:21px;padding:0 46px} }
 
 .foot{background:var(--stage);color:#c9c7c0;border-top:1px solid #1c1c1f}
 .foot .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;min-height:72px;padding-top:16px;padding-bottom:16px}
@@ -547,7 +556,14 @@ a{color:inherit}
     <div class="wrap hero-copy">
       <h1 class="reveal">From shoot to timeline<br>in one drag.</h1>
       <p class="sub reveal">Clapper runs on the phone in your pocket. Tap what happens during the take, and it writes the shot log your editor actually needs.</p>
-      <div class="cta-row reveal"><a class="btn" href="https://clapper.in/app/?ref=landing" target="_blank" rel="noopener">Get Clapper <span class="arw">&rarr;</span></a></div>
+      <div class="cta-row reveal">
+        <a class="btn btn-lg" href="https://clapper.in/app/?ref=landing" target="_blank" rel="noopener">Get Clapper <span class="arw">&rarr;</span></a>
+        <p class="cta-fine">Free to start. Sign in with Google. Works offline.</p>
+      </div>
+    </div>
+    <div class="scrollhint" id="scrollHint" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Scroll</span>
     </div>
   </section>
 
@@ -579,7 +595,7 @@ a{color:inherit}
   <!-- trust -->
   <section class="trust">
     <div class="wrap" style="padding:0">
-      <div class="trust-grid">
+      <div class="trust-grid reveal">
         <div class="trust-cap">Counts clips like your camera.</div>
         <div class="trust-cells">
           <div class="trust-cell">SONY A7S &middot; C0001</div>
@@ -948,6 +964,27 @@ a{color:inherit}
       }); },{threshold:[0,0.35,0.7]}).observe(heroRM);
     }
   }
+
+  /* idle "scroll down" hint: nudges a visitor who is just sitting on the
+     hero. Fires once, 5s after load, only if they have not scrolled yet.
+     Cancels for good the instant they scroll - it never comes back, even
+     if they scroll back up to the top later. */
+  (function(){
+    var hint=document.getElementById("scrollHint");
+    if(!hint) return;
+    var dismissed=false;
+    var timer=setTimeout(function(){
+      if(!dismissed) hint.classList.add("show");
+    },5000);
+    function dismiss(){
+      if(dismissed) return;
+      dismissed=true;
+      clearTimeout(timer);
+      hint.classList.remove("show");
+      window.removeEventListener("scroll",dismiss);
+    }
+    window.addEventListener("scroll",dismiss,{passive:true});
+  })();
 
   /* splash */
   var splash=document.getElementById("splash");
