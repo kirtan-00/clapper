@@ -39,3 +39,16 @@ _archive/
 
 # CDP harness scratch profiles
 .chrome-recovery-profile/
+
+# Outreach + email tooling: these carry real user and prospect email addresses.
+# This repo is public. Keep them local; they are untracked on purpose, and
+# untracked files survive branch switches so nothing is at risk of loss.
+/outreach/
+/scripts/send-cold.mjs
+/scripts/send-thankyou.mjs
+/scripts/send-agency-in.mjs
+/scripts/send-agency-us.mjs
+/scripts/seed-email-sends.mjs
+/scripts/grant-thankyou-credits.mjs
+/scripts/email-suppressions.txt
+/docs/gtm-council-2026-09.md
